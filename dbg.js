@@ -1,0 +1,13 @@
+const fs=require('fs');
+const src=fs.readFileSync('build_duas.js','utf8');
+const head=src.split('const items=[]')[0];
+eval(head);
+const l=fs.readFileSync('quran.txt','utf8').split('\n')[2];
+const a='اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ';
+const b='الْقَيُّومُ';
+const re=new RegExp(pat(a)+'[\\s\\S]*?'+pat(b));
+console.log('RE ok', re.source.length);
+console.log('match:', JSON.stringify(l.match(re)&&l.match(re)[0]));
+const ia=l.indexOf('اللَّهُ');
+console.log('startIdx via regex:', (new RegExp(pat(a))).exec(l) && (new RegExp(pat(a))).exec(l).index);
+console.log('endIdx:', (new RegExp(pat(b))).exec(l) && (new RegExp(pat(b))).exec(l).index);

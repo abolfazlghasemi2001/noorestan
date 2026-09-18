@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>نورستان — بی‌اتصال</title>
+<!--
+  صفحهٔ آفلاینِ سفارشی.
+
+  این فایل باید *کامل خودبسنده* باشد: نه فونت CDN، نه تصویر بیرونی، نه
+  اسکریپت. اگر همین صفحه به شبکه نیاز داشته باشد، درست همان لحظه‌ای که
+  شبکه نیست نمی‌آید — و کارش را از دست می‌دهد. پس فونت سیستمی و شکلِ
+  برداریِ درون‌خطی.
+-->
+<style>
+  :root{
+    --bg:#0b1020; --ink:#e8edf7; --dim:#93a0bb; --gold:#ffd27d; --edge:#26324e;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1b2946 0%, transparent 60%),
+      radial-gradient(90% 60% at 50% 110%, #2a2038 0%, transparent 65%),
+      var(--bg);
+    color:var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, "Noto Naskh Arabic", sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom));
+    text-align:center;
+    -webkit-text-size-adjust:100%;
+  }
+  main{ max-width:420px; width:100%; }
+  .mark{ width:132px; height:132px; margin:0 auto 6px; display:block; }
+  .mark .ring{ transform-origin:50% 50%; animation:spin 9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .mark .ring{ animation:none; } }
+  h1{ font-size:1.35rem; margin:.7rem 0 .35rem; font-weight:700; letter-spacing:.2px; }
+  p{ color:var(--dim); line-height:2; margin:0 0 1.35rem; font-size:.95rem; }
+  ul{ text-align:right; color:var(--dim); line-height:2.1; font-size:.9rem;
+      margin:0 0 1.5rem; padding-inline-start:1.2rem; }
+  li::marker{ color:var(--gold); }
+  .btns{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  button{
+    font:inherit; font-weight:600; cursor:pointer;
+    border:1px solid var(--edge); border-radius:14px;
+    padding:.8rem 1.5rem; color:var(--ink); background:#151d33;
+    transition:transform .15s cubic-bezier(.2,.8,.2,1), background .15s;
+  }
+  button.primary{
+    background:linear-gradient(135deg,#ffd27d,#e0a02c); color:#231603; border-color:transparent;
+  }
+  button:hover{ background:#1d2743; }
+  button.primary:hover{ filter:brightness(1.06); }
+  button:active{ transform:scale(.97); }
+  button:focus-visible{ outline:3px solid var(--gold); outline-offset:2px; }
+  .foot{ margin-top:1.6rem; font-size:.78rem; color:#5f6b85; }
+  .neterr{ color:#ffb4a8; font-size:.82rem; min-height:1.2em; margin-top:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <!-- همان شکلِ آیکن برنامه، درون‌خطی تا وقتی شبکه نیست هم بیاید -->
+  <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+    <defs>
+      <linearGradient id="obg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1b2946"/><stop offset="1" stop-color="#0a1020"/>
+      </linearGradient>
+      <radialGradient id="oglow" cx="256" cy="420" r="318" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#f5b24e" stop-opacity=".48"/>
+        <stop offset="1" stop-color="#f5b24e" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="ogold" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffe08f"/><stop offset="1" stop-color="#dfa02b"/>
+      </linearGradient>
+    </defs>
+    <rect width="512" height="512" rx="113" fill="url(#obg)"/>
+    <rect width="512" height="512" rx="113" fill="url(#oglow)"/>
+    <circle class="ring" cx="237.1" cy="233.3" r="201.3" fill="none"
+            stroke="#ffe4a5" stroke-width="9.2" opacity=".22"
+            stroke-dasharray="26 22"/>
+    <g transform="translate(44.208 40.355) scale(4.1939)" fill="none"
+       stroke="url(#ogold)" stroke-width="13" stroke-linecap="round">
+      <path d="M 77.95 57.63 A 34 34 0 0 1 14.05 57.63"/>
+      <path d="M 77.95 57.63 L 86.95 29"/>
+      <circle cx="46" cy="28" r="8" fill="url(#ogold)" stroke="none"/>
+    </g>
+  </svg>
+
+  <h1>به نورستان وصل نشدی</h1>
+  <p>اینترنت قطع است، ولی نورستان بخش زیادی از خودش را آفلاین دارد. صفحه را دوباره بخواه؛ اگر پیش‌تر بازش کرده باشی، از حافظهٔ خود مرورگر بالا می‌آید.</p>
+
+  <ul>
+    <li>مصحف‌نما، بازی‌ها، مأموریت‌ها و پروفایل آفلاین کار می‌کنند.</li>
+    <li>تلاوت قاریان و محفل چندنفره به اینترنت نیاز دارند.</li>
+    <li>صفحه‌هایی که قبلاً دیده‌ای، از حافظهٔ مرورگر می‌آیند.</li>
+  </ul>
+
+  <div class="btns">
+    <button class="primary" id="again">تلاش دوباره</button>
+    <button id="home">رفتن به خانه</button>
+  </div>
+  <div class="neterr" id="err" role="status" aria-live="polite"></div>
+
+  <div class="foot">نورستان — آموزش قرآن، بازی و محفل</div>
+</main>
+
+<script>
+/* تنها منطق این صفحه: تلاش دوباره و بازگشت به خانه.
+   اگر خودِ صفحه به‌صورت precache از کش آمده باشد، دکمهٔ خانه باز هم به
+   «./» می‌رود و رهگیرِ سرویس‌ورکر آن را به index.html می‌رساند. */
+(function(){
+  var err = document.getElementById('err');
+  var again = document.getElementById('again');
+
+  function test(){
+    err.textContent = 'دارم بررسی می‌کنم…';
+    /* یک درخواست سبک به ریشه. عمداً no-store تا پاسخِ کش‌شده گمراه نکند. */
+    fetch('./?ping=' + Date.now(), { method:'HEAD', cache:'no-store' })
+      .then(function(r){
+        if(r && r.ok){ location.replace('./'); }
+        else{ err.textContent = 'هنوز وصل نیست. چند لحظه بعد دوباره بزن.'; }
+      })
+      .catch(function(){ err.textContent = 'هنوز وصل نیست. چند لحظه بعد دوباره بزن.'; });
+  }
+
+  again.addEventListener('click', test);
+  document.getElementById('home').addEventListener('click', function(){ location.replace('./'); });
+
+  /* اگر کاربر خودش صفحه را باز نگه داشته، خودکار هم یک‌بار امتحان می‌کنیم */
+  window.addEventListener('online', function(){ err.textContent = 'اتصال برگشت — می‌روم…'; location.replace('./'); });
+})();
+</script>
+</body>
+</html>

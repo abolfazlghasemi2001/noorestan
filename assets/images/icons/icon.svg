@@ -1,0 +1,35 @@
+<!-- آیکن برداری نورستان. هندسه‌اش عیناً همان است که _icons.js با آن
+     PNGها را می‌سازد: کاسهٔ «ن» کمانی از ۲۰° تا ۱۶۰° با شعاع ۳۴ و ضخامت
+     ۱۳، دُم از سرِ راست کاسه تا (۸۷،۲۹)، و نقطه در (۴۶،۲۸) با شعاع ۸.
+     اگر یکی از این‌ها را عوض کردید، آن فایل را هم عوض کنید وگرنه دو آیکن
+     با هم فرق می‌کنند. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="نورستان">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2946"/>
+      <stop offset="1" stop-color="#0a1020"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="420" r="318" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5b24e" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#f5b24e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe08f"/>
+      <stop offset="1" stop-color="#dfa02b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="113" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="113" fill="url(#glow)"/>
+
+  <!-- هالهٔ نور: حلقهٔ نازک دور حرف -->
+  <circle cx="237.1" cy="233.3" r="201.3" fill="none" stroke="#ffe4a5" stroke-width="9.2" opacity=".22"/>
+
+  <!-- خودِ حرف. تبدیل همان نقشهٔ gmap() است: translate(ox,oy) scale(k) -->
+  <g transform="translate(44.208 40.355) scale(4.1939)" fill="none"
+     stroke="url(#gold)" stroke-width="13" stroke-linecap="round">
+    <path d="M 77.95 57.63 A 34 34 0 0 1 14.05 57.63"/>
+    <path d="M 77.95 57.63 L 86.95 29"/>
+    <circle cx="46" cy="28" r="8" fill="url(#gold)" stroke="none"/>
+  </g>
+</svg>

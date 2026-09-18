@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1120">
+<title>نورستان | Noorestan</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>
+/* ═══════════════ 1. TOKENS ═══════════════ */
+:root{
+  --bg:#080d18; --bg2:#0e1526; --card:#131c31; --card2:#18233c;
+  --line:#22304f; --txt:#e8eefc; --mut:#8fa0c4;
+  --gold:#f5c451; --gold2:#e0a325; --grn:#2fd39b; --red:#ff5f6d;
+  --blu:#4d9fff; --prp:#a77bff;
+  --r:18px; --r2:12px;
+  --sh:0 10px 30px rgba(0,0,0,.45);
+  --grad:linear-gradient(135deg,#f5c451,#e0a325);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:Vazirmatn,system-ui,"Segoe UI",Tahoma,sans-serif;
+  background:
+    radial-gradient(1100px 600px at 85% -10%,#1b2a4d 0%,transparent 60%),
+    radial-gradient(900px 500px at 10% 110%,#1d3a34 0%,transparent 60%),
+    var(--bg);
+  color:var(--txt); overflow-x:hidden;
+}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.hide{display:none!important}
+
+/* ═══════════════ 2. LAYOUT ═══════════════ */
+#app{max-width:940px;margin:0 auto;padding:0 14px 120px}
+.screen{display:none;animation:in .28s ease both}
+.screen.active{display:block}
+@keyframes in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* Topbar */
+.top{
+  position:sticky;top:0;z-index:40;margin:0 -14px 14px;padding:12px 16px;
+  background:rgba(8,13,24,.82);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:12px
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800}
+.logo{
+  width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:21px;
+  background:var(--grad);color:#1a1204;box-shadow:0 6px 18px rgba(245,196,81,.32)
+}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--mut)}
+.top .sp{flex:1}
+.iconbtn{
+  width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+  display:grid;place-items:center;cursor:pointer;position:relative;transition:.18s
+}
+.iconbtn:hover{background:var(--card2);transform:translateY(-2px)}
+.dot{position:absolute;top:5px;left:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--red);border:2px solid var(--card)}
+
+/* Hero */
+.hero{
+  position:relative;border-radius:26px;padding:26px 22px;margin-bottom:20px;
+  background:linear-gradient(150deg,#16233f,#0d1526 60%);
+  border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh)
+}
+.hero:before{
+  content:"";position:absolute;inset:0;border-radius:26px;padding:1.5px;
+  background:linear-gradient(120deg,rgba(245,196,81,.85),rgba(47,211,155,.35),rgba(167,123,255,.5));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none
+}
+.hero:after{
+  content:"";position:absolute;width:230px;height:230px;border-radius:50%;left:-70px;top:-110px;
+  background:radial-gradient(circle,rgba(245,196,81,.22),transparent 70%)
+}
+.hero h1{font-size:clamp(21px,5.4vw,30px);line-height:1.5}
+.hero p{color:var(--mut);margin:8px 0 16px;font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  font-size:12px;padding:7px 12px;border-radius:999px;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--mut)
+}
+.chip.on{background:rgba(47,211,155,.13);border-color:rgba(47,211,155,.45);color:var(--grn)}
+.chip.off{background:rgba(255,95,109,.12);border-color:rgba(255,95,109,.4);color:var(--red)}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 8px;text-align:center;transition:.2s
+}
+.stat:hover{transform:translateY(-3px);border-color:var(--gold)}
+.stat b{display:block;font-size:20px;color:var(--gold)}
+.stat span{font-size:11px;color:var(--mut)}
+
+/* Category */
+.cat{margin-bottom:26px}
+.cat-head{
+  display:flex;align-items:center;gap:12px;padding:0 4px 12px;margin-bottom:14px;
+  border-bottom:1px dashed var(--line);position:relative
+}
+.cat-head:after{
+  content:"";position:absolute;bottom:-1px;right:0;width:120px;height:2px;
+  border-radius:2px;background:var(--grad)
+}
+.cat-ico{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:22px;
+  background:var(--card2);border:1px solid var(--line);flex:none
+}
+.cat-head h2{font-size:16px}
+.cat-head p{font-size:12px;color:var(--mut);margin-top:3px}
+.cat-cnt{margin-right:auto;font-size:11px;color:var(--mut);background:var(--card);
+  border:1px solid var(--line);padding:5px 10px;border-radius:999px;white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px}
+.tile{
+  position:relative;background:linear-gradient(160deg,var(--card),var(--bg2));
+  border:1px solid var(--line);border-radius:var(--r);padding:16px 14px;
+  cursor:pointer;transition:.2s;overflow:hidden;text-align:right
+}
+.tile:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 12px 26px rgba(0,0,0,.4)}
+.tile .ti{font-size:30px;margin-bottom:10px;display:block}
+.tile b{display:block;font-size:14px;margin-bottom:5px}
+.tile small{color:var(--mut);font-size:11.5px;line-height:1.7}
+.badge{
+  position:absolute;top:10px;left:10px;font-size:9.5px;padding:4px 8px;border-radius:999px;
+  background:var(--grad);color:#1a1204;font-weight:700
+}
+.badge.g{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.badge.p{background:linear-gradient(135deg,#a77bff,#7c4dff);color:#fff}
+.tile.locked{opacity:.42;filter:grayscale(.7);cursor:not-allowed}
+.tile.locked:hover{transform:none;border-color:var(--line)}
+
+/* Buttons */
+.btn{
+  border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer;
+  background:var(--grad);color:#1a1204;transition:.18s;display:inline-flex;
+  align-items:center;justify-content:center;gap:8px
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(245,196,81,.25)}
+.btn:active{transform:none}
+.btn.gh{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+.btn.gh:hover{box-shadow:none;background:var(--card2)}
+.btn.dg{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
+.btn.ok{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.btn.w{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.inp{
+  width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;outline:0;transition:.18s
+}
+.inp:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.12)}
+.lbl{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.row{display:flex;align-items:center;gap:10px}
+.sep{height:1px;background:var(--line);margin:14px 0}
+
+/* Page header */
+.phead{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.phead h2{font-size:18px}
+.phead p{font-size:12px;color:var(--mut);margin-top:2px}
+.back{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);cursor:pointer;font-size:18px;flex:none}
+
+/* Game shell */
+.gbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:7px 13px;font-size:12.5px}
+.pill b{color:var(--gold)}
+.prog{height:7px;background:var(--card);border-radius:9px;overflow:hidden;margin-bottom:18px}
+.prog i{display:block;height:100%;background:var(--grad);width:0;transition:.35s}
+.qbox{
+  background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+  border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:16px
+}
+.qbox .ar{font-size:20px;line-height:2.3;color:var(--gold);direction:rtl}
+.qbox .qq{font-size:16px;line-height:2}
+.qbox .hint{font-size:12px;color:var(--mut);margin-top:10px}
+.opts{display:grid;gap:10px}
+.opt{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  cursor:pointer;text-align:right;transition:.16s;display:flex;align-items:center;gap:10px
+}
+.opt:hover{border-color:var(--gold);transform:translateX(-4px)}
+.opt .n{width:26px;height:26px;border-radius:8px;background:var(--bg2);display:grid;
+  place-items:center;font-size:12px;color:var(--mut);flex:none}
+.opt.right{background:rgba(47,211,155,.14);border-color:var(--grn)}
+.opt.wrong{background:rgba(255,95,109,.14);border-color:var(--red)}
+.opt:disabled{cursor:default;transform:none}
+
+/* Scramble */
+.chipsrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.lchip{width:46px;height:52px;border-radius:12px;background:var(--card);border:1px solid var(--line);
+  font-size:21px;cursor:pointer;transition:.15s;color:var(--gold)}
+.lchip:hover{background:var(--card2);transform:translateY(-3px)}
+.lchip.used{opacity:.25;pointer-events:none}
+.slot{min-height:56px;border:1.5px dashed var(--line);border-radius:14px;display:flex;
+  gap:8px;justify-content:center;align-items:center;padding:8px;flex-wrap:wrap;margin-bottom:14px}
+
+/* Memory / Match */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+@media(max-width:420px){.mgrid{grid-template-columns:repeat(3,1fr)}}
+.mcard{aspect-ratio:3/4;border-radius:14px;border:1px solid var(--line);background:var(--card2);
+  display:grid;place-items:center;cursor:pointer;font-size:13px;padding:6px;text-align:center;
+  transition:.25s}
+.mcard.flip{background:linear-gradient(150deg,#1c2b49,#16233f);border-color:var(--gold)}
+.mcard.done{background:rgba(47,211,155,.15);border-color:var(--grn);pointer-events:none}
+.mcard .face{display:none}.mcard.flip .face,.mcard.done .face{display:block}
+.mcard .cover{font-size:24px;color:var(--gold)}
+.mcard.flip .cover,.mcard.done .cover{display:none}
+.mcols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mitem{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;
+  cursor:pointer;font-size:12.5px;line-height:1.8;transition:.15s}
+.mitem.sel{border-color:var(--gold);background:var(--card2)}
+.mitem.done{opacity:.35;pointer-events:none;border-color:var(--grn)}
+
+/* Dooz */
+.dooz{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:320px;margin:0 auto 18px}
+.dcell{aspect-ratio:1;border-radius:16px;background:var(--card);border:1px solid var(--line);
+  font-size:36px;cursor:pointer;transition:.15s;display:grid;place-items:center}
+.dcell:hover{background:var(--card2)}
+.dcell.win{background:rgba(47,211,155,.2);border-color:var(--grn)}
+
+/* EsmFamil */
+.efgrid{display:grid;gap:10px}
+.efrow{display:grid;grid-template-columns:92px 1fr;gap:9px;align-items:center}
+.efrow span{font-size:12.5px;color:var(--mut)}
+.letter{width:74px;height:74px;border-radius:20px;background:var(--grad);color:#1a1204;
+  display:grid;place-items:center;font-size:36px;font-weight:800;margin:0 auto 8px}
+
+/* Result */
+.res{text-align:center;padding:26px 18px}
+.res .big{font-size:56px;margin-bottom:8px}
+.res h3{font-size:20px;margin-bottom:6px}
+.res .stars{font-size:32px;letter-spacing:6px;margin:12px 0}
+
+/* Lists / Chat */
+.list{display:grid;gap:9px}
+.item{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r2);padding:11px 13px}
+.item .av{width:36px;height:36px;border-radius:11px;background:var(--card2);display:grid;
+  place-items:center;font-size:17px;flex:none}
+.item b{font-size:13px}.item small{color:var(--mut);font-size:11px;display:block}
+.item .sp{flex:1}
+.chatbox{height:250px;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r2);padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.msg{max-width:80%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.7;
+  background:var(--card2);align-self:flex-start;word-break:break-word}
+.msg.me{background:linear-gradient(135deg,#2a3d63,#213254);align-self:flex-end}
+.msg.sys{align-self:center;background:transparent;color:var(--mut);font-size:11px}
+.msg .who{font-size:10px;color:var(--gold);display:block;margin-bottom:3px}
+
+/* Tabs (Admin) */
+.tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px}
+.tab{white-space:nowrap;padding:9px 14px;border-radius:999px;background:var(--card);
+  border:1px solid var(--line);cursor:pointer;font-size:12.5px;transition:.16s}
+.tab.on{background:var(--grad);color:#1a1204;border-color:transparent;font-weight:700}
+
+/* Bottom nav */
+.nav{
+  position:fixed;bottom:0;right:0;left:0;z-index:50;
+  background:rgba(8,13,24,.9);backdrop-filter:blur(16px);border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;padding:9px 6px calc(9px + env(safe-area-inset-bottom))
+}
+.nav button{
+  background:0;border:0;cursor:pointer;color:var(--mut);font-size:10.5px;
+  display:grid;justify-items:center;gap:3px;padding:5px 12px;border-radius:12px;transition:.16s
+}
+.nav button i{font-size:19px;font-style:normal}
+.nav button.on{color:var(--gold);background:rgba(245,196,81,.09)}
+
+/* Toast / Modal */
+#toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;
+  display:grid;gap:8px;width:calc(100% - 28px);max-width:400px}
+.toast{background:var(--card2);border:1px solid var(--line);border-right:4px solid var(--gold);
+  border-radius:12px;padding:12px 14px;font-size:13px;box-shadow:var(--sh);animation:in .25s both}
+.toast.ok{border-right-color:var(--grn)}.toast.err{border-right-color:var(--red)}
+#modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.75);backdrop-filter:blur(6px);
+  display:none;place-items:center;padding:18px}
+#modal.on{display:grid}
+#modal .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;
+  width:100%;max-width:420px;animation:in .25s both;max-height:86vh;overflow:auto}
+.empty{text-align:center;color:var(--mut);font-size:13px;padding:30px 12px}
+</style>
+</head>
+<body>
+
+<div id="toasts"></div>
+<div id="modal"><div class="box" id="modalBox"></div></div>
+
+<div id="app">
+  <div class="top">
+    <div class="brand">
+      <div class="logo">🌟</div>
+      <div>نورستان<small id="tbSub">آموزش قرآن و بازی ایرانی</small></div>
+    </div>
+    <div class="sp"></div>
+    <button class="iconbtn" id="btnNotif" title="اعلان‌ها">🔔<span class="dot hide" id="notifDot"></span></button>
+    <button class="iconbtn" id="btnNet" title="وضعیت شبکه">📡</button>
+  </div>
+
+  <section class="screen active" id="s-home">
+    <div class="hero">
+      <h1>🌟 به نورستان خوش آمدی</h1>
+      <p>آموزش قرآن کریم، بازی‌های فکری ایرانی و محفل دوستان — همه در یک‌جا</p>
+      <div class="chips">
+        <span class="chip" id="cNet">⏳ در حال بررسی شبکه</span>
+        <span class="chip">🎯 <b id="cGames">۱۰</b> بازی</span>
+        <span class="chip">🇮🇷 اطلاعات ایران</span>
+        <span class="chip" id="cRole">👤 کاربر</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="stStar">۰</b><span>⭐ ستاره</span></div>
+      <div class="stat"><b id="stScore">۰</b><span>🏆 امتیاز</span></div>
+      <div class="stat"><b id="stDone">۰</b><span>✅ کامل</span></div>
+      <div class="stat"><b id="stBadge">۰</b><span>🎖️ نشان</span></div>
+    </div>
+
+    <div id="cats"></div>
+  </section>
+
+  <section class="screen" id="s-online">
+    <div class="phead">
+      <button class="back" data-back>›</button>
+      <div><h2>🌐 محفل نور</h2><p><b id="onCount">۰</b> نفر آنلاین</p></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><b style="font-size:13px">وضعیت اتصال</b><div class="sp" style="flex:1"></div>
+        <span class="chip" id="netState">—</span></div>
+      <div class="sep"></div>
+      <label class="lbl">شناسه شما (Peer ID)</label>
+      <div class="row">
+        <input class="inp" id="myPeer" readonly>
+        <button class="btn gh" id="copyPeer">📋</button>
+      </div>
+      <label class="lbl">آدرس سرور (خالی = حالت محلی چند‌تبی)</label>
+      <div class="row">
+        <input class="inp" id="netUrl" placeholder="ws://localhost:8787">
+        <button class="btn" id="netConnect">اتصال</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn ok" id="mkRoom">➕ ساخت روم جدید</button>
+      <button class="btn gh" id="joinRoom">🔑 ورود با کد</button>
+    </div>
+
+    <div class="cat">
+      <div class="cat-head"><div class="cat-ico">👥</div>
+        <div><h2>بازیکنان آنلاین</h2><p>کاربران فعال در محفل</p></div>
+        <span class="cat-cnt" id="plCnt">۰</span></div>
+      <div class="list" id="players"><div class="empty">در حال جستجو…</div></div>
+    </div>
+
+    <div class="cat">
+      <div class="cat-head"><div class="cat-ico">🏠</div>
+        <div><h2>روم‌های فعال</h2><p>برای ورود، روی روم بزن</p></div>
+        <span class="cat-cnt" id="rmCnt">۰</span></div>
+      <div class="list" id="rooms"><div class="empty">هنوز رومی ساخته نشده</div></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-room">
+    <div class="phead">
+      <button class="back" data-back>›</button>
+      <div><h2 id="rmTitle">روم بازی</h2><p id="rmCode">—</p></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="row"><b style="font-size:13px">بازیکنان روم</b><div class="sp" style="flex:1"></div>
+        <span class="chip" id="rmPlayerCnt">۰/۲</span></div>
+      <div class="sep"></div>
+      <div class="list" id="rmPlayers"></div>
+    </div>
+
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn ok" id="rmStart" style="flex:1">▶️ شروع بازی</button>
+      <button class="btn dg" id="rmLeave">🚪 خروج</button>
+    </div>
+
+    <div class="card">
+      <b style="font-size:13px">💬 چت روم</b>
+      <div class="sep"></div>
+      <div class="chatbox" id="chatBox"></div>
+      <div class="row">
+        <input class="inp" id="chatInp" placeholder="پیام..." maxlength="200" style="flex:1">
+        <button class="btn" id="chatSend">📤</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-play">
+    <div class="phead">
+      <button class="back" data-back>›</button>
+      <div><h2 id="pgTitle">بازی</h2><p id="pgSub">—</p></div>
+    </div>
+    <div class="gbar" id="pgBar"></div>
+    <div class="prog"><i id="pgProg"></i></div>
+    <div id="pgBody"></div>
+  </section>
+
+  <section class="screen" id="s-notif">
+    <div class="phead">
+      <button class="back" data-back>›</button>
+      <div><h2>🔔 اعلان‌ها</h2><p id="notifSub">۰ پیام</p></div>
+    </div>
+    <button class="btn gh w" id="clearNotif" style="margin-bottom:14px">🧹 پاک کردن همه</button>
+    <div class="list" id="notifList"></div>
+  </section>
+
+  <section class="screen" id="s-admin">
+    <div class="phead">
+      <button class="back" data-back>›</button>
+      <div><h2>👑 پنل مدیریت</h2><p>کنترل کامل بر محتوا و کاربران</p></div>
+    </div>
+    <div id="adminGate"></div>
+    <div id="adminMain" class="hide">
+      <div class="tabs" id="adminTabs">
+        <button class="tab on" data-tab="users">👥 کاربران</button>
+        <button class="tab" data-tab="rooms">🏠 روم‌ها</button>
+        <button class="tab" data-tab="games">🎮 بازی‌ها</button>
+        <button class="tab" data-tab="notif">📢 اعلان</button>
+        <button class="tab" data-tab="content">📚 محتوا</button>
+        <button class="tab" data-tab="ops">⚙️ عملیات</button>
+      </div>
+      <div id="adminBody"></div>
+    </div>
+  </section>
+
+  <nav class="nav">
+    <button data-nav="home" class="on"><i>🏠</i>خانه</button>
+    <button data-nav="online"><i>🌐</i>محفل</button>
+    <button data-nav="notif"><i>🔔</i>اعلان</button>
+    <button data-nav="admin"><i>👑</i>مدیریت</button>
+  </nav>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان ۱۲.۰ — نسخه بازسازی‌شده بر اساس معماری پیشنهادی
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────── 1. UTILS ─────────────────── */
+const U = {
+  $: (s, p = document) => p.querySelector(s),
+  $$: (s, p = document) => [...p.querySelectorAll(s)],
+  fa: n => String(n ?? 0).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]),
+  esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  shuffle(a){ const b = [...a]; for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; },
+  rand: a => a[Math.floor(Math.random()*a.length)],
+  uid: () => Math.random().toString(36).slice(2, 10),
+  now: () => Date.now(),
+  today: () => new Date().toISOString().slice(0, 10),
+  // seeded random برای چالش روزانه
+  seedRand(seed){ let s = 0; for(const c of String(seed)) s = (s*31 + c.charCodeAt(0))>>>0; return () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; },
+  async sha256(str){
+    const buf = new TextEncoder().encode(str);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+  sleep: ms => new Promise(r => setTimeout(r, ms)),
+  // Promise.race برای timeout
+  withTimeout(promise, ms, onTimeout){
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), ms))
+    ]).catch(err => { if(onTimeout) onTimeout(err); throw err; });
+  }
+};
+
+/* ─────────────────── 2. TIMERS (مدیریت تایمرها) ─────────────────── */
+const Timers = {
+  pool: new Set(),
+  set(fn, ms){
+    const id = setInterval(fn, ms);
+    this.pool.add(id);
+    return id;
+  },
+  setTimeout(fn, ms){
+    const id = setTimeout(fn, ms);
+    this.pool.add(id);
+    return id;
+  },
+  clear(id){ clearInterval(id); clearTimeout(id); this.pool.delete(id); },
+  clearAll(){
+    for(const id of this.pool){ clearInterval(id); clearTimeout(id); }
+    this.pool.clear();
+  }
+};
+
+/* ─────────────────── 3. STORE (نسخه‌دار) ─────────────────── */
+const Store = {
+  KEY: 'noorestan_v12',
+  VERSION: 12,
+  data: null,
+
+  defaults(){
+    return {
+      _v: this.VERSION,
+      playerName: 'بازیکن',
+      score: 0, xp: 0, level: 1, hearts: 5,
+      stars: {}, completed: {}, badges: {},
+      stats: { totalCorrect: 0, totalWrong: 0, fastestAnswer: 999, maxCombo: 0,
+               puzzles: 0, quizzes: 0, memory: 0, match: 0, iran: 0, tttWins: 0, rooms: 0 },
+      dailyChallenge: { date: '', done: false, reward: 0 },
+      settings: { theme: 'dark', sound: true, notifications: true },
+      adminHash: '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', // noor2024
+      isAdmin: false,
+      notifications: [],
+      leaderboard: []
+    };
+  },
+
+  load(){
+    try{
+      const raw = localStorage.getItem(this.KEY);
+      if(!raw){ this.data = this.defaults(); this.save(); return; }
+      const parsed = JSON.parse(raw);
+      // migration ساده
+      if(parsed._v !== this.VERSION){
+        this.data = { ...this.defaults(), ...parsed, _v: this.VERSION };
+        this.save();
+      } else {
+        this.data = { ...this.defaults(), ...parsed };
+      }
+      // validate
+      this.data.score = Math.max(0, +this.data.score || 0);
+      this.data.hearts = Math.min(5, Math.max(0, +this.data.hearts || 5));
+      if(!Array.isArray(this.data.notifications)) this.data.notifications = [];
+      if(!Array.isArray(this.data.leaderboard)) this.data.leaderboard = [];
+    }catch(e){
+      console.warn('Store load error:', e);
+      this.data = this.defaults();
+    }
+  },
+  save(){
+    try{ localStorage.setItem(this.KEY, JSON.stringify(this.data)); }catch(e){}
+  },
+  get(k){ return this.data[k]; },
+  set(k, v){ this.data[k] = v; this.save(); },
+  update(fn){ fn(this.data); this.save(); },
+  export(){
+    return JSON.stringify(this.data, null, 2);
+  },
+  reset(){
+    this.data = this.defaults();
+    this.save();
+  }
+};
+
+/* ─────────────────── 4. ROUTER (با history) ─────────────────── */
+const Router = {
+  stack: ['home'],
+  screens: {
+    home: 's-home', online: 's-online', room: 's-room',
+    play: 's-play', notif: 's-notif', admin: 's-admin'
+  },
+  go(name, replace = false){
+    if(!this.screens[name]) return;
+    Timers.clearAll(); // پاکسازی تایمرها روی هر تغییر صفحه
+    if(!replace && this.stack[this.stack.length-1] !== name){
+      this.stack.push(name);
+      history.pushState({ screen: name }, '', '#' + name);
+    }
+    this._render(name);
+    // به‌روزرسانی nav پایین
+    U.$$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.nav === name));
+  },
+  back(){
+    if(this.stack.length > 1){
+      this.stack.pop();
+      history.back();
+    } else {
+      this.go('home', true);
+    }
+  },
+  _render(name){
+    U.$$('.screen').forEach(s => s.classList.remove('active'));
+    const el = U.$('#' + this.screens[name]);
+    if(el) el.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+  init(){
+    window.addEventListener('popstate', e => {
+      const name = e.state?.screen || 'home';
+      this.stack = this.stack.length ? [this.stack[0], name] : [name];
+      Timers.clearAll();
+      this._render(name);
+      U.$$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.nav === name));
+    });
+    const hash = location.hash.slice(1);
+    if(this.screens[hash]){
+      this.stack = [hash];
+      this._render(hash);
+    } else {
+      history.replaceState({ screen: 'home' }, '', '#home');
+    }
+  }
+};
+
+/* ─────────────────── 5. UI (toast / modal) ─────────────────── */
+const UI = {
+  toast(msg, type = '', ms = 2500){
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    U.$('#toasts').appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, ms);
+  },
+  modal(html){
+    U.$('#modalBox').innerHTML = html;
+    U.$('#modal').classList.add('on');
+  },
+  closeModal(){ U.$('#modal').classList.remove('on'); },
+  confirm(msg, onYes){
+    this.modal(`
+      <h3 style="margin-bottom:14px">${U.esc(msg)}</h3>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn gh" id="mNo">انصراف</button>
+        <button class="btn dg" id="mYes">تأیید</button>
+      </div>
+    `);
+    U.$('#mNo').onclick = () => this.closeModal();
+    U.$('#mYes').onclick = () => { this.closeModal(); onYes && onYes(); };
+  }
+};
+U.$('#modal').addEventListener('click', e => { if(e.target.id === 'modal') UI.closeModal(); });
+
+/* ─────────────────── 6. SOUND (WebAudio) ─────────────────── */
+const Sound = {
+  ctx: null,
+  ensure(){
+    if(!this.ctx){ try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    return this.ctx;
+  },
+  play(ok = true){
+    if(!Store.get('settings').sound) return;
+    const ctx = this.ensure(); if(!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = ok ? 660 : 200;
+    o.type = ok ? 'sine' : 'sawtooth';
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    o.start(); o.stop(ctx.currentTime + 0.25);
+  },
+  levelUp(){
+    if(!Store.get('settings').sound) return;
+    const ctx = this.ensure(); if(!ctx) return;
+    [523, 659, 784, 1046].forEach((f, i) => {
+      setTimeout(() => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = f; o.type = 'sine';
+        g.gain.setValueAtTime(0.15, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        o.start(); o.stop(ctx.currentTime + 0.2);
+      }, i * 90);
+    });
+  }
+};
+
+/* ─────────────────── 7. DATA (محتوا) ─────────────────── */
+const DATA = {
+  surah: [
+    {surah:'نصر', before:'إِذَا جَاءَ نَصْرُ اللَّهِ', ans:'وَالْفَتْحُ', wrong:['وَالنَّصْرُ','وَالْفَلَقُ','وَالْخُسْرُ'], tr:'هنگامی که یاری خدا و پیروزی فرا رسد'},
+    {surah:'اخلاص', before:'قُلْ هُوَ اللَّهُ', ans:'أَحَدٌ', wrong:['الصَّمَدُ','الْوَالِدُ','الْمَوْلُودُ'], tr:'بگو او خدای یکتاست'},
+    {surah:'فلق', before:'مِنْ شَرِّ', ans:'مَا خَلَقَ', wrong:['الْفَلَقِ','الْغَاسِقِ','النَّفَّاثَاتِ'], tr:'از شر آنچه آفریده'},
+    {surah:'ناس', before:'مِنَ الْجِنَّةِ', ans:'وَالنَّاسِ', wrong:['الْوَسْوَاسِ','الْخَنَّاسِ','الْجِنَّةِ'], tr:'از شر جن و انس'},
+    {surah:'عصر', before:'إِنَّ', ans:'الْإِنْسَانَ', wrong:['الْعَصْرِ','الَّذِينَ آمَنُوا','الْخُسْرِ'], tr:'همانا انسان در زیان است'}
+  ],
+  quiz: [
+    {q:'چند سوره در قرآن وجود دارد؟', o:['۱۱۴','۱۱۰','۱۲۰','۱۰۰'], a:'۱۱۴'},
+    {q:'کدام سوره «قلب قرآن» است؟', o:['یس','الرحمن','الفاتحه','الکهف'], a:'یس'},
+    {q:'کوتاه‌ترین سوره قرآن؟', o:['الکوثر','الاخلاص','الناس','الفلق'], a:'الکوثر'},
+    {q:'کدام سوره «ام‌الکتاب» است؟', o:['الفاتحه','البقره','آل‌عمران','النساء'], a:'الفاتحه'},
+    {q:'بلندترین سوره قرآن؟', o:['البقره','آل‌عمران','النساء','المائده'], a:'البقره'},
+    {q:'قرآن چند جزء دارد؟', o:['۳۰','۲۰','۴۰','۶۰'], a:'۳۰'},
+    {q:'اولین سوره نازل شده؟', o:['علق','فاتحه','ناس','فلق'], a:'علق'},
+    {q:'شب نزول قرآن؟', o:['قدر','معراج','برات','جمعه'], a:'قدر'}
+  ],
+  meaning: [
+    {q:'معنی «اللَّهُ» چیست؟', o:['خدا','پیامبر','فرشته','قرآن'], a:'خدا'},
+    {q:'معنی «رَحْمَة»؟', o:['رحمت','عذاب','نعمت','هدایت'], a:'رحمت'},
+    {q:'معنی «صَلَاة»؟', o:['نماز','روزه','زکات','حج'], a:'نماز'},
+    {q:'معنی «صَبْر»؟', o:['صبر','شکر','توکل','تقوا'], a:'صبر'},
+    {q:'معنی «نُور»؟', o:['نور','تاریکی','آتش','باد'], a:'نور'},
+    {q:'معنی «عِلْم»؟', o:['علم','جهل','عمل','قول'], a:'علم'},
+    {q:'معنی «قَلْب»؟', o:['قلب','چشم','دست','پا'], a:'قلب'},
+    {q:'معنی «سَمَاء»؟', o:['آسمان','زمین','دریا','کوه'], a:'آسمان'}
+  ],
+  iran: [
+    {c:'تاریخ', q:'پایتخت هخامنشیان؟', o:['تخت جمشید','شوش','همدان','پاسارگاد'], a:'تخت جمشید'},
+    {c:'تاریخ', q:'کوروش بنیان‌گذار کدام سلسله؟', o:['هخامنشیان','ساسانیان','اشکانیان','صفویان'], a:'هخامنشیان'},
+    {c:'جغرافیا', q:'بلندترین قله ایران؟', o:['دماوند','علم‌کوه','زردکوه','سبلان'], a:'دماوند'},
+    {c:'جغرافیا', q:'طولانی‌ترین رود ایران؟', o:['کارون','سفیدرود','زاینده‌رود','ارس'], a:'کارون'},
+    {c:'جغرافیا', q:'بزرگ‌ترین دریاچه ایران؟', o:['ارومیه','خزر','هامون','بختگان'], a:'ارومیه'},
+    {c:'فرهنگ', q:'نوروز در چه ماهی؟', o:['فروردین','اردیبهشت','خرداد','اسفند'], a:'فروردین'},
+    {c:'فرهنگ', q:'شاهنامه اثر کیست؟', o:['فردوسی','سعدی','حافظ','مولوی'], a:'فردوسی'},
+    {c:'علمی', q:'خوارزمی چه بنیان نهاد؟', o:['جبر','هندسه','فیزیک','شیمی'], a:'جبر'},
+    {c:'علمی', q:'ابن‌سینا در چه مشهور؟', o:['پزشکی','ریاضی','نجوم','شیمی'], a:'پزشکی'},
+    {c:'علمی', q:'رصدخانه مراغه در زمان؟', o:['خواجه نصیر','ابن‌سینا','بیرونی','رازی'], a:'خواجه نصیر'}
+  ],
+  scramble: [
+    {word:'قرآن', hint:'کتاب آسمانی مسلمانان'},
+    {word:'نماز', hint:'ستون دین'},
+    {word:'روزه', hint:'واجب ماه رمضان'},
+    {word:'زکات', hint:'مالی واجب'},
+    {word:'حج', hint:'زیارت خانه خدا'},
+    {word:'تقوا', hint:'پرهیزگاری'},
+    {word:'صبر', hint:'شکیبایی'},
+    {word:'علم', hint:'دانش'}
+  ],
+  esmFamil: [
+    {id:'name', label:'👤 اسم'},
+    {id:'family', label:'👨‍👩‍👧 فامیل'},
+    {id:'city', label:'🏙️ شهر'},
+    {id:'country', label:'🌍 کشور'},
+    {id:'food', label:'🍽️ غذا'},
+    {id:'animal', label:'🐾 حیوان'}
+  ],
+  letters: ['ا','ب','پ','ت','ج','ح','خ','د','ر','ز','س','ش','ص','ط','ع','ف','ق','ک','گ','ل','م','ن','و','ه','ی'],
+  badges: [
+    {id:'first', icon:'🥇', name:'اولین قدم', desc:'اولین پاسخ صحیح'},
+    {id:'perfect', icon:'🌟', name:'بی‌نقص', desc:'۳ ستاره در یک بازی'},
+    {id:'score100', icon:'💎', name:'۱۰۰ امتیاز', desc:'رسیدن به ۱۰۰'},
+    {id:'score500', icon:'🏆', name:'۵۰۰ امتیاز', desc:'رسیدن به ۵۰۰'},
+    {id:'combo5', icon:'🔥', name:'کمبو ۵', desc:'۵ پاسخ پیوسته'},
+    {id:'daily', icon:'🌙', name:'چالش روزانه', desc:'تکمیل چالش'},
+    {id:'quizmaster', icon:'📚', name:'دانشمند', desc:'۱۰ سوال قرآنی'},
+    {id:'iranexpert', icon:'🇮🇷', name:'ایران‌شناس', desc:'۱۰ سوال ایران'},
+    {id:'tttwinner', icon:'❌', name:'قهرمان دوز', desc:'برد در دوز'},
+    {id:'networker', icon:'🌐', name:'شبکه‌ساز', desc:'ساخت ۳ روم'},
+    {id:'memorymaster', icon:'🧠', name:'حافظه طلایی', desc:'۵ بازی حافظه'},
+    {id:'fast', icon:'⚡', name:'سریع', desc:'پاسخ زیر ۳ ثانیه'}
+  ],
+  categories: [
+    { id:'quran', icon:'📖', title:'آموزش قرآن کریم', desc:'سوره‌ها، ترجمه و معنی', games:['surah','scramble','quiz','meaning'] },
+    { id:'brain', icon:'🧠', title:'بازی‌های فکری', desc:'حافظه، تطبیق و سرعت', games:['match','memory','speed','iran'] },
+    { id:'online', icon:'🌐', title:'چندنفره آنلاین', desc:'با دوستانت بازی کن', games:['online-lobby'] },
+    { id:'daily', icon:'🌙', title:'چالش روزانه', desc:'هر روز یک جایزه', games:['daily'] },
+    { id:'account', icon:'👤', title:'حساب من', desc:'آمار، نشان‌ها و تنظیمات', games:['stats','badges','leaderboard','settings'] }
+  ],
+  GAMES: {
+    surah:     { name:'سفر سوره‌ها', icon:'📖', desc:'کلمه گمشده را پیدا کن', tag:'hot' },
+    scramble:  { name:'پازل حروف', icon:'🧩', desc:'حروف را بچین', tag:'new' },
+    quiz:      { name:'سوالات قرآنی', icon:'📚', desc:'دانش قرآنی را محک بزن' },
+    meaning:   { name:'معنی کلمه', icon:'🔤', desc:'معنی صحیح را انتخاب کن' },
+    match:     { name:'تطبیق', icon:'🔗', desc:'آیه و ترجمه را جفت کن' },
+    memory:    { name:'حافظه', icon:'🧠', desc:'کلمات را به خاطر بسپار' },
+    speed:     { name:'سرعت نور', icon:'⚡', desc:'در زمان محدود پاسخ بده', tag:'new' },
+    iran:      { name:'اطلاعات ایران', icon:'🇮🇷', desc:'تاریخ، جغرافیا و فرهنگ', tag:'ir' },
+    dooz:      { name:'دوز', icon:'❌⭕', desc:'بازی کلاسیک دو نفره', tag:'net' },
+    esmfamil:  { name:'اسم فامیل', icon:'📝', desc:'بازی کلاسیک ایرانی', tag:'net' },
+    'online-lobby': { name:'محفل نور', icon:'🌐', desc:'اتصال به بازیکنان دیگر', tag:'net' },
+    daily:     { name:'چالش روزانه', icon:'🌙', desc:'جایزه روزانه' },
+    stats:     { name:'آمار', icon:'📊', desc:'آمار تفصیلی' },
+    badges:    { name:'نشان‌ها', icon:'🎖️', desc:'نشان‌های کسب‌شده' },
+    leaderboard: { name:'لیدربورد', icon:'🏆', desc:'برترین بازیکنان' },
+    settings:  { name:'تنظیمات', icon:'⚙️', desc:'تم، صدا و ...' }
+  }
+};
+
+/* ─────────────────── 8. NET (LocalAdapter + WSAdapter + Offline) ─────────────────── */
+const Net = {
+  adapter: null,
+  peerId: U.uid(),
+  peers: new Map(),   // peerId -> { name, lastSeen, meta }
+  room: null,
+  listeners: new Map(),
+
+  on(evt, fn){ if(!this.listeners.has(evt)) this.listeners.set(evt, []); this.listeners.get(evt).push(fn); },
+  emit(evt, data){ (this.listeners.get(evt) || []).forEach(fn => { try{ fn(data); }catch(e){ console.warn(e); } }); },
+
+  async init(serverUrl = ''){
+    this.emit('state', { status: 'connecting' });
+
+    // انتخاب adapter
+    if(serverUrl && /^wss?:\/\//.test(serverUrl)){
+      this.adapter = this.makeWSAdapter(serverUrl);
+    } else {
+      this.adapter = this.makeLocalAdapter();
+    }
+
+    // timeout ۶ ثانیه
+    try{
+      await U.withTimeout(
+        this.adapter.connect(),
+        6000,
+        () => { UI.toast('⏱ اتصال کند — حالت محلی فعال شد', 'err'); }
+      );
+      this.emit('state', { status: 'online', adapter: this.adapter.name });
+      UI.toast(`✅ متصل (${this.adapter.name})`, 'ok');
+    }catch(e){
+      // fallback: LocalAdapter
+      if(this.adapter.name !== 'Local'){
+        UI.toast('⚠️ سقوط به حالت محلی', '');
+        this.adapter = this.makeLocalAdapter();
+        try{ await this.adapter.connect(); this.emit('state', { status: 'online', adapter: 'Local' }); }
+        catch(err){ this.emit('state', { status: 'offline' }); }
+      } else {
+        this.emit('state', { status: 'offline' });
+      }
+    }
+
+    this.startHeartbeat();
+  },
+
+  makeLocalAdapter(){
+    const self = this;
+    const BC = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('noorestan') : null;
+    return {
+      name: 'Local',
+      async connect(){
+        if(!BC) throw new Error('BroadcastChannel not supported');
+        BC.onmessage = e => self.handleMessage(e.data);
+      },
+      send(data){
+        if(BC) BC.postMessage({ from: self.peerId, ...data });
+      },
+      close(){ if(BC) BC.close(); }
+    };
+  },
+
+  makeWSAdapter(url){
+    const self = this;
+    let ws = null;
+    return {
+      name: 'WS',
+      connect(){
+        return new Promise((res, rej) => {
+          try{
+            ws = new WebSocket(url);
+            ws.onopen = () => res();
+            ws.onerror = e => rej(e);
+            ws.onmessage = e => {
+              try{ self.handleMessage(JSON.parse(e.data)); }catch(err){}
+            };
+            ws.onclose = () => {
+              self.emit('state', { status: 'offline' });
+              UI.toast('❌ قطع اتصال از سرور', 'err');
+            };
+          }catch(e){ rej(e); }
+        });
+      },
+      send(data){ if(ws && ws.readyState === 1) ws.send(JSON.stringify({ from: self.peerId, ...data })); },
+      close(){ if(ws) ws.close(); }
+    };
+  },
+
+  handleMessage(msg){
+    if(!msg || msg.from === this.peerId) return;
+    switch(msg.type){
+      case 'hello':
+        this.peers.set(msg.from, { id: msg.from, name: msg.name || 'بازیکن', lastSeen: U.now(), meta: msg.meta || {} });
+        this.emit('peers', this.peerList());
+        // پاسخ با hello
+        if(msg.reply !== false) this.send({ type:'hello', name: Store.get('playerName'), reply:false });
+        break;
+      case 'bye':
+        this.peers.delete(msg.from);
+        this.emit('peers', this.peerList());
+        break;
+      case 'heartbeat':
+        if(this.peers.has(msg.from)){
+          this.peers.get(msg.from).lastSeen = U.now();
+        } else {
+          this.peers.set(msg.from, { id: msg.from, name: msg.name || 'بازیکن', lastSeen: U.now(), meta: {} });
+          this.emit('peers', this.peerList());
+        }
+        break;
+      case 'chat':
+        this.emit('chat', { from: msg.from, text: msg.text, name: this.peers.get(msg.from)?.name || 'ناشناس' });
+        break;
+      case 'room:create':
+        this.emit('room:create', msg);
+        break;
+      case 'room:join':
+        this.emit('room:join', msg);
+        break;
+      case 'room:leave':
+        this.emit('room:leave', msg);
+        break;
+      case 'game:move':
+        this.emit('game:move', msg);
+        break;
+    }
+  },
+
+  startHeartbeat(){
+    // پاکسازی peer های مرده + ارسال heartbeat
+    Timers.set(() => {
+      const now = U.now();
+      let changed = false;
+      for(const [id, p] of this.peers){
+        if(now - p.lastSeen > 15000){ this.peers.delete(id); changed = true; }
+      }
+      if(changed) this.emit('peers', this.peerList());
+      this.send({ type: 'heartbeat', name: Store.get('playerName') });
+    }, 5000);
+  },
+
+  peerList(){ return [...this.peers.values()]; },
+
+  send(data){ if(this.adapter) this.adapter.send(data); },
+
+  announce(){
+    this.send({ type: 'hello', name: Store.get('playerName'), meta: { level: Store.get('level') } });
+  }
+};
+
+/* ─────────────────── 9. GAME ENGINES ─────────────────── */
+
+// ─── 9.1 Quiz Engine ───
+const QuizEngine = {
+  state: null,
+  start(questions, title, sub, onDone){
+    this.state = { qs: U.shuffle(questions).slice(0, 10), i: 0, correct: 0, title, sub, onDone };
+    Router.go('play');
+    U.$('#pgTitle').textContent = title;
+    U.$('#pgSub').textContent = sub;
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    if(s.i >= s.qs.length) return this.finish();
+    const q = s.qs[s.i];
+    U.$('#pgBar').innerHTML = `<span class="pill">سوال <b>${U.fa(s.i+1)}</b> از <b>${U.fa(s.qs.length)}</b></span>
+      <span class="pill">✅ <b>${U.fa(s.correct)}</b></span>`;
+    U.$('#pgProg').style.width = ((s.i / s.qs.length) * 100) + '%';
+    const labels = ['الف','ب','پ','ت'];
+    const opts = U.shuffle(q.o);
+    U.$('#pgBody').innerHTML = `
+      <div class="qbox"><div class="qq">${U.esc(q.q)}</div></div>
+      <div class="opts" id="opts">
+        ${opts.map((o, i) => `<button class="opt" data-v="${U.esc(o)}">
+          <span class="n">${labels[i]}</span><span>${U.esc(o)}</span></button>`).join('')}
+      </div>`;
+    U.$$('#opts .opt').forEach(btn => {
+      btn.onclick = () => this.answer(btn, q.a);
+    });
+  },
+  answer(btn, correct){
+    const isOk = btn.dataset.v === correct;
+    U.$$('#opts .opt').forEach(b => b.disabled = true);
+    if(isOk){
+      btn.classList.add('right');
+      this.state.correct++;
+      Sound.play(true);
+      Store.update(d => { d.score += 15; d.stats.totalCorrect++; d.xp += 15; });
+      checkLevelUp();
+    } else {
+      btn.classList.add('wrong');
+      U.$$('#opts .opt').forEach(b => { if(b.dataset.v === correct) b.classList.add('right'); });
+      Sound.play(false);
+      Store.update(d => d.stats.totalWrong++);
+    }
+    saveAll();
+    setTimeout(() => { this.state.i++; this.render(); }, 900);
+  },
+  finish(){
+    const s = this.state;
+    const pct = Math.round(s.correct / s.qs.length * 100);
+    U.$('#pgProg').style.width = '100%';
+    U.$('#pgBar').innerHTML = '';
+    U.$('#pgBody').innerHTML = `
+      <div class="res card">
+        <div class="big">${pct >= 60 ? '🎉' : '📝'}</div>
+        <h3>${pct >= 60 ? 'آفرین!' : 'تلاش بیشتر'}</h3>
+        <p style="color:var(--mut);font-size:13px;margin-top:6px">
+          ${U.fa(s.correct)} از ${U.fa(s.qs.length)} صحیح (${U.fa(pct)}%)
+        </p>
+        <div class="stars">${'⭐'.repeat(Math.round(pct/33))}${'☆'.repeat(3 - Math.round(pct/33))}</div>
+        <div class="row" style="gap:10px;justify-content:center;margin-top:14px">
+          <button class="btn" id="pgAgain">🔄 دوباره</button>
+          <button class="btn gh" data-back>🏠 خانه</button>
+        </div>
+      </div>`;
+    U.$('#pgAgain').onclick = () => this.start(s.qs, s.title, s.sub, s.onDone);
+    if(pct >= 60) confetti();
+    s.onDone && s.onDone(pct);
+    checkBadges();
+    saveLeaderboard();
+  }
+};
+
+// ─── 9.2 Surah Engine ───
+const SurahEngine = {
+  start(){
+    const lvl = U.rand(DATA.surah);
+    const opts = U.shuffle([lvl.ans, ...lvl.wrong]);
+    Router.go('play');
+    U.$('#pgTitle').textContent = '📖 سوره ' + lvl.surah;
+    U.$('#pgSub').textContent = 'کلمه گمشده را پیدا کن';
+    U.$('#pgBar').innerHTML = `<span class="pill">📖 <b>سفر سوره‌ها</b></span>`;
+    U.$('#pgProg').style.width = '30%';
+    U.$('#pgBody').innerHTML = `
+      <div class="qbox">
+        <div class="ar">${U.esc(lvl.before)} <span style="color:var(--gold)">______</span></div>
+        <div class="hint">${U.esc(lvl.tr)}</div>
+      </div>
+      <div class="opts" id="opts">
+        ${opts.map((o, i) => `<button class="opt" data-v="${U.esc(o)}">
+          <span class="n">${U.fa(i+1)}</span>
+          <span style="font-family:serif;font-size:17px">${U.esc(o)}</span></button>`).join('')}
+      </div>
+      <div id="surahRes"></div>`;
+    U.$$('#opts .opt').forEach(btn => {
+      btn.onclick = () => {
+        const ok = btn.dataset.v === lvl.ans;
+        U.$$('#opts .opt').forEach(b => b.disabled = true);
+        if(ok){
+          btn.classList.add('right'); Sound.play(true);
+          Store.update(d => { d.score += 30; d.stars[lvl.surah] = 3; d.completed[lvl.surah] = true; d.stats.totalCorrect++; d.xp += 30; });
+          checkLevelUp(); confetti();
+          U.$('#surahRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">✅ آفرین! +۳۰ امتیاز</div>`;
+        } else {
+          btn.classList.add('wrong'); Sound.play(false);
+          U.$$('#opts .opt').forEach(b => { if(b.dataset.v === lvl.ans) b.classList.add('right'); });
+          Store.update(d => d.stats.totalWrong++);
+          U.$('#surahRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">❌ پاسخ درست: ${U.esc(lvl.ans)}</div>`;
+        }
+        saveAll(); checkBadges(); saveLeaderboard();
+      };
+    });
+  }
+};
+
+// ─── 9.3 Scramble Engine ───
+const ScrambleEngine = {
+  state: null,
+  start(){
+    const word = U.rand(DATA.scramble);
+    this.state = { word: word.word, hint: word.hint, chosen: [], letters: U.shuffle(word.word.split('')) };
+    Router.go('play');
+    U.$('#pgTitle').textContent = '🧩 پازل حروف';
+    U.$('#pgSub').textContent = this.state.hint;
+    U.$('#pgBar').innerHTML = `<span class="pill">حروف را بچین</span>`;
+    U.$('#pgProg').style.width = '40%';
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBody').innerHTML = `
+      <div class="qbox"><div class="ar">${U.esc(s.hint)}</div></div>
+      <div class="slot" id="slot">${s.chosen.map((c, i) => `<span class="lchip" data-idx="${i}">${U.esc(c)}</span>`).join('')}</div>
+      <div class="chipsrow" id="pool">${s.letters.map((c, i) => `<button class="lchip" data-i="${i}">${U.esc(c)}</button>`).join('')}</div>
+      <div class="row" style="justify-content:center">
+        <button class="btn gh" id="scClear">🧹 پاک</button>
+        <button class="btn" id="scCheck">✅ بررسی</button>
+      </div>
+      <div id="scRes"></div>`;
+    U.$$('#pool .lchip').forEach(b => {
+      b.onclick = () => {
+        const i = +b.dataset.i;
+        if(s.chosen.length >= s.word.length) return;
+        s.chosen.push(s.letters[i]);
+        s.letters[i] = '_';
+        this.render();
+      };
+    });
+    U.$$('#slot .lchip').forEach(el => {
+      el.onclick = () => {
+        const i = +el.dataset.idx;
+        const c = s.chosen[i];
+        const emptyIdx = s.letters.indexOf('_');
+        if(emptyIdx >= 0) s.letters[emptyIdx] = c;
+        s.chosen.splice(i, 1);
+        this.render();
+      };
+    });
+    U.$('#scClear').onclick = () => { s.letters = U.shuffle(s.word.split('')); s.chosen = []; this.render(); };
+    U.$('#scCheck').onclick = () => {
+      const guess = s.chosen.join('');
+      if(guess === s.word){
+        Sound.play(true); confetti();
+        Store.update(d => { d.score += 25; d.stats.totalCorrect++; d.xp += 25; d.stats.puzzles++; });
+        checkLevelUp();
+        U.$('#scRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 درست! +۲۵ امتیاز</div>`;
+        saveAll(); checkBadges(); saveLeaderboard();
+        setTimeout(() => this.start(), 1800);
+      } else {
+        Sound.play(false);
+        U.$('#scRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">❌ اشتباه بود</div>`;
+      }
+    };
+  }
+};
+
+// ─── 9.4 Memory Engine ───
+const MemoryEngine = {
+  state: null,
+  start(){
+    const words = U.shuffle(DATA.meaning).slice(0, 6);
+    const pairs = words.map(w => ({ word: w.q.replace(/معنی «|» چیست؟/g, ''), meaning: w.a }));
+    const cards = [];
+    pairs.forEach((p, i) => {
+      cards.push({ id: i + 'a', pair: i, face: p.word });
+      cards.push({ id: i + 'b', pair: i, face: p.meaning });
+    });
+    this.state = { cards: U.shuffle(cards), flipped: [], matched: 0, moves: 0 };
+    Router.go('play');
+    U.$('#pgTitle').textContent = '🧠 حافظه';
+    U.$('#pgSub').textContent = 'جفت‌ها را پیدا کن';
+    U.$('#pgBar').innerHTML = `<span class="pill">🎯 <b id="mgMove">۰</b> حرکت</span>`;
+    U.$('#pgProg').style.width = '0%';
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBody').innerHTML = `
+      <div class="mgrid">${s.cards.map((c, i) => `
+        <div class="mcard" data-i="${i}">
+          <div class="cover">${U.esc(c.face.charAt(0))}</div>
+          <div class="face">${U.esc(c.face)}</div>
+        </div>
+      `).join('')}</div>`;
+    U.$$('.mcard').forEach(card => {
+      card.onclick = () => this.flip(+card.dataset.i);
+    });
+  },
+  flip(i){
+    const s = this.state;
+    if(s.flipped.includes(i)) return;
+    if(s.flipped.length >= 2) return;
+    if(s.cards[i].matched) return;
+    s.flipped.push(i);
+    U.$(`.mcard[data-i="${i}"]`).classList.add('flip');
+    if(s.flipped.length === 2){
+      s.moves++;
+      U.$('#mgMove').textContent = U.fa(s.moves);
+      const [a, b] = s.flipped;
+      if(s.cards[a].pair === s.cards[b].pair){
+        setTimeout(() => {
+          U.$(`.mcard[data-i="${a}"]`).classList.add('done');
+          U.$(`.mcard[data-i="${b}"]`).classList.add('done');
+          s.cards[a].matched = true; s.cards[b].matched = true;
+          s.matched++;
+          s.flipped = [];
+          s.moves--;
+          U.$('#mgMove').textContent = U.fa(s.moves);
+          if(s.matched === s.cards.length / 2){
+            Sound.play(true); confetti();
+            Store.update(d => { d.score += 40; d.stats.memory++; d.xp += 30; d.stats.totalCorrect++; });
+            checkLevelUp();
+            UI.toast('🎉 همه جفت‌ها! +۴۰ امتیاز', 'ok');
+            saveAll(); checkBadges(); saveLeaderboard();
+            setTimeout(() => this.start(), 2000);
+          }
+        }, 500);
+      } else {
+        Sound.play(false);
+        setTimeout(() => {
+          U.$(`.mcard[data-i="${a}"]`).classList.remove('flip');
+          U.$(`.mcard[data-i="${b}"]`).classList.remove('flip');
+          s.flipped = [];
+          s.moves--;
+          U.$('#mgMove').textContent = U.fa(s.moves);
+        }, 900);
+      }
+    }
+  }
+};
+
+// ─── 9.5 Match Engine ───
+const MatchEngine = {
+  state: null,
+  start(){
+    const items = U.shuffle(DATA.meaning).slice(0, 5);
+    const left = items.map((it, i) => ({ i, text: it.q.replace(/معنی «|» چیست؟/g, '') }));
+    const right = U.shuffle(items.map((it, i) => ({ i, text: it.a })));
+    this.state = { left, right, sel: null, matched: 0 };
+    Router.go('play');
+    U.$('#pgTitle').textContent = '🔗 تطبیق';
+    U.$('#pgSub').textContent = 'کلمه و معنی را جفت کن';
+    U.$('#pgBar').innerHTML = `<span class="pill">🎯 <b id="mtMatched">۰</b>/${U.fa(items.length)}</span>`;
+    U.$('#pgProg').style.width = '0%';
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBody').innerHTML = `
+      <div class="mcols">
+        <div>${s.left.map((it, i) => `<div class="mitem" data-side="L" data-i="${i}">${U.esc(it.text)}</div>`).join('')}</div>
+        <div>${s.right.map((it, i) => `<div class="mitem" data-side="R" data-i="${i}">${U.esc(it.text)}</div>`).join('')}</div>
+      </div>`;
+    U.$$('.mitem').forEach(el => {
+      el.onclick = () => this.pick(el);
+    });
+  },
+  pick(el){
+    const s = this.state;
+    if(el.classList.contains('done')) return;
+    if(!s.sel){
+      s.sel = el;
+      el.classList.add('sel');
+      return;
+    }
+    if(s.sel === el){ el.classList.remove('sel'); s.sel = null; return; }
+    if(s.sel.dataset.side === el.dataset.side){ s.sel.classList.remove('sel'); s.sel = el; el.classList.add('sel'); return; }
+    // compare
+    const L = s.sel.dataset.side === 'L' ? s.sel : el;
+    const R = s.sel.dataset.side === 'R' ? s.sel : el;
+    const match = s.left[+L.dataset.i].i === s.right[+R.dataset.i].i;
+    if(match){
+      L.classList.add('done'); R.classList.add('done');
+      L.classList.remove('sel'); R.classList.remove('sel');
+      Sound.play(true);
+      s.matched++;
+      U.$('#mtMatched').textContent = U.fa(s.matched);
+      U.$('#pgProg').style.width = (s.matched / s.left.length * 100) + '%';
+      if(s.matched === s.left.length){
+        Store.update(d => { d.score += 35; d.stats.match++; d.xp += 30; d.stats.totalCorrect++; });
+        checkLevelUp(); confetti();
+        UI.toast('🎉 همه را جفت کردی! +۳۵', 'ok');
+        saveAll(); checkBadges(); saveLeaderboard();
+        setTimeout(() => this.start(), 2000);
+      }
+    } else {
+      Sound.play(false);
+      const a = L, b = R;
+      a.classList.add('wrong'); b.classList.add('wrong');
+      setTimeout(() => { a.classList.remove('wrong','sel'); b.classList.remove('wrong','sel'); }, 500);
+      Store.update(d => d.stats.totalWrong++);
+    }
+    s.sel = null;
+  }
+};
+
+// ─── 9.6 Dooz Engine ───
+const DoozEngine = {
+  state: null,
+  start(online = false){
+    this.state = { board: Array(9).fill(null), turn: 'X', over: false, online, mySide: 'X' };
+    Router.go('play');
+    U.$('#pgTitle').textContent = '❌⭕ دوز';
+    U.$('#pgSub').textContent = online ? 'بازی آنلاین' : 'بازی با کامپیوتر';
+    U.$('#pgBar').innerHTML = `<span class="pill">نوبت: <b id="dzTurn">❌</b></span>`;
+    U.$('#pgProg').style.width = '0%';
+    this.render();
+    if(online && Net.room){
+      // شروع‌کننده میزبان است
+      Net.on('game:move', data => {
+        if(data.game === 'dooz' && this.state && !this.state.over){
+          this.place(data.index, data.player);
+        }
+      });
+    }
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBody').innerHTML = `
+      <div class="dooz" id="dzBoard">
+        ${s.board.map((c, i) => `<div class="dcell" data-i="${i}">${c === 'X' ? '✕' : c === 'O' ? '◯' : ''}</div>`).join('')}
+      </div>
+      <div id="dzRes"></div>`;
+    U.$$('.dcell').forEach(cell => {
+      cell.onclick = () => {
+        if(s.over) return;
+        const i = +cell.dataset.i;
+        if(s.board[i]) return;
+        if(s.online && s.turn !== s.mySide) return;
+        this.place(i, s.turn);
+        if(s.online) Net.send({ type:'game:move', game:'dooz', index:i, player:s.turn });
+      };
+    });
+  },
+  place(i, player){
+    const s = this.state;
+    if(s.board[i] || s.over) return;
+    s.board[i] = player;
+    this.render();
+    const win = this.checkWin();
+    if(win){
+      s.over = true;
+      win.line.forEach(i => U.$(`.dcell[data-i="${i}"]`)?.classList.add('win'));
+      if(win.player === 'X'){
+        Sound.play(true); confetti();
+        Store.update(d => { d.score += 50; d.stats.tttWins++; d.xp += 40; });
+        checkLevelUp();
+        U.$('#dzRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 بردی! +۵۰ امتیاز</div>`;
+      } else {
+        U.$('#dzRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">😔 باختی</div>`;
+      }
+      saveAll(); checkBadges(); saveLeaderboard();
+      return;
+    }
+    if(s.board.every(c => c)){
+      s.over = true;
+      U.$('#dzRes').innerHTML = `<div class="toast" style="text-align:center;margin-top:14px">🤝 مساوی</div>`;
+      return;
+    }
+    s.turn = player === 'X' ? 'O' : 'X';
+    U.$('#dzTurn').textContent = s.turn === 'X' ? '❌' : '⭕';
+    if(!s.online && s.turn === 'O'){
+      setTimeout(() => {
+        const mv = this.findBest();
+        if(mv >= 0) this.place(mv, 'O');
+      }, 500);
+    }
+  },
+  checkWin(){
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for(const line of lines){
+      const [a,b,c] = line;
+      const B = this.state.board;
+      if(B[a] && B[a] === B[b] && B[a] === B[c]) return { line, player: B[a] };
+    }
+    return null;
+  },
+  findBest(){
+    const B = this.state.board;
+    for(let i = 0; i < 9; i++){ if(!B[i]){ B[i]='O'; const w = this.checkWin(); B[i]=null; if(w) return i; } }
+    for(let i = 0; i < 9; i++){ if(!B[i]){ B[i]='X'; const w = this.checkWin(); B[i]=null; if(w) return i; } }
+    if(!B[4]) return 4;
+    const corners = [0,2,6,8].filter(i => !B[i]);
+    if(corners.length) return U.rand(corners);
+    const empty = B.map((c,i) => c ? -1 : i).filter(i => i >= 0);
+    return empty.length ? U.rand(empty) : -1;
+  }
+};
+
+// ─── 9.7 EsmFamil Engine ───
+const EsmFamilEngine = {
+  state: null,
+  start(){
+    this.state = { letter: U.rand(DATA.letters), round: 1, total: 3, time: 90, timer: null };
+    Router.go('play');
+    U.$('#pgTitle').textContent = '📝 اسم فامیل';
+    U.$('#pgSub').textContent = 'با حرف داده‌شده کلمات بنویس';
+    U.$('#pgBar').innerHTML = `<span class="pill">⏱ <b id="efTime">۹۰</b></span>
+      <span class="pill">دور <b id="efRound">۱</b>/۳</span>`;
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgProg').style.width = ((s.round - 1) / s.total * 100) + '%';
+    U.$('#pgBody').innerHTML = `
+      <div class="card" style="text-align:center;margin-bottom:14px">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:8px">حرف این دور</div>
+        <div class="letter">${U.esc(s.letter)}</div>
+      </div>
+      <div class="efgrid">
+        ${DATA.esmFamil.map(c => `
+          <div class="efrow">
+            <span>${c.label}</span>
+            <input class="inp" data-cat="${c.id}" placeholder="با «${U.esc(s.letter)}» شروع کن">
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn ok w" id="efSubmit" style="margin-top:14px">✅ ثبت پاسخ‌ها</button>
+      <div id="efRes"></div>`;
+    this.startTimer();
+    U.$('#efSubmit').onclick = () => this.submit();
+  },
+  startTimer(){
+    const s = this.state;
+    s.time = 90;
+    U.$('#efTime').textContent = U.fa(s.time);
+    if(s.timer) Timers.clear(s.timer);
+    s.timer = Timers.set(() => {
+      s.time--;
+      const el = U.$('#efTime');
+      if(el){
+        el.textContent = U.fa(s.time);
+        if(s.time <= 15) el.style.color = 'var(--red)';
+      }
+      if(s.time <= 0){ this.submit(); }
+    }, 1000);
+  },
+  submit(){
+    const s = this.state;
+    if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    const inputs = U.$$('#pgBody .inp[data-cat]');
+    let correct = 0;
+    inputs.forEach(inp => {
+      const v = inp.value.trim();
+      if(!v) return;
+      if(v.startsWith(s.letter)){
+        correct++;
+        inp.style.borderColor = 'var(--grn)';
+        inp.style.background = 'rgba(47,211,155,.1)';
+      } else {
+        inp.style.borderColor = 'var(--red)';
+        inp.style.background = 'rgba(255,95,109,.1)';
+      }
+      inp.disabled = true;
+    });
+    const bonus = correct * 10;
+    if(correct >= inputs.length * 0.5){
+      Store.update(d => { d.score += bonus; d.xp += bonus; });
+      checkLevelUp();
+      saveAll(); checkBadges(); saveLeaderboard();
+      U.$('#efRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 ${U.fa(correct)} صحیح! +${U.fa(bonus)} امتیاز</div>`;
+    } else {
+      U.$('#efRes').innerHTML = `<div class="toast" style="text-align:center;margin-top:14px">📝 ${U.fa(correct)} از ${U.fa(inputs.length)}</div>`;
+    }
+    if(s.round < s.total){
+      s.round++;
+      U.$('#efRound').textContent = U.fa(s.round);
+      setTimeout(() => { s.letter = U.rand(DATA.letters); this.render(); }, 2000);
+    } else {
+      setTimeout(() => Router.go('home'), 2500);
+    }
+  }
+};
+
+/* ─────────────────── 10. GAME REGISTRY (رجیستری بازی‌ها) ─────────────────── */
+const Games = {
+  surah:     () => SurahEngine.start(),
+  scramble:  () => ScrambleEngine.start(),
+  quiz:      () => QuizEngine.start(DATA.quiz, '📚 سوالات قرآنی', 'دانش قرآنی خود را محک بزن'),
+  meaning:   () => QuizEngine.start(DATA.meaning, '🔤 معنی کلمه', 'معنی صحیح را انتخاب کن'),
+  match:     () => MatchEngine.start(),
+  memory:    () => MemoryEngine.start(),
+  speed:     () => QuizEngine.start(DATA.quiz, '⚡ سرعت نور', 'سریع جواب بده!'),
+  iran:      () => QuizEngine.start(DATA.iran, '🇮🇷 اطلاعات ایران', 'تاریخ، جغرافیا و فرهنگ'),
+  dooz:      () => DoozEngine.start(false),
+  esmfamil:  () => EsmFamilEngine.start(),
+  'online-lobby': () => { Router.go('online'); renderOnline(); },
+  daily:     () => DailyChallenge.open(),
+  stats:     () => showStats(),
+  badges:    () => showBadges(),
+  leaderboard: () => showLeaderboard(),
+  settings:  () => showSettings()
+};
+
+/* ─────────────────── 11. LEVEL / BADGES / LEADERBOARD ─────────────────── */
+function xpForLevel(l){ return Math.floor(100 * Math.pow(1.5, l - 1)); }
+function checkLevelUp(){
+  let up = false;
+  Store.update(d => {
+    while(d.xp >= xpForLevel(d.level)){
+      d.xp -= xpForLevel(d.level);
+      d.level++;
+      d.hearts = Math.min(5, d.hearts + 1);
+      up = true;
+    }
+  });
+  if(up){ Sound.levelUp(); UI.toast(`🎉 سطح ${U.fa(Store.get('level'))}!`, 'ok'); confetti(); }
+}
+
+function checkBadges(){
+  const d = Store.data;
+  const checks = [
+    ['first', d.stats.totalCorrect >= 1],
+    ['perfect', Object.values(d.stars).some(s => s >= 3)],
+    ['score100', d.score >= 100],
+    ['score500', d.score >= 500],
+    ['combo5', d.stats.maxCombo >= 5],
+    ['daily', d.dailyChallenge.done],
+    ['quizmaster', d.stats.quizzes >= 10],
+    ['iranexpert', d.stats.iran >= 10],
+    ['tttwinner', d.stats.tttWins >= 1],
+    ['networker', d.stats.rooms >= 3],
+    ['memorymaster', d.stats.memory >= 5],
+    ['fast', d.stats.fastestAnswer <= 3]
+  ];
+  let unlocked = [];
+  checks.forEach(([id, ok]) => {
+    if(ok && !d.badges[id]){ d.badges[id] = true; unlocked.push(id); }
+  });
+  if(unlocked.length){
+    Store.save();
+    unlocked.forEach(id => {
+      const b = DATA.badges.find(x => x.id === id);
+      if(b){ UI.toast(`🎖️ نشان «${b.name}»`, 'ok'); confetti(20); }
+    });
+  }
+}
+
+function saveLeaderboard(){
+  const d = Store.data;
+  const ex = d.leaderboard.find(l => l.name === d.playerName);
+  if(ex){ if(d.score > ex.score) ex.score = d.score; }
+  else d.leaderboard.push({ name: d.playerName, score: d.score });
+  d.leaderboard.sort((a, b) => b.score - a.score);
+  d.leaderboard = d.leaderboard.slice(0, 20);
+  Store.save();
+}
+
+function saveAll(){ Store.save(); updateHomeStats(); }
+
+/* ─────────────────── 12. DAILY CHALLENGE (seed قطعی) ─────────────────── */
+const DailyChallenge = {
+  status(){
+    const d = Store.get('dailyChallenge');
+    const today = U.today();
+    if(d.date !== today){ return { done:false, today }; }
+    return { done:d.done, today, reward:d.reward };
+  },
+  open(){
+    const st = this.status();
+    if(st.done){ UI.toast('✅ امروز انجام شده', ''); return; }
+    // چالش قطعی بر اساس تاریخ
+    const rng = U.seedRand(U.today());
+    const qs = DATA.quiz.filter((_, i) => rng() < 0.6).slice(0, 5);
+    if(qs.length < 3) qs.push(...U.shuffle(DATA.quiz).slice(0, 5 - qs.length));
+    QuizEngine.start(qs, '🌙 چالش روزانه', 'جایزه ویژه امروز', (pct) => {
+      if(pct >= 60){
+        const reward = 50;
+        Store.update(d => {
+          d.dailyChallenge = { date: U.today(), done: true, reward };
+          d.score += reward;
+          d.xp += 30;
+        });
+        Store.save();
+        checkLevelUp();
+        UI.toast(`🎉 +${U.fa(reward)} امتیاز!`, 'ok');
+      }
+    });
+  }
+};
+
+/* ─────────────────── 13. HOME RENDER (دسته‌بندی) ─────────────────── */
+function renderHome(){
+  const d = Store.data;
+  const rng = U.seedRand(U.today() + d.playerName);
+  const catsEl = U.$('#cats');
+  catsEl.innerHTML = DATA.categories.map(cat => {
+    const games = cat.games.filter(g => DATA.GAMES[g]);
+    return `
+      <div class="cat">
+        <div class="cat-head">
+          <div class="cat-ico">${cat.icon}</div>
+          <div>
+            <h2>${U.esc(cat.title)}</h2>
+            <p>${U.esc(cat.desc)}</p>
+          </div>
+          <span class="cat-cnt">${U.fa(games.length)} مورد</span>
+        </div>
+        <div class="grid">
+          ${games.map(g => {
+            const gm = DATA.GAMES[g];
+            const tag = gm.tag === 'hot' ? '<span class="badge">🔥 داغ</span>'
+                     : gm.tag === 'new' ? '<span class="badge p">✨ جدید</span>'
+                     : gm.tag === 'net' ? '<span class="badge g">🌐 شبکه</span>'
+                     : gm.tag === 'ir' ? '<span class="badge">🇮🇷</span>' : '';
+            return `
+              <div class="tile" data-game="${g}">
+                ${tag}
+                <span class="ti">${gm.icon}</span>
+                <b>${U.esc(gm.name)}</b>
+                <small>${U.esc(gm.desc)}</small>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+  U.$$('.tile[data-game]').forEach(t => {
+    t.onclick = () => {
+      const g = t.dataset.game;
+      if(Games[g]) Games[g]();
+      else UI.toast('به زودی...', '');
+    };
+  });
+  U.$('#cGames').textContent = U.fa(Object.keys(DATA.GAMES).filter(g => !['stats','badges','leaderboard','settings','daily','online-lobby'].includes(g)).length);
+}
+
+function updateHomeStats(){
+  const d = Store.data;
+  U.$('#stStar').textContent = U.fa(Object.values(d.stars).reduce((a, b) => a + b, 0));
+  U.$('#stScore').textContent = U.fa(d.score);
+  U.$('#stDone').textContent = U.fa(Object.values(d.completed).filter(Boolean).length);
+  U.$('#stBadge').textContent = U.fa(Object.keys(d.badges).length);
+  U.$('#cRole').textContent = d.isAdmin ? '👑 مدیر' : '👤 کاربر';
+}
+
+/* ─────────────────── 14. ONLINE PAGE ─────────────────── */
+function renderOnline(){
+  U.$('#myPeer').value = Net.peerId;
+  U.$('#netState').textContent = Net.adapter ? (Net.adapter.name === 'WS' ? '🟢 سرور' : '🟡 محلی') : '🔴 قطع';
+  U.$('#netState').className = 'chip ' + (Net.adapter ? 'on' : 'off');
+  const peers = Net.peerList();
+  U.$('#plCnt').textContent = U.fa(peers.length + 1);
+  U.$('#onCount').textContent = U.fa(peers.length + 1);
+  const playersEl = U.$('#players');
+  if(!peers.length){
+    playersEl.innerHTML = '<div class="empty">هنوز کسی آنلاین نیست</div>';
+  } else {
+    playersEl.innerHTML = peers.map(p => `
+      <div class="item">
+        <div class="av">${U.esc(p.name.charAt(0))}</div>
+        <div class="sp"><b>${U.esc(p.name)}</b><small>🟢 آنلاین</small></div>
+      </div>
+    `).join('');
+  }
+  // روم‌ها (فعلاً خالی — در نسخه با سرور واقعی، لیست از سرور می‌آید)
+  const roomsEl = U.$('#rooms');
+  roomsEl.innerHTML = '<div class="empty">هنوز رومی ساخته نشده — خودت بساز!</div>';
+}
+
+function renderRoom(){
+  const r = Net.room;
+  if(!r) return;
+  U.$('#rmTitle').textContent = r.name || 'روم من';
+  U.$('#rmCode').textContent = 'کد: ' + Net.peerId;
+  U.$('#rmPlayerCnt').textContent = `${U.fa(1 + Net.peerList().length)}/۲`;
+  const players = [{ name: Store.get('playerName'), me:true }, ...Net.peerList()];
+  U.$('#rmPlayers').innerHTML = players.map((p, i) => `
+    <div class="item">
+      <div class="av">${U.esc(p.name.charAt(0))}</div>
+      <div class="sp"><b>${U.esc(p.name)} ${p.me ? '(شما)' : ''}</b>
+        <small>${p.me ? '👑 میزبان' : '🟢 مهمان'}</small></div>
+    </div>
+  `).join('');
+}
+
+function enterRoom(room){
+  Net.room = room;
+  Router.go('room');
+  renderRoom();
+}
+
+/* ─────────────────── 15. ADMIN (با hash) ─────────────────── */
+const Admin = {
+  currentTab: 'users',
+  async tryLogin(pass){
+    const hash = await U.sha256(pass);
+    if(hash === Store.get('adminHash')){
+      Store.set('isAdmin', true);
+      Store.save();
+      this.render();
+      UI.toast('👑 خوش آمدی مدیر', 'ok');
+      return true;
+    }
+    return false;
+  },
+  logout(){
+    Store.set('isAdmin', false);
+    this.render();
+  },
+  render(){
+    const d = Store.data;
+    if(!d.isAdmin){
+      U.$('#adminGate').innerHTML = `
+        <div class="card">
+          <b>🔐 ورود مدیران</b>
+          <p style="color:var(--mut);font-size:12px;margin-top:6px">رمز ادمین را وارد کنید (پیش‌فرض: noor2024)</p>
+          <div class="sep"></div>
+          <input class="inp" id="admPass" type="password" placeholder="رمز...">
+          <div id="admErr" class="toast err hide" style="margin-top:10px">❌ رمز اشتباه</div>
+          <button class="btn w" id="admLogin" style="margin-top:12px">🔓 ورود</button>
+        </div>`;
+      U.$('#adminMain').classList.add('hide');
+      U.$('#admLogin').onclick = async () => {
+        const ok = await this.tryLogin(U.$('#admPass').value);
+        if(!ok) { U.$('#admErr').classList.remove('hide'); setTimeout(() => U.$('#admErr').classList.add('hide'), 2000); }
+      };
+      U.$('#admPass').onkeypress = e => { if(e.key === 'Enter') U.$('#admLogin').click(); };
+      return;
+    }
+    U.$('#adminGate').innerHTML = '';
+    U.$('#adminMain').classList.remove('hide');
+    this.renderTab();
+  },
+  renderTab(){
+    const d = Store.data;
+    const body = U.$('#adminBody');
+    const tabs = ['users','rooms','games','notif','content','ops'];
+    tabs.forEach(t => {
+      const btn = U.$(`.tab[data-tab="${t}"]`);
+      if(btn) btn.classList.toggle('on', t === this.currentTab);
+    });
+    switch(this.currentTab){
+      case 'users':
+        body.innerHTML = `
+          <div class="card">
+            <b>👥 کاربران (${U.fa(1 + Net.peerList().length)})</b>
+            <div class="sep"></div>
+            <div class="item">
+              <div class="av">${U.esc(d.playerName.charAt(0))}</div>
+              <div class="sp"><b>${U.esc(d.playerName)} (شما)</b>
+                <small>سطح ${U.fa(d.level)} • امتیاز ${U.fa(d.score)}</small></div>
+              <span class="badge">${d.isAdmin ? '👑 مدیر' : 'کاربر'}</span>
+            </div>
+            ${Net.peerList().map(p => `
+              <div class="item">
+                <div class="av">${U.esc(p.name.charAt(0))}</div>
+                <div class="sp"><b>${U.esc(p.name)}</b><small>🟢 آنلاین</small></div>
+                <span class="badge g">کاربر</span>
+              </div>
+            `).join('')}
+          </div>`;
+        break;
+      case 'rooms':
+        body.innerHTML = `
+          <div class="card">
+            <b>🏠 روم‌های فعال</b>
+            <div class="sep"></div>
+            ${Net.room ? `<div class="item"><div class="av">🏠</div><div class="sp"><b>${U.esc(Net.room.name)}</b><small>کد: ${U.esc(Net.peerId)}</small></div></div>` : '<div class="empty">رومی نیست</div>'}
+          </div>`;
+        break;
+      case 'games':
+        body.innerHTML = `
+          <div class="card">
+            <b>🎮 بازی‌ها</b>
+            <div class="sep"></div>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+              <div class="stat"><b>${U.fa(d.stats.totalCorrect)}</b><span>✅ صحیح</span></div>
+              <div class="stat"><b>${U.fa(d.stats.totalWrong)}</b><span>❌ غلط</span></div>
+              <div class="stat"><b>${U.fa(Object.keys(d.completed).length)}</b><span>📚 کامل</span></div>
+              <div class="stat"><b>${U.fa(d.stats.maxCombo)}</b><span>🔥 کمبو</span></div>
+            </div>
+          </div>`;
+        break;
+      case 'notif':
+        body.innerHTML = `
+          <div class="card">
+            <b>📢 ارسال اعلان سراسری</b>
+            <div class="sep"></div>
+            <input class="inp" id="bcTitle" placeholder="عنوان">
+            <textarea class="inp" id="bcMsg" placeholder="متن پیام..." style="margin-top:8px;min-height:80px"></textarea>
+            <button class="btn w" id="bcSend" style="margin-top:10px">📤 ارسال به همه</button>
+          </div>`;
+        U.$('#bcSend').onclick = () => {
+          const t = U.$('#bcTitle').value.trim();
+          const m = U.$('#bcMsg').value.trim();
+          if(!t || !m){ UI.toast('عنوان و متن لازم است', 'err'); return; }
+          pushNotif(t, m, '📢');
+          U.$('#bcTitle').value = ''; U.$('#bcMsg').value = '';
+          UI.toast('📢 ارسال شد', 'ok');
+        };
+        break;
+      case 'content':
+        body.innerHTML = `
+          <div class="card">
+            <b>📚 مدیریت محتوا</b>
+            <div class="sep"></div>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+              <div class="stat"><b>${U.fa(DATA.surah.length)}</b><span>📖 سوره</span></div>
+              <div class="stat"><b>${U.fa(DATA.quiz.length)}</b><span>📚 سوال قرآنی</span></div>
+              <div class="stat"><b>${U.fa(DATA.iran.length)}</b><span>🇮🇷 سوال ایران</span></div>
+              <div class="stat"><b>${U.fa(DATA.scramble.length)}</b><span>🧩 پازل</span></div>
+            </div>
+          </div>`;
+        break;
+      case 'ops':
+        body.innerHTML = `
+          <div class="card">
+            <b>⚙️ عملیات مدیریتی</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <button class="btn gh" id="opScore">💰 +۱۰۰ امتیاز</button>
+              <button class="btn gh" id="opHearts">❤️ پر کردن جان</button>
+              <button class="btn gh" id="opExport">📥 خروجی JSON</button>
+              <button class="btn dg" id="opReset">🗑️ ریست کامل</button>
+            </div>
+            <div class="sep"></div>
+            <button class="btn dg w" id="opLogout">🚪 خروج از پنل</button>
+          </div>`;
+        U.$('#opScore').onclick = () => { Store.update(d => d.score += 100); updateHomeStats(); UI.toast('💰 +۱۰۰', 'ok'); };
+        U.$('#opHearts').onclick = () => { Store.update(d => d.hearts = 5); UI.toast('❤️ پر شد', 'ok'); };
+        U.$('#opExport').onclick = () => {
+          const blob = new Blob([Store.export()], { type:'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `noorestan_${Date.now()}.json`;
+          a.click();
+        };
+        U.$('#opReset').onclick = () => UI.confirm('ریست کامل؟', () => { Store.reset(); location.reload(); });
+        U.$('#opLogout').onclick = () => this.logout();
+        break;
+    }
+  }
+};
+
+/* ─────────────────── 16. NOTIFICATIONS ─────────────────── */
+function pushNotif(title, desc, icon = '🔔'){
+  Store.update(d => {
+    d.notifications.unshift({ id: U.uid(), title, desc, icon, time: U.now(), read: false });
+    d.notifications = d.notifications.slice(0, 50);
+  });
+  updateNotifDot();
+  UI.toast(`${icon} ${title}`, '');
+}
+function updateNotifDot(){
+  const unread = Store.get('notifications').filter(n => !n.read).length;
+  U.$('#notifDot').classList.toggle('hide', !unread);
+}
+function renderNotif(){
+  const list = Store.get('notifications');
+  U.$('#notifSub').textContent = U.fa(list.length) + ' پیام';
+  if(!list.length){
+    U.$('#notifList').innerHTML = '<div class="empty">اعلانی نیست 🔔</div>';
+    return;
+  }
+  U.$('#notifList').innerHTML = list.map(n => `
+    <div class="item">
+      <div class="av">${n.icon}</div>
+      <div class="sp">
+        <b>${U.esc(n.title)}</b>
+        <small>${U.esc(n.desc)}</small>
+      </div>
+    </div>
+  `).join('');
+  Store.update(d => d.notifications.forEach(n => n.read = true));
+  updateNotifDot();
+}
+
+/* ─────────────────── 17. MODALS (stats/badges/leaderboard/settings) ─────────────────── */
+function showStats(){
+  const d = Store.data;
+  const total = d.stats.totalCorrect + d.stats.totalWrong;
+  const acc = total ? Math.round(d.stats.totalCorrect / total * 100) : 0;
+  UI.modal(`
+    <h3 style="margin-bottom:14px">📊 آمار تفصیلی</h3>
+    <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
+      <div class="stat"><b>${U.fa(d.stats.totalCorrect)}</b><span>✅ صحیح</span></div>
+      <div class="stat"><b>${U.fa(d.stats.totalWrong)}</b><span>❌ غلط</span></div>
+      <div class="stat"><b>${U.fa(acc)}%</b><span>🎯 دقت</span></div>
+      <div class="stat"><b>${U.fa(d.stats.maxCombo)}</b><span>🔥 کمبو</span></div>
+      <div class="stat"><b>${U.fa(d.score)}</b><span>🏆 امتیاز</span></div>
+      <div class="stat"><b>${U.fa(d.level)}</b><span>📈 سطح</span></div>
+    </div>
+    <button class="btn gh w" onclick="UI.closeModal()">بستن</button>
+  `);
+}
+function showBadges(){
+  const d = Store.data;
+  UI.modal(`
+    <h3 style="margin-bottom:14px">🎖️ نشان‌ها</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      ${DATA.badges.map(b => `
+        <div class="stat" style="opacity:${d.badges[b.id] ? 1 : 0.4};padding:10px 4px">
+          <b style="font-size:24px">${b.icon}</b>
+          <span style="font-size:11px">${U.esc(b.name)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn gh w" style="margin-top:14px" onclick="UI.closeModal()">بستن</button>
+  `);
+}
+function showLeaderboard(){
+  const d = Store.data;
+  const sorted = [...d.leaderboard].sort((a, b) => b.score - a.score).slice(0, 10);
+  UI.modal(`
+    <h3 style="margin-bottom:14px">🏆 لیدربورد</h3>
+    ${sorted.length ? `
+      <div class="list">
+        ${sorted.map((item, i) => `
+          <div class="item">
+            <div class="av">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : U.fa(i + 1)}</div>
+            <div class="sp"><b>${U.esc(item.name)}</b></div>
+            <b style="color:var(--gold)">${U.fa(item.score)}</b>
+          </div>
+        `).join('')}
+      </div>
+    ` : '<div class="empty">هنوز رکوردی ثبت نشده</div>'}
+    <button class="btn gh w" style="margin-top:14px" onclick="UI.closeModal()">بستن</button>
+  `);
+}
+function showSettings(){
+  const s = Store.get('settings');
+  const themes = [
+    { id:'dark', name:'🌙 تاریک' },
+    { id:'ocean', name:'🌊 اقیانوس' },
+    { id:'forest', name:'🌲 جنگل' },
+    { id:'royal', name:'👑 سلطنتی' }
+  ];
+  UI.modal(`
+    <h3 style="margin-bottom:14px">⚙️ تنظیمات</h3>
+    <label class="lbl">نام بازیکن</label>
+    <input class="inp" id="setName" value="${U.esc(Store.get('playerName'))}">
+    <label class="lbl">تم</label>
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      ${themes.map(t => `<button class="btn ${s.theme === t.id ? '' : 'gh'}" data-theme="${t.id}" style="flex:1;padding:9px">${t.name}</button>`).join('')}
+    </div>
+    <label class="lbl">صدا</label>
+    <div class="row">
+      <button class="btn ${s.sound ? '' : 'gh'}" id="setSound" style="flex:1">${s.sound ? '🔊 روشن' : '🔇 خاموش'}</button>
+    </div>
+    <button class="btn w" id="setSave" style="margin-top:16px">💾 ذخیره</button>
+    <button class="btn gh w" style="margin-top:8px" onclick="UI.closeModal()">بستن</button>
+  `);
+  U.$$('[data-theme]').forEach(btn => {
+    btn.onclick = () => {
+      const t = btn.dataset.theme;
+      Store.update(d => d.settings.theme = t);
+      document.documentElement.setAttribute('data-theme', t);
+      U.$$('[data-theme]').forEach(b => b.classList.toggle('gh', b.dataset.theme !== t));
+    };
+  });
+  U.$('#setSound').onclick = function(){
+    const v = !Store.get('settings').sound;
+    Store.update(d => d.settings.sound = v);
+    this.textContent = v ? '🔊 روشن' : '🔇 خاموش';
+    this.classList.toggle('gh', !v);
+  };
+  U.$('#setSave').onclick = () => {
+    const name = U.$('#setName').value.trim();
+    if(name){ Store.update(d => d.playerName = name); updateHomeStats(); }
+    UI.closeModal();
+    UI.toast('✅ ذخیره شد', 'ok');
+  };
+}
+
+/* ─────────────────── 18. CONFETTI ─────────────────── */
+function confetti(n = 60){
+  for(let i = 0; i < n; i++){
+    const el = document.createElement('div');
+    const colors = ['#f5c451','#2fd39b','#a77bff','#4d9fff','#ff5f6d'];
+    el.style.cssText = `position:fixed;top:-20px;left:${Math.random()*100}%;width:8px;height:8px;
+      background:${U.rand(colors)};border-radius:${Math.random()>0.5?'50%':'0'};
+      z-index:9999;pointer-events:none;transition:transform ${2+Math.random()*2}s linear,opacity 3s`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transform = `translateY(110vh) rotate(${Math.random()*720}deg)`;
+      el.style.opacity = '0';
+    });
+    setTimeout(() => el.remove(), 4500);
+  }
+}
+
+/* ─────────────────── 19. INIT ─────────────────── */
+function init(){
+  Store.load();
+  // تم
+  document.documentElement.setAttribute('data-theme', Store.get('settings').theme || 'dark');
+  // Router
+  Router.init();
+  // Home render
+  renderHome();
+  updateHomeStats();
+  updateNotifDot();
+
+  // شبکه — با تأخیر
+  setTimeout(() => Net.init(), 300);
+
+  // event listeners
+  U.$$('.nav button').forEach(b => {
+    b.onclick = () => Router.go(b.dataset.nav);
+  });
+  U.$('#btnNotif').onclick = () => { renderNotif(); Router.go('notif'); };
+  U.$('#btnNet').onclick = () => { renderOnline(); Router.go('online'); };
+  U.$$('[data-back]').forEach(b => b.onclick = () => Router.back());
+  U.$('#clearNotif').onclick = () => { Store.update(d => d.notifications = []); renderNotif(); updateNotifDot(); };
+  U.$('#copyPeer').onclick = () => { navigator.clipboard.writeText(Net.peerId); UI.toast('📋 کپی شد', 'ok'); };
+  U.$('#netConnect').onclick = () => {
+    const url = U.$('#netUrl').value.trim();
+    Net.init(url);
+  };
+  U.$('#mkRoom').onclick = () => {
+    UI.modal(`
+      <h3 style="margin-bottom:14px">➕ ساخت روم جدید</h3>
+      <label class="lbl">نام روم</label>
+      <input class="inp" id="rmName" placeholder="روم من" value="روم ${U.esc(Store.get('playerName'))}">
+      <label class="lbl">نوع بازی</label>
+      <div class="row" style="gap:8px">
+        <button class="btn" data-g="dooz" style="flex:1">❌⭕ دوز</button>
+        <button class="btn gh" data-g="esmfamil" style="flex:1">📝 اسم فامیل</button>
+      </div>
+      <button class="btn w" id="rmCreate" style="margin-top:14px">🏠 ایجاد روم</button>
+    `);
+    let game = 'dooz';
+    U.$$('[data-g]').forEach(b => b.onclick = () => {
+      game = b.dataset.g;
+      U.$$('[data-g]').forEach(x => x.classList.toggle('gh', x.dataset.g !== game));
+    });
+    U.$('#rmCreate').onclick = () => {
+      const name = U.$('#rmName').value.trim() || 'روم من';
+      Store.update(d => d.stats.rooms++);
+      Net.room = { name, game };
+      Net.send({ type:'room:create', name, game, code: Net.peerId });
+      Net.announce();
+      UI.closeModal();
+      checkBadges();
+      enterRoom({ name, game });
+    };
+  };
+  U.$('#joinRoom').onclick = () => {
+    UI.modal(`
+      <h3 style="margin-bottom:14px">🔑 ورود با کد</h3>
+      <label class="lbl">کد روم (Peer ID میزبان)</label>
+      <input class="inp" id="rmCode" placeholder="مثلاً abc12345">
+      <div id="rmErr" class="toast err hide" style="margin-top:10px">روم یافت نشد</div>
+      <button class="btn w" id="rmJoin" style="margin-top:14px">اتصال</button>
+    `);
+    U.$('#rmJoin').onclick = () => {
+      const code = U.$('#rmCode').value.trim();
+      if(!code){ U.$('#rmErr').classList.remove('hide'); return; }
+      // در LocalAdapter همه peer ها در یک مرورگر — در WS واقعی می‌شود connect به ID
+      UI.closeModal();
+      Net.send({ type:'room:join', code });
+      UI.toast('⏳ در حال اتصال...', '');
+      setTimeout(() => {
+        // شبیه‌سازی: اگر در LocalAdapter بودیم، فقط وارد روم می‌شویم
+        enterRoom({ name: 'روم مهمان', game: 'dooz', code });
+      }, 500);
+    };
+  };
+
+  // Room actions
+  U.$('#rmStart').onclick = () => {
+    if(!Net.room){ UI.toast('اول یک روم بساز', 'err'); return; }
+    if(Net.room.game === 'esmfamil') EsmFamilEngine.start();
+    else DoozEngine.start(true);
+  };
+  U.$('#rmLeave').onclick = () => {
+    Net.send({ type:'room:leave' });
+    Net.room = null;
+    Router.go('online');
+    renderOnline();
+  };
+  U.$('#chatSend').onclick = () => {
+    const txt = U.$('#chatInp').value.trim();
+    if(!txt) return;
+    Net.send({ type:'chat', text: txt });
+    appendChat({ name: Store.get('playerName'), text: txt, me: true });
+    U.$('#chatInp').value = '';
+  };
+  U.$('#chatInp').onkeypress = e => { if(e.key === 'Enter') U.$('#chatSend').click(); };
+
+  // admin tabs
+  U.$$('.tab[data-tab]').forEach(t => {
+    t.onclick = () => { Admin.currentTab = t.dataset.tab; Admin.renderTab(); };
+  });
+
+  // Net events
+  Net.on('state', ({ status }) => {
+    const chip = U.$('#cNet');
+    if(!chip) return;
+    if(status === 'online'){ chip.className = 'chip on'; chip.textContent = '🟢 آنلاین'; }
+    else if(status === 'connecting'){ chip.className = 'chip'; chip.textContent = '⏳ در حال اتصال'; }
+    else { chip.className = 'chip off'; chip.textContent = '🔴 آفلاین'; }
+  });
+  Net.on('peers', () => { if(Router.stack[Router.stack.length-1] === 'online') renderOnline(); });
+  Net.on('chat', ({ name, text }) => appendChat({ name, text }));
+  Net.on('room:create', ({ name, game }) => { /* در WS واقعی: نمایش در لیست */ });
+
+  // راه‌اندازی اعلان خوش‌آمد
+  setTimeout(() => {
+    if(!Store.get('notifications').length){
+      pushNotif('به نورستان خوش آمدی!', 'شروع به یادگیری و بازی کن', '🌟');
+    }
+  }, 1500);
+
+  console.log('🌟 نورستان ۱۲.۰ — نسخه بازسازی‌شده');
+  console.log('🌐 شبکه:', Net.adapter?.name || 'offline');
+  console.log('👑 ادمین پیش‌فرض: noor2024');
+}
+function appendChat({ name, text, me = false }){
+  const box = U.$('#chatBox');
+  if(!box) return;
+  const el = document.createElement('div');
+  el.className = 'msg ' + (me ? 'me' : '');
+  el.innerHTML = me ? U.esc(text) : `<span class="who">${U.esc(name)}</span>${U.esc(text)}`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

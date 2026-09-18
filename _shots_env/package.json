@@ -1,0 +1,6 @@
+{
+  "name": "noorestan-shots",
+  "private": true,
+  "description": "ابزار توسعه: اسکرین‌شات با Puppeteer. برنامهٔ نورستان به این وابستگی نیاز ندارد.",
+  "dependencies": { "puppeteer": "^25.11.0" }
+}

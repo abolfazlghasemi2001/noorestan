@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1120">
+<meta name="description" content="نورستان ۱۳ — آموزش قرآن کریم، بازی‌های فکری و محفل دوستان">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="نورستان">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='78' font-size='76'>🌟</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<title>نورستان ۱۳ | Noorestan</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   ۱. توکن‌های طراحی (Design Tokens) — همه چیز از اینجا کنترل می‌شود
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  /* — رنگ‌ها (تیره پیش‌فرض) — */
+  --bg:#080d18; --bg2:#0e1526; --card:#131c31; --card2:#18233c;
+  --line:#22304f; --txt:#e8eefc; --mut:#8fa0c4;
+  --gold:#f5c451; --gold2:#e0a325; --grn:#2fd39b; --red:#ff5f6d;
+  --blu:#4d9fff; --prp:#a77bff;
+  --grad:linear-gradient(135deg,#f5c451,#e0a325);
+  --grad-soft:linear-gradient(135deg,rgba(245,196,81,.18),rgba(224,163,37,.08));
+  /* — تایپوگرافی: مقیاس ثابت — */
+  --fs-xs:11px; --fs-sm:12.5px; --fs-base:14px; --fs-lg:16px;
+  --fs-xl:20px; --fs-2xl:26px; --fs-3xl:34px;
+  /* — فاصله‌ها: مضرب ۴px — */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+  --sp-5:20px; --sp-6:24px; --sp-7:32px; --sp-8:40px;
+  /* — شعاع گوشه‌ها — */
+  --r-xs:8px; --r-sm:12px; --r:18px; --r-lg:24px; --r-full:999px;
+  /* — سایه‌ها: ۴ سطح — */
+  --sh-sm:0 2px 6px rgba(0,0,0,.25);
+  --sh-md:0 8px 20px rgba(0,0,0,.35);
+  --sh-lg:0 16px 40px rgba(0,0,0,.5);
+  --sh-glow:0 8px 26px rgba(245,196,81,.28);
+  /* — انیمیشن — */
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --dur-fast:.15s; --dur-norm:.28s; --dur-slow:.5s;
+}
+/* — تم‌ها — */
+[data-theme="ocean"]{
+  --bg:#04121c; --bg2:#07202f; --card:#0b2a3d; --card2:#103548; --line:#17506b;
+  --txt:#e3f6ff; --mut:#8dc0d6; --gold:#4dd0e1; --gold2:#22a6bd; --grn:#3ee0a5;
+  --blu:#5bb8ff; --prp:#7f9dff; --grad:linear-gradient(135deg,#4dd0e1,#1f8fa8);
+  --sh-glow:0 8px 26px rgba(77,208,225,.28);
+}
+[data-theme="forest"]{
+  --bg:#07130c; --bg2:#0c2116; --card:#12291c; --card2:#183524; --line:#22492f;
+  --txt:#e8ffee; --mut:#93c3a4; --gold:#7ee08a; --gold2:#3fae57; --grn:#3ee0a5;
+  --blu:#5fd0ff; --prp:#c0a2ff; --grad:linear-gradient(135deg,#7ee08a,#2e9c4a);
+  --sh-glow:0 8px 26px rgba(126,224,138,.25);
+}
+[data-theme="royal"]{
+  --bg:#0d0618; --bg2:#180d2a; --card:#22123a; --card2:#2c1849; --line:#432766;
+  --txt:#f3e9ff; --mut:#b39ad4; --gold:#d8a6ff; --gold2:#a86fe0; --grn:#4fe0b8;
+  --blu:#7fb0ff; --prp:#e2b8ff; --grad:linear-gradient(135deg,#d8a6ff,#8b4fd6);
+  --sh-glow:0 8px 26px rgba(216,166,255,.28);
+}
+[data-theme="sunset"]{
+  --bg:#180a09; --bg2:#2a1110; --card:#381916; --card2:#48211c; --line:#6b322a;
+  --txt:#fff0ea; --mut:#d8a494; --gold:#ffb069; --gold2:#ef7a3d; --grn:#4fd6a0;
+  --blu:#8fb6ff; --prp:#ff9ecd; --grad:linear-gradient(135deg,#ffb069,#e85d3b);
+  --sh-glow:0 8px 26px rgba(255,176,105,.3);
+}
+[data-theme="neon"]{
+  --bg:#050510; --bg2:#0a0a1e; --card:#101028; --card2:#16163a; --line:#2b2b62;
+  --txt:#eafaff; --mut:#93a3d6; --gold:#39ffd0; --gold2:#00d8ff; --grn:#39ff88;
+  --red:#ff3d7f; --blu:#5f7bff; --prp:#c14dff; --grad:linear-gradient(135deg,#39ffd0,#5f7bff);
+  --sh-glow:0 8px 26px rgba(57,255,208,.32);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۲. پایه (Reset & Base)
+   ═══════════════════════════════════════════════════════════════════ */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:Vazirmatn,system-ui,"Segoe UI",Tahoma,sans-serif;
+  font-size:var(--fs-base);
+  background:
+    radial-gradient(1100px 600px at 85% -10%,rgba(90,130,220,.16) 0%,transparent 60%),
+    radial-gradient(900px 500px at 10% 110%,rgba(60,180,150,.13) 0%,transparent 60%),
+    var(--bg);
+  color:var(--txt);overflow-x:hidden;
+  transition:background var(--dur-slow) var(--ease),color var(--dur-norm) var(--ease);
+}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+.hide{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mt2{margin-top:var(--sp-2)}.mt3{margin-top:var(--sp-3)}.mt4{margin-top:var(--sp-4)}
+.center{text-align:center}.mut{color:var(--mut)}.sp{flex:1}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۳. پوسته و چیدمان
+   ═══════════════════════════════════════════════════════════════════ */
+#app{max-width:960px;margin:0 auto;padding:0 14px 120px}
+.screen{display:none}
+.screen.active{display:block;animation:screenIn var(--dur-norm) var(--ease) both}
+.screen.leaving{display:block;animation:screenOut var(--dur-fast) var(--ease) both}
+@keyframes screenIn{from{opacity:0;transform:translateY(14px) scale(.995)}to{opacity:1;transform:none}}
+@keyframes screenOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+/* Topbar */
+.top{
+  position:sticky;top:0;z-index:40;margin:0 -14px 14px;padding:10px 16px 8px;
+  background:color-mix(in srgb,var(--bg) 84%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line)
+}
+@supports not (background:color-mix(in srgb,red,blue)){.top{background:var(--bg)}}
+.top .row1{display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800}
+.logo{
+  width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:21px;
+  background:var(--grad);color:#1a1204;box-shadow:var(--sh-glow);flex:none
+}
+.brand small{display:block;font-weight:500;font-size:var(--fs-xs);color:var(--mut)}
+.iconbtn{
+  width:38px;height:38px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--card);
+  display:grid;place-items:center;position:relative;transition:transform var(--dur-fast) var(--ease),background var(--dur-fast)
+}
+.iconbtn:hover{background:var(--card2);transform:translateY(-2px)}
+.dot{position:absolute;top:5px;left:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--red);border:2px solid var(--card)}
+/* نوار سطح در topbar */
+.lvlbar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.lvlbar .lname{font-size:var(--fs-xs);color:var(--mut);white-space:nowrap}
+.lvlbar .track{flex:1;height:6px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-full);overflow:hidden}
+.lvlbar .track i{display:block;height:100%;background:var(--grad);width:0;
+  transition:width var(--dur-slow) var(--ease)}
+.lvlbar .coin{font-size:var(--fs-xs);color:var(--gold);white-space:nowrap;font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۴. قهرمان صفحه / آمار / دستاوردها
+   ═══════════════════════════════════════════════════════════════════ */
+.hero{
+  position:relative;border-radius:var(--r-lg);padding:var(--sp-6) var(--sp-5);margin-bottom:var(--sp-5);
+  background:linear-gradient(150deg,var(--card2),var(--bg2) 65%);
+  border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh-md)
+}
+.hero:before{
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;
+  background:linear-gradient(120deg,rgba(245,196,81,.85),rgba(47,211,155,.3),rgba(167,123,255,.5));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none
+}
+.hero:after{
+  content:"";position:absolute;width:230px;height:230px;border-radius:50%;inset-inline-start:-70px;top:-110px;
+  background:radial-gradient(circle,rgba(245,196,81,.2),transparent 70%)
+}
+.hero h1{font-size:clamp(20px,5.2vw,29px);line-height:1.55}
+.hero p{color:var(--mut);margin:var(--sp-2) 0 var(--sp-4);font-size:var(--fs-base)}
+.chips{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.chip{
+  font-size:var(--fs-xs);padding:7px 12px;border-radius:var(--r-full);
+  background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--mut);
+  display:inline-flex;align-items:center;gap:4px
+}
+.chip.on{background:rgba(47,211,155,.13);border-color:rgba(47,211,155,.45);color:var(--grn)}
+.chip.off{background:rgba(255,95,109,.12);border-color:rgba(255,95,109,.4);color:var(--red)}
+.chip.gold{background:var(--grad-soft);border-color:rgba(245,196,81,.45);color:var(--gold)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-2);margin-bottom:var(--sp-5)}
+@media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--sp-3) var(--sp-2);text-align:center;transition:transform var(--dur-norm) var(--ease),border-color var(--dur-fast)
+}
+.stat:hover{transform:translateY(-3px);border-color:var(--gold)}
+.stat b{display:block;font-size:var(--fs-xl);color:var(--gold)}
+.stat span{font-size:var(--fs-xs);color:var(--mut)}
+
+/* مأموریت‌ها */
+.mission{display:flex;align-items:center;gap:var(--sp-3);padding:10px 12px;border-radius:var(--r-sm);
+  background:var(--bg2);border:1px solid var(--line);margin-bottom:var(--sp-2)}
+.mission .mbar{flex:1;height:6px;background:var(--card);border-radius:var(--r-full);overflow:hidden}
+.mission .mbar i{display:block;height:100%;background:var(--grn);width:0;transition:width var(--dur-slow)}
+.mission.done{opacity:.65}
+.mission.done .mbar i{background:var(--gold)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۵. دسته‌بندی و کاشی بازی‌ها
+   ═══════════════════════════════════════════════════════════════════ */
+.cat{margin-bottom:var(--sp-6)}
+.cat-head{
+  display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--sp-1) var(--sp-3);margin-bottom:var(--sp-3);
+  border-bottom:1px dashed var(--line);position:relative
+}
+.cat-head:after{content:"";position:absolute;bottom:-1px;inset-inline-end:0;width:120px;height:2px;
+  border-radius:2px;background:var(--grad)}
+.cat-ico{width:44px;height:44px;border-radius:var(--r-sm);display:grid;place-items:center;font-size:22px;
+  background:var(--card2);border:1px solid var(--line);flex:none}
+.cat-head h2{font-size:var(--fs-lg)}
+.cat-head p{font-size:var(--fs-xs);color:var(--mut);margin-top:3px}
+.cat-cnt{margin-inline-start:auto;font-size:var(--fs-xs);color:var(--mut);background:var(--card);
+  border:1px solid var(--line);padding:5px 10px;border-radius:var(--r-full);white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(156px,1fr));gap:var(--sp-3)}
+.tile{
+  position:relative;background:linear-gradient(160deg,var(--card),var(--bg2));
+  border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-4) 14px;
+  transition:transform var(--dur-norm) var(--ease),border-color var(--dur-fast),box-shadow var(--dur-norm);
+  overflow:hidden;text-align:start;width:100%;display:block
+}
+.tile:hover,.tile:focus-visible{transform:translateY(-4px);border-color:var(--gold);box-shadow:var(--sh-md)}
+.tile:active{transform:scale(.985)}
+.tile .ti{font-size:30px;margin-bottom:10px;display:block}
+.tile b{display:block;font-size:var(--fs-base);margin-bottom:5px}
+.tile small{color:var(--mut);font-size:var(--fs-xs);line-height:1.7}
+.tag{
+  position:absolute;top:10px;inset-inline-start:10px;font-size:9.5px;padding:4px 8px;border-radius:var(--r-full);
+  background:var(--grad);color:#1a1204;font-weight:700
+}
+.tag.g{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.tag.p{background:linear-gradient(135deg,#a77bff,#7c4dff);color:#fff}
+.tag.r{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
+.tile.locked{opacity:.45;filter:grayscale(.6)}
+.tile.locked:hover{transform:none;border-color:var(--line)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۶. اجزای پایه: دکمه، ورودی، کارت
+   ═══════════════════════════════════════════════════════════════════ */
+.btn{
+  border:0;border-radius:14px;padding:13px 18px;font-weight:700;
+  background:var(--grad);color:#1a1204;
+  transition:transform var(--dur-fast) var(--ease),box-shadow var(--dur-fast),filter var(--dur-fast);
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2)
+}
+.btn:hover{transform:translateY(-2px);box-shadow:var(--sh-glow)}
+.btn:active{transform:none}
+.btn.gh{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+.btn.gh:hover{box-shadow:none;background:var(--card2)}
+.btn.dg{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
+.btn.ok{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.btn.w{width:100%}
+.btn.sm{padding:9px 13px;font-size:var(--fs-sm);border-radius:var(--r-sm)}
+.btn:disabled{opacity:.45;transform:none;box-shadow:none;filter:grayscale(.4)}
+.inp{
+  width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:12px 14px;outline:0;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)
+}
+.inp:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.12)}
+.inp.bad{border-color:var(--red);background:rgba(255,95,109,.08)}
+.inp.good{border-color:var(--grn);background:rgba(47,211,155,.08)}
+.lbl{display:block;font-size:var(--fs-xs);color:var(--mut);margin:14px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-4)}
+.card.tight{padding:var(--sp-3)}
+.row{display:flex;align-items:center;gap:var(--sp-2)}
+.sep{height:1px;background:var(--line);margin:var(--sp-3) 0}
+.switch{width:46px;height:26px;border-radius:var(--r-full);background:var(--card2);border:1px solid var(--line);
+  position:relative;flex:none;transition:background var(--dur-fast)}
+.switch:after{content:"";position:absolute;top:2px;inset-inline-end:2px;width:20px;height:20px;border-radius:50%;
+  background:var(--mut);transition:transform var(--dur-norm) var(--ease),background var(--dur-fast)}
+.switch.on{background:var(--grad-soft);border-color:var(--gold)}
+.switch.on:after{transform:translateX(20px);background:var(--gold)}
+
+/* هدر صفحه */
+.phead{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4)}
+.phead h2{font-size:var(--fs-lg)}
+.phead p{font-size:var(--fs-xs);color:var(--mut);margin-top:2px}
+.back{width:38px;height:38px;border-radius:var(--r-sm);border:1px solid var(--line);
+  background:var(--card);font-size:18px;flex:none}
+.back:hover{background:var(--card2)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۷. پوسته بازی
+   ═══════════════════════════════════════════════════════════════════ */
+.gbar{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:var(--r-full);
+  padding:7px 13px;font-size:var(--fs-sm);display:inline-flex;align-items:center;gap:5px}
+.pill b{color:var(--gold)}
+.prog{height:7px;background:var(--card);border-radius:var(--r-full);overflow:hidden;margin-bottom:var(--sp-4)}
+.prog i{display:block;height:100%;background:var(--grad);width:0;transition:width var(--dur-norm) var(--ease)}
+/* حلقه پیشرفت */
+.ring{width:64px;height:64px;flex:none;position:relative;display:grid;place-items:center}
+.ring svg{transform:rotate(-90deg);width:100%;height:100%}
+.ring circle{fill:none;stroke-width:7;stroke-linecap:round}
+.ring .bgc{stroke:var(--card2)}
+.ring .fgc{stroke:var(--gold);transition:stroke-dashoffset var(--dur-slow) var(--ease)}
+.ring b{position:absolute;font-size:var(--fs-sm);color:var(--gold)}
+.qbox{
+  background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:var(--sp-5) var(--sp-4);text-align:center;margin-bottom:var(--sp-4)
+}
+.qbox .ar{font-size:var(--fs-xl);line-height:2.3;color:var(--gold)}
+.qbox .qq{font-size:var(--fs-lg);line-height:2}
+.qbox .hint{font-size:var(--fs-xs);color:var(--mut);margin-top:10px}
+.qbox .fatwa{font-size:var(--fs-sm);color:var(--grn);margin-top:10px;padding:10px;
+  background:rgba(47,211,155,.09);border-radius:var(--r-sm);line-height:1.9}
+.opts{display:grid;gap:var(--sp-2)}
+.opt{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  text-align:start;transition:border-color var(--dur-fast),transform var(--dur-fast) var(--ease);
+  display:flex;align-items:center;gap:var(--sp-2);width:100%
+}
+.opt:hover:not(:disabled){border-color:var(--gold);transform:translateX(-4px)}
+.opt .n{width:26px;height:26px;border-radius:var(--r-xs);background:var(--bg2);display:grid;
+  place-items:center;font-size:var(--fs-xs);color:var(--mut);flex:none}
+.opt.right{background:rgba(47,211,155,.14);border-color:var(--grn)}
+.opt.wrong{background:rgba(255,95,109,.14);border-color:var(--red)}
+.opt.out{opacity:.3}
+.opt:disabled{cursor:default;transform:none}
+.combo{position:fixed;inset-inline-start:50%;top:80px;transform:translateX(50%);z-index:150;
+  font-size:var(--fs-2xl);font-weight:800;color:var(--gold);pointer-events:none;
+  animation:pop var(--dur-slow) var(--ease) both}
+@keyframes pop{0%{transform:translateX(50%) scale(.4);opacity:0}
+  40%{transform:translateX(50%) scale(1.15);opacity:1}100%{transform:translateX(50%) scale(1);opacity:0}}
+
+/* حروف / پازل کلمه */
+.chipsrow{display:flex;gap:var(--sp-2);flex-wrap:wrap;justify-content:center;margin-bottom:var(--sp-4)}
+.lchip{width:46px;height:52px;border-radius:var(--r-sm);background:var(--card);border:1px solid var(--line);
+  font-size:21px;color:var(--gold);transition:transform var(--dur-fast) var(--ease),background var(--dur-fast)}
+.lchip:hover{background:var(--card2);transform:translateY(-3px)}
+.lchip.used{opacity:.25;pointer-events:none}
+.slot{min-height:56px;border:1.5px dashed var(--line);border-radius:14px;display:flex;
+  gap:var(--sp-2);justify-content:center;align-items:center;padding:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-3)}
+
+/* حافظه / تطبیق */
+.mgrid{display:grid;gap:9px}
+.mcard{aspect-ratio:3/4;border-radius:14px;border:1px solid var(--line);background:var(--card2);
+  display:grid;place-items:center;font-size:var(--fs-sm);padding:6px;text-align:center;
+  transition:transform var(--dur-norm) var(--ease),background var(--dur-norm);width:100%}
+.mcard:hover{transform:translateY(-2px)}
+.mcard.flip,.mcard.done{background:linear-gradient(150deg,#1c2b49,#16233f);border-color:var(--gold)}
+.mcard.done{background:rgba(47,211,155,.15);border-color:var(--grn);pointer-events:none}
+.mcard .face{display:none}.mcard.flip .face,.mcard.done .face{display:block}
+.mcard .cover{font-size:24px;color:var(--gold)}
+.mcard.flip .cover,.mcard.done .cover{display:none}
+.mcols{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);position:relative}
+.mitem{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;
+  font-size:var(--fs-sm);line-height:1.8;transition:border-color var(--dur-fast),background var(--dur-fast);
+  width:100%;text-align:start;touch-action:none;user-select:none;-webkit-user-select:none}
+.mitem.sel,.mitem.drag{border-color:var(--gold);background:var(--card2);transform:scale(1.02)}
+.mitem.done{opacity:.35;pointer-events:none;border-color:var(--grn)}
+.mitem.wrong{border-color:var(--red);animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.mlines{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.mlines line{stroke:var(--grn);stroke-width:2.5;stroke-linecap:round;animation:dash var(--dur-slow) var(--ease) both}
+@keyframes dash{from{stroke-dasharray:0 200}to{stroke-dasharray:200 0}}
+
+/* دوز */
+.dooz{display:grid;gap:9px;max-width:340px;margin:0 auto var(--sp-4)}
+.dcell{aspect-ratio:1;border-radius:16px;background:var(--card);border:1px solid var(--line);
+  font-size:32px;transition:background var(--dur-fast);display:grid;place-items:center}
+.dcell:hover{background:var(--card2)}
+.dcell.win{background:rgba(47,211,155,.2);border-color:var(--grn)}
+.dcell.last{box-shadow:0 0 0 2px var(--blu) inset}
+
+/* اسم فامیل */
+.efgrid{display:grid;gap:var(--sp-2)}
+.efrow{display:grid;grid-template-columns:88px 1fr;gap:9px;align-items:center}
+.efrow span{font-size:var(--fs-sm);color:var(--mut)}
+.letter{width:74px;height:74px;border-radius:var(--r-lg);background:var(--grad);color:#1a1204;
+  display:grid;place-items:center;font-size:34px;font-weight:800;margin:0 auto var(--sp-2)}
+
+/* چهار حرف (دار) */
+.hang{display:grid;place-items:center;margin-bottom:var(--sp-4)}
+.hang svg{width:190px;height:190px;max-width:70vw}
+.hang .stroke{stroke:var(--gold);stroke-width:4;stroke-linecap:round;fill:none;
+  animation:draw .4s var(--ease) both}
+@keyframes draw{from{opacity:0}to{opacity:1}}
+.word{display:flex;gap:8px;justify-content:center;direction:rtl;margin-bottom:var(--sp-4);flex-wrap:wrap}
+.word span{width:34px;height:44px;border-bottom:3px solid var(--line);display:grid;place-items:center;
+  font-size:22px;color:var(--gold);font-weight:700}
+.word span.open{border-bottom-color:var(--gold)}
+.word span.miss{border-bottom-color:var(--red);color:var(--red)}
+
+/* ریاضی سریع */
+.mathq{font-size:clamp(30px,10vw,52px);font-weight:800;text-align:center;color:var(--gold);
+  direction:ltr;letter-spacing:3px;margin:var(--sp-4) 0;font-variant-numeric:tabular-nums}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:340px;margin:0 auto}
+.numpad button{aspect-ratio:1.4;border-radius:14px;background:var(--card);border:1px solid var(--line);
+  font-size:22px;font-weight:700;transition:transform var(--dur-fast)}
+.numpad button:hover{background:var(--card2);transform:translateY(-2px)}
+.numpad button.ok{background:var(--grad);color:#1a1204}
+.numpad button.dg{background:rgba(255,95,109,.15);border-color:var(--red);color:var(--red)}
+
+/* هدف‌گیری */
+.reflex{position:relative;height:340px;border-radius:var(--r-lg);border:1px dashed var(--line);
+  background:var(--bg2);overflow:hidden;margin-bottom:var(--sp-4);touch-action:manipulation}
+.target{position:absolute;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
+  font-size:26px;background:var(--grad);border:0;box-shadow:var(--sh-glow);
+  animation:targetIn var(--dur-fast) var(--ease) both}
+.target.gold{background:linear-gradient(135deg,#ffd76e,#f0a020)}
+.target.bomb{background:linear-gradient(135deg,#ff5f6d,#b02030)}
+@keyframes targetIn{from{transform:scale(0)}to{transform:scale(1)}}
+.target.hit{animation:hitOut var(--dur-fast) both}
+@keyframes hitOut{to{transform:scale(1.6);opacity:0}}
+
+/* پازل تصویری */
+.pzgrid{display:grid;gap:4px;border-radius:var(--r);overflow:hidden;background:var(--line);
+  padding:4px;margin-bottom:var(--sp-3);position:relative}
+.pzcell{aspect-ratio:1;border:0;background-size:cover;background-repeat:no-repeat;
+  transition:transform var(--dur-fast) var(--ease),box-shadow var(--dur-fast);position:relative}
+.pzcell.sel{box-shadow:0 0 0 3px var(--gold) inset;z-index:2;transform:scale(.97)}
+.pzcell em{position:absolute;bottom:2px;inset-inline-end:4px;font-style:normal;font-size:10px;
+  color:#fff;text-shadow:0 1px 3px #000;opacity:.8}
+
+/* جمله‌سازی */
+.sentpool{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center;margin-bottom:var(--sp-3)}
+.wchip{padding:9px 13px;border-radius:var(--r-sm);background:var(--card);border:1px solid var(--line);
+  font-size:var(--fs-base);transition:transform var(--dur-fast)}
+.wchip:hover{transform:translateY(-2px);background:var(--card2)}
+.wchip.used{opacity:.25;pointer-events:none}
+
+/* نتیجه بازی */
+.res{text-align:center;padding:var(--sp-6) var(--sp-4)}
+.res .big{font-size:56px;margin-bottom:var(--sp-2)}
+.res h3{font-size:var(--fs-xl);margin-bottom:6px}
+.res .stars{font-size:30px;letter-spacing:6px;margin:var(--sp-3) 0}
+.res .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2);margin:var(--sp-4) 0}
+
+/* لیست و چت */
+.list{display:grid;gap:9px}
+.item{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:11px 13px}
+.item .av{width:36px;height:36px;border-radius:11px;background:var(--card2);display:grid;
+  place-items:center;font-size:17px;flex:none}
+.item b{font-size:var(--fs-sm)}.item small{color:var(--mut);font-size:var(--fs-xs);display:block}
+.chatbox{height:260px;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);
+  margin-bottom:10px;overscroll-behavior:contain}
+.msg{max-width:80%;padding:9px 12px;border-radius:14px;font-size:var(--fs-sm);line-height:1.7;
+  background:var(--card2);align-self:flex-start;word-break:break-word;position:relative}
+.msg.me{background:linear-gradient(135deg,#2a3d63,#213254);align-self:flex-end}
+.msg.sys{align-self:center;background:transparent;color:var(--mut);font-size:var(--fs-xs)}
+.msg .who{font-size:10px;color:var(--gold);display:block;margin-bottom:3px}
+.msg .rx{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.msg .rx button{font-size:12px;opacity:.6;padding:0 2px;border-radius:6px}
+.msg .rx button:hover,.msg .rx button.on{opacity:1;background:rgba(255,255,255,.08)}
+.typing{font-size:var(--fs-xs);color:var(--mut);height:16px;margin-bottom:6px}
+.emojibar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--sp-2)}
+.emojibar button{font-size:19px;padding:2px 4px;border-radius:8px}
+.emojibar button:hover{background:var(--card2)}
+
+/* تب‌ها */
+.tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;margin-bottom:var(--sp-4);
+  scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{white-space:nowrap;padding:9px 14px;border-radius:var(--r-full);background:var(--card);
+  border:1px solid var(--line);font-size:var(--fs-sm);transition:background var(--dur-fast)}
+.tab.on{background:var(--grad);color:#1a1204;border-color:transparent;font-weight:700}
+
+/* نوار پایین */
+.nav{
+  position:fixed;bottom:0;inset-inline:0;z-index:50;
+  background:color-mix(in srgb,var(--bg) 90%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--line);display:flex;justify-content:space-around;
+  padding:9px 6px calc(9px + env(safe-area-inset-bottom))
+}
+@supports not (background:color-mix(in srgb,red,blue)){.nav{background:var(--bg)}}
+.nav button{
+  color:var(--mut);font-size:10.5px;display:grid;justify-items:center;gap:3px;
+  padding:5px 12px;border-radius:var(--r-sm);transition:color var(--dur-fast),background var(--dur-fast)
+}
+.nav button i{font-size:19px;font-style:normal}
+.nav button.on{color:var(--gold);background:rgba(245,196,81,.09)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۸. اعلان / مودال / باتم‌شیت / اسکلتون / حالت خالی
+   ═══════════════════════════════════════════════════════════════════ */
+#toasts{position:fixed;top:14px;inset-inline-start:50%;transform:translateX(50%);z-index:200;
+  display:grid;gap:var(--sp-2);width:calc(100% - 28px);max-width:400px;pointer-events:none}
+#toasts.bottom{top:auto;bottom:90px}
+.toast{background:var(--card2);border:1px solid var(--line);border-inline-end:4px solid var(--gold);
+  border-radius:var(--r-sm);padding:12px 14px;font-size:var(--fs-sm);box-shadow:var(--sh-lg);
+  display:flex;align-items:center;gap:var(--sp-2);animation:toastIn var(--dur-norm) var(--ease) both}
+.toast.ok{border-inline-end-color:var(--grn)}
+.toast.err{border-inline-end-color:var(--red)}
+.toast.out{animation:toastOut var(--dur-norm) var(--ease) both}
+@keyframes toastIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-14px) scale(.96)}}
+
+#modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.72);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:none;place-items:center;padding:18px}
+#modal.on{display:grid}
+#modal .box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--sp-5);
+  width:100%;max-width:440px;animation:sheetIn var(--dur-norm) var(--ease) both;
+  max-height:86vh;overflow:auto;overscroll-behavior:contain}
+@keyframes sheetIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+
+/* باتم‌شیت موبایل */
+#sheet{position:fixed;inset:0;z-index:290;display:none}
+#sheet.on{display:block}
+#sheet .veil{position:absolute;inset:0;background:rgba(4,7,14,.6)}
+#sheet .panel{position:absolute;inset-inline:0;bottom:0;background:var(--card);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;border-top:1px solid var(--line);
+  padding:var(--sp-4) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  max-height:82vh;overflow:auto;animation:upIn var(--dur-norm) var(--ease) both}
+#sheet .grip{width:44px;height:4px;border-radius:9px;background:var(--line);margin:0 auto var(--sp-3)}
+@keyframes upIn{from{transform:translateY(100%)}to{transform:none}}
+@media(min-width:700px){#sheet .panel{inset-inline:auto;inset-inline-start:50%;transform:translateX(50%);
+  bottom:auto;top:50%;border-radius:var(--r-lg);width:440px;animation:sheetIn var(--dur-norm) var(--ease) both}}
+
+/* اسکلتون */
+.skel{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);
+  background-size:200% 100%;animation:shimmer 1.3s infinite linear;border-radius:var(--r-sm);height:16px;
+  margin-bottom:var(--sp-2)}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* حالت خالی */
+.empty{text-align:center;color:var(--mut);font-size:var(--fs-sm);padding:var(--sp-6) var(--sp-3)}
+.empty .eico{font-size:44px;display:block;margin-bottom:var(--sp-2);opacity:.7}
+
+/* آواتار و نشان */
+.avatar{border-radius:50%;display:grid;place-items:center;font-weight:800;flex:none;
+  background:var(--grad);color:#1a1204;text-transform:uppercase}
+.avatar.lg{width:72px;height:72px;font-size:30px}
+.avatar.md{width:44px;height:44px;font-size:18px}
+.avatar.sm{width:32px;height:32px;font-size:14px}
+.bpop{animation:bpop var(--dur-slow) var(--ease) both}
+@keyframes bpop{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.2)}100%{transform:none;opacity:1}}
+.badgewall{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:var(--sp-2)}
+.bcell{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 6px;
+  text-align:center;transition:transform var(--dur-fast) var(--ease)}
+.bcell:hover{transform:translateY(-3px)}
+.bcell.lock{opacity:.35;filter:grayscale(.8)}
+.bcell b{display:block;font-size:24px}
+.bcell span{font-size:10px;color:var(--mut);line-height:1.5}
+.bcell.c1{border-color:var(--grn)}.bcell.c2{border-color:var(--gold)}
+.bcell.c3{border-color:var(--prp)}.bcell.c4{border-color:var(--blu)}.bcell.c5{border-color:var(--red)}
+
+/* فروشگاه */
+.shopitem{display:flex;gap:var(--sp-3);align-items:center;background:var(--bg2);
+  border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;margin-bottom:var(--sp-2)}
+.shopitem .si{font-size:26px;flex:none;width:44px;text-align:center}
+.shopitem b{font-size:var(--fs-sm)}
+.shopitem small{display:block;color:var(--mut);font-size:var(--fs-xs);line-height:1.6}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۹. آنالیتیکس (نمودارهای CSS خالص)
+   ═══════════════════════════════════════════════════════════════════ */
+.bars{display:flex;align-items:flex-end;gap:6px;height:130px;padding:var(--sp-2) 0;
+  border-bottom:1px solid var(--line);margin-bottom:var(--sp-2)}
+.bars .b{flex:1;background:var(--grad);border-radius:6px 6px 0 0;min-height:3px;position:relative;
+  transition:height var(--dur-slow) var(--ease)}
+.bars .b:hover:after{content:attr(data-v);position:absolute;top:-22px;inset-inline-start:50%;
+  transform:translateX(50%);font-size:10px;color:var(--gold);white-space:nowrap}
+.bars .b.alt{background:linear-gradient(135deg,var(--grn),#12a97a)}
+.donut{width:126px;height:126px;border-radius:50%;display:grid;place-items:center;margin:0 auto;
+  position:relative;transition:background var(--dur-slow) var(--ease)}
+.donut:after{content:"";position:absolute;inset:16px;border-radius:50%;background:var(--card)}
+.donut b{position:relative;z-index:2;font-size:var(--fs-xl);color:var(--gold)}
+.timeline{display:flex;gap:4px;flex-wrap:wrap}
+.timeline i{width:15px;height:15px;border-radius:4px;background:var(--card2);border:1px solid var(--line);
+  display:block}
+.timeline i.on{background:var(--grad);border-color:transparent}
+.timeline i.frz{background:var(--blu);border-color:transparent}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۱۰. آنبردینگ و تولتیپ
+   ═══════════════════════════════════════════════════════════════════ */
+#onboard{position:fixed;inset:0;z-index:400;background:var(--bg);display:none;
+  padding:var(--sp-6) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom));
+  overflow:auto}
+#onboard.on{display:block}
+#onboard .slide{max-width:440px;margin:0 auto;text-align:center;animation:screenIn var(--dur-norm) var(--ease) both}
+#onboard .art{font-size:82px;margin:var(--sp-7) 0 var(--sp-4);display:block;
+  filter:drop-shadow(0 10px 24px rgba(245,196,81,.28))}
+#onboard h2{font-size:var(--fs-2xl);margin-bottom:var(--sp-3)}
+#onboard p{color:var(--mut);line-height:2;font-size:var(--fs-base)}
+#onboard .dots{display:flex;gap:8px;justify-content:center;margin:var(--sp-6) 0 var(--sp-4)}
+#onboard .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+#onboard .dots i.on{background:var(--gold);width:24px;border-radius:9px}
+.tip{position:fixed;z-index:250;background:var(--card2);border:1px solid var(--gold);
+  border-radius:var(--r-sm);padding:12px 14px;max-width:260px;font-size:var(--fs-sm);line-height:1.9;
+  box-shadow:var(--sh-lg);animation:toastIn var(--dur-norm) var(--ease) both}
+.tip:after{content:"";position:absolute;width:12px;height:12px;background:var(--card2);
+  border-inline-end:1px solid var(--gold);border-bottom:1px solid var(--gold);
+  bottom:-7px;inset-inline-start:24px;transform:rotate(45deg)}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ۱۱. دسترس‌پذیری و چاپ
+   ═══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+@media print{.nav,.top,#toasts{display:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ لایه‌های شناور ═══════════ -->
+<div id="toasts" aria-live="polite" aria-atomic="true"></div>
+<div id="modal" role="dialog" aria-modal="true" aria-label="پنجره"><div class="box" id="modalBox"></div></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-label="پنل">
+  <div class="veil" data-sheet-close></div>
+  <div class="panel"><div class="grip"></div><div id="sheetBody"></div></div>
+</div>
+<div id="onboard" role="dialog" aria-modal="true" aria-label="آشنایی"></div>
+<div id="tipLayer"></div>
+
+<div id="app">
+  <!-- ═══════════ نوار بالا ═══════════ -->
+  <header class="top">
+    <div class="row1">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🌟</div>
+        <div>نورستان<small id="tbSub">آموزش قرآن و بازی ایرانی</small></div>
+      </div>
+      <div class="sp"></div>
+      <button class="iconbtn" id="btnSearch" title="جستجوی بازی" aria-label="جستجوی بازی">🔍</button>
+      <button class="iconbtn" id="btnNotif" title="اعلان‌ها" aria-label="اعلان‌ها">🔔<span class="dot hide" id="notifDot"></span></button>
+      <button class="iconbtn" id="btnNet" title="وضعیت شبکه" aria-label="وضعیت شبکه">📡</button>
+    </div>
+    <div class="lvlbar">
+      <span class="lname" id="tbLevel">🌱 نوآموز</span>
+      <span class="track"><i id="tbXp"></i></span>
+      <span class="coin" id="tbCoin">🪙 ۰</span>
+    </div>
+  </header>
+
+  <!-- ═══════════ خانه ═══════════ -->
+  <section class="screen active" id="s-home" aria-label="خانه">
+    <div class="hero">
+      <h1 id="heroTitle">🌟 به نورستان خوش آمدی</h1>
+      <p id="heroSub">آموزش قرآن کریم، بازی‌های فکری ایرانی و محفل دوستان — همه در یک‌جا</p>
+      <div class="chips">
+        <span class="chip" id="cNet">⏳ بررسی شبکه</span>
+        <span class="chip" id="cStreak">🔥 زنجیره: ۰</span>
+        <span class="chip gold" id="cSuggest">✨ پیشنهاد امروز</span>
+        <span class="chip" id="cRole">👤 کاربر</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><b id="stStar">۰</b><span>⭐ ستاره</span></div>
+      <div class="stat"><b id="stScore">۰</b><span>🏆 امتیاز</span></div>
+      <div class="stat"><b id="stDone">۰</b><span>✅ کامل</span></div>
+      <div class="stat"><b id="stBadge">۰</b><span>🎖️ نشان</span></div>
+    </div>
+
+    <div class="cat" id="missionCat">
+      <div class="cat-head">
+        <div class="cat-ico">🎯</div>
+        <div><h2>مأموریت‌های امروز</h2><p>با انجام مأموریت‌ها سکه و نشان بگیر</p></div>
+        <span class="cat-cnt" id="missCnt">۰/۴</span>
+      </div>
+      <div id="missions"></div>
+    </div>
+
+    <div id="cats"></div>
+  </section>
+
+  <!-- ═══════════ محفل آنلاین ═══════════ -->
+  <section class="screen" id="s-online" aria-label="محفل">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>🌐 محفل نور</h2><p><b id="onCount">۰</b> نفر آنلاین</p></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><b style="font-size:13px">وضعیت اتصال</b><div class="sp"></div>
+        <span class="chip" id="netState">—</span></div>
+      <div class="sep"></div>
+      <label class="lbl" for="myPeer">شناسه شما</label>
+      <div class="row">
+        <input class="inp" id="myPeer" readonly>
+        <button class="btn gh" id="copyPeer" aria-label="کپی شناسه">📋</button>
+      </div>
+      <label class="lbl" for="netUrl">آدرس سرور WebSocket (خالی = حالت محلی چند‌تبی)</label>
+      <div class="row">
+        <input class="inp" id="netUrl" placeholder="ws://localhost:8787" dir="ltr">
+        <button class="btn" id="netConnect">اتصال</button>
+      </div>
+      <div class="sep"></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button class="btn ok" id="mkRoom">➕ ساخت روم</button>
+        <button class="btn gh" id="joinRoom">🔑 ورود با کد ۶ رقمی</button>
+        <button class="btn gh" id="guestName">🎭 نام مهمان</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="cat">
+      <div class="cat-head"><div class="cat-ico">👥</div>
+        <div><h2>بازیکنان آنلاین</h2><p>کاربران فعال در محفل</p></div>
+        <span class="cat-cnt" id="plCnt">۰</span></div>
+      <div class="list" id="players"><div class="skel" style="height:52px"></div><div class="skel" style="height:52px"></div></div>
+    </div>
+
+    <div class="cat">
+      <div class="cat-head"><div class="cat-ico">🏠</div>
+        <div><h2>روم‌های فعال</h2><p>برای ورود، روی روم بزن</p></div>
+        <span class="cat-cnt" id="rmCnt">۰</span></div>
+      <div class="list" id="rooms"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ روم ═══════════ -->
+  <section class="screen" id="s-room" aria-label="روم">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2 id="rmTitle">روم بازی</h2><p id="rmCode">—</p></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="row"><b style="font-size:13px">بازیکنان روم</b><div class="sp"></div>
+        <code class="chip gold" id="rmCodeChip" style="font-size:15px;letter-spacing:3px">------</code></div>
+      <div class="sep"></div>
+      <div class="list" id="rmPlayers"></div>
+    </div>
+
+    <div class="row" style="margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <button class="btn ok" id="rmStart" style="flex:1">▶️ شروع بازی</button>
+      <button class="btn gh" id="rmCopy">📋 کپی کد</button>
+      <button class="btn dg" id="rmLeave">🚪 خروج</button>
+    </div>
+
+    <div class="card">
+      <b style="font-size:13px">💬 چت روم</b>
+      <div class="sep"></div>
+      <div class="chatbox" id="chatBox"></div>
+      <div class="typing" id="typingInd"></div>
+      <div class="emojibar" id="emojiBar"></div>
+      <div class="row">
+        <input class="inp" id="chatInp" placeholder="پیام..." maxlength="200" style="flex:1" aria-label="متن پیام">
+        <button class="btn" id="chatSend" aria-label="ارسال">📤</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ بازی ═══════════ -->
+  <section class="screen" id="s-play" aria-label="بازی">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2 id="pgTitle">بازی</h2><p id="pgSub">—</p></div>
+      <div class="sp"></div>
+      <div class="ring" id="pgRing" hidden>
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="bgc" cx="50" cy="50" r="42"></circle>
+          <circle class="fgc" id="ringFg" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264"></circle>
+        </svg>
+        <b id="ringTxt">۰٪</b>
+      </div>
+    </div>
+    <div class="gbar" id="pgBar"></div>
+    <div class="prog" id="pgProgWrap"><i id="pgProg"></i></div>
+    <div id="pgBody"></div>
+  </section>
+
+  <!-- ═══════════ اعلان‌ها ═══════════ -->
+  <section class="screen" id="s-notif" aria-label="اعلان‌ها">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>🔔 اعلان‌ها</h2><p id="notifSub">۰ پیام</p></div>
+    </div>
+    <button class="btn gh w" id="clearNotif" style="margin-bottom:14px">🧹 پاک کردن همه</button>
+    <div class="list" id="notifList"></div>
+  </section>
+
+  <!-- ═══════════ پروفایل ═══════════ -->
+  <section class="screen" id="s-profile" aria-label="پروفایل">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>👤 پروفایل من</h2><p>هویت، آمار و افتخارات</p></div>
+    </div>
+    <div class="card" id="profileHead"></div>
+    <div class="sep"></div>
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      <button class="btn gh" id="pfShare">📤 اشتراک‌گذاری</button>
+      <button class="btn gh" id="pfEdit">✏️ ویرایش</button>
+      <button class="btn gh" id="pfBadges">🎖️ نشان‌ها</button>
+      <button class="btn gh" id="pfLb">🏆 لیدربورد</button>
+    </div>
+    <div class="sep"></div>
+    <div id="profileBody"></div>
+  </section>
+
+  <!-- ═══════════ فروشگاه ═══════════ -->
+  <section class="screen" id="s-shop" aria-label="فروشگاه">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>🛍️ فروشگاه نور</h2><p id="shopCoin">موجودی: ۰ سکه</p></div>
+    </div>
+    <div class="tabs" id="shopTabs">
+      <button class="tab on" data-st="theme">🎨 تم‌ها</button>
+      <button class="tab" data-st="avatar">😀 آواتار</button>
+      <button class="tab" data-st="power">⚡ قدرت‌ها</button>
+      <button class="tab" data-st="streak">🔥 زنجیره</button>
+    </div>
+    <div id="shopBody"></div>
+  </section>
+
+  <!-- ═══════════ آنالیتیکس ═══════════ -->
+  <section class="screen" id="s-analytics" aria-label="تحلیل من">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>📊 تحلیل من</h2><p>نمودارها و روند یادگیری</p></div>
+    </div>
+    <div id="analyticsBody"></div>
+  </section>
+
+  <!-- ═══════════ پنل مدیریت ═══════════ -->
+  <section class="screen" id="s-admin" aria-label="پنل مدیریت">
+    <div class="phead">
+      <button class="back" data-back aria-label="بازگشت">›</button>
+      <div><h2>👑 پنل مدیریت</h2><p>کنترل کامل بر محتوا و کاربران</p></div>
+    </div>
+    <div id="adminGate"></div>
+    <div id="adminMain" class="hide">
+      <div class="tabs" id="adminTabs">
+        <button class="tab on" data-tab="users">👥 کاربران</button>
+        <button class="tab" data-tab="rooms">🏠 روم‌ها</button>
+        <button class="tab" data-tab="games">🎮 بازی‌ها</button>
+        <button class="tab" data-tab="notif">📢 اعلان</button>
+        <button class="tab" data-tab="content">📚 محتوا</button>
+        <button class="tab" data-tab="badges">🎖️ نشان‌ها</button>
+        <button class="tab" data-tab="data">💾 داده‌ها</button>
+        <button class="tab" data-tab="ops">⚙️ عملیات</button>
+      </div>
+      <div id="adminBody"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ نوار پایین ═══════════ -->
+  <nav class="nav" aria-label="ناوبری اصلی">
+    <button data-nav="home" class="on" aria-label="خانه"><i>🏠</i>خانه</button>
+    <button data-nav="online" aria-label="محفل"><i>🌐</i>محفل</button>
+    <button data-nav="shop" aria-label="فروشگاه"><i>🛍️</i>فروشگاه</button>
+    <button data-nav="profile" aria-label="پروفایل"><i>👤</i>پروفایل</button>
+    <button data-nav="admin" aria-label="مدیریت"><i>👑</i>مدیریت</button>
+  </nav>
+</div>
