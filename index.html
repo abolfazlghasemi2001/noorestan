@@ -1161,6 +1161,56 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
   background:linear-gradient(135deg,#ffd27d,#e0a02c); color:#231603 }
 .step span{ font-size:12.5px; line-height:1.95; color:var(--txt) }
 html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
+/* ── بنر نصب خودکار PWA ──
+   چرا پایین و نه بالا؟ چون بالای صفحه یک سرصفحهٔ چسبان هست
+   (position:sticky; z-index:40) و بنر رویش می‌افتاد. پایین تنها جای
+   آزاد است، ولی سه چیز آن‌جا شلوغی می‌کنند: نوار پایین (z-50)،
+   پخش‌کنندهٔ کوچک قرآن (z-45، فقط هنگام خواندن) و پنل اشکال‌زدایی
+   (z-500). پس جای عمودی بنر با JS از روی ارتفاع واقعی آن‌ها حساب می‌شود،
+   نه با عدد ثابت؛ و z آن ۶۰ است: بالای نوار پایین، پایین‌تر از
+   toastها (۲۰۰) و مودال (۳۰۰) تا هیچ‌وقت رویشان نیفتد. */
+.ib{
+  position:fixed; inset-inline:10px; z-index:60;
+  display:flex; align-items:center; gap:11px;
+  padding:11px 12px; border-radius:16px;
+  border:1px solid var(--line);
+  background:linear-gradient(135deg,rgba(24,35,60,.97),rgba(19,28,49,.97));
+  backdrop-filter:blur(14px); box-shadow:0 14px 34px rgba(0,0,0,.55);
+  animation:ibIn .34s cubic-bezier(.2,.85,.25,1) both;
+}
+.ib[hidden]{ display:none }
+@keyframes ibIn{ from{ transform:translateY(120%); opacity:0 } to{ transform:none; opacity:1 } }
+.ib.out{ animation:ibOut .22s ease-in both }
+@keyframes ibOut{ to{ transform:translateY(120%); opacity:0 } }
+/* آیکن خودِ برنامه — همان شکل «ن» که در آیکن‌ها هست، کوچک */
+.ib .ib-logo{
+  width:40px; height:40px; flex:0 0 auto; border-radius:12px;
+  background:linear-gradient(135deg,#1b2946,#0a1020);
+  display:grid; place-items:center;
+  box-shadow:inset 0 0 0 1px rgba(245,196,81,.28);
+}
+.ib .ib-logo svg{ width:26px; height:26px; display:block }
+.ib .ib-t{ flex:1; min-width:0 }
+.ib .ib-t b{ display:block; font-size:13px; line-height:1.5 }
+.ib .ib-t small{ display:block; font-size:11px; color:var(--mut); line-height:1.7; margin-top:1px }
+.ib .ib-btns{ display:flex; align-items:center; gap:6px; flex:0 0 auto }
+.ib .ib-go{
+  border:0; cursor:pointer; font:inherit; font-weight:700; font-size:12px;
+  padding:9px 14px; border-radius:12px; white-space:nowrap;
+  background:var(--grad); color:var(--ink);
+}
+.ib .ib-go:active{ transform:scale(.96) }
+.ib .ib-x{
+  border:0; cursor:pointer; font:inherit; font-size:15px; line-height:1;
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(255,255,255,.07); color:var(--mut);
+}
+.ib .ib-x:hover{ background:rgba(255,255,255,.13); color:var(--txt) }
+.ib :focus-visible{ outline:3px solid var(--gold); outline-offset:2px }
+@media(max-width:360px){
+  .ib .ib-t small{ display:none }
+  .ib{ gap:8px; padding:9px 10px }
+}
 </style>
 </head>
 
@@ -1198,6 +1248,9 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 <div id="bgArt" aria-hidden="true"></div>
 
 <div id="toasts"></div>
+<!-- بنر نصب خودکار. خالی شروع می‌کند و Install.show() پرش می‌کند؛
+     hidden تا وقتی تصمیم گرفته نشده، تا یک لحظه هم بی‌جا دیده نشود. -->
+<div id="ib" class="ib" hidden role="region" aria-label="نصب اپلیکیشن نورستان"></div>
 <div id="modal"><div class="box" id="modalBox"></div></div>
 <!-- تازه‌وارد: چهار اسلاید. بیرون از #app است تا صفحهٔ زیرش بی‌حرکت بماند -->
 <div id="onb" class="onb" role="dialog" aria-modal="true" aria-label="راهنمای آغاز"></div>
@@ -1734,6 +1787,9 @@ const Store = {
       // SHA-256 واقعی «noor2024». توجه: هش نسخه ۱۲ اشتباه بود و ورود مدیر هرگز کار نمی‌کرد.
       adminHash: 'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded',
       isAdmin: false,
+      /* زمانِ آخرین بستنِ بنر نصب — ۰ یعنی هرگز نبسته. عدد است نه بولین،
+         چون می‌خواهیم پس از مدتی دوباره پیشنهاد شود (پایین را ببین). */
+      installBar: 0,
       serverUrl: '',
       notifications: [],
       leaderboard: []
@@ -1826,6 +1882,10 @@ const Store = {
     if(typeof d.settings.ambient !== 'boolean') d.settings.ambient = false;
     /* ── نسخهٔ ۱۶ ── */
     d.coins = Math.max(0, Math.floor(+d.coins) || 0);
+    /* بنر نصب: هر چیز بی‌شمار به ۰ برمی‌گردد (یعنی «نبسته»)، نه به NaN.
+       اگر NaN بماند، مقایسه‌های زمانی پایین همیشه false می‌شوند و بنر
+       بی‌دلیل هر بار برمی‌گردد. */
+    d.installBar = Math.max(0, Math.floor(+d.installBar) || 0);
     if(!d.wallet || typeof d.wallet !== 'object' || Array.isArray(d.wallet))
       d.wallet = { earned: 0, spent: 0, items: {} };
     if(!d.wallet.items || typeof d.wallet.items !== 'object' || Array.isArray(d.wallet.items))
@@ -8764,6 +8824,13 @@ function selfTest(){
        ['android','ios','desktop','other'].every(k => (Install.STEPS[k] || {}).rows.length >= 2));
     ok('راهنمای آی‌اواس مسیر سافاری را می‌گوید',
        Install.STEPS.ios.rows.some(r => /Add to Home Screen/.test(r[1])));
+
+    /* ── بنر نصب خودکار ── */
+    ok('بنر نصب در سند هست', !!document.querySelector('#ib'));
+    ok('بنر نصب مهلتِ پیشنهاد دوباره دارد', Install.OFFER_AGAIN_MS > 0);
+    ok('تعویق بنر بولین برمی‌گرداند', typeof Install.barSnoozed() === 'boolean');
+    /* قرارداد اصلی: اپِ نصب‌شده هرگز دوباره پیشنهاد نمی‌شود. */
+    ok('اپ نصب‌شده دیگر پیشنهاد نمی‌شود', !Install.installed() || !Install.canOffer());
     ok('پیوند مانیفست در سند هست', !!document.querySelector('link[rel="manifest"]'));
     ok('آیکن لمسی اپل در سند هست', !!document.querySelector('link[rel="apple-touch-icon"]'));
     ok('تگ تمام‌صفحهٔ iOS در سند هست',
@@ -10645,6 +10712,135 @@ const Install = {
     }
   },
 
+  /* ── بنر نصب خودکار ────────────────────────────────────────────
+     مثل توییتر: خودش می‌آید، یک دکمهٔ اصلی و یک دکمهٔ بستن دارد، و اگر
+     بستی دیگر نمی‌آید.
+
+     ذخیرهٔ رد شدن در localStorage است — از راه Store که خودش روی
+     localStorage می‌نشیند. ولی «همیشه» نیست: رد کردنِ ابدی یعنی کسی که
+     یک بار بست، هرگز دوباره دعوت نشود، حتی ماه‌ها بعد که نظرش عوض شده.
+     پس زمانِ رد شدن ذخیره می‌شود و پس از OFFER_AGAIN_MS دوباره پیشنهاد
+     می‌شود. عدد در یک ثابت است تا تغییرش یک‌جا باشد. */
+  BAR_KEY: 'installBar',
+  OFFER_AGAIN_MS: 14 * 24 * 60 * 60 * 1000,   // دو هفته
+  SPLASH_GRACE_MS: 4000,                      // بیمهٔ زمانی پردهٔ آغازین
+  T0: Date.now(),
+
+  barClosedAt(){ return +Store.get(this.BAR_KEY) || 0; },
+  barSnoozed(){
+    const t = this.barClosedAt();
+    return !!t && (Date.now() - t) < this.OFFER_AGAIN_MS;
+  },
+  /* بستن = نادیده‌گرفتن، نه لغو نصب. کارت تنظیمات سر جایش می‌ماند. */
+  snooze(){
+    Store.set(this.BAR_KEY, Date.now());
+    this.hide();
+  },
+  showing(){
+    const el = U.$('#ib');
+    return !!el && !el.hidden;
+  },
+  /* چهار شرط، و هر چهارتا لازم‌اند. ترتیبشان از ارزان به گران است. */
+  canOffer(){
+    if(this.installed()) return false;   // نصب شده — بنر بی‌معناست
+    if(this.barSnoozed()) return false;  // کاربر تازه بسته
+    const st = this.state();
+    /* فقط جایی که پیشنهاد واقعاً کار می‌کند، یا راهِ دستی‌اش را می‌دانیم.
+       روی «manual» (کرومِ دسکتاپی که هنوز رویداد نداده) بنر نمی‌آید،
+       چون دکمه‌اش یا بی‌اثر می‌شود یا کاربر را به راهنمایی می‌فرستد که
+       خودش می‌تواند باز کند. */
+    if(st !== 'ready' && st !== 'manual-ios') return false;
+    if(document.hidden) return false;                        // تب پنهان است
+    const m = U.$('#modal');
+    if(m && m.classList.contains('on')) return false;        // مودال باز است
+    /* پردهٔ آغازین: تا نرفته بنر نمیآید، وگرنه روی آن میافتد. سه نشانه
+       را میپذیریم و هر کدام کافی است — نبودِ عنصر، کلاس out، یا گذشتن
+       SPLASH_GRACE_MS. بیمهٔ زمانی مهم است: Splash در پایان عنصر را
+       حذف میکند، ولی اگر روزی آن مسیر خراب شود و کلاس out نیاید، بنر
+       تا ابد خفه میماند و هیچ‌کس هم نمی‌فهمد چرا. */
+    const sp = U.$('#splash');
+    if(sp && !sp.classList.contains('out') && (Date.now() - this.T0) < this.SPLASH_GRACE_MS)
+      return false;
+    return true;
+  },
+  /* جای عمودی از روی ارتفاع واقعی حساب می‌شود، نه عدد ثابت: نوار پایین
+     روی گوشی‌های باریک کوتاه‌تر است، و پخش‌کنندهٔ کوچک قرآن فقط وقتی
+     هست که کلاس on داشته باشد. با عدد ثابت، بنر روی یکی از آن دو
+     می‌افتاد. */
+  place(){
+    const el = U.$('#ib');
+    if(!el) return;
+    const nav = U.$('#nav');
+    let bottom = (nav ? nav.offsetHeight : 62) + 10;
+    const mini = U.$('#miniQ');
+    if(mini && mini.classList.contains('on')) bottom += mini.offsetHeight + 10;
+    el.style.bottom = bottom + 'px';
+  },
+  /* همان شکل «ن» که در آیکن‌های واقعی است، درون‌خطی و کوچک. پهنای
+     کادر ۱۰۰ گرفتیم نه ۹۲: سرِ دُم تا x≈۹۳٫۵ می‌رود و با ۹۲ بریده
+     می‌شد. */
+  LOGO: `<span class="ib-logo" aria-hidden="true">
+      <svg viewBox="0 0 100 100" fill="none" stroke="url(#ibg)" stroke-width="13" stroke-linecap="round">
+        <defs><linearGradient id="ibg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe08f"/><stop offset="1" stop-color="#dfa02b"/>
+        </linearGradient></defs>
+        <path d="M 77.95 57.63 A 34 34 0 0 1 14.05 57.63"/>
+        <path d="M 77.95 57.63 L 86.95 29"/>
+        <circle cx="46" cy="28" r="8" fill="url(#ibg)" stroke="none"/>
+      </svg></span>`,
+  paint(){
+    const el = U.$('#ib');
+    if(!el) return;
+    const ios = this.os() === 'ios';
+    const sub = ios
+      ? 'روی آیفون: «اشتراک» ← «Add to Home Screen»'
+      : 'آیکنش روی صفحهٔ اصلی می‌آید و بدون نوار آدرس باز می‌شود';
+    el.innerHTML = this.LOGO +
+      `<span class="ib-t"><b>📲 نورستان را نصب کن</b>
+        <small>${U.esc(sub)}</small></span>
+      <span class="ib-btns">
+        <button class="ib-go" id="ibGo">${ios ? 'چطور؟' : 'نصب'}</button>
+        <button class="ib-x" id="ibX" aria-label="بستن این پیشنهاد" title="بستن">✕</button>
+      </span>`;
+    U.$('#ibGo', el).onclick = () => this.act();
+    U.$('#ibX', el).onclick  = () => { Haptic.hit(); this.snooze(); };
+  },
+  /* دکمهٔ بنر: روی اندروید و دسکتاپ نصب واقعی، روی iOS راهنما. چرا؟
+     چون iOS هیچ‌وقت beforeinstallprompt نمی‌دهد؛ اگر همان‌جا دکمهٔ
+     «نصب» می‌گذاشتیم، کاربر آیفون هر بار می‌زد و هیچ نمی‌شد — همان
+     اشتباهی که در کارت تنظیمات هم از آن پرهیز شده. */
+  async act(){
+    Haptic.hit();
+    if(this.armed()){
+      const ok = await this.prompt();
+      if(ok) this.hide(); else this.snooze();
+      return;
+    }
+    this.guide();
+  },
+  open(){
+    const el = U.$('#ib');
+    if(!el) return false;
+    this.paint();
+    this.place();
+    el.hidden = false;
+    el.classList.remove('out');
+    return true;
+  },
+  /* بستن پویانمایى دارد، پس پیش از hidden شدن صبر می‌کنیم؛ وگرنه بنر
+     یک‌دفعه ناپدید می‌شود و پرش دیده می‌شود. */
+  hide(){
+    const el = U.$('#ib');
+    if(!el || el.hidden) return;
+    el.classList.add('out');
+    setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 220);
+  },
+  show(){
+    if(!this.canOffer()) return false;
+    if(this.showing()){ this.place(); return true; }
+    return this.open();
+  },
+
   /* راهنمای هر پلتفرم. متن‌ها عمداً کوتاه و شماره‌دارند: کاربر موبایل
      وسط کار است و نمی‌خواهد پاراگراف بخواند. */
   STEPS: {
@@ -10741,13 +10937,23 @@ const Install = {
       /* Router.current وجود ندارد؛ صفحهٔ جاری آخرین قلمِ پشته است. */
       const onMe = () => Router.stack[Router.stack.length - 1] === 'me';
       window.addEventListener('noorestan:bip', () => {
-        UI.toast('📲 نورستان قابل نصب است — از تنظیمات نصبش کن', 'ok', 3200);
+        UI.toast('📲 نورستان قابل نصب است', 'ok', 3200);
         if(onMe()) Me.render();
+        this.show();          // رویداد تازه رسید — بنر را بیاور
       });
       window.addEventListener('noorestan:installed', () => {
         UI.toast('✅ نصب شد. حالا از صفحهٔ اصلی بازش کن.', 'ok', 3200);
         if(onMe()) Me.render();
+        this.hide();          // دیگر بنری لازم نیست
       });
+      /* نوار پایین و پخش‌کنندهٔ کوچک با چرخش صفحه ارتفاعشان عوض می‌شود */
+      window.addEventListener('resize', () => this.place());
+      /* یک بار پس از پردهٔ آغازین و راهنمای شروع. چرا لازم است؟ چون iOS
+         هیچ رویدادی نمی‌دهد؛ اگر فقط به noorestan:bip تکیه کنیم، کاربر
+         آیفون هرگز بنر را نمی‌بیند — و او بیش از همه به راهنما نیاز دارد.
+         تایمر از نوع sys است نه page: تایمرهای page با هر تغییر مسیر پاک
+         می‌شوند و اگر کاربر در دو ثانیهٔ اول جایی برود، بنر نمی‌آمد. */
+      Timers.after(() => this.show(), 2200, 'sys');
     };
     try{ reg(); }catch(e){}
   }

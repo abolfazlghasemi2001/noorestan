@@ -1454,6 +1454,121 @@ section('کارت تنظیمات (Install.card)');
   ok('کارت HTML معتبر می‌سازد', evil.startsWith('<div class="card') && evil.endsWith('</div>'));
 }
 
+section('بنر نصب خودکار (Install.bar)');
+{
+  /* ── چرا DOM را خودمان می‌سازیم؟ ──
+     شبیه‌ساز _harness برای هر querySelector یک شیء *تازه* برمی‌گرداند،
+     پس نمی‌تواند «همان عنصر» را دو بار بدهد: innerHTML روی یکی نوشته
+     می‌شود و از دیگری خوانده می‌شود، و hidden هم هیچ‌وقت نمی‌ماند. هر
+     سنجشی که به هویت عنصر تکیه کند با آن شبیه‌ساز بی‌معنا می‌شود. پس
+     اینجا یک گرهٔ کوچک ولی پایدار می‌سازیم که همان چند چیزی را دارد که
+     بنر واقعاً استفاده می‌کند. */
+  const node = () => {
+    const kids = {}, cls = new Set();
+    return {
+      hidden: true, innerHTML: '', style: {}, onclick: null, offsetHeight: 40,
+      classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) },
+      querySelector: s => kids[s] || (kids[s] = node())
+    };
+  };
+  /* splash پیش‌فرض رفته است؛ با splash:false می‌توان جلوگیری‌اش را سنجید */
+  const withDom = (fn, opt) => {
+    opt = opt || {};
+    const q0 = document.querySelector;
+    const ib = node(), modal = node(), splash = node(), mini = node(), nav = node();
+    if(opt.modal) modal.classList.add('on');
+    if(opt.splash !== false) splash.classList.add('out');
+    const map = { '#ib': ib, '#modal': modal, '#splash': splash, '#miniQ': mini, '#nav': nav };
+    document.querySelector = s => map[s] || q0(s);
+    try{ return fn({ ib, modal, splash, mini, nav }); } finally { document.querySelector = q0; }
+  };
+  const keep = Store.get('installBar');
+  const day = 24 * 60 * 60 * 1000;
+  const onAndroid = fn => withNav({ userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/126' }, fn);
+  const onIos = fn => withNav({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)' }, fn);
+  const armed    = fn => withWin({ __bip: {} }, fn);
+  const notArmed = fn => withWin({ __bip: null }, fn);
+
+  Store.set('installBar', 0);
+  ok('گرهٔ بنر در سند هست', /<div id="ib" class="ib" hidden/.test(readSrc('index.html')));
+  ok('کلید بنر در پیش‌فرض‌ها هست', Store.defaults().installBar === 0);
+  ok('نبستن → زمان صفر', Install.barClosedAt() === 0);
+  ok('نبستن → نادیده گرفته نشده', Install.barSnoozed() === false);
+  ok('مهلت دوباره‌پیشنهاد دو هفته است', Install.OFFER_AGAIN_MS === 14 * day);
+  ok('مقدار خراب بنر را همیشه‌برنمی‌گرداند', (() => {
+    Store.set('installBar', NaN); Store.sanitize();
+    const v = Store.get('installBar'); Store.set('installBar', 0);
+    return v === 0;
+  })());
+
+  /* ── رد شدن در localStorage ── */
+  Install.snooze();
+  const at = Install.barClosedAt();
+  ok('بستن، زمانش را ذخیره می‌کند', at > Date.now() - 5000 && at <= Date.now());
+  ok('در localStorage نشسته (از راه Store که رویش می‌نشیند)',
+     +Store.get('installBar') === at && Store.KEY === 'noorestan_v14');
+  ok('بلافاصله پس از بستن → نادیده گرفته شده', Install.barSnoozed() === true);
+  Store.set('installBar', Date.now() - 13 * day);
+  ok('۱۳ روز بعد هنوز نادیده گرفته می‌شود', Install.barSnoozed() === true);
+  Store.set('installBar', Date.now() - 14 * day - 1000);
+  ok('بعد از دو هفته دوباره پیشنهاد می‌شود', Install.barSnoozed() === false);
+  Store.set('installBar', Date.now() - Install.OFFER_AGAIN_MS);
+  ok('دقیقاً روی مرز، دوباره پیشنهاد می‌شود', Install.barSnoozed() === false);
+  Store.set('installBar', 0);
+
+  /* ── canOffer: پنج شرط ── */
+  ok('رویداد هست و نبسته → پیشنهاد می‌شود',
+     withDom(() => onAndroid(() => armed(() => Install.canOffer()))) === true);
+  ok('اندرویدِ بی‌رویداد → پیشنهاد نمی‌شود',
+     withDom(() => onAndroid(() => notArmed(() => Install.canOffer()))) === false);
+  ok('آی‌اواس بی‌رویداد → پیشنهاد می‌شود (راهنمای دستی)',
+     withDom(() => onIos(() => notArmed(() => Install.canOffer()))) === true);
+  ok('نصب‌شده → پیشنهاد نمی‌شود',
+     withDom(() => withWin({ __bip: {}, matchMedia: q => ({ matches: /standalone/.test(q) }) },
+       () => Install.canOffer())) === false);
+  Store.set('installBar', Date.now());
+  ok('تازه‌بسته‌شده → پیشنهاد نمی‌شود',
+     withDom(() => onAndroid(() => armed(() => Install.canOffer()))) === false);
+  Store.set('installBar', 0);
+  ok('تب پنهان → پیشنهاد نمی‌شود', (() => {
+    const h = document.hidden; document.hidden = true;
+    const v = withDom(() => armed(() => Install.canOffer()));
+    document.hidden = h; return v === false;
+  })());
+  ok('مودالِ باز → پیشنهاد نمی‌شود',
+     withDom(() => armed(() => Install.canOffer()), { modal: true }) === false);
+  ok('پردهٔ آغازینِ نرفته → پیشنهاد نمی‌شود',
+     withDom(() => armed(() => Install.canOffer()), { splash: false }) === false);
+  ok('بیمهٔ زمانی: بعد از ۴ ثانیه پرده دیگر مانع نیست', (() => {
+    const t0 = Install.T0; Install.T0 = Date.now() - Install.SPLASH_GRACE_MS - 1;
+    const v = withDom(() => armed(() => Install.canOffer()), { splash: false });
+    Install.T0 = t0; return v === true;
+  })());
+
+  /* ── آرم: همان هندسهٔ آیکن‌های واقعی ── */
+  ok('آرم بنر کادر ۱۰۰ دارد نه ۹۲ (سرِ دُم تا x≈۹۳٫۵ می‌رود)',
+     Install.LOGO.includes('viewBox="0 0 100 100"'));
+  ok('آرم بنر همان کمان و دُم و نقطهٔ آیکن است',
+     Install.LOGO.includes('M 77.95 57.63 A 34 34 0 0 1 14.05 57.63') &&
+     Install.LOGO.includes('M 77.95 57.63 L 86.95 29') &&
+     Install.LOGO.includes('cx="46" cy="28" r="8"'));
+  ok('آرم بنر هم‌ضخامت آیکن است (۱۳)', Install.LOGO.includes('stroke-width="13"'));
+
+  /* ── paint: دو دکمهٔ خواسته‌شده ── */
+  const drew = withDom(d => { Install.paint(); return d.ib.innerHTML; });
+  ok('بنر دکمهٔ نصب دارد', /id="ibGo"/.test(drew));
+  ok('بنر دکمهٔ بستن دارد', /id="ibX"/.test(drew));
+  ok('دکمهٔ بستن برچسب دسترس‌پذیری دارد', /aria-label="بستن/.test(drew));
+  ok('بنر عنوان و زیرنویس دارد', drew.includes('ib-t') && drew.includes('نصب کن'));
+  ok('روی اندروید دکمه «نصب» است', /id="ibGo">نصب</.test(drew));
+  ok('روی اندروید وعدهٔ آیکن روی صفحهٔ اصلی داده می‌شود', drew.includes('صفحهٔ اصلی'));
+  const drewIos = withDom(d => { onIos(() => Install.paint()); return d.ib.innerHTML; });
+  ok('روی آی‌اواس دکمه «چطور؟» است، نه نصبِ بی‌اثر', /id="ibGo">چطور؟</.test(drewIos));
+  ok('روی آی‌اواس مسیر دستی گفته می‌شود', drewIos.includes('Add to Home Screen'));
+
+  Store.set('installBar', keep);
+}
+
 section('راهنمای نصب');
 ok('هر چهار پلتفرم گام دارند',
    ['android','ios','desktop','other'].every(k => Install.STEPS[k] && Install.STEPS[k].rows.length >= 2));
@@ -1799,6 +1914,102 @@ section('سرور — فایل‌های تازهٔ PWA');
   ok('همهٔ فایل‌های ریشهٔ PWA موجودند',
      ['index.html','manifest.json','sw.js','offline.html'].every(f => fs.existsSync(ROOT + '/' + f)),
      ['index.html','manifest.json','sw.js','offline.html'].filter(f => !fs.existsSync(ROOT + '/' + f)).join(','));
+}
+
+section('رفتار زندهٔ بنر نصب');
+{
+  const node = () => {
+    const kids = {}, cls = new Set();
+    return {
+      hidden: true, innerHTML: '', style: {}, onclick: null, offsetHeight: 40,
+      classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) },
+      querySelector: s => kids[s] || (kids[s] = node())
+    };
+  };
+  const withDom = (fn, opt) => {
+    opt = opt || {};
+    const q0 = document.querySelector;
+    const ib = node(), splash = node();
+    splash.classList.add('out');
+    const map = { '#ib': ib, '#splash': splash, '#modal': node(), '#miniQ': node(), '#nav': node() };
+    document.querySelector = s => map[s] || q0(s);
+    try{ return fn({ ib }); } finally { document.querySelector = q0; }
+  };
+  const grabHandlers = fn => {
+    const h = {}, $0 = U.$;
+    U.$ = (s, p) => (s === '#ibGo' || s === '#ibX') ? (h[s] = h[s] || {}) : $0(s, p);
+    try{ fn(); } finally { U.$ = $0; }
+    return h;
+  };
+  const onAndroid = fn => withNav({ userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/126' }, fn);
+  const onIos = fn => withNav({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)' }, fn);
+  const armed = fn => withWin({ __bip: {} }, fn);
+
+  const keep = Store.get('installBar');
+  Store.set('installBar', 0);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  ok('در آغاز پنهان است', withDom(() => Install.showing()) === false);
+  ok('open عنصر را آشکار می‌کند', withDom(d => { Install.open(); return d.ib.hidden; }) === false);
+  ok('پس از open، showing درست است', withDom(d => { Install.open(); return Install.showing(); }) === true);
+  ok('بستن پویانمایی دارد، پس بی‌درنگ پنهان نمی‌شود',
+     withDom(d => { Install.open(); Install.hide(); return d.ib.hidden; }) === false);
+  {
+    const d = withDom(x => x);
+    withDom(() => { Install.open(); Install.hide(); });
+    await wait(320);
+    ok('پس از پایان پویانمایی پنهان می‌شود', d.ib.hidden === true);
+  }
+
+  /* دکمهٔ ✕ باید هم پنهان کند و هم در localStorage ذخیره کند */
+  Store.set('installBar', 0);
+  {
+    const h = grabHandlers(() => withDom(() => Install.paint()));
+    ok('دکمهٔ بستن سیم‌کشی شده', typeof h['#ibX'].onclick === 'function');
+    ok('دکمهٔ نصب سیم‌کشی شده', typeof h['#ibGo'].onclick === 'function');
+    withDom(() => Install.open());
+    h['#ibX'].onclick();
+    await wait(320);
+    ok('دکمهٔ بستن بنر را پنهان می‌کند', withDom(() => Install.showing()) === false);
+    ok('دکمهٔ بستن رد شدن را ذخیره می‌کند', Install.barSnoozed() === true);
+  }
+  ok('پس از بستن، show دوباره نمی‌آورد',
+     withDom(() => onAndroid(() => armed(() => Install.show()))) === false);
+  ok('اما کارت تنظیمات سر جایش می‌ماند',
+     /id="setInstall"/.test(withDom(() => onAndroid(() => armed(() => Install.card())))));
+
+  /* روی آی‌اواس دکمهٔ بنر باید راهنما بدهد، نه promptِ بی‌اثر */
+  Store.set('installBar', 0);
+  {
+    const g0 = Install.guide, p0 = Install.prompt;
+    let guided = false, prompted = false;
+    Install.guide = () => { guided = true; };
+    Install.prompt = async () => { prompted = true; return false; };
+    const h = grabHandlers(() => withDom(() => Install.paint()));
+    await withDom(() => onIos(() => withWin({ __bip: null }, () => h['#ibGo'].onclick())));
+    Install.guide = g0; Install.prompt = p0;
+    ok('آی‌اواس: دکمهٔ بنر راهنما را باز می‌کند', guided === true);
+    ok('آی‌اواس: نصبِ بی‌اثر صدا زده نمی‌شود', prompted === false);
+  }
+
+  /* و روی اندرویدِ آماده باید نصب واقعی کند و بنر برود */
+  Store.set('installBar', 0);
+  {
+    const g0 = Install.guide, p0 = Install.prompt;
+    let guided = false, prompted = false;
+    Install.guide = () => { guided = true; };
+    Install.prompt = async () => { prompted = true; return true; };
+    const h = grabHandlers(() => withDom(() => Install.paint()));
+    withDom(() => Install.open());
+    await withDom(() => onAndroid(() => armed(() => h['#ibGo'].onclick())));
+    await wait(320);
+    Install.guide = g0; Install.prompt = p0;
+    ok('اندروید: دکمهٔ بنر نصب واقعی می‌کند', prompted === true);
+    ok('اندروید: راهنما بی‌دلیل باز نمی‌شود', guided === false);
+    ok('پس از نصب موفق، بنر می‌رود', withDom(() => Install.showing()) === false);
+  }
+
+  Store.set('installBar', keep);
 }
 
 section('پاسخ مبهم (opaque) هرگز ۵۰۳ نمی‌شود');
