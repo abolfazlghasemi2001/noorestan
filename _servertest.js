@@ -232,6 +232,114 @@ const cleanup = () => {
   ok('و نشانهٔ نشستِ کاربر می‌آید', /^[0-9a-f]{64}$/.test(vOkJ.token || ''), JSON.stringify(vOkJ).slice(0,120));
   ok('🔒 نشانه، خودِ کد نیست', vOkJ.token !== C1);
   ok('شناسهٔ کاربر برگردانده می‌شود', vOkJ.id === 'usr_' + 'a1b2c3d4e5'.repeat(2), vOkJ.id);
+  ok('نخستین ورودِ این شماره، first=true دارد', vOkJ.first === true, JSON.stringify(vOkJ).slice(0, 140));
+
+  /* ── پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴) ──
+     پس از نخستین ورودِ موفق می‌رود، و فقط یک بار. عمداً *پس* از پاسخ
+     فرستاده می‌شود تا کندیِ textbee ورودِ کاربر را معطل نکند؛ پس آزمون هم
+     باید کمی صبر کند. */
+  const seenWelcome = () => smsHits.find(x => String(x.body || '').includes('خوش آمدید')) || null;
+  let wh = null;
+  for(let i = 0; i < 80 && !wh; i++){ wh = seenWelcome(); if(!wh) await sleep(50); }
+  ok('پیامکِ خوش‌آمدگویی پس از نخستین ورود رفت', !!wh, 'hits=' + smsHits.length);
+  if(wh){
+    const wb = JSON.parse(wh.body);
+    ok('خوش‌آمد به همان شماره می‌رود',
+       Array.isArray(wb.recipients) && wb.recipients[0] === '09121110001', JSON.stringify(wb.recipients));
+    ok('خوش‌آمد شناسهٔ کاربر را در متن دارد',
+       String(wb.message).includes('usr_' + 'a1b2c3d4e5'.repeat(2)), String(wb.message).slice(0, 90));
+    ok('🔒 متنِ خوش‌آمد الگو (pattern) ندارد — متنِ مستقیم است',
+       !/pattern|\{\{/.test(String(wb.message)), String(wb.message).slice(0, 60));
+    ok('🔒 کلید در بدنهٔ خوش‌آمد نیست', !wh.body.includes(SMS_KEY));
+    ok('خوش‌آمد به همان endpoint و دستگاه می‌رود',
+       wh.url === '/api/v1/gateway/send-sms' && wb.deviceId === SMS_DEVICE && wh.method === 'POST');
+    ok('🔒 کد تأیید در خوش‌آمد نیست', !/\d{5}/.test(String(wb.message).replace('۱۵ بازی', '')),
+       String(wb.message).slice(0, 120));
+    ok('متنِ خوش‌آمد خطِ «نورستان» را در پایان دارد', /\nنورستان$/.test(String(wb.message)));
+  }
+
+  /* «یک بار برای همیشه» روی شمارهٔ جداگانه سنجیده می‌شود.
+     اگر همین ۰۹۱۲۱۱۱۰۰۰۱ را دو بار وارد کنیم، سهمِ سه‌تاییِ پیامکِ آن
+     شماره پیش از آزمونِ پیامکِ مدیریتی تمام می‌شود و آن آزمونِ کهنه
+     بی‌ربط به کارِ ما می‌شکند. پس شمارهٔ تازه‌ای می‌گیریم و همان
+     شماره را دو بار وارد می‌کنیم — دقیقاً همان چیزی که باید سنجیده شود. */
+  const WPH = '09121110088';
+  smsHits = [];
+  const rp3 = await post('/request', { phone: WPH });
+  const C3 = (() => { const m = JSON.parse(smsHits[0].body || '{}').message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  const v3 = await post('/verify', { phone: WPH, code: C3, userId: 'usr_' + 'bb'.repeat(10) });
+  const v3j = await v3.json();
+  ok('شمارهٔ تازه پذیرفته می‌شود', rp3.status === 200 && v3.status === 200, rp3.status + '/' + v3.status);
+  ok('نخستین ورودِ شمارهٔ تازه، first=true دارد', v3j.first === true, JSON.stringify(v3j).slice(0, 120));
+  let wh3 = null;
+  for(let i = 0; i < 80 && !wh3; i++){ wh3 = seenWelcome(); if(!wh3) await sleep(50); }
+  ok('شمارهٔ تازه خوش‌آمدِ خودش را می‌گیرد',
+     !!wh3 && JSON.parse(wh3.body).recipients[0] === WPH,
+     wh3 ? wh3.body.slice(0, 100) : 'hits=' + smsHits.length);
+
+  /* بار دوم: همان شماره، کدِ تازه — و هیچ خوش‌آمدگوییِ دومی */
+  smsHits = [];
+  const rp2 = await post('/request', { phone: WPH });
+  ok('کدِ تازه برای همان شماره صادر می‌شود', rp2.status === 200, rp2.status);
+  const C2 = (() => { const m = JSON.parse(smsHits[0].body).message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  const v2 = await post('/verify', { phone: WPH, code: C2, userId: 'usr_' + 'bb'.repeat(10) });
+  const v2j = await v2.json();
+  ok('ورودِ دومِ همان شماره پذیرفته می‌شود', v2.status === 200 && v2j.success === true, JSON.stringify(v2j).slice(0, 120));
+  ok('ورودِ دوم دیگر «نخستین بار» نیست', v2j.first === false, JSON.stringify(v2j).slice(0, 120));
+  await sleep(500);
+  ok('🔒 خوش‌آمدگویی بارِ دوم فرستاده نمی‌شود', !seenWelcome(), 'hits=' + smsHits.length);
+
+  /* ارسالِ ناموفق: ورود باید بی‌خیال ادامه یابد، و نشانِ «خوش‌آمد رفت»
+     نباید بخورد — وگرنه یک قطعیِ گذرا خوش‌آمدگویی را برای همیشه می‌سوزاند.
+
+     «نشان نخورد» را از پاسخِ HTTP نمی‌شود فهمید (خوش‌آمد پشتِ پاسخ
+     می‌رود)؛ پس با یک کلاینتِ واقعی وارد می‌شویم و کارنامهٔ خودِ کاربر را
+     می‌پرسیم — همان پیامی که پروفایل در برنامه از آن می‌خواند. */
+  const FPH = '09121110099', FID = 'usr_' + 'cc'.repeat(10);
+  smsHits = [];
+  const rp5 = await post('/request', { phone: FPH });
+  const C5 = (() => { const m = JSON.parse(smsHits[0].body || '{}').message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  smsMode = 'fail';                 // کد گرفته شد؛ حالا textbee خراب می‌شود
+  const v5 = await post('/verify', { phone: FPH, code: C5, userId: FID });
+  const v5j = await v5.json();
+  await sleep(700);
+  smsMode = 'ok';
+  ok('🔒 خرابیِ خوش‌آمدگویی جلوی ورود را نمی‌گیرد',
+     v5.status === 200 && v5j.success === true, v5.status + ' ' + JSON.stringify(v5j).slice(0, 110));
+  ok('و نشانهٔ نشست هم می‌آید', /^[0-9a-f]{64}$/.test(v5j.token || ''));
+  ok('تلاشِ خوش‌آمد انجام شد ولی ناموفق ماند',
+     smsHits.filter(x => String(x.body || '').includes('خوش آمدید')).length === 1, 'hits=' + smsHits.length);
+
+  const W1 = new Client('W1');
+  await W1.connect();
+  W1.id = (await W1.wait(m => m.t === 'welcome')).id;
+  W1.clear();
+  W1.send({ t: 'hello', ns: NS, name: 'آزمون', userId: FID, userToken: v5j.token });
+  const me5 = await W1.wait(m => m.t === 'me', 3000);
+  ok('کارنامهٔ کاربر به خودش می‌رسد', !!me5 && me5.id === FID, JSON.stringify(me5));
+  ok('🔒 و هیچ شناسهٔ نشستی در آن نیست',
+     !!me5 && !Object.keys(me5).some(k => /token|hash|salt|code/i.test(k)), JSON.stringify(me5));
+  ok('🔒 خوش‌آمدِ ناموفق نشانِ «رفته» نمی‌خورد', !!me5 && me5.welcomed === false, JSON.stringify(me5));
+
+  /* ورودِ بعدیِ همان شماره با textbee سالم: خوش‌آمد این بار می‌رود.
+     یعنی فرصتِ دوباره سوخته نشده. */
+  smsHits = [];
+  const rp6 = await post('/request', { phone: FPH });
+  const C6 = (() => { const m = JSON.parse(smsHits[0].body || '{}').message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  const v6 = await post('/verify', { phone: FPH, code: C6, userId: FID });
+  ok('ورودِ بعدیِ همان شماره پذیرفته می‌شود', rp6.status === 200 && v6.status === 200, rp6.status + '/' + v6.status);
+  let wh6 = null;
+  for(let i = 0; i < 80 && !wh6; i++){ wh6 = seenWelcome(); if(!wh6) await sleep(50); }
+  ok('🔒 خوش‌آمدِ ناموفق، فرصتِ دوباره را نمی‌سوزاند',
+     !!wh6 && JSON.parse(wh6.body).recipients[0] === FPH,
+     wh6 ? wh6.body.slice(0, 100) : 'hits=' + smsHits.length);
+  /* و نشانش زنده روی پروفایل می‌نشیند، بی آنکه کاربر دوباره وصل شود. */
+  const me6 = await W1.wait(m => m.t === 'me' && m.welcomed === true, 2000);
+  ok('و نشانِ «رفت» زنده به پروفایلِ کاربر می‌رسد', !!me6, JSON.stringify(W1.msgs.slice(-2)));
+  /* این کلاینت کارش تمام است. اگر باز بماند، در سنجش‌های «حضور» یک نفر
+     اضافه می‌شود و آزمون‌های بی‌ربطِ بعدی می‌شکنند. */
+  try{ W1.ws.close(); }catch(e){}
+  await sleep(200);
 
   /* یک‌بارمصرف: همان کد دوباره کار نمی‌کند */
   const vAgain = await post('/verify', { phone: '09121110001', code: C1 });

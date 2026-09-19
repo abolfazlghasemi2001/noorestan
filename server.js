@@ -107,6 +107,9 @@ function loadData(){
                         visits: Math.max(0, +u.visits || 0), plays: Math.max(0, +u.plays || 0),
                         score: Math.max(0, +u.score || 0), level: Math.max(1, +u.level || 1),
                         blocked: !!u.blocked, lastIp: String(u.lastIp || '').slice(0, 45),
+                        welcomed: !!u.welcomed,
+                        welcomedAt: Math.max(0, +u.welcomedAt || 0),
+                        welcomeTries: Math.max(0, +u.welcomeTries || 0),
                         ips: Array.isArray(u.ips) ? u.ips.slice(0, 5).map(x => String(x).slice(0, 45)) : [] };
           userByPhone.set(phone, rec);
           userById.set(id, phone);
@@ -126,6 +129,7 @@ function snapshot(){
       id: u.id, phone: u.phone, name: u.name, joinedAt: u.joinedAt,
       lastLogin: u.lastLogin, visits: u.visits || 0, plays: u.plays || 0,
       score: u.score || 0, level: u.level || 1, blocked: !!u.blocked,
+      welcomed: !!u.welcomed, welcomedAt: u.welcomedAt || 0,
       lastIp: u.lastIp || '', ips: (u.ips || []).slice(0, 5)
     })),
     stats: { totalConnections: stats.totalConnections, totalMessages: stats.totalMessages,
@@ -478,6 +482,9 @@ function handleMessage(c, msg){
       sendRaw(c, { t: 'rooms', to: c.id, list: roomList() });
       sendRaw(c, { t: 'lb', to: c.id, list: leaderboard.slice(0, 30) });
       sendRaw(c, { t: 'friends', to: c.id, list: friendListFor(c) });
+      /* کارنامهٔ خودش — بی هیچ رازی. کلاینت از این‌جا می‌فهمد پیامکِ
+         خوش‌آمدگویی رفت یا نه. */
+      if(c.user) sendRaw(c, { t: 'me', to: c.id, ...userMeView(c.user) });
       pushPeers();
       pushRooms();
       break;
@@ -848,6 +855,23 @@ function smsOtpMessage(code){
 function smsTestMessage(){
   return '🌟 نورستان\n✅ آزمایش اتصال پیامک با موفقیت انجام شد.';
 }
+/* پیامکِ خوش‌آمدگویی — یک بار برای هر شماره، پس از نخستین ورودِ موفق.
+   متن مستقیم است، نه الگو (pattern)؛ الگو در تنظیماتِ textbee ساخته
+   می‌شود و متنِ پویا (شناسهٔ کاربر) را پشتیبانی نمی‌کند. */
+function smsWelcomeMessage(userId){
+  return '🌟 به نورستان خوش آمدید\n' +
+         '📱 شناسه شما: ' + userId + '\n' +
+         '🎯 ۱۵ بازی و حفظ قرآن در انتظار شماست\n' +
+         '🚀 از همین امروز شروع کنید\n' +
+         'نورستان';
+}
+/* شماره در لاگ ماسک می‌شود. برای پیگیریِ «کدام شماره» بستنِ چهار رقمِ
+   آخر و اول کافی است و بقیه‌اش نباید در فایلِ لاگ بماند. */
+function maskPhone(phone){
+  const p = String(phone || '').replace(/\D/g, '');
+  if(p.length < 8) return '***';
+  return p.slice(0, 4) + '***' + p.slice(-4);
+}
 
 /* ── داوری پاسخ textbee ──
    قرارداد واقعی (بر پایهٔ پاسخ خود textbee):
@@ -1021,7 +1045,8 @@ function userBind(phone, id, ip){
   if(!rec){
     rec = { id: USER_ID_RE.test(id) ? id : 'usr_' + crypto.randomBytes(10).toString('hex').slice(0, 20),
             phone, name: 'بازیکن', joinedAt: t, lastLogin: 0, visits: 0,
-            plays: 0, score: 0, level: 1, blocked: false, lastIp: '', ips: [] };
+            plays: 0, score: 0, level: 1, blocked: false, lastIp: '', ips: [],
+            welcomed: false, welcomedAt: 0, welcomeTries: 0 };
     userByPhone.set(phone, rec);
   }else if(USER_ID_RE.test(id) && rec.id !== id){
     /* شناسهٔ تازه از همان شماره: دستهٔ قدیمی رها و تازه ثبت می‌شود. دو
@@ -1073,8 +1098,60 @@ function userView(rec){
   return { id: rec.id, phone: rec.phone, name: rec.name, joinedAt: rec.joinedAt,
            lastLogin: rec.lastLogin, visits: rec.visits || 0, plays: rec.plays || 0,
            score: rec.score || 0, level: rec.level || 1, blocked: !!rec.blocked,
+           welcomed: !!rec.welcomed, welcomedAt: rec.welcomedAt || 0,
            online: [...clients.values()].some(c => c.phone === rec.phone) };
 }
+/* ── پیامکِ خوش‌آمدگویی ──
+   فقط یک بار برای هر شماره، پس از نخستین ورودِ موفق، و *هرگز* جلوی ورود را
+   نمی‌گیرد: اگر نرفت، فقط در لاگ می‌ماند.
+
+   `welcomed` تنها با ارسالِ موفق نشان می‌خورد (اگر نشانِ بی‌قید می‌زدیم، یک
+   قطعیِ گذرا خوش‌آمدگویی را برای همیشه از بین می‌برد). ولی همان نشانِ
+   «موفق» یعنی یک شمارهٔ خراب می‌توانست با هر ورود یک تلاشِ تازه بفرستد؛
+   پس سقفِ تلاش هم دارد. */
+const WELCOME_MAX_TRIES = 3;
+
+async function welcomeSmsOnce(rec){
+  if(!rec) return { state: 'skipped', why: 'no_user' };
+  if(rec.welcomed) return { state: 'skipped', why: 'already_welcomed' };
+  if((rec.welcomeTries || 0) >= WELCOME_MAX_TRIES) return { state: 'skipped', why: 'gave_up' };
+  if(!smsConfigured()) return { state: 'skipped', why: 'not_configured' };
+  rec.welcomeTries = (rec.welcomeTries || 0) + 1;
+  saveData();
+  let out;
+  try{ out = await smsSend(rec.phone, smsWelcomeMessage(rec.id)); }
+  catch(e){ out = { state: 'failed', error: smsRedact(e && e.message) }; }
+  if(out.state === 'sent'){
+    rec.welcomed = true;
+    rec.welcomedAt = now();
+    saveData();
+    pushMe(rec);        // پروفایلِ همان کاربر زنده به‌روز شود
+  }
+  const stamp = out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️';
+  /* شماره ماسک می‌شود — این لاگ بی‌ربط به پیگیریِ کد است و نباید شمارهٔ
+     کاملِ کاربران را یک‌جا جمع کند. */
+  log(`${stamp} خوش‌آمد → ${maskPhone(rec.phone)} · ${out.state}` +
+      (out.state === 'sent' ? '' : ' — ' + (out.error || '')));
+  return out;
+}
+
+/* کارنامهٔ خودِ کاربر برای خودش. از userView جدا است چون آن یکی راهِ دیدِ
+   *مدیر* است و میدانِ بیشتری دارد (پلاک، مسدودی، آنلاین). */
+function userMeView(rec){
+  if(!rec) return null;
+  return { id: rec.id, phone: rec.phone, name: rec.name, joinedAt: rec.joinedAt,
+           plays: rec.plays || 0, score: rec.score || 0, level: rec.level || 1,
+           welcomed: !!rec.welcomed, welcomedAt: rec.welcomedAt || 0 };
+}
+/* کارنامهٔ تازه را به همان کاربرِ آنلاین می‌فرستد. بی این، پس از رفتنِ
+   پیامکِ خوش‌آمد، پروفایل تا اتصالِ بعدی «⏳ در راه» می‌ماند. */
+function pushMe(rec){
+  const v = userMeView(rec);
+  if(!v) return;
+  for(const c of clients.values())
+    if(c.user === rec) sendRaw(c, { t: 'me', to: c.id, ...v });
+}
+
 /* فهرستِ ادمین — مرتب بر تازگیِ ورود */
 function userListView(limit = 200){
   return [...userByPhone.values()]
@@ -1477,11 +1554,28 @@ async function handleHttp(req, res){
 
     /* درست بود: کد سوخت، کاربر به شماره بسته شد، نشست صادر شد. */
     otps.delete(phone);
+    const wasNew = !userOf(phone);
     const rec = userBind(phone, String(body.userId || ''), ip);
     const token = userTokenNew(rec.id, phone);
+    /* پیامکِ خوش‌آمدگویی — ولی *نه* پیش از پاسخ. اگر منتظرش بمانیم، کندیِ
+       textbee ورودِ کاربر را معطل می‌کند و کاربری که پیامکش رفته، پشتِ
+       صفحهٔ انتظار می‌ماند.
+
+       شرط، «نخستین ورود» نیست بلکه «هنوز نرفته». اگر فقط به نخستین ورود
+       گره می‌خورد، یک قطعیِ گذرا در همان لحظه یعنی کاربر هرگز خوش‌آمد
+       نمی‌گرفت — چون ورودِ دوم دیگر «نخستین» نیست. «یک بار برای همیشه»
+       همچنان برجاست: نشانِ `welcomed` فقط با ارسالِ موفق می‌خورد و
+       `welcomeSmsOnce` خودش سقفِ تلاش را نگه می‌دارد. */
+    const sayHi = !rec.welcomed;
+    if(sayHi){
+      Promise.resolve()
+        .then(() => welcomeSmsOnce(rec))
+        .catch(e => log('⚠️ خوش‌آمدگویی ناموفق:', (e && e.message) || e));
+    }
     log(`✅ شماره تأیید شد → ${rec.id}`);
     res.writeHead(200, hdr);
     return res.end(JSON.stringify({ success: true, token, id: rec.id, name: rec.name,
+                                    first: wasNew, welcomed: !!rec.welcomed,
                                     exp: USER_TOKEN_MS }));
   }
 

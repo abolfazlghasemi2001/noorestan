@@ -4068,6 +4068,79 @@ section('حساب کاربری در پروفایل');
   }
 }
 
+section('پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴)');
+{
+  /* ── تاریخِ شمسی ──
+     تقویم را خودمان حساب نمی‌کنیم؛ از Intl می‌پرسیم. پس آزمون هم همان
+     مرجع را می‌سنجد: عددِ درست، با رقم‌های فارسی. */
+  ok('تاریخِ شمسی از میلادی درست درمی‌آید',
+     U.jalali(Date.UTC(2026, 8, 19)) === '۱۴۰۵/۰۶/۲۸', U.jalali(Date.UTC(2026, 8, 19)));
+  ok('و اولِ سال را هم درست می‌گوید',
+     U.jalali(Date.UTC(2026, 2, 21)) === '۱۴۰۵/۰۱/۰۱', U.jalali(Date.UTC(2026, 2, 21)));
+  ok('تاریخِ شمسی رقمِ لاتین ندارد', !/[0-9]/.test(U.jalali(Date.UTC(2026, 8, 19))));
+  ok('بی تاریخ، خط تیره می‌دهد نه رشتهٔ خالی', U.jalali(0) === '—' && U.jalali(null) === '—');
+  ok('تاریخِ بی‌معنا هم خط تیره می‌دهد', U.jalali(NaN) === '—' && U.jalali('بی‌معنا') === '—');
+
+  /* ── کارنامهٔ سرور روی دستگاه ──
+     سرور تنها مرجعِ «خوش‌آمد رفت یا نه» است. دستگاه فقط می‌نویسد. */
+  const keep = { user: Store.get('user'), phone: Store.get('phone') };
+  try{
+    Store.update(d => { d.user = null; d.phone = ''; });
+    User.ensure();
+    const me = User.get();
+    ok('پیش از پاسخِ سرور، خوش‌آمد «نرفته» است', User.welcomed() === false && User.welcomedAt() === 0);
+
+    ok('پیامِ کارنامه پذیرفته می‌شود',
+       User.serverState({ id: me.id, phone: '09120000001', welcomed: true,
+                          welcomedAt: 1730000000000, joinedAt: 1700000000000 }) === true);
+    ok('شمارهٔ خودم می‌نشیند', User.get().phone === '09120000001', User.get().phone);
+    ok('و نشانِ خوش‌آمد می‌نشیند', User.welcomed() === true);
+    ok('و زمانش هم می‌آید', User.welcomedAt() === 1730000000000, User.welcomedAt());
+    ok('و تاریخِ عضویت', User.get().joinedAt === 1700000000000);
+
+    /* 🔒 شناسهٔ نامعتبر نباید چیزی بنویسد */
+    const snap = JSON.stringify(User.get());
+    ok('🔒 شناسهٔ نامعتبر نوشته نمی‌شود',
+       User.serverState({ id: 'usr_کوتاه', welcomed: true }) === false &&
+       JSON.stringify(User.get()) === snap);
+    ok('🔒 و بی پیام هم خطا نمی‌دهد',
+       User.serverState(null) === false && User.serverState(undefined) === false);
+
+    /* شمارهٔ دیگری از حسابِ دیگری نباید به حسابِ من بچسبد */
+    User.serverState({ id: 'usr_' + 'ff'.repeat(10), phone: '09129999999',
+                       welcomed: true, welcomedAt: 5 });
+    ok('🔒 شمارهٔ حسابِ دیگر روی حسابِ من نمی‌نشیند',
+       User.get().phone === '09120000001', User.get().phone);
+
+    /* مسیرِ پیام: همان چیزی که پروفایل از آن می‌خواند */
+    const before = User.get().welcomed;
+    Net.handle({ t: 'me', id: me.id, phone: '09120000001', welcomed: false,
+                 welcomedAt: 0, joinedAt: 1700000000000 });
+    ok('پیامِ «me» به کارنامهٔ کاربر می‌رسد', User.welcomed() === false);
+    Net.handle({ t: 'me', id: me.id, phone: '09120000001', welcomed: true,
+                 welcomedAt: 1730000000001, joinedAt: 1700000000000 });
+    ok('و خوش‌آمدِ تازه هم می‌نشیند',
+       User.welcomed() === true && User.welcomedAt() === 1730000000001);
+    ok('پیامِ ناشناس جایی نمی‌شکند', (() => {
+      try{ Net.handle({ t: 'چنین‌چیزی‌نیست' }); Net.handle({ t: 'me' }); return true; }
+      catch(e){ return false; }
+    })());
+    void before;
+  }finally{
+    Store.update(d => { d.user = keep.user; d.phone = keep.phone; });
+  }
+
+  /* ── آنچه کاربر می‌بیند ── */
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  ok('پروفایل ردیفِ خوش‌آمدگویی دارد', src.includes('📨 خوش‌آمدگویی'));
+  ok('و تاریخِ عضویت را شمسی نشان می‌دهد', /U\.jalali\(u\.joinedAt\)/.test(src));
+  ok('سه حالِ خوش‌آمد از هم جدا گفته می‌شوند',
+     src.includes('⚠️ بدون سرور') && src.includes('⏳ در راه') && src.includes('✅ دریافت شده'));
+  ok('🔒 و بی شماره، وعدهٔ پیامک داده نمی‌شود', src.includes('بی شماره فرستاده نمی‌شود'));
+  ok('🔒 هیچ‌جا نشانهٔ نشست در پروفایل نمایش داده نمی‌شود',
+     !/کارنامه[^]{0,400}?token/.test(src.slice(src.indexOf('welcomeLine'))));
+}
+
 section('پنل مدیریت — شمارشِ بازی‌ها');
 {
   const before = Store.get('stats').byGame;

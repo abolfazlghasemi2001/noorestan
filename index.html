@@ -1910,6 +1910,26 @@ const U = {
     if(day < 30) return `${U.fa(day)} روز پیش`;
     return `${U.fa(Math.floor(day / 30))} ماه پیش`;
   },
+  /* تاریخ شمسی.
+     تقویمِ جلالی را خودمان حساب نمی‌کنیم: جدولِ کبیسه‌ها چهل‌وچند خط است و
+     هر غلطی در آن یک سال تمام را جابه‌جا می‌کند. مرورگر و Node هر دو
+     تقویمِ فارسی را در Intl دارند و همان را می‌پرسیم. اگر نبود، به تاریخِ
+     میلادیِ ISO برمی‌گردیم تا چیزی نمایش داده شود، نه رشتهٔ خالی. */
+  jalali(at){
+    const t = +at || 0;
+    if(!t) return '—';
+    const d = new Date(t);
+    if(isNaN(d.getTime())) return '—';
+    try{
+      const f = new Intl.DateTimeFormat('fa-IR-u-ca-persian',
+        { year:'numeric', month:'2-digit', day:'2-digit' });
+      const p = f.formatToParts(d);
+      const get = k => (p.find(x => x.type === k) || {}).value || '';
+      const y = get('year'), m = get('month'), dd = get('day');
+      if(y && m && dd) return `${y}/${m}/${dd}`;
+    }catch(e){}
+    return U.fa(d.toISOString().slice(0, 10));
+  },
   // نرمال‌سازی متن فارسی برای مقایسه (ی/ك عربی، نیم‌فاصله، اعراب)
   norm(s){
     return String(s ?? '')
@@ -6701,6 +6721,12 @@ const Net = {
         if(msg.id) this.id = msg.id;
         this.serverInfo = msg;
         break;
+      /* کارنامهٔ خودِ کاربر از سرور — تنها راهِ اینکه دستگاه بفهمد پیامکِ
+         خوش‌آمدگویی رفت یا نه. بی این، وضعیتِ پروفایل تا ابد «⏳ در راه»
+         می‌ماند چون فرستادنش ناهمگام است و پاسخِ ورود زودتر می‌رسد. */
+      case 'me':
+        User.serverState(msg);
+        break;
       case 'peers':
         if(this.mode === 'ws'){
           this.peers.clear();
@@ -10557,6 +10583,19 @@ const Me = {
             const u = User.row();
             if(!u) return '<div class="empty">هویت ساخته نشد — مولدِ امن در این مرورگر در دسترس نیست</div>';
             const verified = !!u.phone;
+            /* سه حالِ متفاوت را یک‌جور نگوییم: «رفت»، «در راه»، و «سروری نیست».
+               پیش‌تر هیچ‌کدام دیده نمی‌شد و کاربر نمی‌دانست خوش‌آمدگویی هست یا نه. */
+            const welcomeLine = () => {
+              if(!verified) return '<span style="color:var(--mut)">بی شماره فرستاده نمی‌شود</span>';
+              /* همان سنجشی که پنل ادمین به کار می‌برد: اتصالِ ws به سرور */
+              if(!(Net.status === 'online' && Net.mode === 'ws'))
+                return '<span style="color:var(--mut)">⚠️ بدون سرور</span>';
+              if(User.welcomed()){
+                const at = User.welcomedAt();
+                return '✅ دریافت شده' + (at ? ` — ${U.esc(U.jalali(at))}` : '');
+              }
+              return '⏳ در راه — پس از ورود فرستاده می‌شود';
+            };
             return `
               <div class="kv"><span>شناسه</span>
                 <b class="adm-id" data-copy="${U.esc(u.id)}" title="برای کپی بزن"
@@ -10567,8 +10606,11 @@ const Me = {
               <div class="kv"><span>وضعیت</span>
                 <b>${verified ? '✅ تأییدشده با پیامک' : '👤 مهمانِ همین دستگاه'}</b></div>
               <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
+              <div class="kv"><span>عضویت</span>
+                <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
               <div class="kv"><span>آخرین ورود</span>
                 <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
+              <div class="kv"><span>📨 خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>
               <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
                 ${verified
                   ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
@@ -11104,7 +11146,36 @@ const User = {
     if(!this.get()) return;
     Store.update(d => { if(d.user) d.user.blocked = !!v; });
   },
-  blocked(){ const u = this.get(); return !!(u && u.blocked); }
+  blocked(){ const u = this.get(); return !!(u && u.blocked); },
+  /* ── کارنامهٔ سرور ──
+     سرور تنها مرجعِ «پیامکِ خوش‌آمدگویی رفت یا نه» است؛ دستگاه به‌تنهایی
+     نمی‌تواند بداند. فقط همین چند میدان نوشته می‌شود و هیچ‌کدام از آن‌ها به
+     دستگاه اختیاری نمی‌دهد — شناسه و شماره هر دو سمتِ سرور راستی‌آزمایی
+     شده‌اند و این‌جا فقط *نمایش* می‌شوند. */
+  serverState(msg){
+    if(!msg || !this.okId(msg.id)) return false;
+    this.ensure();
+    const cur = this.get();
+    /* اگر سرور شناسهٔ دیگری برای همین دستگاه بگوید (تعویضِ شماره)، شناسهٔ
+       قدیمی فقط وقتی کنار می‌رود که شکلش هم تازه و درست باشد. */
+    Store.update(d => {
+      if(!d.user) return;
+      if(this.okId(d.user.id) && d.user.id !== msg.id && msg.phone === d.user.phone) d.user.id = msg.id;
+      const mine = d.user.id === msg.id;
+      d.user.welcomed = !!msg.welcomed;
+      d.user.welcomedAt = Math.max(0, +msg.welcomedAt || 0);
+      if(mine){
+        if(msg.phone) d.user.phone = String(msg.phone).slice(0, 15);
+        d.user.joinedAt = Math.max(0, +msg.joinedAt || 0) || d.user.joinedAt;
+      }
+    });
+    return true;
+  },
+  welcomed(){
+    const u = this.get();
+    return !!(u && u.welcomed);
+  },
+  welcomedAt(){ const u = this.get(); return (u && u.welcomedAt) || 0; }
 };
 
 /* ─────────────────── 17.9 شمارشِ بازی‌ها ───────────────────
