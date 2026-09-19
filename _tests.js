@@ -1925,7 +1925,10 @@ section('تگ‌های PWA در سند');
   })());
   ok('رویداد نصب preventDefault می‌شود', /beforeinstallprompt[\s\S]{0,120}e\.preventDefault\(\)/.test(src));
   ok('قاعدهٔ CSS گام‌های راهنما هست', /\.step\{/.test(src) && /\.steps\{/.test(src));
-  ok('نسخهٔ برنامه ۱۶ شده', /const APP_VERSION = 16;/.test(src));
+  ok('نسخهٔ برنامه ۱۷ شده', /const APP_VERSION = 17;/.test(src));
+  /* نسخه‌ای که کاربر می‌بیند باید با نسخهٔ کار یکی باشد */
+  ok('و عنوانِ سند هم ۱۷ می‌گوید', /<title>نورستان ۱۷ \|/.test(src), src.match(/<title>[^<]*<\/title>/)?.[0]);
+  ok('و توضیحِ سند', /<meta name="description" content="نورستان ۱۷/.test(src));
 }
 
 /* ═══════════════ پایان: سنجش‌های async و تایمرهای جامانده ═══════════════
