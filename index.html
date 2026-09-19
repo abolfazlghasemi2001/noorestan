@@ -1649,10 +1649,61 @@ const U = {
   shuffle(a){ const b = [...a]; for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; },
   rand: a => a[Math.floor(Math.random()*a.length)],
   uid: () => Math.random().toString(36).slice(2, 10),
+  /* کد اتاق شش‌رقمی — شناسهٔ ورود نیست، فقط کلیدِ کوتاهِ اتاق بازی است.
+     «تصادفِ ریاضی» کافی است. */
   code6: () => String(Math.floor(100000 + Math.random()*900000)),
+  /* ── تصادفِ امن ──
+     Math.random جای رمز و کد یکبارمصرف را نمی‌گیرد: خروجی‌اش از یک دانهٔ
+     داخلی می‌آید و با دیدن چند عدد می‌توان بقیه را حدس زد. تنها منبع
+     پذیرفته، مولدِ رمزنگاری‌شدهٔ مرورگر است.
+     اگر مرورگر آن را نداشت، هیچ عددی ساخته نمی‌شود. عمداً جانشینِ
+     Math.random نمی‌گذاریم: افتِ بی‌صدا به تصادفِ ضعیف، بدتر از یک خطای
+     آشکار است. */
+  crypto(){
+    try{
+      if(typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') return crypto;
+      if(typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function') return window.crypto;
+    }catch(err){}
+    return null;
+  },
+  /* عددی یکنواخت در [0, n)؛ با «رد کردنِ» نمونه‌های بیرون از بازه، نه با
+     باقی‌ماندهٔ ساده. باقی‌مانده توزیع را کج می‌کند (برخی ارقام بیشتر
+     می‌آیند) و همان کجی، حدس‌زدن را آسان‌تر می‌کند.
+     خروجی -1 یعنی «ساخته نشد». احتمالِ رسیدن به آن حدس‌ناپذیر است
+     (هر دور دست‌کم ۵۰٪ پذیرش) ولی حلقه را بسته نگه می‌داریم تا هیچ
+     مسیری نتواند برنامه را قفل کند. */
+  randBelow(n){
+    const c = this.crypto();
+    if(!c || !(n > 0)) return -1;
+    const MAX = Math.floor(4294967296 / n) * n;
+    const buf = new Uint32Array(1);
+    for(let i = 0; i < 64; i++){
+      c.getRandomValues(buf);
+      if(buf[0] < MAX) return buf[0] % n;
+    }
+    return -1;
+  },
+  /* نمکِ تصادفی (هگز). برای یکتاییِ هشِ کد لازم است و باید حدس‌ناپذیر
+     باشد تا نشود از پیش برای همهٔ کدهای ممکن جدول ساخت.
+     '' یعنی «ساخته نشد». */
+  salt(bytes = 16){
+    const c = this.crypto();
+    if(!c) return '';
+    const b = new Uint8Array(bytes);
+    c.getRandomValues(b);
+    return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  },
   /* کد پیامکی پنج‌رقمی. عمداً هم‌خانوادهٔ code6 ولی جدا: اگر روزی یکی
-     عوض شود، آن یکی نباید تکان بخورد. */
-  code5: () => String(Math.floor(10000 + Math.random()*90000)),
+     عوض شود، آن یکی نباید تکان بخورد.
+     '' یعنی «ساخته نشد»؛ صداکننده باید خطا بدهد، نه کدِ ضعیف.
+     TODO(فاز ۹ — معماری): امن‌شدنِ تولید فقط نیمی از کار است. راستی‌آزمایی
+     این کد هنوز در همین صفحه و با هشی در localStorage انجام می‌شود، پس
+     کاربرِ متین می‌تواند پلهٔ کد را رد کند. اصلاحِ کامل = ساخت و بررسیِ
+     کد روی سرور. */
+  code5(){
+    const v = this.randBelow(90000);
+    return v < 0 ? '' : String(10000 + v);
+  },
   /* رقم فارسی/عربی به لاتین. کاربر با صفحه‌کلید فارسی «۱۲۳۴۵» می‌زند و
      آن رشته با «12345» برابر نیست؛ بی این تبدیل، کدِ درست رد می‌شود. */
   unfa(s){
@@ -11534,7 +11585,11 @@ const OTP = {
       return { ok: false, why: `کمی صبر کن — ${U.fa(this.waitSec())} ثانیه`, wait: this.waitSec() };
 
     const code = this.code();
-    const salt = U.uid() + U.uid();
+    /* کد ساخته نشد ⇒ هیچ پیامکی هم نباید برود. اگر بی کد ادامه می‌دادیم،
+       پیامکی با متن «کد تأیید: » می‌رفت و کاربر پشت در می‌ماند. */
+    if(!code)
+      return { ok: false, why: 'ساخت کد امن در این مرورگر ممکن نیست — صفحه را رفرش کن یا از مرورگر دیگری استفاده کن' };
+    const salt = U.salt();
     const st = { phone, salt, hash: this.hash(code, salt), exp: U.now() + this.TTL_MS,
                  tries: 0, lock: 0, at: U.now() };
 

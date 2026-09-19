@@ -2229,6 +2229,75 @@ section('کد OTP — ساخت و هش');
   ok('فاصلهٔ ارسال دوباره ۶۰ ثانیه است', OTP.RESEND_MS === 60000);
 }
 
+section('کد OTP — از تصادفِ امن می‌آید، نه از Math.random');
+{
+  /* مولد را با یک مولدِ قالبی عوض می‌کنیم و می‌بینیم کد واقعاً از همان
+     می‌آید. اگر روزی کسی به Math.random برگردد، این سنجش سرخ می‌شود. */
+  const real = U.crypto;
+  const fixed = v => { U.crypto = () => ({ getRandomValues: b => { b[0] = v; return b; } }); };
+
+  fixed(0);
+  ok('کد از مولدِ امن می‌آید — کمینهٔ بازه', U.code5() === '10000', U.code5());
+  fixed(89999);
+  ok('کد از مولدِ امن می‌آید — بیشینهٔ بازه', U.code5() === '99999', U.code5());
+  fixed(45000);
+  ok('نگاشت خطی است، نه چیز دیگر', U.code5() === '55000', U.code5());
+  fixed(1234);
+  ok('ارقامِ کم‌شمار با صفر پر نمی‌شوند و کد کوتاه نمی‌شود',
+     U.code5() === '11234', U.code5());
+
+  /* باقی‌ماندهٔ ساده توزیع را کج می‌کند؛ پس نمونه‌های بیرون از بازه باید
+     دور ریخته شوند. MAX = floor(2^32 / 90000) * 90000 = 4294890000. */
+  let calls = 0;
+  U.crypto = () => ({ getRandomValues: b => { b[0] = (calls++ === 0 ? 4294890000 : 0); return b; } });
+  const retried = U.code5();
+  ok('نمونهٔ بیرونِ بازه دور ریخته می‌شود، نه اینکه باقی‌مانده گرفته شود',
+     retried === '10000' && calls === 2, `کد=${retried} فراخوانی=${calls}`);
+
+  let n = 0;
+  U.crypto = () => ({ getRandomValues: b => { n++; b[0] = 4294890000; return b; } });
+  const exhausted = U.code5();
+  ok('اگر همهٔ نمونه‌ها رد شوند، کد ساخته نمی‌شود', exhausted === '', JSON.stringify(exhausted));
+  ok('و حلقه بی‌پایان نمی‌شود', n === 64, n);
+
+  U.crypto = () => null;
+  const noRng = U.code5(), noSalt = U.salt();
+  ok('بی مولدِ امن، کد ساخته نمی‌شود — جانشینِ ضعیف نمی‌گذاریم', noRng === '', JSON.stringify(noRng));
+  ok('بی مولدِ امن، نمکی هم ساخته نمی‌شود', noSalt === '', JSON.stringify(noSalt));
+
+  U.crypto = real;
+
+  const many = Array.from({ length: 500 }, () => U.code5());
+  ok('همهٔ کدها در بازهٔ ۱۰۰۰۰..۹۹۹۹۹ هستند',
+     many.every(c => /^\d{5}$/.test(c) && +c >= 10000 && +c <= 99999));
+  ok('تنوع کدها کافی است', new Set(many).size > 450, new Set(many).size);
+
+  const s1 = U.salt(), s2 = U.salt();
+  ok('نمک ۳۲ نویسهٔ هگز است', /^[0-9a-f]{32}$/.test(s1), s1);
+  ok('دو نمک پشت‌سرهم یکی نیستند', s1 !== s2);
+  ok('طول نمک قابل تنظیم است', U.salt(4).length === 8, U.salt(4));
+
+  /* بررسی سطحِ متن: تنها راهِ اثبات اینکه مسیرِ ضعیف اصلاً وجود ندارد.
+     سنجشِ رفتاری فقط می‌گوید امروز چه می‌شود؛ این یکی می‌گوید فردا هم
+     نمی‌شود بی‌آنکه کسی متوجه شود. */
+  const SRC = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const body = (name) => {
+    const i = SRC.indexOf(name + '(');
+    if(i < 0) return '';
+    const j = SRC.indexOf('\n  },', i);
+    return SRC.slice(i, j < 0 ? i + 400 : j);
+  };
+  ok('code5 هیچ جای Math.random ندارد', !/Math\.random/.test(body('code5')));
+  ok('randBelow هیچ جای Math.random ندارد', !/Math\.random/.test(body('randBelow')));
+  ok('نمک هم از Math.random نمی‌آید', !/Math\.random/.test(body('salt')));
+  ok('U.crypto فقط از getRandomValues حرف می‌زند',
+     /getRandomValues/.test(SRC.slice(SRC.indexOf('crypto(){'), SRC.indexOf('crypto(){') + 500)));
+  ok('TODO فاز ۹ برای راستی‌آزمایی سمتِ سرور نوشته شده',
+     /TODO\(فاز ۹/.test(SRC));
+  ok('salt در OTP.start از نمکِ امن می‌آید، نه از uid',
+     /const salt = U\.salt\(\);/.test(SRC));
+}
+
 section('چرخهٔ ورود با موبایل');
 {
   /* حالت ذخیره‌شده را برمی‌داریم و آخر بخش بازمی‌گردانیم، وگرنه این
