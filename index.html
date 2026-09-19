@@ -38,6 +38,12 @@
   --gold:#f5c451; --gold2:#e0a325; --grn:#2fd39b; --red:#ff5f6d;
   --blu:#4d9fff; --prp:#a77bff;
   --glow1:#1b2a4d; --glow2:#1d3a34;
+  /* --float1/--float2 = سطحِ شناورِ روی صفحه: نوار پخشِ کوچک، بنرِ نصب،
+     پنل اشکال‌زدایی. این‌ها نیمه‌شفاف‌اند و روی --bg می‌نشینند، پس متنِ
+     داخلشان باید با همان زمینه سنجیده شود، نه با --card. پیش‌تر هر سه
+     به‌صورت رنگِ تیرهٔ ثابت نوشته شده بودند؛ در تم روشن زمینه روشن
+     می‌شد ولی متن تیره نمی‌شد و نوارِ پخشِ «آیهٔ روز» ناخوانا می‌ماند. */
+  --float1:rgba(24,35,60,.97); --float2:rgba(19,28,49,.97);
   --ink:#1a1204;
   --r:18px; --r2:12px;
   --sh:0 10px 30px rgba(0,0,0,.45);
@@ -440,7 +446,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background-size:190px 190px;animation:spin 160s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #splash .sp-stars{position:absolute;inset:0;overflow:hidden}
-#splash .sp-stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#ffe9b0;
+#splash .sp-stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:var(--gold2);
   animation:tw 3.4s ease-in-out infinite}
 @keyframes tw{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:.95;transform:scale(1.3)}}
 .sp-stage{position:relative;width:min(360px,88vw);z-index:2}
@@ -454,7 +460,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sp-glow{animation:glowP 3.2s ease-in-out infinite}
 @keyframes glowP{0%,100%{opacity:.5}50%{opacity:1}}
 
-.sp-basmala{font-size:clamp(19px,5vw,25px);color:#ffe3a3;letter-spacing:.5px;z-index:2;
+.sp-basmala{font-size:clamp(19px,5vw,25px);color:var(--gold);letter-spacing:.5px;z-index:2;
   text-shadow:0 0 22px rgba(245,196,81,.55);animation:rise 1.2s .1s both}
 .sp-title{font-size:clamp(40px,13vw,66px);font-weight:800;line-height:1.15;z-index:2;
   background:linear-gradient(100deg,#f5c451 0%,#fff6d8 22%,#e0a325 46%,#fff2c9 68%,#f5c451 100%);
@@ -525,7 +531,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .qsrc{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--mut);margin-top:8px}
 #miniQ{position:fixed;inset:auto 10px 82px 10px;z-index:45;display:none;align-items:center;gap:10px;
   padding:9px 12px;border-radius:16px;border:1px solid var(--line);
-  background:rgba(19,28,49,.94);backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.5)}
+  background:var(--float2);backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.5)}
 #miniQ.on{display:flex;animation:in .25s both}
 #miniQ .m-t{flex:1;min-width:0}
 #miniQ .m-t b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -608,12 +614,12 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 
 /* ── آیهٔ روز ── */
 .daily{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--gold2);
-  background:linear-gradient(150deg,rgba(224,163,37,.15),rgba(19,28,49,.92));padding:16px;
+  background:linear-gradient(150deg,var(--card2),var(--card));padding:16px;
   margin-bottom:16px;cursor:pointer}
 .daily .daily-tag{font-size:11px;color:var(--gold);text-align:center;margin-bottom:8px;letter-spacing:1px}
-.daily-ayah-ar{font-size:23px;color:#ffe6ab;text-align:center;margin-bottom:8px}
+.daily-ayah-ar{font-size:23px;color:var(--gold);text-align:center;margin-bottom:8px}
 .daily-ayah-ar.long{font-size:17px;line-height:2.15}
-.daily-fa{font-size:13px;color:#dbe6ff;text-align:center;line-height:2}
+.daily-fa{font-size:13px;color:var(--txt);text-align:center;line-height:2}
 .daily .ref{font-size:11px;color:var(--mut);text-align:center;margin-top:8px}
 .daily .playb{position:absolute;top:10px;left:10px}
 
@@ -655,9 +661,9 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .qbox .qsrc{font-size:11px;color:var(--gold);opacity:.9;margin-bottom:9px;letter-spacing:.3px}
 .qbox .qhint{display:inline-block;margin-top:11px;font-size:11px;padding:3px 9px;border-radius:20px;
   border:1px solid var(--line);color:var(--mut)}
-.qbox .qhint.d1{border-color:rgba(90,200,140,.5);color:#7fd6a4}
+.qbox .qhint.d1{border-color:rgba(90,200,140,.5);color:var(--grn)}
 .qbox .qhint.d2{border-color:rgba(245,196,81,.5);color:var(--gold)}
-.qbox .qhint.d3{border-color:rgba(230,110,110,.5);color:#f08b8b}
+.qbox .qhint.d3{border-color:rgba(230,110,110,.5);color:var(--red)}
 .qwhy{margin-top:12px;border-radius:16px;padding:13px 15px;border:1px solid var(--line);
   background:var(--card);animation:pop .25s}
 .qwhy.good{border-color:rgba(90,200,140,.42);background:linear-gradient(160deg,rgba(90,200,140,.1),var(--card))}
@@ -722,7 +728,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .sp-par2 .sp-stage svg{ max-height:38vh; width:auto; max-width:100%; margin-inline:auto }
 #spDust{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none }
 .sp-pat{ pointer-events:none }
-.sp-star{ position:absolute; border-radius:50%; background:#ffe9ad; opacity:.0;
+.sp-star{ position:absolute; border-radius:50%; background:var(--gold); opacity:.0;
   animation:starIn 1.4s ease-out forwards, floaty 5s ease-in-out infinite 1.4s }
 @keyframes starIn{ from{opacity:0; transform:scale(.2)} to{opacity:var(--o,.6); transform:scale(1)} }
 /* نوشتن بِسْمِ الله با پردهٔ ماسک که کنار می‌رود */
@@ -736,7 +742,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
   animation:irisGrow 2.4s ease-out both }
 @keyframes irisGrow{ from{transform:scale(.15); opacity:0} to{transform:scale(1); opacity:1} }
 .sp-seen{ animation:fadeUp .6s both }
-.sp-latin{ font-size:11px; color:#8fa0c4; letter-spacing:7px; margin-top:-4px; text-align:center }
+.sp-latin{ font-size:11px; color:var(--mut); letter-spacing:7px; margin-top:-4px; text-align:center }
 .sp-roles{ display:grid; gap:6px; font-size:11.5px; color:var(--mut); text-align:center }
 .sp-roles span{ display:block }
 .sp-bar{ position:relative; overflow:hidden }
@@ -876,8 +882,8 @@ body.focus #focusExit{ animation:fadeIn .3s both }
 
 /* ── پنل اشکال‌زدایی ?debug=1 ── */
 #dbg{ position:fixed; inset-inline-start:10px; bottom:78px; z-index:500; width:min(92vw,340px);
-  max-height:52vh; overflow:auto; background:rgba(6,10,20,.94); border:1px solid var(--line);
-  border-radius:16px; padding:12px 14px; font:11.5px/1.9 ui-monospace,monospace; color:#cfe3ff;
+  max-height:52vh; overflow:auto; background:var(--float2); border:1px solid var(--line);
+  border-radius:16px; padding:12px 14px; font:11.5px/1.9 ui-monospace,monospace; color:var(--txt);
   backdrop-filter:blur(8px); display:none }
 #dbg.on{ display:block }
 #dbg b{ color:var(--gold) }
@@ -914,6 +920,9 @@ html[data-theme="light"]{
   /* پرِ نوارهای پیشرفت با طلاییِ تیره پر می‌شود تا از زمینهٔ روشن جدا
      بماند (۴٫۶۲ به ۱). گرادیانِ روشنِ --grad این‌جا فقط ۱٫۵ می‌داد. */
   --fill:linear-gradient(135deg,#8f6314,#8f6210);
+  /* سطحِ شناور در تم روشن هم روشن است؛ وگرنه متنِ --txt (که این‌جا تیره
+     است) روی زمینهٔ تیرهٔ ثابت می‌نشست و ناخوانا می‌شد. */
+  --float1:rgba(255,253,248,.97); --float2:rgba(246,240,228,.97);
   color-scheme:light;
 }
 html[data-theme="light"] body{
@@ -1227,7 +1236,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   display:flex; align-items:center; gap:11px;
   padding:11px 12px; border-radius:16px;
   border:1px solid var(--line);
-  background:linear-gradient(135deg,rgba(24,35,60,.97),rgba(19,28,49,.97));
+  background:linear-gradient(135deg,var(--float1),var(--float2));
   backdrop-filter:blur(14px); box-shadow:0 14px 34px rgba(0,0,0,.55);
   animation:ibIn .34s cubic-bezier(.2,.85,.25,1) both;
 }

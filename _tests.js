@@ -2837,6 +2837,17 @@ section('کنتراست رنگ‌ها — همهٔ شش تم، روی هر سه 
       for(const t of m[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[t[1]] = t[2].trim();
     return out;
   };
+  /* --float ها نیمه‌شفاف‌اند (نوار پخش روی صفحه می‌نشیند، پشتش دیده می‌شود).
+     پس رنگشان را اول روی --bg می‌خوابانیم و بعد نسبت می‌گیریم؛ وگرنه
+     عددِ خامِ rgba بی‌معنا می‌شود. */
+  const flat = (c, over) => {
+    const m = String(c).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/i);
+    if(!m) return c;
+    const a = m[4] === undefined ? 1 : parseFloat(m[4]);
+    const b = [1,3,5].map(i => parseInt(over.slice(i, i + 2), 16));
+    return '#' + [0,1,2].map(i => Math.round(parseFloat(m[i+1]) * a + b[i] * (1 - a))
+      .toString(16).padStart(2, '0')).join('');
+  };
 
   const base = toks(':root');
   const themes = { dark: base };
@@ -2870,11 +2881,25 @@ section('کنتراست رنگ‌ها — همهٔ شش تم، روی هر سه 
       const r = ratio(stop, t['--card']);
       ok(`تم ${name}: پرِ نوارِ پیشرفت از کارت جدا دیده می‌شود (${r.toFixed(2)})`, r >= 3);
     }
+    /* --float1/--float2 = سطحِ شناورِ نیمه‌شفاف (نوار پخش، بنر نصب، پنل
+       اشکال‌زدایی). متنِ داخلشان --txt/--mut/--gold است، پس همان‌ها سنجیده
+       می‌شوند. این‌ها یک بار رنگِ تیرهٔ ثابت بودند و در تم روشن متنِ تیره
+       روی زمینهٔ تیره می‌نشست. */
+    for(const k of ['float1', 'float2']){
+      if(!t['--' + k]){ ok(`تم ${name}: توکن --${k} هست`, false); continue; }
+      const bg = flat(t['--' + k], t['--bg']);
+      for(const f of ['txt','mut','gold']){
+        const r = ratio(t['--' + f], bg);
+        ok(`تم ${name}: --${f} روی سطحِ شناورِ ${k} خواناست (${r.toFixed(2)})`, r >= 4.5);
+      }
+    }
   }
   ok('بدترین نسبتِ کل تم‌ها هنوز از AA می‌گذرد', worst.r >= 4.5,
      `${worst.r.toFixed(2)} در ${worst.at}`);
   ok('همهٔ تم‌ها --ink و --fill دارند',
      Object.values(themes).every(t => t['--ink'] && t['--fill']));
+  ok('همهٔ تم‌ها --float1 و --float2 دارند',
+     Object.values(themes).every(t => t['--float1'] && t['--float2']));
 }
 
 section('هدف لمسی — هر کلید جای انگشت دارد (۴۴px)');
@@ -2923,6 +2948,49 @@ section('هدف لمسی — هر کلید جای انگشت دارد (۴۴px)')
     .map(m => parseFloat(m[1])).filter(v => v < 11);
   ok('هیچ متنی در برنامه زیر ۱۱px نیست', small.length === 0,
      [...new Set(small)].join(', '));
+}
+
+section('اجزای دو-تمی — رنگِ ثابت ندارند');
+{
+  /* ریشهٔ بیشترِ باگ‌های تم: جزئی که در *هر* تم دیده می‌شود، رنگش را
+     دست‌ساز گرفته باشد. در تم تاریک درست دیده می‌شود و در تم روشن
+     ناخوانا می‌شود. این اجزا همه دو-تمی‌اند، پس رنگشان باید توکن باشد.
+     سنجش روی خودِ مقدار است، نه روی نام: هر مقدارِ #hex یا rgb() در
+     color/background/border-color این فهرست، شکست است. */
+  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1]
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(m => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }));
+
+  /* .ib .ib-logo عمداً تیرهٔ ثابت است: نشانِ برنامه روی زمینهٔ تیره، مثل
+     آیکن اپ. متن ندارد. #splash و .hero h1 و .sp-title هم گرادیانِ
+     دست‌ساز دارند ولی همه‌شان در تم روشن بازنویسی شده‌اند. */
+  const SHARED = ['#miniQ', '#miniQ .m-t small', '.ib', '.ib .ib-t b', '.ib .ib-t small',
+    '.daily', '.daily-ayah-ar', '.daily-fa', '.qbox .qhint.d1', '.qbox .qhint.d3',
+    '#dbg', '.sp-basmala', '.sp-latin', '.sp-star', '#splash .sp-stars i'];
+  /* border-color عمداً بیرون است: قابِ رنگیِ چیپِ راهنما یک تزئینِ
+     نیمه‌شفاف است و زمینه را از پشت نشان می‌دهد، و معنیِ چیپ را متنِ
+     رنگی‌اش می‌رساند (که همان --grn/--red سنجیده‌شده است). چیزی که
+     این‌جا ممنوع است رنگِ *متن* و *سطح* است. */
+  const PROPS = ['color', 'background', 'background-color'];
+  let hard = 0;
+  for(const sel of SHARED){
+    const bs = rules.filter(r => r.sel.split(',').map(x => x.trim()).includes(sel)).map(r => r.body);
+    if(!bs.length){ ok(`«${sel}» در CSS پیدا شد`, false); continue; }
+    for(const body of bs)
+      for(const dec of body.split(';')){
+        const i = dec.indexOf(':'); if(i < 0) continue;
+        if(!PROPS.includes(dec.slice(0, i).trim().toLowerCase())) continue;
+        const val = dec.slice(i + 1).trim();
+        if(/#[0-9a-f]{3,8}/i.test(val) || /rgba?\(/i.test(val)){
+          hard++;
+          ok(`«${sel}» رنگِ ثابت ندارد`, false, `«${val}»`);
+        }
+      }
+  }
+  ok('در هیچ‌کدام از اجزای دو-تمی رنگِ ثابت نمانده', hard === 0,
+     `${hard} مورد`);
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
