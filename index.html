@@ -361,7 +361,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   display:grid;justify-items:center;gap:3px;padding:5px 10px;border-radius:12px;transition:.16s
 }
 .nav button i{font-size:19px;font-style:normal}
-/* شش دکمه در نوار پایین — روی گوشی‌های باریک جا شود */
+/* پنج دکمه در نوار پایین — روی گوشی‌های باریک جا شود.
+   «مدیریت» عمداً این‌جا نیست؛ از «حساب ← تنظیمات» باز می‌شود. */
 @media(max-width:430px){
   .nav{padding:8px 2px calc(8px + env(safe-area-inset-bottom))}
   .nav button{padding:5px 5px;font-size:9.5px;gap:2px}
@@ -1583,7 +1584,6 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     <button class="navi" data-nav="online" aria-label="محفل" data-tip="محفل: اتاق چندنفره، چت زنده و بازی دونفره"><i class="ni">🌐</i>محفل</button>
     <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — روی 🎮 دوباره بزن تا فهرست باز شود"><i class="ni">🎮</i>بازی</button>
     <button class="navi" data-nav="me" aria-label="حساب من" data-tip="پروفایل، آمار، نشان‌ها، رکوردها و تنظیمات"><i class="ni">👤</i>حساب</button>
-    <button class="navi" data-nav="admin" aria-label="مدیریت" data-tip="پنل مدیریت — فقط با رمز درست باز می‌شود"><i class="ni">👑</i>مدیریت</button>
   </nav>
   <div style="height:74px"></div>
 </div>
@@ -2412,7 +2412,12 @@ const Router = {
     U.$$('.screen').forEach(s => s.classList.remove('active'));
     const el = U.$('#' + this.screens[name]);
     if(el) el.classList.add('active');
-    U.$$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.nav === name || (name === 'room' && b.dataset.nav === 'online')));
+    /* پنل مدیریت دکمه‌ای در نوار پایین ندارد؛ چون از «حساب» باز می‌شود،
+       همان‌جا روشن می‌ماند تا کاربر جای خودش را گم نکند. */
+    U.$$('.nav button').forEach(b => b.classList.toggle('on',
+      b.dataset.nav === name ||
+      (name === 'room'  && b.dataset.nav === 'online') ||
+      (name === 'admin' && b.dataset.nav === 'me')));
     window.scrollTo({ top: 0, behavior: 'smooth' });
     /* گذار نرم صفحه + جهش آیکن نوار پایین */
     try{ FX.view(name); }catch(e){}
@@ -8716,7 +8721,9 @@ const A11y = {
     if(this._k) return; this._k = true;
     window.addEventListener('keydown', e => {
       if(!e.altKey) return;
-      const map = { '1':'home', '2':'quran', '3':'online', '4':'play', '5':'me', '6':'admin' };
+      /* میان‌بر آلت+عدد برای همان پنج نشانیِ نوار پایین. «۶» برداشته شد:
+         میان‌برِ پنهان برای پنل مدیریت، همان پنهان‌کردنِ ناامن است. */
+      const map = { '1':'home', '2':'quran', '3':'online', '4':'play', '5':'me' };
       if(map[e.key]){ e.preventDefault(); Router.go(map[e.key]); Sound.click(); }
       else if(String(e.key).toLowerCase() === 'f'){ e.preventDefault(); Focus.toggle(); }
       else if(String(e.key).toLowerCase() === 't'){ e.preventDefault(); Theme.toggle(); }
@@ -9749,6 +9756,11 @@ const Me = {
             <button class="btn gh sm" id="setNight">🌙 تکرار شبانه</button>
             <button class="btn gh sm" id="setSelfTest">🧪 selfTest</button>
           </div>
+          <label class="lbl">🛡 مدیریت</label>
+          <button class="btn gh w" id="setAdmin">👑 پنل مدیریت</button>
+          <p style="font-size:11.5px;color:var(--mut);margin:8px 0 0">
+            این کلید عمداً پنهان نیست: پنهان‌کردنِ نشانی، امنیت نیست.
+            سدِ واقعی همان رمز است، نه پیدا نبودنِ دکمه.</p>
           <label class="lbl">🎧 تلاوت قرآن</label>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <button class="btn gh" id="setQuran" style="flex:1">${U.esc(RECITERS[U.clamp(q.reciter, 0, RECITERS.length - 1)].name)}</button>
@@ -9840,6 +9852,10 @@ const Me = {
       U.$('#setNight').onclick = () => NightRepeat.modal();
       Install.wire();
       SMS.wire();
+      /* مدیریت از نوار پایین برداشته شد و این‌جا نشست: نوار پایین برای
+         کارهای روزمره است، پنل مدیریت برای گاه‌به‌گاه. نشانی‌اش پنهان
+         نیست — پنهان‌کردن امنیت نیست؛ دروازه همان رمز است. */
+      U.$('#setAdmin').onclick = () => Router.go('admin');
       U.$('#setSelfTest').onclick = () => {
         const r = selfTest();
         UI.modal(`<h3>🧪 selfTest</h3>
