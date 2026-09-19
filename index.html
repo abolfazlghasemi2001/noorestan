@@ -3132,13 +3132,19 @@ const FONTS = {
                  css:'https://cdn.jsdelivr.net/npm/@fontsource/markazi-text/arabic.css' },
   samim:       { name:'صمیم',               note:'نرم و گرم — خوانا در همه اندازه‌ها', role:'disp',
                  group:'خوانا', w:800, lh:1.35, ls:'0px',
-                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css' },
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css',
+                 faces:[ { family:'Samim', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/Samim.woff2' },
+                         { family:'Samim', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/Samim-Bold.woff2' } ] },
   shabnam:     { name:'شبنم',               note:'تمیز و امروزی — متن و تیتر', role:'disp',
                  group:'خوانا', w:800, lh:1.35, ls:'0px',
-                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css' },
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css',
+                 faces:[ { family:'Shabnam', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2' },
+                         { family:'Shabnam', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2' } ] },
   sahel:       { name:'ساحل',               note:'گرد و مهربان — سبک و بی‌ادعا', role:'disp',
                  group:'خوانا', w:800, lh:1.4, ls:'0px',
-                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/font-face.css' },
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/font-face.css',
+                 faces:[ { family:'Sahel', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2' },
+                         { family:'Sahel', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2' } ] },
   vazir:       { name:'وزیرمتن',            note:'ساده و بی‌فونت‌بار (سبک‌ترین)', role:'disp',
                  group:'خوانا' },
 
@@ -3168,10 +3174,34 @@ const Fonts = {
   pending: {},
   load(key){
     const f = FONTS[key];
-    if(!f || !f.css || this.pending[key] !== undefined) return this.pending[key] || Promise.resolve(f);
+    if(!f || (!f.css && !f.faces)) return Promise.resolve(f);
+    if(this.pending[key] !== undefined) return this.pending[key];
     this.pending[key] = new Promise(resolve => {
       let done = false;
       const fin = ok => { if(!done){ done = true; resolve(ok ? f : null); } };
+
+      /* راهِ ترجیحی: خودمان شیءِ FontFace را می‌سازیم با display:'swap'.
+         چرا؟ برگهٔ سبکِ سه قلمِ rastikerdar هیچ font-display ندارد، یعنی
+         مقدارِ پیش‌فرضِ auto و در نتیجه FOIT: تا آمدنِ قلم (تا ۳ ثانیه،
+         و روی CDNِ کند بیشتر) متنِ فارسی نامرئی می‌ماند. خودِ برگهٔ سبک
+         قابلِ تغییر نیست، پس از CSS صرف‌نظر می‌کنیم و فایلِ woff2 را
+         مستقیم می‌گیریم — با swap. */
+      if(f.faces && typeof FontFace === 'function' &&
+         document.fonts && typeof document.fonts.add === 'function'){
+        try{
+          let live = 0;
+          f.faces.forEach(x => {
+            live++;
+            const ff = new FontFace(x.family, 'url("' + x.src + '")',
+                                    { weight: x.w || '400', display: 'swap' });
+            ff.load().then(() => { document.fonts.add(ff); if(--live <= 0) fin(true); })
+                     .catch(() => { if(--live <= 0) fin(true); });
+          });
+          setTimeout(() => fin(true), 4000);   // اگر رویداد نیامد، ادامه بده
+          return;
+        }catch(err){ /* مرورگرِ قدیمی — می‌افتیم روی راهِ <link> */ }
+      }
+
       try{
         const link = document.createElement('link');
         link.rel = 'stylesheet'; link.href = f.css;

@@ -3110,6 +3110,57 @@ section('قلمِ پایه — میزبانی‌شده، بی گره به شبک
     ok(`سرویس‌ورکر «${s}» را پیش‌ذخیره می‌کند`, sw.includes(s.replace(/^\.\//, './')));
 }
 
+section('قلم‌های اختیاری — با swap می‌آیند، نه با متنِ نامرئی');
+{
+  /* برگهٔ سبکِ سه قلمِ rastikerdar هیچ font-display ندارد؛ یعنی FOIT:
+     تا آمدنِ قلم متنِ فارسی نامرئی می‌ماند. راه‌حل این است که از آن CSS
+     صرف‌نظر کنیم و شیءِ FontFace را خودمان با display:'swap' بسازیم. */
+  const withFaces = Object.entries(FONTS).filter(([, f]) => f.faces);
+  ok('قلم‌های بی‌swap دستِ‌کم سه‌تا هستند', withFaces.length >= 3,
+     withFaces.map(([k]) => k).join(', '));
+  for(const [k, f] of withFaces){
+    ok(`«${k}» فهرستِ وجه‌ها دارد`, Array.isArray(f.faces) && f.faces.length > 0);
+    ok(`«${k}» راهِ <link> را هم نگه داشته (برای مرورگرِ قدیمی)`, !!f.css);
+    for(const x of f.faces){
+      ok(`«${k}» وجهِ ${x.w} فایلِ woff2 می‌گیرد`, /\.woff2$/.test(x.src || ''), x.src);
+      ok(`«${k}» وجهِ ${x.w} خانواده‌اش را دارد`, !!x.family);
+    }
+    ok(`«${k}» وزنِ ۴۰۰ و ۷۰۰ دارد`,
+       f.faces.some(x => x.w === '400') && f.faces.some(x => x.w === '700'));
+  }
+
+  /* حالا خودِ مسیرِ بارگذاری: با FontFace حاضر، باید swap بخواهد و
+     هیچ <link>ی به سند نچسباند. */
+  const added = [];
+  const made = [];
+  const realFF = global.FontFace;
+  const realFonts = document.fonts;
+  global.FontFace = class {
+    constructor(fam, src, opt){ this.family = fam; this.src = src; this.opt = opt || {}; made.push(this); }
+    load(){ return Promise.resolve(this); }
+  };
+  document.fonts = { add(ff){ added.push(ff); } };
+  try{
+    const key = withFaces[0][0];
+    Fonts.pending = {};
+    Fonts.load(key);
+    await new Promise(r => setTimeout(r, 30));
+    ok('قلمِ اختیاری با FontFace بار می‌شود، نه با <link>',
+       made.length >= 2 && added.length >= 1, `ساخته ${made.length}، افزوده ${added.length}`);
+    ok('همهٔ وجه‌ها display:swap می‌خواهند',
+       made.every(m => m.opt.display === 'swap'), JSON.stringify(made.map(m => m.opt)));
+    ok('وزنِ وجه‌ها به FontFace پاس می‌شود',
+       made.every(m => m.opt.weight), JSON.stringify(made.map(m => m.opt.weight)));
+    ok('نشانیِ قلم از CDN و woff2 است',
+       made.every(m => /cdn\.jsdelivr\.net/.test(m.src) && /\.woff2/.test(m.src)), made[0] && made[0].src);
+  }finally{
+    global.FontFace = realFF;
+    document.fonts = realFonts;
+  }
+  ok('قلمی که با برنامه می‌آید (vazir) هیچ درخواستِ بیرونی ندارد',
+     !FONTS.vazir.css && !FONTS.vazir.faces);
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
