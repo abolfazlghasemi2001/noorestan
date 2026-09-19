@@ -5,6 +5,9 @@ const ok = (name, cond, extra = '') => {
   else { FAIL++; console.log('  ❌ ' + name + (extra ? '  → ' + extra : '')); }
 };
 const section = t => console.log('\n── ' + t + ' ──');
+/* سنجش‌هایی که به await نیاز دارند این‌جا جمع می‌شوند و در دمِ async،
+   به همان ترتیب، اجرا می‌شوند (توپ‌سطح await در این فایل مجاز نیست). */
+const __smsChecks = [];
 
 /* 1. SHA-256 */
 section('SHA-256');
@@ -2059,7 +2062,362 @@ section('پاسخ مبهم (opaque) هرگز ۵۰۳ نمی‌شود');
   ok('پاسخ ۲۰۰ سالم همچنان کش می‌شود', sw3.store.size === 1 && got3 === good);
 }
 
+/* ═══════════ پیامک و OTP (textbee.dev) ═══════════
+   این بخش‌ها عمداً هیچ پیامک واقعی نمی‌فرستند: fetch جعلی است و هر
+   درخواستی که بیرون می‌رفت، این‌جا گرفته و بازرسی می‌شود. */
+section('پیامک — نرمال‌سازی شمارهٔ موبایل');
+/* پیکربندی و حالت سرور را یک‌بار برمی‌داریم. سنجش‌های async در دمِ اجرا
+   می‌روند، پس نمی‌توانند به حالتِ لحظهٔ تعریف تکیه کنند؛ هر کدام وضعیت
+   خودش را صریح می‌سازد و آخرش از همین نسخه برمی‌گرداند. */
+const __smsKeep = { cfg: { ...SMS.config }, srv: { ...SMS.server } };
+const smsState = (mode, extra) => {
+  SMS.server = { on: false, configured: false, device: '', at: 0 };
+  SMS.config.apiKey = ''; SMS.config.deviceId = '';
+  if(mode === 'direct'){ SMS.config.apiKey = 'txb_TESTKEY'; SMS.config.deviceId = 'dev_TESTID'; }
+  if(mode === 'server') SMS.server = { on: true, configured: true, device: '…b06f', at: U.now() };
+  Object.assign(SMS.config, extra || {});
+  return SMS.mode();
+};
+const smsRestore = () => { Object.assign(SMS.config, __smsKeep.cfg); SMS.server = __smsKeep.srv; };
+{
+  [['09123456789','09123456789'], ['9123456789','09123456789'],
+   ['+989123456789','09123456789'], ['00989123456789','09123456789'],
+   ['989123456789','09123456789'], ['0912 345 6789','09123456789'],
+   ['0912-345-6789','09123456789'], ['(0912) 345 6789','09123456789'],
+   ['۰۹۱۲۳۴۵۶۷۸۹','09123456789'], ['٠٩١٢٣٤٥٦٧٨٩','09123456789'],
+   ['+98 912 345 6789','09123456789']].forEach(([inp, want]) => {
+    const got = SMS.norm(inp);
+    ok(`«${inp}» ⇒ ${want}`, got === want, got);
+  });
+
+  ['0212345678', '0912345', '0912345678901', '98912345678', '', 'abcdefghijk', '12345']
+    .forEach(bad => ok(`«${bad}» نامعتبر است`, !SMS.phoneOk(bad), SMS.norm(bad)));
+  ok('شمارهٔ ۱۳ رقمی بریده نمی‌شود (به غریبه نمی‌رود)',
+     SMS.norm('0912345678901') === '0912345678901', SMS.norm('0912345678901'));
+  ok('نمایش شماره گروه‌بندی می‌شود', SMS.faPhone('09123456789') === '0912 345 6789',
+     SMS.faPhone('09123456789'));
+}
+
+section('کد OTP — ساخت و هش');
+{
+  const codes = Array.from({ length: 300 }, () => OTP.code());
+  ok('همهٔ کدها پنج‌رقمی‌اند', codes.every(c => /^\d{5}$/.test(c)));
+  ok('کدها یکنواخت نیستند', new Set(codes).size > 250, new Set(codes).size);
+  ok('طول کد با LEN می‌خواند', OTP.LEN === 5 && codes.every(c => c.length === OTP.LEN));
+
+  const h = OTP.hash('12345', 'salt1');
+  ok('هش ۶۴ نویسه‌ای است (SHA-256)', h.length === 64 && /^[0-9a-f]+$/.test(h));
+  ok('هش خودِ کد نیست', h !== '12345' && !h.includes('12345'));
+  ok('هش با SHA-256 مطابق است', h === U.sha256('12345|salt1|noorestan-otp'));
+  ok('نمک هش را عوض می‌کند', OTP.hash('12345','a') !== OTP.hash('12345','b'));
+  ok('هش بی‌نمک نیست (از هشِ خالیِ کد جداست)', OTP.hash('12345','s') !== U.sha256('12345'));
+  ok('انقضا ۲ دقیقه است', OTP.TTL_MS === 120000);
+  ok('سه تلاش مجاز است', OTP.MAX_TRIES === 3);
+  ok('قفل ۱۰ دقیقه است', OTP.LOCK_MS === 600000);
+  ok('فاصلهٔ ارسال دوباره ۶۰ ثانیه است', OTP.RESEND_MS === 60000);
+}
+
+section('چرخهٔ ورود با موبایل');
+{
+  /* حالت ذخیره‌شده را برمی‌داریم و آخر بخش بازمی‌گردانیم، وگرنه این
+     سنجش‌ها روی بقیهٔ تست‌ها اثر می‌گذارند. */
+  const keepPhone = Store.get('phone'), keepOtp = Store.get('otp');
+
+  const reset = () => Store.update(x => { x.otp = null; x.phone = ''; });
+  const hint = (code, phone) => {
+    Store.update(x => { x.otp = { phone, salt: 'S', hash: OTP.hash(code, 'S'),
+      exp: U.now() + OTP.TTL_MS, tries: 0, lock: 0, at: U.now() }; });
+  };
+
+  smsState('mock');
+  ok('بی کلید ⇒ حالت آزمایشی', SMS.mode() === 'mock', SMS.mode());
+  ok('حالت آزمایشی «آماده» نیست', SMS.ready() === false);
+
+  reset();
+  const PH = '09123456789';
+  const t0 = async () => OTP.start(PH);
+  const t1 = await t0();                            // با fetch واقعی؟ نه — حالت آزمایشی
+  ok('شمارهٔ بد در start رد می‌شود', (await OTP.start('12345')).ok === false);
+  ok('کد ساخته و «فرستاده» شد (آزمایشی)', t1.ok === true && t1.mock === true, JSON.stringify(t1.why));
+  ok('کد آزمایشی برگردانده می‌شود تا کاربر ببیند', /^\d{5}$/.test(t1.code || ''), t1.code);
+  ok('شمارهٔ نرمال‌شده ذخیره شد', (OTP.st() || {}).phone === PH);
+
+  const st = OTP.st();
+  ok('حالتی در Store نشست', !!st && !!st.hash && !!st.salt && !!st.exp);
+  ok('خودِ کد در Store نیست', !JSON.stringify(st).includes(t1.code));
+  ok('انقضا ~۲ دقیقه بعد است', Math.abs((st.exp - U.now()) - 120000) < 3000);
+
+  /* ── کد اشتباه و شمارش تلاش ── */
+  const wrong = String((+t1.code + 11111) % 100000).padStart(5, '0');
+  ok('کد اشتباه تشخیص داده می‌شود', wrong !== t1.code);
+  const w1 = OTP.verify(PH, wrong);
+  ok('تلاش اول: رد شد و ۲ تلاش ماند', w1.ok === false && w1.left === 2, JSON.stringify(w1));
+  const w2 = OTP.verify(PH, wrong);
+  ok('تلاش دوم: ۱ تلاش ماند', w2.ok === false && w2.left === 1);
+  const w3 = OTP.verify(PH, wrong);
+  ok('تلاش سوم: قفل شد', w3.ok === false && w3.locked === true);
+  ok('قفل ۱۰ دقیقه است', Math.abs(w3.lock - 600000) < 1000, w3.lock);
+  ok('پس از قفل، حتی کد درست هم رد می‌شود', OTP.verify(PH, t1.code).ok === false);
+  ok('و پیام قفل می‌دهد، نه «کد اشتباه»', /قفل/.test(OTP.verify(PH, t1.code).why));
+  ok('تازه‌سازی کد هم در قفل رد می‌شود', (await OTP.start(PH)).locked === true);
+
+  /* قفل که تمام شود، شمارنده صفر می‌شود */
+  Store.update(x => { x.otp.lock = U.now() - 1; });
+  const okAfter = OTP.verify(PH, t1.code);
+  ok('پس از پایان قفل، کد درست پذیرفته می‌شود', okAfter.ok === true, JSON.stringify(okAfter));
+  ok('شماره در پروفایل ثبت شد', Store.get('phone') === PH);
+  ok('حالت OTP پس از موفقیت پاک می‌شود', Store.get('otp') === null);
+
+  /* ── انقضا ── */
+  reset();
+  const e1 = await OTP.start(PH);
+  Store.update(x => { x.otp.exp = U.now() - 1; });
+  const ev = OTP.verify(PH, e1.code);
+  ok('کد منقضی رد می‌شود', ev.ok === false && ev.expired === true, JSON.stringify(ev));
+  ok('کد منقضی پاک می‌شود', Store.get('otp') === null);
+
+  /* ── کد درست با رقم فارسی ── */
+  reset();
+  const p1 = await OTP.start(PH);
+  const fa = U.fa(p1.code);
+  ok('رقم فارسی کد هم پذیرفته می‌شود', OTP.verify(PH, fa).ok === true, fa);
+  reset();
+
+  /* ── بی گرفتن کد، تأیید معنا ندارد ── */
+  ok('بی درخواست کد، تأیید رد می‌شود', OTP.verify(PH, '12345').ok === false);
+  ok('شمارهٔ دیگری هم بی کد رد می‌شود', OTP.verify('09120000000', '12345').ok === false);
+  ok('کد ناقص رد می‌شود', (hint('12345', PH), OTP.verify(PH, '123').ok === false));
+
+  /* ── فاصلهٔ ارسال دوباره ── */
+  reset();
+  await OTP.start(PH);
+  const again = await OTP.start(PH);
+  ok('ارسال پشت‌سرهم رد می‌شود', again.ok === false && again.wait > 0, JSON.stringify(again));
+  ok('متن انتظار ثانیه دارد', /ثانیه/.test(again.why), again.why);
+  Store.update(x => { x.otp.at = U.now() - OTP.RESEND_MS - 1; });
+  const again2 = await OTP.start(PH);
+  ok('پس از یک دقیقه دوباره می‌شود', again2.ok === true);
+
+  /* ── ارسال ناموفق نباید حالت بسازد ── */
+  reset();
+  const realSend = SMS.sendOTP;
+  SMS.sendOTP = async () => ({ success: false, error: 'شبکه قطع است' });
+  const bad = await OTP.start(PH);
+  SMS.sendOTP = realSend;
+  ok('ارسال ناموفق ⇒ خطا', bad.ok === false && /قطع/.test(bad.why || ''), JSON.stringify(bad));
+  ok('ارسال ناموفق حالت نمی‌سازد', Store.get('otp') === null);
+  ok('و قفلِ الکی هم نمی‌سازد', OTP.lockSec() === 0);
+
+  Store.update(x => { x.phone = keepPhone; x.otp = keepOtp; });
+  smsRestore();
+}
+
+section('حالت آزمایشی — کد فقط نشان داده می‌شود');
+{
+  const run = async () => {
+    const logs = [], toasts = [];
+    const cl = console.log, tt = UI.toast;
+    const realFetch = globalThis.fetch;
+    let fetched = 0;
+    globalThis.fetch = async () => { fetched++; throw new Error('نباید صدا زده شود'); };
+
+    ok('حالت آزمایشی فعال است', smsState('mock') === 'mock', SMS.mode());
+
+    console.log = (...a) => logs.push(a.join(' '));
+    UI.toast = m => toasts.push(m);
+    let r;
+    try{ r = await SMS.sendOTP('09123456789', '54321'); }
+    finally{ console.log = cl; UI.toast = tt; globalThis.fetch = realFetch; }
+
+    ok('حالت آزمایشی موفق گزارش می‌شود', r && r.success === true && r.mock === true, JSON.stringify(r));
+    ok('در حالت آزمایشی هیچ درخواستی به بیرون نمی‌رود', fetched === 0, String(fetched));
+    ok('کد در کنسول چاپ می‌شود', logs.some(l => l.includes('54321')), logs.join(' ／ '));
+    ok('و به کاربر نشان داده می‌شود', toasts.some(t => t.includes('54321')), toasts.join(' ／ '));
+    /* سنجش بی‌اثر نباشد: همان تابع با کلید، درخواستِ بیرونی می‌فرستد */
+    const saved = globalThis.fetch;
+    let went = 0;
+    globalThis.fetch = async () => { went++; return { ok:true, status:200, json: async () => ({ success:true }) }; };
+    smsState('direct');
+    await SMS.sendOTP('09123456789', '54321');
+    globalThis.fetch = saved;
+    ok('همان تابع با کلید، درخواست بیرونی می‌فرستد', went === 1, String(went));
+    smsRestore();
+  };
+  __smsChecks.push(run);
+}
+
+section('مستقیم — قرارداد درخواست textbee');
+{
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opt) => {
+    calls.push({ url, opt });
+    return { ok: true, status: 200, json: async () => ({ success: true, data: {} }) };
+  };
+
+  ok('کلید و شناسه ⇒ حالت مستقیم', smsState('direct') === 'direct', SMS.mode());
+  ok('حالت مستقیم «آماده» است', SMS.ready() === true);
+
+  let out;
+
+  const run = async () => {
+    ok('در دمِ اجرا هم حالت مستقیم است', smsState('direct') === 'direct', SMS.mode());
+    out = await SMS.sendOTP('0912 345 6789', '13579');
+    const c = calls[0];
+    ok('دقیقاً یک درخواست رفت', calls.length === 1, String(calls.length));
+    ok('نشانی همان endpoint است',
+       c.url === 'https://api.textbee.dev/api/v1/gateway/send-sms', c.url);
+    ok('متد POST است', c.opt.method === 'POST', c.opt.method);
+    ok('کلید در هدر x-api-key است', c.opt.headers['x-api-key'] === 'txb_TESTKEY',
+       JSON.stringify(Object.keys(c.opt.headers)));
+    ok('نوع محتوا JSON است',
+       /application\/json/.test(c.opt.headers['Content-Type'] || ''), c.opt.headers['Content-Type']);
+
+    const b = JSON.parse(c.opt.body);
+    ok('بدنه فقط سه کلید دارد', Object.keys(b).sort().join() === 'deviceId,message,recipients',
+       Object.keys(b).join());
+    ok('deviceId درست است', b.deviceId === 'dev_TESTID', b.deviceId);
+    ok('recipients آرایه است، نه رشته', Array.isArray(b.recipients), typeof b.recipients);
+    ok('recipients یک شمارهٔ نرمال‌شده دارد', b.recipients.length === 1 &&
+       b.recipients[0] === '09123456789', JSON.stringify(b.recipients));
+
+    const want = '🌟 نورستان\n🔐 کد تأیید ثبت‌نام شما: 13579\n' +
+                 '⏱ اعتبار: ۲ دقیقه\n⚠️ این کد را با کسی به اشتراک نگذارید.';
+    ok('متن پیام مو‌به‌مو همان متن خواسته‌شده است', b.message === want, JSON.stringify(b.message));
+    ok('کد داخل متن است', b.message.includes('13579'));
+    ok('پاسخ موفق پاس داده می‌شود', out && out.success === true, JSON.stringify(out));
+
+    /* ── خطای احراز هویت ── */
+    calls.length = 0;
+    globalThis.fetch = async () => ({ ok: false, status: 401,
+      json: async () => ({ error: 'Unauthorized', code: 'AUTH_INVALID' }) });
+    const bad = await SMS.sendOTP('09123456789', '13579');
+    ok('خطای textbee به کاربر می‌رسد', bad.success === false && bad.error === 'Unauthorized',
+       JSON.stringify(bad));
+    ok('کد وضعیت هم می‌آید', bad.status === 401, bad.status);
+
+    /* ── قطع شبکه ── */
+    globalThis.fetch = async () => { const e = new Error('nope'); e.name = 'TypeError'; throw e; };
+    const dead = await SMS.sendOTP('09123456789', '13579');
+    ok('قطعی شبکه به خطای خوانا تبدیل می‌شود',
+       dead.success === false && /اتصال/.test(dead.error || ''), JSON.stringify(dead));
+
+    /* ── آزمایش اتصال ── */
+    calls.length = 0;
+    globalThis.fetch = async (url, opt) => {
+      calls.push({ url, opt });
+      return { ok: true, status: 200, json: async () => ({ success: true }) };
+    };
+    const t = await SMS.sendTest('09123456789');
+    const tb = JSON.parse(calls[0].opt.body);
+    ok('تست ارسال پیام جدا می‌فرستد', t.success === true && /آزمایش/.test(tb.message), tb.message);
+    ok('تست ارسال هم recipients آرایه دارد', tb.recipients[0] === '09123456789');
+
+    globalThis.fetch = realFetch;
+    smsRestore();
+  };
+  /* سنجش‌های بالا به پاسخِ fetch وابسته‌اند؛ پس در دمِ async اجرا می‌شوند. */
+  __smsChecks.push(run);
+}
+
+section('سرور — مسیر پروکسی (کلید از دستگاه بیرون می‌ماند)');
+{
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  const realProto = global.location.protocol;
+
+  ok('سرور کلید دارد ⇒ حالت سرور', smsState('server') === 'server', SMS.mode());
+  ok('در حالت سرور، کلید محلی بی‌اثر است', SMS.ready() === true);
+
+  const run = async () => {
+    ok('در دمِ اجرا هم حالت سرور است', smsState('server') === 'server', SMS.mode());
+    /* sendOTP: کد می‌رود، متن نمی‌رود */
+    calls.length = 0;
+    globalThis.fetch = async (url, opt) => {
+      calls.push({ url, opt });
+      return { ok: true, status: 200, json: async () => ({ success: true }) };
+    };
+    const out = await SMS.sendOTP('09123456789', '24680');
+    const c = calls[0];
+    const blob = JSON.stringify(c);
+    ok('درخواست به /api/otp/send می‌رود', /\/api\/otp\/send$/.test(c.url), c.url);
+    ok('بدنه فقط شماره و کد دارد', Object.keys(JSON.parse(c.opt.body)).sort().join() === 'code,phone',
+       c.opt.body);
+    ok('کلید در بدنه نیست', !blob.includes('txb_DEVICEKEY'));
+    ok('کلید در هدر نیست', !c.opt.headers || !c.opt.headers['x-api-key']);
+    ok('متن پیام از دستگاه نمی‌رود', !/نورستان/.test(c.opt.body));
+    ok('پاسخ سرور پاس داده می‌شود', out.success === true, JSON.stringify(out));
+
+    /* تست ارسال: فقط یک پرچم */
+    calls.length = 0;
+    await SMS.sendTest('09123456789');
+    ok('تست ارسال فقط {phone,test} می‌فرستد',
+       Object.keys(JSON.parse(calls[0].opt.body)).sort().join() === 'phone,test', calls[0].opt.body);
+
+    /* خطای سرور */
+    globalThis.fetch = async () => ({ ok: false, status: 429,
+      json: async () => ({ error: 'سقف ساعتی پر شد' }) });
+    const lim = await SMS.sendOTP('09123456789', '24680');
+    ok('کران نرخ سرور به کاربر می‌رسد', lim.success === false && /سقف/.test(lim.error), JSON.stringify(lim));
+
+    /* probe */
+    Object.assign(global.location, { protocol: 'http:' });
+    globalThis.fetch = async () => ({ ok: true, status: 200,
+      json: async () => ({ configured: true, on: true, device: '…b06f' }) });
+    await SMS.probe();
+    ok('probe سرور را می‌بیند', SMS.server.configured === true && SMS.server.on === true);
+    ok('probe هیچ کلیدی برنمی‌گرداند',
+       !('apiKey' in SMS.server) && !('key' in SMS.server), Object.keys(SMS.server).join());
+
+    Object.assign(global.location, { protocol: 'file:' });
+    globalThis.fetch = async () => { throw new Error('نباید صدا زده شود'); };
+    const p2 = await SMS.probe();
+    ok('از file:// اصلاً سرور پرسیده نمی‌شود', p2.configured === false);
+
+    /* init کلید محلی را پاک می‌کند */
+    /* init باید کلید محلی را پاک کند: با سرورِ آماده، نگه‌داشتنش فقط ریسک است */
+    smsState('direct', { apiKey: 'txb_TESTKEY', deviceId: 'dev_TESTID' });
+    SMS.server = { on: true, configured: true, device: '…b06f', at: U.now() };
+    Store.update(x => { x.sms.apiKey = 'txb_TESTKEY'; x.sms.deviceId = 'dev_TESTID'; });
+    Object.assign(global.location, { protocol: 'http:' });
+    globalThis.fetch = async () => ({ ok: true, status: 200,
+      json: async () => ({ configured: true, device: '…b06f' }) });
+    await SMS.init();
+    ok('سرورِ آماده ⇒ کلید محلی پاک می‌شود',
+       SMS.config.apiKey === '' && Store.get('sms').apiKey === '', SMS.config.apiKey);
+
+    globalThis.fetch = realFetch;
+    Object.assign(global.location, { protocol: realProto });
+    smsRestore();
+  };
+  __smsChecks.push(run);
+}
+
+section('کارت تنظیمات پیامک');
+{
+  smsState('mock');
+  const mock = SMS.card();
+  ok('حالت آزمایشی توضیح خودش را دارد', /حالت آزمایشی/.test(mock));
+  ok('فیلد کلید در حالت آزمایشی هست', /id="smsKey"/.test(mock));
+  ok('فیلد شناسهٔ دستگاه هست', /id="smsDev"/.test(mock));
+  ok('دکمهٔ تست ارسال هست', /id="smsTest"/.test(mock));
+  ok('دکمهٔ ذخیره هست', /id="smsSave"/.test(mock));
+  ok('دکمهٔ ورود با موبایل هست', /id="smsLogin"/.test(mock));
+  ok('فیلد کلید پسورد است', /type="password"/.test(mock));
+  ok('فیلدها لاتین‌اند', (mock.match(/dir="ltr"/g) || []).length >= 2);
+
+  smsState('server');
+  const srv = SMS.card();
+  ok('در حالت سرور، فیلد کلید پنهان می‌شود', !/id="smsKey"/.test(srv));
+  ok('در حالت سرور، دکمهٔ ذخیره نیست', !/id="smsSave"/.test(srv));
+  ok('در حالت سرور، وضعیت روشن می‌گوید', /روی سرور/.test(srv));
+  smsRestore();
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
+  /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
+  for(const fn of __smsChecks) await fn();
+
   await new Promise(r => setTimeout(r, 1600));
 
   const late = (global.__lateErrs || []).slice();

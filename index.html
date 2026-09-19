@@ -1211,6 +1211,15 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   .ib .ib-t small{ display:none }
   .ib{ gap:8px; padding:9px 10px }
 }
+
+/* ── کد پنج‌رقمی پیامک ──
+   حرف‌فاصلهٔ زیاد تا پنج رقم مثل جعبه‌های جدا دیده شوند، و padding
+   هم‌اندازه تا فاصلهٔ حرفِ آخر، کشیدگیِ وسط‌چین را به هم نزند. */
+.otp-in{
+  text-align:center; letter-spacing:.42em; font-size:21px; font-weight:700;
+  padding-inline: .42em 0; font-variant-numeric: tabular-nums;
+}
+.otp-in::placeholder{ letter-spacing:.42em; color:var(--mut); opacity:.55 }
 </style>
 </head>
 
@@ -1641,6 +1650,17 @@ const U = {
   rand: a => a[Math.floor(Math.random()*a.length)],
   uid: () => Math.random().toString(36).slice(2, 10),
   code6: () => String(Math.floor(100000 + Math.random()*900000)),
+  /* کد پیامکی پنج‌رقمی. عمداً هم‌خانوادهٔ code6 ولی جدا: اگر روزی یکی
+     عوض شود، آن یکی نباید تکان بخورد. */
+  code5: () => String(Math.floor(10000 + Math.random()*90000)),
+  /* رقم فارسی/عربی به لاتین. کاربر با صفحه‌کلید فارسی «۱۲۳۴۵» می‌زند و
+     آن رشته با «12345» برابر نیست؛ بی این تبدیل، کدِ درست رد می‌شود. */
+  unfa(s){
+    const fa = '۰۱۲۳۴۵۶۷۸۹', ar = '٠١٢٣٤٥٦٧٨٩';
+    return String(s ?? '').replace(/[۰-۹٠-٩]/g, ch => {
+      const i = fa.indexOf(ch); return String(i >= 0 ? i : ar.indexOf(ch));
+    });
+  },
   now: () => Date.now(),
   today: () => new Date().toISOString().slice(0, 10),
   clamp: (v, a, b) => Math.min(b, Math.max(a, v)),
@@ -1790,6 +1810,14 @@ const Store = {
       /* زمانِ آخرین بستنِ بنر نصب — ۰ یعنی هرگز نبسته. عدد است نه بولین،
          چون می‌خواهیم پس از مدتی دوباره پیشنهاد شود (پایین را ببین). */
       installBar: 0,
+      /* ── نسخهٔ ۱۸: پیامک و ورود با موبایل ──
+         sms: پیکربندی دروازهٔ پیامک. کلید روی سرور هم می‌تواند باشد؛ اگر
+              بود، این دو خالی می‌مانند و کلید هرگز به دستگاه نمی‌آید.
+         phone: شماره‌ای که با OTP تأیید شده — رشتهٔ خالی یعنی هنوز نه.
+         otp: تنها کدِ در جریان. هش و نمک نگه داشته می‌شود، نه خودِ کد. */
+      sms: { apiKey: '', deviceId: '', testPhone: '' },
+      phone: '',
+      otp: null,
       serverUrl: '',
       notifications: [],
       leaderboard: []
@@ -1886,6 +1914,27 @@ const Store = {
        اگر NaN بماند، مقایسه‌های زمانی پایین همیشه false می‌شوند و بنر
        بی‌دلیل هر بار برمی‌گردد. */
     d.installBar = Math.max(0, Math.floor(+d.installBar) || 0);
+    /* ── پیامک ──
+       شماره و پیکربندی رشته‌اند و بریده می‌شوند؛ کدِ در جریان شکل دقیق
+       دارد و هر چیز بی‌شکل دور انداخته می‌شود، وگرنه یک otp خراب می‌تواند
+       تا ابد ورود را بشکند. */
+    if(!d.sms || typeof d.sms !== 'object' || Array.isArray(d.sms)) d.sms = { apiKey:'', deviceId:'' };
+    if(typeof d.sms.apiKey !== 'string')   d.sms.apiKey = '';
+    if(typeof d.sms.deviceId !== 'string') d.sms.deviceId = '';
+    d.sms.apiKey   = d.sms.apiKey.trim().slice(0, 200);
+    d.sms.deviceId = d.sms.deviceId.trim().slice(0, 80);
+    if(typeof d.phone !== 'string') d.phone = '';
+    d.phone = d.phone.replace(/\D/g, '').slice(0, 15);
+    if(d.otp && (typeof d.otp !== 'object' || Array.isArray(d.otp) ||
+       typeof d.otp.hash !== 'string' || typeof d.otp.salt !== 'string' ||
+       !d.otp.phone || !d.otp.exp))
+      d.otp = null;
+    if(d.otp){
+      d.otp.exp   = Math.floor(+d.otp.exp)   || 0;
+      d.otp.lock  = Math.floor(+d.otp.lock)  || 0;
+      d.otp.tries = Math.max(0, Math.floor(+d.otp.tries) || 0);
+      d.otp.at    = Math.floor(+d.otp.at)    || 0;
+    }
     if(!d.wallet || typeof d.wallet !== 'object' || Array.isArray(d.wallet))
       d.wallet = { earned: 0, spent: 0, items: {} };
     if(!d.wallet.items || typeof d.wallet.items !== 'object' || Array.isArray(d.wallet.items))
@@ -2478,7 +2527,10 @@ const Sound = {
 };
 const Haptic = {
   hit(ms = 18){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} },
-  success(){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate([15,40,25]); }catch(e){} }
+  success(){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate([15,40,25]); }catch(e){} },
+  /* لرزش خطا: دو ضربهٔ کوتاه و پشت‌سرهم — از success جدا است تا کاربر
+     بی نگاه‌کردن هم بفهمد کد اشتباه بوده، نه درست. */
+  warn(){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate([40,60,40]); }catch(e){} }
 };
 
 /* ═══════════════ 6.5 نگارخانهٔ تصویرسازی قرآنی (SVG خالص) ═══════════════
@@ -8825,6 +8877,22 @@ function selfTest(){
     ok('راهنمای آی‌اواس مسیر سافاری را می‌گوید',
        Install.STEPS.ios.rows.some(r => /Add to Home Screen/.test(r[1])));
 
+    /* ── نسخهٔ ۱۸: پیامک و ورود با موبایل ── */
+    ok('حالت پیامک یکی از سه حالت است',
+       ['server','direct','mock'].includes(SMS.mode()), SMS.mode());
+    ok('شمارهٔ موبایل نرمال می‌شود', SMS.norm('+98 912-345-6789') === '09123456789',
+       SMS.norm('+98 912-345-6789'));
+    ok('شمارهٔ نامعتبر رد می‌شود', !SMS.phoneOk('0212345678') && !SMS.phoneOk('0912345'));
+    ok('کد OTP پنج‌رقمی است', /^\d{5}$/.test(OTP.code()), OTP.code());
+    ok('کد OTP هش می‌شود، نه ذخیره', OTP.hash('12345','s') !== '12345' &&
+       OTP.hash('12345','s').length === 64);
+    ok('نمک هش را عوض می‌کند', OTP.hash('12345','a') !== OTP.hash('12345','b'));
+    ok('انقضای کد دو دقیقه است', OTP.TTL_MS === 120000);
+    ok('سه تلاش و قفل ده دقیقه', OTP.MAX_TRIES === 3 && OTP.LOCK_MS === 600000);
+    ok('بی کلید، حالت آزمایشی است', SMS.mode() !== 'mock' || !SMS.ready());
+    ok('کارت پیامک دکمه‌هایش را می‌سازد', /id="smsSave"/.test(SMS.card()) ||
+       /id="smsTest"/.test(SMS.card()));
+
     /* ── بنر نصب خودکار ── */
     ok('بنر نصب در سند هست', !!document.querySelector('#ib'));
     ok('بنر نصب مهلتِ پیشنهاد دوباره دارد', Install.OFFER_AGAIN_MS > 0);
@@ -9405,6 +9473,7 @@ const Me = {
               <span class="chip">سطح ${U.fa(d.level)}</span>
               ${Wallet.chip()}
               <span class="chip wr">🎖️ ${U.fa(Object.keys(d.badges || {}).length)}</span>
+              ${d.phone ? `<span class="chip on" dir="ltr">📱 ${U.esc(d.phone)}</span>` : ''}
             </span>
             <span class="xpbar"><i style="width:${pctLv}%"></i></span>
             <span class="tiny" style="display:block;margin-top:5px">${U.fa(d.xp)} از ${U.fa(need)} تجربه تا سطح ${U.fa(d.level + 1)}</span>
@@ -9446,6 +9515,7 @@ const Me = {
             <button class="btn gh sm" id="pfBadges">🎖️ نشان‌ها</button>
             <button class="btn gh sm" id="pfRecords">🏅 رکوردها</button>
             <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
+            <button class="btn gh sm" id="pfPhone">📱 ورود با موبایل</button>
           </div>
         </div>`;
       const av = U.$('#pfAva'), avb = U.$('#pfAvaBtn');
@@ -9457,6 +9527,7 @@ const Me = {
       const bb = U.$('#pfBadges'); if(bb) bb.onclick = () => { this.tab = 'badges'; this.render(); };
       const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
+      const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => OTP.modal();
       const nm = U.$('#pfName');
       if(nm) nm.onchange = () => {
         const v = (nm.value || '').trim().slice(0, 20) || 'بازیکن';
@@ -9639,6 +9710,8 @@ const Me = {
 
           ${Install.card()}
 
+          ${SMS.card()}
+
           <label class="lbl">آدرس سرور محفل</label>
           <input class="inp" id="setServer" dir="ltr" placeholder="ws://192.168.1.5:8787" value="${U.esc(d.serverUrl || '')}">
           <button class="btn w" id="setSave" style="margin-top:16px">💾 ذخیره</button>
@@ -9685,6 +9758,7 @@ const Me = {
       U.$('#setFocus').onclick = () => { Focus.toggle(); };
       U.$('#setNight').onclick = () => NightRepeat.modal();
       Install.wire();
+      SMS.wire();
       U.$('#setSelfTest').onclick = () => {
         const r = selfTest();
         UI.modal(`<h3>🧪 selfTest</h3>
@@ -10959,6 +11033,513 @@ const Install = {
   }
 };
 
+/* ─────────────────── 20.9 SMS — دروازهٔ پیامک (‏textbee.dev) ───────────────────
+   سه راه برای فرستادن پیامک، به همین ترتیب اولویت:
+
+   ۱. سرور  — اگر برنامه از سرورِ خودمان باز شده باشد و سرور کلید را داشته
+              باشد (NOOR_SMS_KEY)، درخواست به /api/otp/send می‌رود و کلید
+              هرگز به مرورگر نمی‌آید. این تنها راهی است که کلید در سورسِ
+              صفحهٔ سرو‌شده نمی‌نشیند.
+   ۲. مستقیم — کلید در همین دستگاه ذخیره شده و مرورگر خودش به textbee می‌زند.
+              کار می‌کند (‏textbee هدر CORS باز می‌گذارد — آزموده شد)، ولی
+              هر کس به پروفایل این مرورگر دسترسی داشته باشد کلید را می‌بیند.
+   ۳. آزمایشی — هیچ کلیدی نیست. کد ساخته می‌شود، در کنسول و روی صفحه نشان
+              داده می‌شود، و هیچ پیامکی نمی‌رود.
+
+   چرا ترتیب این‌طور است؟ چون کلید یک اعتبار خرج‌شدنی است: کسی که آن را
+   بردارد می‌تواند به حساب صاحبش پیامک بفرستد. پس هر جا راه ایمن‌تری هست،
+   همان اول می‌آید. */
+const SMS = {
+  provider: 'textbee',
+  config: {
+    apiKey: '',      // در تنظیمات وارد شه (یا روی سرور بماند)
+    deviceId: '',    // در تنظیمات وارد شه
+    endpoint: 'https://api.textbee.dev/api/v1/gateway/send-sms'
+  },
+  /* نشانی پروکسی روی سرور خودمان — نسبی است تا هر جا برنامه باز شود کار کند */
+  PROXY: '/api/otp',
+  TIMEOUT_MS: 20000,
+  server: { on: false, configured: false, at: 0 },
+
+  /* ── پیکربندی ── */
+  hydrate(){
+    const s = Store.get('sms') || {};
+    this.config.apiKey   = s.apiKey || '';
+    this.config.deviceId = s.deviceId || '';
+    return this.config;
+  },
+  save(patch){
+    Store.update(x => {
+      if(typeof patch.apiKey === 'string')   x.sms.apiKey = patch.apiKey.trim().slice(0, 200);
+      if(typeof patch.deviceId === 'string') x.sms.deviceId = patch.deviceId.trim().slice(0, 80);
+    });
+    this.hydrate();
+  },
+
+  /* ── حالت جاری ──
+     تنها جایی که تصمیم گرفته می‌شود. «کلید دارم؟» هرگز تنها معیار نیست؛
+     اگر سرور کلید داشته باشد، کلید محلی نادیده می‌ماند. */
+  mode(){
+    if(this.server.configured) return 'server';
+    if(this.config.apiKey && this.config.deviceId) return 'direct';
+    return 'mock';
+  },
+  modeName(){
+    return { server: 'سرور', direct: 'مستقیم', mock: 'آزمایشی' }[this.mode()];
+  },
+  ready(){ return this.mode() !== 'mock'; },
+
+  /* ── شمارهٔ موبایل ──
+     هر شکل معقولی را می‌پذیرد و به شکل ۰۹xxxxxxxxx درمی‌آورد، چون
+     textbee همین را می‌خواهد. کاربر ممکن است +۹۸ یا ۰۰۹۸ یا ۹۱۲… بنویسد
+     یا با فاصله و خط تیره جدا کند. */
+  norm(phone){
+    let d = U.unfa(phone).replace(/\D/g, '');
+    if(d.startsWith('0098')) d = d.slice(4);
+    else if(d.startsWith('98') && d.length >= 12) d = d.slice(2);
+    if(d.length === 10 && d.startsWith('9')) d = '0' + d;
+    /* عمداً بریده نمی‌شود. اگر شمارهٔ ۱۳ رقمی را به ۱۱ رقم می‌بریدیم،
+       یک شمارهٔ **معتبر ولی دیگر** می‌ساختیم و کد به یک غریبه می‌رفت.
+       بلندتر از حد ⇒ معتبر نیست، تمام. */
+    return d;
+  },
+  phoneOk(phone){
+    const p = this.norm(phone);
+    /* موبایل ایران: ۱۱ رقم و با ۰۹ شروع می‌شود. عمداً فقط همین اندازه
+       سخت‌گیریم؛ فهرست پیش‌شماره‌ها عوض می‌شود و سخت‌گیریِ بیشتر،
+       شمارهٔ درست را هم رد می‌کند. */
+    return /^09\d{9}$/.test(p);
+  },
+  faPhone(phone){
+    const p = this.norm(phone);
+    return p.length === 11 ? `${p.slice(0, 4)} ${p.slice(4, 7)} ${p.slice(7)}` : p;
+  },
+
+  /* ── یک درخواست، بی آنکه هیچ‌وقت پرتاب کند ──
+     هر خطای شبکه به {success:false, error} تبدیل می‌شود تا صداکننده یک
+     شکل ثابت ببیند. */
+  async req(url, opt){
+    opt = opt || {};
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const tid = ctrl ? Timers.after(() => { try{ ctrl.abort(); }catch(e){} }, this.TIMEOUT_MS, 'sys') : null;
+    try{
+      const res = await fetch(url, {
+        method: opt.method || 'POST',
+        headers: { 'Content-Type': 'application/json', ...(opt.headers || {}) },
+        body: opt.body ? JSON.stringify(opt.body) : undefined,
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      let j = null;
+      try{ j = await res.json(); }catch(e){}
+      return { ok: res.ok, status: res.status, json: j };
+    }catch(e){
+      return { ok: false, status: 0, json: null,
+               error: (e && e.name === 'AbortError') ? 'پاسخی نیامد — وقت تمام شد' : 'اتصال برقرار نشد' };
+    }finally{ if(tid) Timers.clear(tid); }
+  },
+
+  /* ── پرس‌وجوی سرور ──
+     فقط می‌پرسیم «کلید داری؟». نه کلید می‌فرستیم و نه می‌گیریم. */
+  async probe(){
+    this.server = { on: false, configured: false, at: U.now() };
+    if(typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return this.server;
+    const r = await this.req(this.PROXY + '/status', { method: 'GET' });
+    if(r.ok && r.json && typeof r.json === 'object')
+      this.server = { on: true, configured: !!r.json.configured,
+                      device: r.json.device || '', at: U.now() };
+    return this.server;
+  },
+
+  /* ── فرستادن از راه سرور ──
+     این‌جا عمداً **متن آزاد نمی‌فرستیم**، بلکه «کد» یا «آزمایش» می‌فرستیم
+     و سرور خودش متن را می‌سازد. چرا؟ چون سرور کلید را دارد و اگر متن آزاد
+     بپذیرد، هر کسی می‌تواند از آن مثل یک رلهٔ پیامک استفاده کند و هزینه‌اش
+     پای صاحب کلید بیفتد. با دو قالبِ ثابت، بدترین کاری که می‌شود کرد
+     فرستادنِ همان کد به یک شماره است — که کرانِ نرخ جلویش را می‌گیرد. */
+  async viaServer(payload){
+    const r = await this.req(this.PROXY + '/send', { body: payload });
+    if(r.json && typeof r.json === 'object'){
+      if(!r.ok && r.json.success !== false) r.json.success = false;
+      if(!r.ok && !r.json.error) r.json.error = r.error || ('HTTP ' + r.status);
+      return r.json;
+    }
+    return { success: false, error: r.error || ('HTTP ' + r.status) };
+  },
+
+  /* ── فرستادن مستقیم به textbee ──
+     تنها جایی که کلید محلی به کار می‌آید. */
+  async direct(phone, message){
+    const p = this.norm(phone);
+    const r = await this.req(this.config.endpoint, {
+      headers: { 'x-api-key': this.config.apiKey },
+      /* قالب دقیقاً همان چیزی است که textbee می‌خواهد:
+         recipients آرایه است، نه رشته — و deviceId کلیدواژهٔ درست است. */
+      body: { deviceId: this.config.deviceId, recipients: [p], message }
+    });
+    const j = r.json;
+    if(!r.ok || !j || j.success === false)
+      return { success: false, status: r.status,
+               error: (j && (j.error || j.message)) || r.error || ('HTTP ' + r.status) };
+    return j;
+  },
+
+  /* ── کد تأیید ──
+     متن پیام عیناً همان است که خواسته شد؛ فقط کد داخلش می‌نشیند.
+     در حالت سرور، همین متن آن‌طرف ساخته می‌شود. */
+  async sendOTP(phone, code){
+    const p = this.norm(phone);
+    if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
+
+    /* حالت آزمایشی: کد جایی نمی‌رود، فقط نشان داده می‌شود. */
+    if(this.mode() === 'mock'){
+      console.log('🔐 [MOCK] OTP:', code);
+      UI.toast(`🔐 کد تست: ${code}`, '', 6000);
+      return { success: true, mock: true };
+    }
+    if(this.mode() === 'server') return await this.viaServer({ phone: p, code });
+
+    return await this.direct(p,
+      '🌟 نورستان\n' +
+      '🔐 کد تأیید ثبت‌نام شما: ' + code + '\n' +
+      '⏱ اعتبار: ۲ دقیقه\n' +
+      '⚠️ این کد را با کسی به اشتراک نگذارید.');
+  },
+
+  async sendTest(phone){
+    const p = this.norm(phone);
+    if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
+    if(this.mode() === 'server') return await this.viaServer({ phone: p, test: true });
+    return await this.direct(p,
+      '🌟 نورستان\n✅ آزمایش اتصال پیامک با موفقیت انجام شد.\n' +
+      '⏱ ' + new Date().toLocaleTimeString('fa-IR'));
+  },
+
+  /* ── کارت تنظیمات ── */
+  card(){
+    const m = this.mode();
+    const hint = m === 'server'
+      ? '✅ کلید روی سرور تنظیم شده است. درخواست‌ها از سرور می‌روند و کلید هرگز به این دستگاه نمی‌آید.'
+      : m === 'direct'
+        ? '🔑 کلید در همین دستگاه ذخیره شده و مرورگر خودش به textbee می‌زند. اگر برنامه را جایی میزبانی می‌کنی که دیگران هم بازش می‌کنند، کلید را به‌جای این‌جا روی سرور بگذار (NOOR_SMS_KEY) تا از سورس صفحه بیرون بماند.'
+        : '🧪 حالت آزمایشی — بی کلید. کد ساخته می‌شود و فقط روی همین صفحه نشان داده می‌شود؛ هیچ پیامکی نمی‌رود.';
+
+    return `<div class="card mt14"><b style="font-size:13px">📱 پیامک (ورود با موبایل)</b><div class="sep"></div>
+      <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">${U.esc(hint)}</p>
+      ${m === 'server' ? '' : `
+      <label class="lbl">کلید API — <span dir="ltr">x-api-key</span></label>
+      <input class="inp" id="smsKey" type="password" dir="ltr" autocomplete="off" spellcheck="false"
+             placeholder="txb_…" value="${U.esc(this.config.apiKey)}">
+      <label class="lbl">شناسهٔ دستگاه — <span dir="ltr">Device ID</span></label>
+      <input class="inp" id="smsDev" dir="ltr" autocomplete="off" spellcheck="false"
+             placeholder="6aad…" value="${U.esc(this.config.deviceId)}">`}
+      <label class="lbl">شمارهٔ آزمایش</label>
+      <input class="inp" id="smsTestPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
+             placeholder="09123456789" value="${U.esc(this.config.testPhone || '')}">
+      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn gh" id="smsTest">🧪 تست ارسال</button>
+        <button class="btn gh" id="smsLogin">📱 ورود با موبایل</button>
+        ${m === 'server' ? '' : '<button class="btn" id="smsSave" style="flex:1">💾 ذخیره</button>'}
+      </div>
+      <div class="tiny" id="smsMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em">
+        حالت جاری: <b>${U.esc(this.modeName())}</b>${this.server.on ? ' — سرور پاسخ داد' : ''}</div>
+    </div>`;
+  },
+
+  wire(){
+    const key = U.$('#smsKey'), dev = U.$('#smsDev'), ph = U.$('#smsTestPhone');
+    const msg = U.$('#smsMsg');
+    const say = (t, ok) => { if(msg) msg.innerHTML = `<span style="color:${ok ? 'var(--green, #3ddc84)' : 'var(--red, #ff6b6b)'}">${U.esc(t)}</span>`; };
+
+    const save = U.$('#smsSave');
+    if(save) save.onclick = () => {
+      Haptic.hit();
+      const k = (key ? key.value : '').trim(), d = (dev ? dev.value : '').trim();
+      this.save({ apiKey: k, deviceId: d });
+      if(ph) Store.update(x => { x.sms.testPhone = ph.value.trim().slice(0, 20); });
+      Me.render();
+      UI.toast(k && d ? '✅ ذخیره شد' : '💾 ذخیره شد — حالت آزمایشی', k && d ? 'ok' : '', 2200);
+    };
+
+    const test = U.$('#smsTest');
+    if(test) test.onclick = async () => {
+      Haptic.hit();
+      /* اگر کاربر تازه کلید را تایپ کرده ولی ذخیره نکرده، همان را برمی‌داریم
+         تا مجبور نباشد اول ذخیره کند و بعد آزمایش. */
+      if(key && dev) this.config.apiKey = key.value.trim(), this.config.deviceId = dev.value.trim();
+      const phone = this.norm(ph ? ph.value : '');
+      if(!this.phoneOk(phone)){ say('شمارهٔ آزمایش را درست وارد کن (مثل 09123456789)'); return; }
+      if(!this.ready()){ say('حالت آزمایشی است — بی کلید، پیامکی فرستاده نمی‌شود.', true); UI.toast('🧪 حالت آزمایشی', '', 2200); return; }
+      test.disabled = true; say('در حال فرستادن…');
+      const r = await this.sendTest(phone);
+      test.disabled = false;
+      if(r && r.success){ say(`✅ فرستاده شد به ${this.faPhone(phone)}`, true); UI.toast('✅ پیامک آزمایشی رفت', 'ok', 2600); }
+      else say('❌ ' + ((r && r.error) || 'فرستادن نشد'));
+    };
+
+    const login = U.$('#smsLogin');
+    if(login) login.onclick = () => { UI.closeModal(); OTP.modal(); };
+  },
+
+  async init(){
+    this.hydrate();
+    try{ await this.probe(); }catch(e){}
+    /* اگر سرور کلید دارد، کلید محلی بی‌مصرف است — و نگه‌داشتنش فقط
+       ریسک است. پس پاکش می‌کنیم. */
+    if(this.server.configured && (this.config.apiKey || this.config.deviceId))
+      this.save({ apiKey: '', deviceId: '' });
+  }
+};
+
+/* ─────────────────── 20.10 OTP — ورود با موبایل ───────────────────
+   چرخه: شماره → کد پنج‌رقمی → تأیید → ورود.
+
+   سه قاعدهٔ امنیتی که همه در همین یک شیء پیاده شده‌اند:
+   • خودِ کد هرگز ذخیره نمی‌شود، فقط SHA-256 آن همراه یک «نمک» تازه.
+     نمک مهم است: بی آن، دو کد یکسان هش یکسان می‌دادند و از روی هش
+     می‌شد فهمید کاربر چه کدی گرفته.
+   • انقضا: ۲ دقیقه.
+   • سه تلاش؛ بار چهارم ۱۰ دقیقه قفل.
+
+   چرا در Store می‌نشیند و نه در حافظه؟ چون در حافظه، یک رفرشِ صفحه
+   شمارندهٔ تلاش را صفر می‌کرد و قفل بی‌معنا می‌شد. */
+const OTP = {
+  LEN: 5,
+  TTL_MS: 2 * 60 * 1000,        // ۲ دقیقه
+  MAX_TRIES: 3,
+  LOCK_MS: 10 * 60 * 1000,      // ۱۰ دقیقه
+  RESEND_MS: 60 * 1000,         // فاصلهٔ لازم میان دو ارسال
+  step: 1,
+  box: null,
+  tid: null,
+  lastPhone: '',
+
+  /* ── حالت ذخیره‌شده ── */
+  st(){ return Store.get('otp'); },
+  put(st){ Store.update(x => { x.otp = st; }); },
+  clear(){ Store.update(x => { x.otp = null; }); },
+
+  code(){ return U.code5(); },
+  hash(code, salt){ return U.sha256(String(code) + '|' + String(salt) + '|noorestan-otp'); },
+
+  /* ثانیه‌های مانده تا انقضا — ۰ یعنی تمام شده */
+  leftSec(){
+    const st = this.st();
+    if(!st) return 0;
+    return Math.max(0, Math.ceil((st.exp - U.now()) / 1000));
+  },
+  lockSec(){
+    const st = this.st();
+    if(!st || !st.lock) return 0;
+    return Math.max(0, Math.ceil((st.lock - U.now()) / 1000));
+  },
+  waitSec(){
+    const st = this.st();
+    if(!st || !st.at) return 0;
+    return Math.max(0, Math.ceil((st.at + this.RESEND_MS - U.now()) / 1000));
+  },
+
+  /* ── گام ۱: ساختن و فرستادن کد ── */
+  async start(raw){
+    const phone = SMS.norm(raw);
+    if(!SMS.phoneOk(phone))
+      return { ok: false, why: 'شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹' };
+    if(this.lockSec() > 0)
+      return { ok: false, why: `ورود قفل است — ${U.fa(Math.ceil(this.lockSec() / 60))} دقیقهٔ دیگر`, locked: true };
+    if(this.waitSec() > 0)
+      return { ok: false, why: `کمی صبر کن — ${U.fa(this.waitSec())} ثانیه`, wait: this.waitSec() };
+
+    const code = this.code();
+    const salt = U.uid() + U.uid();
+    const st = { phone, salt, hash: this.hash(code, salt), exp: U.now() + this.TTL_MS,
+                 tries: 0, lock: 0, at: U.now() };
+
+    const res = await SMS.sendOTP(phone, code);
+    if(!res || res.success === false){
+      /* ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
+         باشد، دو دقیقه انتظار و سه تلاش بی‌فایده می‌گرفت. */
+      return { ok: false, why: (res && res.error) || 'فرستادن پیامک نشد', send: res };
+    }
+    this.put(st);
+    this.lastPhone = phone;
+    return { ok: true, mock: !!res.mock, code: res.mock ? code : '', phone };
+  },
+
+  /* ── گام ۲: بررسی کد ── */
+  verify(raw, input){
+    const phone = SMS.norm(raw || this.lastPhone);
+    const st = this.st();
+    const now = U.now();
+    if(!st || st.phone !== phone) return { ok: false, why: 'اول یک کد بگیر' };
+
+    if(st.lock && now < st.lock)
+      return { ok: false, why: 'قفل است', locked: true, lock: st.lock - now };
+    if(now > st.exp){
+      this.clear();
+      return { ok: false, why: 'کد منقضی شد — کد تازه بگیر', expired: true };
+    }
+
+    const code = U.unfa(input).replace(/\D/g, '');
+    if(code.length !== this.LEN)
+      return { ok: false, why: `کد ${U.fa(this.LEN)} رقمی است` };
+
+    if(this.hash(code, st.salt) !== st.hash){
+      st.tries = (st.tries || 0) + 1;
+      if(st.tries >= this.MAX_TRIES){
+        st.tries = 0;
+        st.lock = now + this.LOCK_MS;
+        this.put(st);
+        return { ok: false, why: `سه بار اشتباه — ${U.fa(this.LOCK_MS / 60000)} دقیقه قفل شد`,
+                 locked: true, lock: this.LOCK_MS };
+      }
+      this.put(st);
+      return { ok: false, why: `کد اشتباه است — ${U.fa(this.MAX_TRIES - st.tries)} تلاش مانده`,
+               left: this.MAX_TRIES - st.tries };
+    }
+
+    /* درست بود: کد سوخته و شماره ثبت می‌شود. */
+    this.clear();
+    const wasNew = Store.get('phone') !== phone;
+    Store.update(x => { x.phone = phone; });
+    return { ok: true, phone, first: wasNew };
+  },
+
+  /* ── ظاهر ── */
+  stop(){
+    if(this.tid){ Timers.clear(this.tid); this.tid = null; }
+  },
+  tick(){
+    const el = U.$('#otpLeft'), again = U.$('#otpAgain');
+    /* خودترمیم: اگر مودال به هر راهی بسته شده باشد، این گره دیگر نیست و
+       حلقه خودش را می‌خواباند — پس لازم نیست دنبال هر مسیر بسته‌شدن برویم. */
+    if(!el && !again){ this.stop(); return; }
+    if(el){
+      const s = this.leftSec();
+      el.textContent = s > 0 ? `⏱ ${U.fa(s)} ثانیه تا پایان اعتبار کد` : '⏱ کد منقضی شد — کد تازه بگیر';
+    }
+    if(again){
+      const w = this.waitSec();
+      again.disabled = w > 0;
+      again.textContent = w > 0 ? `🔁 ارسال دوباره (${U.fa(w)})` : '🔁 ارسال دوباره';
+    }
+  },
+  run(){
+    this.stop();
+    this.tid = Timers.every(() => this.tick(), 1000, 'sys');
+    this.tick();
+  },
+
+  modal(){
+    const cur = Store.get('phone');
+    this.lastPhone = this.lastPhone || cur || '';
+    this.devCode = '';
+    this.step = 1;
+    UI.modal(`<h3 style="margin-bottom:10px">📱 ورود با موبایل</h3><div id="otpBox"></div>`,
+      box => { this.box = box; this.paint(); });
+  },
+
+  say(text, ok){
+    const el = U.$('#otpMsg', this.box || document);
+    if(el) el.innerHTML = `<span style="color:${ok ? 'var(--green, #3ddc84)' : 'var(--red, #ff6b6b)'}">${U.esc(text)}</span>`;
+  },
+
+  paint(){
+    const box = this.box;
+    if(!box) return;
+    const boxEl = U.$('#otpBox', box) || box;
+    const m = SMS.modeName();
+
+    if(this.step === 1){
+      this.stop();
+      boxEl.innerHTML = `
+        <p style="font-size:12px;color:var(--mut);margin-bottom:12px">
+          شمارهٔ موبایلت را وارد کن؛ یک کد ${U.fa(this.LEN)} رقمی پیامک می‌شود.
+          کد ۲ دقیقه اعتبار دارد.</p>
+        <label class="lbl">شمارهٔ موبایل</label>
+        <input class="inp" id="otpPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
+               placeholder="09123456789" value="${U.esc(this.lastPhone)}">
+        <button class="btn w" id="otpGo" style="margin-top:14px">📨 ارسال کد</button>
+        <div class="tiny" id="otpMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>
+        <div class="tiny" style="margin-top:6px">راه فرستادن: <b>${U.esc(m)}</b></div>`;
+      U.$('#otpGo', boxEl).onclick = () => this.go();
+      const inp = U.$('#otpPhone', boxEl);
+      inp.onkeydown = e => { if(e.key === 'Enter') this.go(); };
+      Timers.after(() => inp.focus(), 60, 'sys');
+      return;
+    }
+
+    if(this.step === 2){
+      const st = this.st() || {};
+      boxEl.innerHTML = `
+        <p style="font-size:12px;color:var(--mut);margin-bottom:12px">
+          کد ${U.fa(this.LEN)} رقمی به <b dir="ltr">${U.esc(SMS.faPhone(st.phone || this.lastPhone))}</b> پیامک شد.</p>
+        <label class="lbl">کد تأیید</label>
+        <input class="inp otp-in" id="otpCode" dir="ltr" inputmode="numeric" maxlength="${this.LEN}"
+               autocomplete="one-time-code" placeholder="— — — — —">
+        <div class="tiny" id="otpLeft" style="margin-top:8px;min-height:1em"></div>
+        <button class="btn w" id="otpOk" style="margin-top:12px">✅ تأیید و ورود</button>
+        <button class="btn gh w" id="otpAgain" style="margin-top:8px">🔁 ارسال دوباره</button>
+        <button class="btn gh w" id="otpBack" style="margin-top:8px">✏️ تغییر شماره</button>
+        <div class="tiny" id="otpMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>`;
+      U.$('#otpOk', boxEl).onclick = () => this.check();
+      U.$('#otpAgain', boxEl).onclick = () => this.again();
+      U.$('#otpBack', boxEl).onclick = () => { this.step = 1; this.paint(); };
+      const inp = U.$('#otpCode', boxEl);
+      inp.onkeydown = e => { if(e.key === 'Enter') this.check(); };
+      inp.oninput = () => {
+        inp.value = U.unfa(inp.value).replace(/\D/g, '').slice(0, this.LEN);
+        if(inp.value.length === this.LEN) this.check();      // پنج رقم که کامل شد، خودش می‌رود
+      };
+      Timers.after(() => inp.focus(), 60, 'sys');
+      this.run();
+      /* در حالت آزمایشی کد را همان‌جا نشان می‌دهیم، وگرنه کاربر بی کد
+         گیر می‌افتد و فکر می‌کند خراب است. */
+      if(SMS.mode() === 'mock' && this.devCode) this.say(`🧪 حالت آزمایشی — کد: ${U.fa(this.devCode)}`, true);
+      return;
+    }
+  },
+
+  async go(){
+    const inp = U.$('#otpPhone', this.box);
+    const btn = U.$('#otpGo', this.box);
+    const phone = SMS.norm(inp ? inp.value : '');
+    if(!SMS.phoneOk(phone)){ this.say('شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹'); return; }
+    this.lastPhone = phone;
+    Haptic.hit();
+    if(btn) btn.disabled = true;
+    this.say('در حال فرستادن کد…', true);
+    const r = await this.start(phone);
+    if(btn) btn.disabled = false;
+    if(!r.ok){ this.say(r.why || 'فرستادن نشد'); Haptic.warn(); return; }
+    this.devCode = r.code || '';
+    this.step = 2;
+    this.paint();
+    Haptic.success();
+    UI.toast(r.mock ? '🧪 کد آزمایشی ساخته شد' : '📨 کد پیامک شد', 'ok', 2400);
+  },
+
+  async again(){
+    const btn = U.$('#otpAgain', this.box);
+    if(btn) btn.disabled = true;
+    const r = await this.start(this.lastPhone);
+    if(!r.ok){ this.say(r.why || 'فرستادن نشد'); this.tick(); return; }
+    this.devCode = r.code || '';
+    this.say(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', true);
+    this.paint();      // ورودی خالی و حلقه از نو
+  },
+
+  check(){
+    const inp = U.$('#otpCode', this.box);
+    const code = inp ? inp.value : '';
+    const r = this.verify(this.lastPhone, code);
+    if(!r.ok){ this.say(r.why); Haptic.warn(); if(r.expired || r.locked || r.left != null) this.paint(); return; }
+    this.stop();
+    Haptic.success();
+    UI.closeModal();
+    UI.toast(`✅ خوش آمدی! ${SMS.faPhone(r.phone)}`, 'ok', 3000);
+    try{ Me.render(); }catch(e){}
+  }
+};
+
 /* ─────────────────── 21. INIT ─────────────────── */
 function init(){
   Store.load();
@@ -10975,6 +11556,9 @@ function init(){
   try{ Missions.ensure(); Week.ensure(); Weekly.ensure(); }catch(e){ console.warn('missions', e); }
   try{ Tips.init(); }catch(e){ console.warn('tips', e); }
   try{ Install.init(); }catch(e){ console.warn('install', e); }
+  /* پیامک: پیکربندی خوانده می‌شود و یک بار از سرور می‌پرسیم کلید دارد یا نه.
+     بی پاسخ هم چیزی نمی‌شکند — به حالت آزمایشی برمی‌گردد. */
+  try{ SMS.init(); }catch(e){ console.warn('sms', e); }
 
   /* فونت‌های فارسی: نمایشی (نستعلیق) و قرآنی — با تنبلی بار می‌شوند */
   try{ Fonts.apply(Store.get('fonts')); }catch(e){ console.warn('fonts', e); }

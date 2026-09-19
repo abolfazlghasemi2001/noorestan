@@ -633,6 +633,118 @@ function serverStats(){
            leaderboardSize: leaderboard.length };
 }
 
+/* ─────────────── پیامک (‏textbee.dev) ───────────────
+   چرا سرور واسطه می‌شود و کلاینت مستقیم نمی‌زند؟ چون کلید textbee یک
+   اعتبار خرج‌شدنی است. اگر در `index.html` بنشیند، هر کسی که صفحه را باز
+   کند (یا سورسش را ببیند) کلید را برمی‌دارد و می‌تواند به حساب صاحبش
+   پیامک بفرستد. این‌جا کلید در محیط سرور می‌ماند: NOOR_SMS_KEY و
+   NOOR_SMS_DEVICE. کلاینت فقط می‌گوید «به این شماره این کد را بفرست».
+
+   دو محافظ، چون این نقطهٔ پایانی بی احراز هویت است و روی شبکهٔ محلی باز
+   است:
+   ۱. **قالب ثابت.** سرور متن آزاد نمی‌پذیرد؛ فقط {code} یا {test}. پس
+      نمی‌شود از آن مثل رلهٔ پیامک استفاده کرد.
+   ۲. **کران نرخ.** هر شماره ۳ پیامک در ۱۰ دقیقه، هر IP ۲۰ در ساعت، و
+      سقف کل ۴۰ در ساعت — سقف کل، محافظ اصلی اعتبار است.
+
+   بی این دو، یک اسکریپت روی همان وای‌فای می‌توانست تا آخرین ریال اعتبار
+   پیامک بفرستد. */
+const SMS_KEY      = process.env.NOOR_SMS_KEY || '';
+const SMS_DEVICE   = process.env.NOOR_SMS_DEVICE || '';
+const SMS_ON       = process.env.NOOR_SMS_ON !== '0';
+const SMS_ENDPOINT = process.env.NOOR_SMS_ENDPOINT || 'https://api.textbee.dev/api/v1/gateway/send-sms';
+const SMS_TIMEOUT  = 20000;
+
+const SMS_LIMIT = {
+  perPhoneMs:  10 * 60 * 1000,
+  perPhoneMax: 3,
+  perIpHour:   20,
+  globalHour:  40
+};
+const smsByPhone = new Map();   // phone -> [at, …]
+const smsByIp    = new Map();   // ip    -> [at, …]
+let   smsGlobal  = [];
+
+function smsConfigured(){ return SMS_ON && !!SMS_KEY && !!SMS_DEVICE; }
+
+/* پنجرهٔ زمانی را می‌بُرد و همان آرایه را برمی‌گرداند */
+function smsPrune(arr, win){
+  const t = now();
+  while(arr.length && t - arr[0] > win) arr.shift();
+  return arr;
+}
+function smsAllow(phone, ip){
+  const t = now();
+  const ph = smsPrune(smsByPhone.get(phone) || [], SMS_LIMIT.perPhoneMs);
+  if(ph.length >= SMS_LIMIT.perPhoneMax) return { ok: false, why: 'به این شماره تازه چند پیامک رفته — کمی بعد امتحان کن' };
+  const ia = smsPrune(smsByIp.get(ip) || [], 3600000);
+  if(ia.length >= SMS_LIMIT.perIpHour) return { ok: false, why: 'از این نشانی درخواست زیاد آمده' };
+  smsGlobal = smsPrune(smsGlobal, 3600000);
+  if(smsGlobal.length >= SMS_LIMIT.globalHour) return { ok: false, why: 'سقف ساعتی پیامک سرور پر شد' };
+  ph.push(t); ia.push(t); smsGlobal.push(t);
+  smsByPhone.set(phone, ph); smsByIp.set(ip, ia);
+  return { ok: true };
+}
+
+/* همان متن‌هایی که در کلاینت هم هست. تک‌منبع نیستند (سرور و کلاینت جدا
+   اجرا می‌شوند) ولی هر دو ثابت‌اند و آزمون دارند. */
+function smsOtpMessage(code){
+  return '🌟 نورستان\n' +
+         '🔐 کد تأیید ثبت‌نام شما: ' + code + '\n' +
+         '⏱ اعتبار: ۲ دقیقه\n' +
+         '⚠️ این کد را با کسی به اشتراک نگذارید.';
+}
+function smsTestMessage(){
+  return '🌟 نورستان\n✅ آزمایش اتصال پیامک با موفقیت انجام شد.';
+}
+
+/* پاسخ textbee هرگز عیناً به کلاینت نمی‌رود؛ فقط success و error.
+   این‌طور هیچ چیز اضافه‌ای — از جمله خود کلید — بیرون نمی‌ریزد. */
+async function smsSend(phone, message){
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), SMS_TIMEOUT);
+  try{
+    const res = await fetch(SMS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'x-api-key': SMS_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: SMS_DEVICE, recipients: [phone], message }),
+      signal: ctrl.signal
+    });
+    let j = null;
+    try{ j = await res.json(); }catch(e){}
+    if(!res.ok || !j || j.success === false)
+      return { success: false, error: (j && (j.error || j.message)) || ('HTTP ' + res.status) };
+    return { success: true };
+  }catch(e){
+    return { success: false,
+             error: (e && e.name === 'AbortError') ? 'پاسخی از textbee نیامد' : 'اتصال به textbee برقرار نشد' };
+  }finally{ clearTimeout(tid); }
+}
+
+/* بدنهٔ JSON با سقف اندازه — بی سقف، یک درخواست بزرگ حافظه را می‌خورد */
+function readJson(req, max){
+  return new Promise(resolve => {
+    let n = 0, buf = '';
+    req.on('data', c => {
+      n += c.length;
+      if(n > max){ try{ req.destroy(); }catch(e){} resolve(null); return; }
+      buf += c;
+    });
+    req.on('end', () => { try{ resolve(buf ? JSON.parse(buf) : {}); }catch(e){ resolve(null); } });
+    req.on('error', () => resolve(null));
+  });
+}
+function clientIp(req){
+  return (req.socket && req.socket.remoteAddress) || '?';
+}
+/* رقم فارسی/عربی به لاتین */
+function digits(s){
+  return String(s ?? '').replace(/[۰-۹٠-٩]/g, ch => {
+    const i = '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch);
+    return String(i >= 0 ? i : '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
+  });
+}
+
 /* ─────────────── هندلر upgrade ─────────────── */
 const server = http.createServer(handleHttp);
 
@@ -730,9 +842,19 @@ const MIME = {
   '.map':'application/json; charset=utf-8', '.wasm':'application/wasm'
 };
 
-function handleHttp(req, res){
+async function handleHttp(req, res){
   const u = new URL(req.url, 'http://x');
   const p = decodeURIComponent(u.pathname);
+
+  /* پیش‌پرواز CORS. برنامه معمولاً هم‌خاستگاه است و پیش‌پرواز نمی‌فرستد،
+     ولی اگر از file:// یا نشانی دیگری باز شود، همین جواب می‌دهد. */
+  if(req.method === 'OPTIONS' && p.startsWith('/api/')){
+    res.writeHead(204, { 'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+                         'Access-Control-Allow-Headers': 'Content-Type',
+                         'Access-Control-Max-Age': '600' });
+    return res.end();
+  }
 
   if(p === '/health' || p === '/api/health'){
     res.writeHead(200, { 'Content-Type':'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
@@ -746,6 +868,49 @@ function handleHttp(req, res){
     res.writeHead(200, { 'Content-Type':'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
     return res.end(JSON.stringify({ rooms: roomList(), maxPlayers: LIMITS.roomMembers,
                                     maxSpectators: LIMITS.roomSpectators }));
+  }
+
+  /* ── پیامک ──
+     /status هیچ‌وقت کلید را برنمی‌گرداند — فقط «دارم یا نه». */
+  if(p === '/api/otp/status'){
+    res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8',
+                         'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                         'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ configured: smsConfigured(), on: SMS_ON,
+                                    device: SMS_DEVICE ? '…' + SMS_DEVICE.slice(-4) : '' }));
+  }
+
+  if(p === '/api/otp/send'){
+    const hdr = { 'Content-Type':'application/json; charset=utf-8',
+                  'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                  'Cache-Control': 'no-store' };
+    const no = (code, error) => { res.writeHead(code, hdr); return res.end(JSON.stringify({ success:false, error })); };
+
+    if(req.method !== 'POST') return no(405, 'فقط POST');
+    if(!smsConfigured()) return no(503, 'کلید پیامک روی سرور تنظیم نشده (NOOR_SMS_KEY / NOOR_SMS_DEVICE)');
+
+    const body = await readJson(req, 2048);
+    if(!body) return no(400, 'بدنهٔ درخواست خوانده نشد');
+
+    const phone = digits(body.phone).replace(/\D/g, '');
+    if(!/^09\d{9}$/.test(phone)) return no(400, 'شمارهٔ موبایل معتبر نیست');
+
+    let message, kind;
+    if(body.test === true){ message = smsTestMessage(); kind = 'آزمایشی'; }
+    else {
+      const code = digits(body.code).replace(/\D/g, '');
+      if(code.length !== 5) return no(400, 'کد پنج‌رقمی لازم است');
+      message = smsOtpMessage(code); kind = 'کد تأیید';
+    }
+
+    const lim = smsAllow(phone, clientIp(req));
+    if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
+
+    const out = await smsSend(phone, message);
+    log(`${out.success ? '📨' : '⚠️'} پیامک ${kind} → ${phone}${out.success ? '' : ' — ' + out.error}`);
+    if(!out.success) return no(502, out.error);
+    res.writeHead(200, hdr);
+    return res.end(JSON.stringify({ success: true }));
   }
 
   let file = p === '/' ? '/index.html' : p;
@@ -830,6 +995,9 @@ server.listen(PORT, HOST, () => {
   ips.forEach(ip => console.log(`  آدرس WS    : ws://${ip}:${PORT}`));
   console.log('  ─────────────────────────────────────────');
   console.log(`  رمز مدیر سرور : ${ADMIN_PASS}  (NOOR_ADMIN_PASS)`);
+  console.log(`  پیامک (OTP)   : ${smsConfigured()
+    ? 'آماده — دستگاه …' + SMS_DEVICE.slice(-4)
+    : 'تنظیم نشده — NOOR_SMS_KEY و NOOR_SMS_DEVICE را بگذار'}`);
   console.log(`  فایل داده     : ${DATA_FILE}`);
   console.log(`  ظرفیت روم     : ${LIMITS.roomMembers} بازیکن + ${LIMITS.roomSpectators} تماشاچی`);
   console.log('  ─────────────────────────────────────────');
