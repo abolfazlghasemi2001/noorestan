@@ -383,6 +383,15 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .item .sp{flex:1;min-width:0}
 .item.click{cursor:pointer;transition:.16s}
 .item.click:hover{border-color:var(--gold);background:var(--card2)}
+/* ── پنل مدیریت ── */
+.item .adm-id{cursor:pointer;color:var(--blu);
+  direction:ltr;display:inline-block;margin-top:2px}
+.item .adm-id:hover{color:var(--gold)}
+.adm-bar{padding:7px 0}
+.adm-bar .row{font-size:12.5px;margin-bottom:6px}
+.adm-bar .mp{height:6px;background:var(--card2);border-radius:99px;overflow:hidden}
+.adm-bar .mp i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold),var(--gold2))}
 .chatbox{height:250px;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);
   border-radius:var(--r2);padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
 .msg{max-width:80%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.7;
@@ -1580,11 +1589,13 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     <div id="adminGate"></div>
     <div id="adminMain" class="hide">
       <div class="tabs" id="adminTabs">
-        <button class="tab on" data-tab="users">👥 کاربران</button>
-        <button class="tab" data-tab="rooms">🏠 روم‌ها</button>
+        <button class="tab on" data-tab="dash">📊 داشبورد</button>
+        <button class="tab" data-tab="users">👥 کاربران</button>
         <button class="tab" data-tab="games">🎮 بازی‌ها</button>
-        <button class="tab" data-tab="notif">📢 اعلان</button>
+        <button class="tab" data-tab="rooms">🏠 روم‌ها</button>
         <button class="tab" data-tab="content">📚 محتوا</button>
+        <button class="tab" data-tab="notif">📢 اعلان</button>
+        <button class="tab" data-tab="reports">📈 گزارش‌ها</button>
         <button class="tab" data-tab="ops">⚙️ عملیات</button>
       </div>
       <div id="adminBody"></div>
@@ -1834,6 +1845,20 @@ const U = {
     const m = Math.floor(sec/60), s = sec % 60;
     return m ? `${m}:${String(s).padStart(2,'0')}` : `${s} ثانیه`;
   },
+  /* «چند وقت پیش» — برای فهرست رکوردها و ورودهای اخیر.
+     زمانِ آینده و زمانِ نامعتبر هر دو «همین حالا» می‌شوند، نه عددی عجیب. */
+  ago(at){
+    const ms = this.now() - (+at || 0);
+    if(!(+at) || ms < 0) return 'همین حالا';
+    const min = Math.floor(ms / 60000);
+    if(min < 1) return 'همین حالا';
+    if(min < 60) return `${U.fa(min)} دقیقه پیش`;
+    const h = Math.floor(min / 60);
+    if(h < 24) return `${U.fa(h)} ساعت پیش`;
+    const day = Math.floor(h / 24);
+    if(day < 30) return `${U.fa(day)} روز پیش`;
+    return `${U.fa(Math.floor(day / 30))} ماه پیش`;
+  },
   // نرمال‌سازی متن فارسی برای مقایسه (ی/ك عربی، نیم‌فاصله، اعراب)
   norm(s){
     return String(s ?? '')
@@ -2006,7 +2031,11 @@ const Store = {
                esmFamilBest: 0, perfectRuns: 0, playMs: 0,
                exams: 0, topics: {},
                hadith: 0, imams: 0, dua: 0, spectated: 0, shared: 0, missionsDone: 0,
-               hifzVerses: 0, reviews: 0, bestStreak: 0, shopBuys: 0, coinsEarned: 0 },
+               hifzVerses: 0, reviews: 0, bestStreak: 0, shopBuys: 0, coinsEarned: 0,
+               /* شمارشِ بازی‌ها برای پنل مدیریت: کلِ عمر و امروز */
+               byGame: {}, today: { date: '', n: 0, byGame: {} } },
+      /* روکشِ ویرایشِ محتوا — پرسش‌های برداشته و افزوده، جدا از خودِ بسته */
+      contentEdits: { del: {}, add: {} },
       dailyChallenge: { date: '', done: false, reward: 0, streak: 0, lastDate: '' },
       settings: { theme: 'dark', sound: true, haptics: true, notifications: true,
                   ambient: false, onboarded: false, tips: true },
@@ -2135,6 +2164,16 @@ const Store = {
       d.quran.night = { on:false, from:0, to:0, fade:20, until:0 };
     if(typeof d.quran.focus !== 'boolean') d.quran.focus = false;
     if(typeof d.settings.ambient !== 'boolean') d.settings.ambient = false;
+    /* شمارندهٔ بازی‌ها: هر چیز بی‌شکل به پیش‌فرض برمی‌گردد، وگرنه پنل
+       مدیریت روی `undefined` می‌شکند. */
+    if(!d.stats.byGame || typeof d.stats.byGame !== 'object' || Array.isArray(d.stats.byGame))
+      d.stats.byGame = {};
+    if(!d.stats.today || typeof d.stats.today !== 'object' || Array.isArray(d.stats.today))
+      d.stats.today = { date: '', n: 0, byGame: {} };
+    if(!d.stats.today.byGame || typeof d.stats.today.byGame !== 'object')
+      d.stats.today.byGame = {};
+    if(!d.contentEdits || typeof d.contentEdits !== 'object' || Array.isArray(d.contentEdits))
+      d.contentEdits = { del: {}, add: {} };
     /* ── نسخهٔ ۱۶ ── */
     d.coins = Math.max(0, Math.floor(+d.coins) || 0);
     /* بنر نصب: هر چیز بی‌شمار به ۰ برمی‌گردد (یعنی «نبسته»)، نه به NaN.
@@ -6779,7 +6818,11 @@ const Sync = {
 const QuizEngine = {
   state: null,
   start(opts){
-    const { qs, title, sub, mode = 'normal', count = 10, onDone, hearts = false, resume = null } = opts;
+    const { qs, title, sub, mode = 'normal', count = 10, onDone, hearts = false, resume = null,
+            game = 'quiz' } = opts;
+    /* `game: null` یعنی «این را نشمار» — آزمونِ خودِ برنامه (selfTest) بازی
+       کاربر نیست و اگر شمرده شود، آمارِ پنل مدیریت را دروغین می‌کند. */
+    if(game) Stats.track(game);
     /* resume: بازی نیمه‌کاره‌ای که Autosave برگردانده — پرسش‌ها و پیشرفت را
        از همان برمی‌داریم تا کاربر سرِ همان سوال ادامه بدهد. فهرست پرسش‌ها
        باید ذخیره شده باشد، وگرنه بر زدن دوبارهٔ بانک ترتیب را عوض می‌کند. */
@@ -7010,6 +7053,7 @@ const QuizEngine = {
 const SurahEngine = {
   state: null,
   start(){
+    Stats.track('surah');
     const list = U.shuffle(DATA.surah);
     this.state = { list, i: 0, correct: 0, pts: 0, stars: {}, timer: null, t0: 0, locked: false };
     Router.go('play');
@@ -7111,6 +7155,7 @@ const SurahEngine = {
 const ScrambleEngine = {
   state: null,
   start(){
+    Stats.track('scramble');
     const w = U.rand(DATA.scramble);
     this.state = { word: w.word, hint: w.hint, pool: U.shuffle(w.word.split('')).map(ch => ({ ch, used: false })),
                    chosen: [], solved: false, t0: U.now() };
@@ -7185,6 +7230,7 @@ const ScrambleEngine = {
 const MemoryEngine = {
   state: null,
   start(saved = null){
+    Stats.track('memory');
     /* saved: تختهٔ نیمه‌کاره از Autosave. فقط کارت‌ها و پیشرفت بازمی‌گردند؛
        کارت‌های رو شده عمداً بسته می‌شوند تا پاسخ لو نرود. */
     let cards;
@@ -7289,6 +7335,7 @@ const MemoryEngine = {
 const MatchEngine = {
   state: null,
   start(){
+    Stats.track('match');
     const items = U.shuffle(DATA.meaning).slice(0, 5);
     this.state = {
       left: items.map((it, i) => ({ i, text: it.q.replace(/معنی «|» چیست؟/g, '') })),
@@ -7369,6 +7416,7 @@ const DoozEngine = {
   },
 
   start(online = false, saved = null){
+    Stats.track('dooz');
     const room = Net.room;
     /* saved: تختهٔ نیمه‌کارهٔ آفلاین. بازی آنلاین هرگز از تختهٔ محلی ادامه
        نمی‌شود — وضعیت آن‌جا تنها مرجعش سرور است، نه حافظهٔ این دستگاه. */
@@ -7612,6 +7660,7 @@ const EsmFamilEngine = {
   ROUND_TIME: 90,
 
   start(online = false){
+    Stats.track('esmfamil');
     const s = { online, letter: U.rand(DATA.letters), round: 1, total: 3,
                 time: this.ROUND_TIME, timer: null, phase: 'round', results: null,
                 answers: {}, submitted: false };
@@ -7880,7 +7929,7 @@ const QuizPick = {
         UI.closeModal();
         Sound.chime();
         QuizEngine.start({
-          qs: pool, title: '🏅 آزمون معارف', count: this.count,
+          qs: pool, title: '🏅 آزمون معارف', count: this.count, game: 'exam',
           sub: `${U.fa(pool.length)} سوال از ${U.fa(this.on.length)} موضوع — با توضیح و منبع`,
           onDone: pct => {
             Progress.record('exam_best', pct);
@@ -7916,7 +7965,7 @@ const NahjUI = {
         UI.closeModal();
         Sound.chime();
         QuizEngine.start({
-          qs: DATA.nahjPick, title: '📜 آزمون نهج‌البلاغه',
+          qs: DATA.nahjPick, title: '📜 آزمون نهج‌البلاغه', game: 'nahj',
           sub: `${U.fa(DATA.nahjPick.length)} سخن — معنی درست را پیدا کن`,
           count: 10, onDone: pct => Progress.record('nahj_best', pct)
         });
@@ -8874,6 +8923,7 @@ const HadithEngine = {
   start(){
     const bank = DATA.hadith || [];
     if(!bank.length){ UI.toast('📜 بانک حدیث خالی است', 'err'); return; }
+    Stats.track('hadith');
     this.qs = U.shuffle(bank).slice(0, 10);
     this.i = this.score = this.right = this.wrong = 0;
     this.locked = false; this.filled = null; this.t0 = U.now();
@@ -9048,6 +9098,7 @@ const ImamEngine = {
   start(){
     const src = DATA.imams || [];
     if(!src.length){ UI.toast('🕌 بانک چهارده معصوم خالی است', 'err'); return; }
+    Stats.track('imams');
     /* هر کارت که پاسخش معلوم و بی‌اختلاف است، یک پرسش می‌سازد */
     const qs = [];
     src.forEach(im => {
@@ -9152,6 +9203,7 @@ const DuaEngine = {
   start(){
     const bank = DATA.duas || [];
     if(!bank.length){ UI.toast('🤲 بانک دعا خالی است', 'err'); return; }
+    Stats.track('dua');
     this.qs = U.shuffle(bank).slice(0, 8);
     /* `locked` باید همین‌جا پاک شود. تنها جای دیگری که پاک می‌شد، دکمهٔ
        «سؤال بعدی» بود؛ اگر کاربر پس از پاسخ (بی زدنِ آن دکمه) بیرون
@@ -9503,7 +9555,7 @@ function selfTest(){
     /* ── ذخیرهٔ خودکار وضعیت بازی ── */
     ok('Autosave بار شده', typeof Autosave.put === 'function' && typeof Autosave.resume === 'function');
     ok('snapshot بازی JSON-پذیر است', (() => {
-      QuizEngine.start({ qs: DATA.quiz, title: '🧪 selfTest', sub: '-', count: 3 });
+      QuizEngine.start({ qs: DATA.quiz, title: '🧪 selfTest', sub: '-', count: 3, game: null });
       const x = QuizEngine.snapshot();
       const fine = !!x && !Object.values(x).some(v => typeof v === 'function');
       try{ JSON.stringify(x); }catch(e){ return false; }
@@ -9511,7 +9563,7 @@ function selfTest(){
       return fine;
     })());
     ok('بازی callback-محور ذخیره نمی‌شود', (() => {
-      QuizEngine.start({ qs: DATA.quiz, title: '🧪', sub: '-', count: 3, onDone: () => {} });
+      QuizEngine.start({ qs: DATA.quiz, title: '🧪', sub: '-', count: 3, game: null, onDone: () => {} });
       const none = QuizEngine.snapshot() === null;
       QuizEngine.state = null;
       return none;
@@ -9596,20 +9648,20 @@ const Games = {
   recite:    () => Router.go('quran'),
   surah:     () => SurahEngine.start(),
   scramble:  () => ScrambleEngine.start(),
-  quiz:      () => QuizEngine.start({ qs: DATA.quiz, title: '📚 سوالات قرآنی', sub: 'دانش قرآنی خود را محک بزن' }),
+  quiz:      () => QuizEngine.start({ qs: DATA.quiz, title: '📚 سوالات قرآنی', sub: 'دانش قرآنی خود را محک بزن', game: 'quiz' }),
   exam:      () => QuizPick.open(),
   nahj:      () => NahjUI.open(),
   hadith:    () => HadithEngine.start(),
   imams:     () => ImamEngine.start(),
   dua:       () => DuaEngine.start(),
-  meaning:   () => QuizEngine.start({ qs: DATA.meaning, title: '🔤 معنی کلمه', sub: 'معنی صحیح را انتخاب کن' }),
+  meaning:   () => QuizEngine.start({ qs: DATA.meaning, title: '🔤 معنی کلمه', sub: 'معنی صحیح را انتخاب کن', game: 'meaning' }),
   speed:     () => QuizEngine.start({ qs: [...DATA.quiz, ...DATA.meaning, ...DATA.ahlulbayt, ...DATA.karbala,
                                         ...DATA.ghadir, ...DATA.ahkam, ...DATA.dua, ...DATA.mahdavi, ...DATA.usul],
-                     title: '⚡ سرعت نور',
+                     title: '⚡ سرعت نور', game: 'speed',
                      sub: '۱۲ ثانیه برای هر سوال — پاسخ غلط یک جان می‌گیرد', mode: 'speed', count: 12, hearts: true,
                      onDone: pct => { if(pct >= 80) Store.update(d => d.stats.speedWins = (d.stats.speedWins || 0) + 1); } }),
   iran:      () => QuizEngine.start({ qs: DATA.iran, title: '🇮🇷 اطلاعات ایران', sub: 'تاریخ، جغرافیا و فرهنگ',
-                     onDone: () => Store.update(d => d.stats.iran++) }),
+                     game: 'iran', onDone: () => Store.update(d => d.stats.iran++) }),
   match:     () => MatchEngine.start(),
   memory:    () => MemoryEngine.start(),
   dooz:      () => DoozEngine.start(false),
@@ -9780,7 +9832,8 @@ const DailyChallenge = {
     const qs = pool.filter((_, i) => rng() < 0.25).slice(0, 5);
     while(qs.length < 5) qs.push(U.rand(pool));
     QuizEngine.start({
-      qs, count: 5, title: '🌙 چالش روزانه', sub: `جایزه امروز: ۷۵ امتیاز • زنجیره فعلی ${U.fa(st.streak)} روز`,
+      qs, count: 5, title: '🌙 چالش روزانه', game: 'daily',
+      sub: `جایزه امروز: ۷۵ امتیاز • زنجیره فعلی ${U.fa(st.streak)} روز`,
       onDone: pct => {
         if(pct < 60){ UI.toast('😔 برای جایزه باید ۶۰٪ بزنی', 'err'); return; }
         const d = Store.get('dailyChallenge');
@@ -10586,9 +10639,187 @@ const Me = {
   }
 };
 
+/* ─────────────────── 17.9 شمارشِ بازی‌ها ───────────────────
+   پنل مدیریت باید بتواند بگوید «کدام بازی بیشتر بازی می‌شود» و «امروز چند
+   دست بازی شد». پیش‌تر فقط `stats.plays` بود که تنها دوزِ آفلاین آن را
+   بالا می‌برد؛ یعنی عددی بود که به همهٔ بازی‌ها دروغ می‌گفت.
+
+   شمارش هنگامِ *باز شدنِ* بازی است، نه پایانش: بازیِ نیمه‌کاره هم یک بار
+   بازی‌کردن است، و اگر کاربر وسطش بیرون برود نباید از شمارش بیفتد. */
+const Stats = {
+  todayKey(){ return U.today(); },
+  track(game){
+    if(!game) return;
+    Store.update(d => {
+      const s = d.stats;
+      if(!s.byGame || typeof s.byGame !== 'object') s.byGame = {};
+      s.byGame[game] = (s.byGame[game] || 0) + 1;
+      /* شمارندهٔ امروز هنگامِ عوض شدنِ روز از صفر شروع می‌کند؛ سابقهٔ
+         دیروز نگه داشته نمی‌شود — برای «بازی‌های امروز» همین کافی است. */
+      if(!s.today || typeof s.today !== 'object' || s.today.date !== this.todayKey())
+        s.today = { date: this.todayKey(), n: 0, byGame: {} };
+      s.today.n = (s.today.n || 0) + 1;
+      s.today.byGame[game] = (s.today.byGame[game] || 0) + 1;
+    });
+  },
+  /* امروز چند دست — اگر تاریخ ذخیره‌شده امروز نباشد، صفر */
+  todayN(){
+    const t = Store.get('stats').today;
+    return t && t.date === this.todayKey() ? (t.n || 0) : 0;
+  },
+  todayByGame(){
+    const t = Store.get('stats').today;
+    return t && t.date === this.todayKey() ? (t.byGame || {}) : {};
+  },
+  /* همهٔ بازی‌ها، پرکارترین اول */
+  ranking(){
+    const g = Store.get('stats').byGame || {};
+    return Object.keys(g).map(id => ({ id, n: g[id] }))
+      .filter(r => r.n > 0).sort((a, b) => b.n - a.n);
+  },
+  nameOf(id){ return (DATA.GAMES[id] || {}).name || id; },
+  iconOf(id){ return (DATA.GAMES[id] || {}).icon || '🎮'; }
+};
+
+/* ─────────────────── 17.10 ویرایشِ محتوا ───────────────────
+   افزودن و برداشتنِ پرسش، بدون دست‌زدن به متنِ خودِ بسته.
+
+   چرا لایهٔ روکش و نه ویرایشِ DATA؟ چون DATA بخشی از فایل است و هر ویرایشی
+   در زمانِ اجرا با رفتنِ برنامه از بین می‌رود. روکش در Store می‌نشیند، پس
+   می‌ماند. حذف با *اثر انگشتِ متن* انجام می‌شود نه با شمارهٔ اندیس: اندیس
+   با هر تغییرِ ترتیبِ بانک جابه‌جا می‌شود و حذف، پرسشِ اشتباهی را می‌برد. */
+/* تصویرِ دست‌نخوردهٔ بانک‌ها، یک بار و پیش از نخستین ویرایش گرفته می‌شود.
+   بی آن، هر بار apply روی *خروجیِ* apply پیشین می‌نشیند و نتیجهٔ ویرایش‌ها
+   یک‌طرفه می‌شود: پرسشِ برداشته همیشه برداشته می‌ماند (چون دیگر در DATA
+   نیست تا فیلترِ حذف رویش بنشیند و بازگرداندن کاری نکند) و افزودهٔ پاک‌شده
+   هم برمی‌گردد (چون در نسخهٔ پیشین داخلِ خودِ DATA جا گرفته بود). */
+const CONTENT_BASE = {};
+
+const Content = {
+  BANKS: ['quiz', 'meaning', 'iran', 'surahPick', 'hadith', 'duas'],
+  LABEL: { quiz:'📚 سوال قرآنی', meaning:'🔤 معنی کلمه', iran:'🇮🇷 اطلاعات ایران',
+           surahPick:'📖 کامل‌کردن آیه', hadith:'📜 حدیث', duas:'🤲 دعا' },
+
+  edits(){
+    const e = Store.get('contentEdits');
+    return (e && typeof e === 'object') ? e : { del: {}, add: {} };
+  },
+  /* اثر انگشت: کوتاه، یکتا برای یک پرسش، بی‌وابستگی به ترتیب */
+  sig(item){
+    const t = item && (item.q ?? item.key ?? item.ar ?? '');
+    return U.sha256(String(t)).slice(0, 12);
+  },
+  /* نامِ نمایشیِ یک مدخل، برای فهرست */
+  title(item){
+    if(!item) return '';
+    return String(item.q ?? item.key ?? item.title ?? item.ar ?? '').slice(0, 90);
+  },
+  isDeleted(bank, item){
+    return (this.edits().del[bank] || []).includes(this.sig(item));
+  },
+  added(bank){ return this.edits().add[bank] || []; },
+  /* فهرستِ زندهٔ یک بانک: اصل + افزوده‌ها − برداشته‌ها */
+  list(bank){
+    const base = Array.isArray(DATA[bank]) ? DATA[bank] : [];
+    const del = this.edits().del[bank] || [];
+    return base.filter(x => !del.includes(this.sig(x)))
+      .concat(this.added(bank).map(x => ({ ...x, _added: true })));
+  },
+  count(bank){ return this.list(bank).length; },
+  remove(bank, item){
+    if(item._added){                       // افزودهٔ خودمان: مستقیم پاک می‌شود
+      Store.update(d => {
+        const e = Content.normalize(d);
+        e.add[bank] = (e.add[bank] || []).filter(x => Content.sig(x) !== Content.sig(item));
+      });
+      return true;
+    }
+    Store.update(d => {
+      const e = Content.normalize(d);
+      if(!e.del[bank]) e.del[bank] = [];
+      const s = Content.sig(item);
+      if(!e.del[bank].includes(s)) e.del[bank].push(s);
+    });
+    return true;
+  },
+  restore(bank, item){
+    Store.update(d => {
+      const e = Content.normalize(d);
+      e.del[bank] = (e.del[bank] || []).filter(s => s !== Content.sig(item));
+    });
+  },
+  restoreAll(){ Store.update(d => { d.contentEdits = { del: {}, add: {} }; }); },
+  /* اعتبارسنجیِ پرسشِ تازه — همان چیزهایی که بازرسِ محتوا می‌سنجد */
+  check(bank, item){
+    if(!item.q || !String(item.q).trim()) return 'متن پرسش خالی است';
+    if(!Array.isArray(item.o) || item.o.filter(x => String(x).trim()).length < 2)
+      return 'حداقل دو گزینه لازم است';
+    if(!item.a || !String(item.a).trim()) return 'پاسخ درست را ننوشتی';
+    const n = x => U.norm(String(x));
+    if(!item.o.some(o => n(o) === n(item.a))) return 'پاسخ باید یکی از گزینه‌ها باشد';
+    if(new Set(item.o.map(n)).size !== item.o.map(n).length) return 'گزینه‌ها تکراری‌اند';
+    if(!item.why || !String(item.why).trim()) return 'توضیح پاسخ خالی است';
+    if(!item.src || !String(item.src).trim()) return 'منبع خالی است';
+    if(this.list(bank).some(x => n(x.q) === n(item.q))) return 'این پرسش از قبل هست';
+    return '';
+  },
+  add(bank, item){
+    const why = this.check(bank, item);
+    if(why) return why;
+    Store.update(d => {
+      const e = Content.normalize(d);
+      if(!e.add[bank]) e.add[bank] = [];
+      e.add[bank].push(item);
+    });
+    this.apply();
+    return '';
+  },
+  /* روکش را روی داده می‌نشاند. یک بار در init و بعد از هر ویرایش. */
+  apply(){
+    /* بانکِ مشتق باید *اول* از نو ساخته شود. وگرنه فیلترِ حذف روی نسخهٔ
+       کهنه می‌نشیند و بعد بازسازی، حذف را بی‌اثر می‌کند. */
+    try{ DATA.surahPick = DATA.surah.map(l => ({
+      q: `جای خالی را کامل کن: ﴿ ${l.before} … ﴾`,
+      o: [l.ans, ...l.wrong], a: l.ans, d: (l.a % 3) + 1,
+      why: `${l.tr} — ${l.surah}، آیهٔ ${l.a}`, src: l.src || `قرآن، سورهٔ ${l.surah}`
+    })); }catch(e){ console.warn('surahPick', e); }
+    this.BANKS.forEach(b => {
+      if(!CONTENT_BASE[b]){
+        CONTENT_BASE[b] = Array.isArray(DATA[b]) ? DATA[b].slice() : [];
+        /* در نخستین اجرا هنوز چیزی ویرایش نشده و بسته دست‌نخورده است */
+      }
+      const del = this.edits().del[b] || [];
+      const base = CONTENT_BASE[b].filter(x => !del.includes(this.sig(x)));
+      DATA[b] = base.concat(this.added(b).map(x => ({ ...x, _added: true })));
+    });
+  },
+  normalize(d){
+    if(!d.contentEdits || typeof d.contentEdits !== 'object') d.contentEdits = { del: {}, add: {} };
+    const e = d.contentEdits;
+    if(!e.del || typeof e.del !== 'object') e.del = {};
+    if(!e.add || typeof e.add !== 'object') e.add = {};
+    return e;
+  },
+  /* خروجیِ CSV از یک فهرستِ ردیف — سرصفحه + ردیف‌ها، بی هیچ کتابخانه */
+  csv(head, rows){
+    const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    return '﻿' + [head.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n');
+  },
+  /* بارکردنِ پشتیبان — همان چیزی که «خروجی JSON» می‌سازد */
+  importJSON(text){
+    let parsed;
+    try{ parsed = JSON.parse(text); }
+    catch(e){ return 'فایل JSON خوانده نشد'; }
+    if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'ساختار فایل درست نیست';
+    if(!parsed._v && !parsed.stats && !parsed.settings) return 'این فایل پشتیبانِ نورستان نیست';
+    Store.import(text);
+    return '';
+  }
+};
+
 /* ─────────────────── 18. ADMIN ─────────────────── */
 const Admin = {
-  currentTab: 'users',
+  currentTab: 'dash',
 
   /* ── سنجش رمز ──
      تنها سنجشی که واقعاً جلوی رمز بد را می‌گیرد، کمینهٔ طول است؛ بقیه فقط
@@ -10690,27 +10921,98 @@ const Admin = {
     U.$$('.tab[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === this.currentTab));
     const peers = Net.peerList();
     switch(this.currentTab){
-      case 'users':
+      case 'dash': {
+        const g = Stats.ranking();
+        const top = g[0];
+        const tBy = Stats.todayByGame();
+        const tTop = Object.keys(tBy).sort((a, b) => tBy[b] - tBy[a])[0];
+        const recent = (d.leaderboard || []).slice(0, 5);
         body.innerHTML = `
           <div class="card">
-            <div class="row"><b style="font-size:13px">👥 کاربران (${U.fa(1 + peers.length)})</b>
-              <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
+            <div class="row"><b style="font-size:13px">📊 امروز</b>
+              <div class="sp" style="flex:1"></div>
+              <span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${
+                Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
             <div class="sep"></div>
-            <div class="item">
-              <div class="av">👑</div>
-              <div class="sp"><b>${U.esc(d.playerName)} (شما)</b>
-                <small>سطح ${U.fa(d.level)} • ${U.fa(d.score)} امتیاز • ${U.fa(Object.keys(d.badges).length)} نشان</small></div>
-              <span class="badge">مدیر</span>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
+              <div class="stat"><b>${U.fa(Stats.todayN())}</b><span>🎮 دستِ امروز</span></div>
+              <div class="stat"><b>${U.fa(g.reduce((n, r) => n + r.n, 0))}</b><span>∑ کلِ بازی‌ها</span></div>
+              <div class="stat"><b>${U.fa(1 + peers.length)}</b><span>👥 کاربر</span></div>
+              <div class="stat"><b>${U.fa(peers.length)}</b><span>📡 آنلاین</span></div>
             </div>
-            ${peers.map(p => `
-              <div class="item">
-                <div class="av">${U.esc((p.name || '?').charAt(0))}</div>
-                <div class="sp"><b>${U.esc(p.name)}</b>
-                  <small>سطح ${U.fa(p.level || 1)} • ${U.fa(p.score || 0)} امتیاز</small></div>
-                <span class="badge g">کاربر</span>
-              </div>`).join('')}
+            <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              ${tTop ? `پرکارترین بازیِ امروز: ${Stats.iconOf(tTop)} ${U.esc(Stats.nameOf(tTop))} (${U.fa(tBy[tTop])} دست)`
+                     : 'امروز هنوز بازی‌ای شروع نشده.'}
+              ${top ? `<br>در کل: ${Stats.iconOf(top.id)} ${U.esc(Stats.nameOf(top.id))} با ${U.fa(top.n)} دست` : ''}
+            </p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">📈 پرکارترین بازی‌ها</b>
+            <div class="sep"></div>
+            ${g.length ? g.slice(0, 6).map(r => `
+              <div class="kv"><span>${Stats.iconOf(r.id)} ${U.esc(Stats.nameOf(r.id))}</span>
+                <b>${U.fa(r.n)}</b></div>`).join('') : '<div class="empty">هنوز چیزی شمرده نشده</div>'}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">🕒 رکوردهای تازه</b>
+            <div class="sep"></div>
+            <div class="list">${recent.length ? recent.map(b => `
+              <div class="item"><div class="av">🏆</div>
+                <div class="sp"><b>${U.esc(b.name)}</b><small>${U.fa(U.ago(b.at))}</small></div>
+                <b style="color:var(--gold)">${U.fa(b.score)}</b></div>`).join('')
+              : '<div class="empty">خالی</div>'}</div>
           </div>`;
         break;
+      }
+      case 'users': {
+        const q = (this._userQ || '').trim().toLowerCase();
+        const me = { name: d.playerName, id: d.playerId, score: d.score, level: d.level,
+                     badges: Object.keys(d.badges).filter(k => d.badges[k]).length, me: true };
+        const all = [me, ...peers.map(p => ({ name: p.name, id: p.id, score: p.score || 0,
+                                              level: p.level || 1, online: true }))];
+        const shown = q ? all.filter(u =>
+          String(u.name || '').toLowerCase().includes(q) ||
+          String(u.id || '').toLowerCase().includes(q)) : all;
+        body.innerHTML = `
+          <div class="card">
+            <div class="row"><b style="font-size:13px">👥 کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
+              <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
+            <div class="sep"></div>
+            <input class="inp" id="admUserQ" placeholder="جست‌وجو با نام یا شناسه…"
+                   value="${U.esc(this._userQ || '')}" autocomplete="off">
+          </div>
+          <div class="card" style="margin-top:12px">
+            ${shown.length ? shown.map(u => `
+              <div class="item">
+                <div class="av">${u.me ? '👑' : U.esc((u.name || '?').charAt(0))}</div>
+                <div class="sp"><b>${U.esc(u.name)}${u.me ? ' (شما)' : ''}</b>
+                  <small>سطح ${U.fa(u.level)} • ${U.fa(u.score)} امتیاز</small>
+                  <small class="adm-id" data-copy="${U.esc(u.id || '')}"
+                         title="برای کپی بزن">🆔 <span dir="ltr">${U.esc(String(u.id || '—'))}</span></small></div>
+                <span class="badge ${u.me ? '' : 'g'}">${u.me ? 'مدیر' : (u.online ? 'آنلاین' : 'کاربر')}</span>
+              </div>`).join('') : '<div class="empty">کسی با این جست‌وجو پیدا نشد</div>'}
+          </div>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+            شناسهٔ هر کاربر را بزن تا کپی شود. شمارهٔ موبایل و تاریخ عضویت
+            پس از ورود با پیامک به همین فهرست اضافه می‌شوند.</p>`;
+        const qi = U.$('#admUserQ');
+        if(qi) qi.oninput = () => {
+          this._userQ = qi.value;
+          /* تمرکز و مکانِ نشانگر پس از کشیدنِ دوبارهٔ فهرست برنمی‌گردد —
+             پس فقط فهرست را به‌روز می‌کنیم، نه کلِ جعبه را. */
+          const keep = qi.value;
+          this.renderTab();
+          const again = U.$('#admUserQ');
+          if(again){ again.value = keep; again.focus(); }
+        };
+        U.$$('.adm-id').forEach(el => el.onclick = async () => {
+          const t = el.dataset.copy;
+          if(!t) return;
+          const done = await copyText(t);
+          UI.toast(done ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار', done ? 'ok' : 'err');
+        });
+        break;
+      }
       case 'rooms': {
         const rooms = Net.rooms();
         body.innerHTML = `
@@ -10731,17 +11033,48 @@ const Admin = {
         });
         break;
       }
-      case 'games':
+      case 'games': {
+        const g = Stats.ranking();
+        const tBy = Stats.todayByGame();
+        const total = g.reduce((n, r) => n + r.n, 0) || 1;
+        const st = d.stats;
         body.innerHTML = `
           <div class="card">
             <b style="font-size:13px">🎮 آمار بازی‌ها</b>
             <div class="sep"></div>
             <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
-              <div class="stat"><b>${U.fa(d.stats.totalCorrect)}</b><span>✅ درست</span></div>
-              <div class="stat"><b>${U.fa(d.stats.totalWrong)}</b><span>❌ غلط</span></div>
-              <div class="stat"><b>${U.fa(d.stats.maxCombo)}</b><span>🔥 کمبو</span></div>
-              <div class="stat"><b>${U.fa(d.stats.onlineWins || 0)}</b><span>⚔️ برد آنلاین</span></div>
+              <div class="stat"><b>${U.fa(st.totalCorrect)}</b><span>✅ درست</span></div>
+              <div class="stat"><b>${U.fa(st.totalWrong)}</b><span>❌ غلط</span></div>
+              <div class="stat"><b>${U.fa(st.maxCombo)}</b><span>🔥 کمبو</span></div>
+              <div class="stat"><b>${U.fa(st.onlineWins || 0)}</b><span>⚔️ برد آنلاین</span></div>
             </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">📊 کدام بازی بیشتر بازی می‌شود</b>
+            <div class="sep"></div>
+            ${g.length ? g.map(r => {
+              const pct = Math.round(100 * r.n / total);
+              return `<div class="adm-bar">
+                <div class="row"><span>${Stats.iconOf(r.id)} ${U.esc(Stats.nameOf(r.id))}</span>
+                  <div class="sp" style="flex:1"></div>
+                  <b>${U.fa(r.n)}</b>
+                  ${tBy[r.id] ? `<span class="chip on">امروز ${U.fa(tBy[r.id])}</span>` : ''}</div>
+                <div class="mp"><i style="width:${pct}%"></i></div></div>`;
+            }).join('') : '<div class="empty">هنوز بازی‌ای شمرده نشده — یکی بازی کن و برگرد</div>'}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">🏁 نتیجه‌ها</b>
+            <div class="sep"></div>
+            <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span>
+              <b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
+            <div class="kv"><span>🧩 پازل حل‌شده</span><b>${U.fa(st.puzzles)}</b></div>
+            <div class="kv"><span>🧠 حافظه</span><b>${U.fa(st.memory)}</b></div>
+            <div class="kv"><span>🔗 تطبیق</span><b>${U.fa(st.match)}</b></div>
+            <div class="kv"><span>📜 حدیث‌یاب</span><b>${U.fa(st.hadith || 0)}</b></div>
+            <div class="kv"><span>🕌 چهارده معصوم</span><b>${U.fa(st.imams || 0)}</b></div>
+            <div class="kv"><span>🤲 نجوا</span><b>${U.fa(st.dua || 0)}</b></div>
+            <div class="kv"><span>🏅 آزمون معارف</span><b>${U.fa(st.exams || 0)}</b></div>
+            <div class="kv"><span>✅ بازی تمام‌شده</span><b>${U.fa(st.plays)}</b></div>
           </div>
           <div class="card" style="margin-top:12px">
             <b style="font-size:13px">🏆 ۱۰ رکورد برتر روم/سرور</b>
@@ -10752,6 +11085,7 @@ const Admin = {
               || '<div class="empty">خالی</div>'}</div>
           </div>`;
         break;
+      }
       case 'notif':
         body.innerHTML = `
           <div class="card">
@@ -10786,30 +11120,199 @@ const Admin = {
           U.$('#bcTitle').value = ''; U.$('#bcMsg').value = '';
         };
         break;
-      case 'content':
+      case 'content': {
+        const bank = this._cbank && Content.BANKS.includes(this._cbank) ? this._cbank : Content.BANKS[0];
+        const q = (this._cq || '').trim().toLowerCase();
+        const list = Content.list(bank);
+        const shown = q ? list.filter(x => Content.title(x).toLowerCase().includes(q)) : list;
+        const edits = Content.edits();
+        const removed = Object.values(edits.del).reduce((n, a) => n + a.length, 0);
+        const added = Object.values(edits.add).reduce((n, a) => n + a.length, 0);
         body.innerHTML = `
           <div class="card">
             <b style="font-size:13px">📚 محتوای برنامه</b>
             <div class="sep"></div>
             <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
               <div class="stat"><b>${U.fa(DATA.surah.length)}</b><span>📖 سوره</span></div>
-              <div class="stat"><b>${U.fa(DATA.quiz.length)}</b><span>📚 سوال قرآنی</span></div>
-              <div class="stat"><b>${U.fa(DATA.meaning.length)}</b><span>🔤 معنی کلمه</span></div>
-              <div class="stat"><b>${U.fa(DATA.iran.length)}</b><span>🇮🇷 سوال ایران</span></div>
-              <div class="stat"><b>${U.fa(DATA.scramble.length)}</b><span>🧩 پازل</span></div>
               <div class="stat"><b>${U.fa(DATA.badges.length)}</b><span>🎖️ نشان</span></div>
+              <div class="stat"><b>${U.fa(DATA.scramble.length)}</b><span>🧩 پازل</span></div>
+              <div class="stat"><b>${U.fa(DATA.nahj.length)}</b><span>📜 نهج‌البلاغه</span></div>
             </div>
+            ${(removed || added) ? `<p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              ویرایش‌های تو روی همین دستگاه: ${U.fa(added)} پرسشِ افزوده، ${U.fa(removed)} پرسشِ برداشته.
+              <button class="btn gh sm" id="cRestoreAll" style="margin-top:8px">↩️ بازگرداندنِ همه</button></p>` : ''}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">✏️ ویرایشِ پرسش‌ها</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:6px">
+              ${Content.BANKS.map(b => `<button class="tab ${b === bank ? 'on' : ''}" data-cb="${b}">
+                ${Content.LABEL[b]} <b>${U.fa(Content.list(b).length)}</b></button>`).join('')}
+            </div>
+            <input class="inp" id="cSearch" style="margin-top:10px" placeholder="جست‌وجو در این بانک…"
+                   value="${U.esc(this._cq || '')}" autocomplete="off">
+            <div class="list" style="margin-top:10px">
+              ${shown.length ? shown.slice(0, 40).map(x => `
+                <div class="item">
+                  <div class="sp"><b>${U.esc(Content.title(x))}</b>
+                    <small>${x._added ? '✏️ افزودهٔ تو' : '📦 از بستهٔ برنامه'}</small></div>
+                  <button class="btn dg sm" data-cdel="${U.esc(Content.sig(x))}">حذف</button>
+                </div>`).join('') + (shown.length > 40 ? `<div class="empty">… و ${U.fa(shown.length - 40)} مورد دیگر — جست‌وجو را باریک کن</div>` : '')
+                : '<div class="empty">چیزی پیدا نشد</div>'}
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">➕ افزودنِ پرسش به «${Content.LABEL[bank]}»</b>
+            <div class="sep"></div>
+            <input class="inp" id="cQ" placeholder="متن پرسش">
+            <input class="inp" id="cO" style="margin-top:8px" placeholder="گزینه‌ها، با «|» جدا کن">
+            <input class="inp" id="cA" style="margin-top:8px" placeholder="پاسخ درست (عیناً یکی از گزینه‌ها)">
+            <input class="inp" id="cSrc" style="margin-top:8px" placeholder="منبع">
+            <textarea class="inp" id="cWhy" style="margin-top:8px;min-height:60px" placeholder="توضیحِ پاسخ"></textarea>
+            <button class="btn ok w" id="cAdd" style="margin-top:10px">➕ افزودن</button>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+              پرسشِ تازه فقط روی همین دستگاه می‌ماند و با «📥 خروجی JSON» قابل
+              پشتیبان‌گیری است. هیچ متنِ دینی‌ای این‌جا خودکار ساخته نمی‌شود.</p>
           </div>
           <div class="card" style="margin-top:12px">
             <b style="font-size:13px">📖 وضعیت سوره‌ها</b>
             <div class="sep"></div>
-            ${DATA.surah.map(q => {
-              const st = Store.get('stars')[q.surah] || 0;
-              return `<div class="kv"><span>سوره ${U.esc(q.surah)}</span>
-                <b>${st ? '⭐'.repeat(st) : '<span style="color:var(--mut)">شروع نشده</span>'}</b></div>`;
+            ${DATA.surah.map(x => {
+              const s = Store.get('stars')[x.surah] || 0;
+              return `<div class="kv"><span>سوره ${U.esc(x.surah)}</span>
+                <b>${s ? '⭐'.repeat(s) : '<span style="color:var(--mut)">شروع نشده</span>'}</b></div>`;
             }).join('')}
           </div>`;
+
+        U.$$('[data-cb]').forEach(b => b.onclick = () => {
+          this._cbank = b.dataset.cb; this._cq = ''; this.renderTab();
+        });
+        const si = U.$('#cSearch');
+        if(si) si.oninput = () => {
+          const keep = si.value;
+          this._cq = keep; this.renderTab();
+          const again = U.$('#cSearch');
+          if(again){ again.value = keep; again.focus(); }
+        };
+        U.$$('[data-cdel]').forEach(b => b.onclick = () => {
+          const item = Content.list(bank).find(x => Content.sig(x) === b.dataset.cdel);
+          if(!item) return;
+          UI.confirm(`«${Content.title(item)}» برداشته شود؟`, () => {
+            Content.remove(bank, item);
+            Content.apply();
+            UI.toast('🗑️ برداشته شد', 'ok');
+            this.renderTab();
+          });
+        });
+        const ra = U.$('#cRestoreAll');
+        if(ra) ra.onclick = () => UI.confirm('همهٔ ویرایش‌های محتوا بازگردانده شود؟', () => {
+          Content.restoreAll(); Content.apply(); UI.toast('↩️ بازگشت', 'ok'); this.renderTab();
+        });
+        const ca = U.$('#cAdd');
+        if(ca) ca.onclick = () => {
+          const val = id => { const el = U.$('#' + id); return el ? el.value.trim() : ''; };
+          const target = U.$('#cA');
+          const item = {
+            q: val('cQ'),
+            o: val('cO').split('|').map(s => s.trim()).filter(Boolean),
+            a: val('cA').trim(),
+            why: val('cWhy'), src: val('cSrc'), d: 2
+          };
+          /* پاسخ باید عیناً یکی از گزینه‌ها باشد؛ فاصلهٔ اضافه کاربر را
+             دستی اصلاح می‌کنیم نه با پیام خطا. */
+          if(target) target.value = item.a;
+          const why = Content.add(bank, item);
+          if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
+          ['cQ','cO','cA','cSrc','cWhy'].forEach(id => { const el = U.$('#' + id); if(el) el.value = ''; });
+          UI.toast('➕ افزوده شد', 'ok');
+          this.renderTab();
+        };
         break;
+      }
+      case 'reports': {
+        const st = Store.get('stats');
+        const g = Stats.ranking();
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">📈 گزارش‌ها</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <button class="btn gh" id="rpUsers">👥 کاربران (CSV)</button>
+              <button class="btn gh" id="rpGames">🎮 بازی‌ها (CSV)</button>
+              <button class="btn gh" id="rpStats">📊 آمار من (CSV)</button>
+              <button class="btn gh" id="rpBackup">📥 پشتیبانِ کامل (JSON)</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              CSV با سرصفحه و جداکنندهٔ کاما و BOM ساخته می‌شود تا اکسل فارسی
+              درست بازش کند. پشتیبانِ JSON همان فایلِ «خروجی» است و با
+              «↩️ بازگرداندن» پایین برمی‌گردد.</p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">↩️ بازگرداندن از پشتیبان</b>
+            <div class="sep"></div>
+            <input class="inp" id="rpFile" type="file" accept="application/json,.json">
+            <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+              ⚠️ بازگرداندن، دادهٔ فعلیِ این دستگاه را با فایل جایگزین می‌کند.</p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">🧮 خلاصه</b>
+            <div class="sep"></div>
+            <div class="kv"><span>بازی‌های امروز</span><b>${U.fa(Stats.todayN())}</b></div>
+            <div class="kv"><span>مجموع بازی‌ها</span><b>${U.fa(g.reduce((n, r) => n + r.n, 0))}</b></div>
+            <div class="kv"><span>امتیاز</span><b>${U.fa(Store.get('score'))}</b></div>
+            <div class="kv"><span>سطح</span><b>${U.fa(Store.get('level'))}</b></div>
+            <div class="kv"><span>پاسخ درست / غلط</span><b>${U.fa(st.totalCorrect)} / ${U.fa(st.totalWrong)}</b></div>
+            <div class="kv"><span>نشان‌ها</span><b>${U.fa(Object.keys(Store.get('badges')).filter(k => Store.get('badges')[k]).length)}</b></div>
+          </div>`;
+
+        const save = (name, text, type = 'text/csv;charset=utf-8') => {
+          const blob = new Blob([text], { type });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${name}_${U.today()}.${type.includes('json') ? 'json' : 'csv'}`;
+          a.click();
+        };
+        U.$('#rpUsers').onclick = () => {
+          const rows = [[Store.get('playerName'), Store.get('playerId'), 'مدیر',
+                         Store.get('level'), Store.get('score'), Store.get('stats').plays]];
+          Net.peerList().forEach(p => rows.push([p.name, p.id || '', 'آنلاین', p.level || 1, p.score || 0, '']));
+          save('noorestan_users', Content.csv(['نام', 'شناسه', 'وضعیت', 'سطح', 'امتیاز', 'بازی'], rows));
+          UI.toast('📥 فایل کاربران ساخته شد', 'ok');
+        };
+        U.$('#rpGames').onclick = () => {
+          const tBy = Stats.todayByGame();
+          const rows = g.map(r => [Stats.nameOf(r.id), r.n, tBy[r.id] || 0]);
+          save('noorestan_games', Content.csv(['بازی', 'کل', 'امروز'], rows));
+          UI.toast('📥 فایل بازی‌ها ساخته شد', 'ok');
+        };
+        U.$('#rpStats').onclick = () => {
+          const rows = Object.entries(st)
+            .filter(([, v]) => typeof v === 'number')
+            .map(([k, v]) => [k, v]).sort((a, b) => a[0] < b[0] ? -1 : 1);
+          save('noorestan_stats', Content.csv(['کلید', 'مقدار'], rows));
+          UI.toast('📥 فایل آمار ساخته شد', 'ok');
+        };
+        U.$('#rpBackup').onclick = () => {
+          save(`noorestan_backup`, Store.export(), 'application/json');
+          UI.toast('📥 پشتیبان ساخته شد', 'ok');
+        };
+        const fi = U.$('#rpFile');
+        if(fi) fi.onchange = () => {
+          const f = fi.files && fi.files[0];
+          if(!f) return;
+          const r = new FileReader();
+          r.onload = () => {
+            const why = Content.importJSON(String(r.result || ''));
+            if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
+            Content.apply();
+            UI.toast('✅ پشتیبان بازگردانده شد', 'ok');
+            saveAll(); updateHomeStats(); this.renderTab();
+          };
+          r.onerror = () => UI.toast('⚠️ فایل خوانده نشد', 'err');
+          r.readAsText(f);
+        };
+        break;
+      }
       case 'ops':
         body.innerHTML = `
           <div class="card">
@@ -12414,6 +12917,8 @@ const OTP = {
 function init(){
   Store.load();
   applyTheme(Store.get('settings').theme);
+  /* روکشِ ویرایشِ محتوا، پیش از آن‌که چیزی از بانک‌ها بخواند */
+  try{ Content.apply(); }catch(e){ console.warn('content', e); }
 
   /* ── نسخهٔ ۱۵: تصویرها، PWA، دسترس‌پذیری، پنل اشکال‌زدایی ── */
   try{ Assets.watch(); Assets.pwa(); }catch(e){ console.warn('assets', e); }

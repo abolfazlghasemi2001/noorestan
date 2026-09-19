@@ -3609,6 +3609,168 @@ section('بازی‌ها — قفل‌های بازمانده و پاداشِ چ
   }
 }
 
+section('پنل مدیریت — شمارشِ بازی‌ها');
+{
+  const before = Store.get('stats').byGame;
+  const beforeToday = Store.get('stats').today;
+  const keepToday = U.today;
+  try{
+    Store.update(d => { d.stats.byGame = {}; d.stats.today = { date: '', n: 0, byGame: {} }; });
+
+    Stats.track('quiz');
+    Stats.track('quiz');
+    Stats.track('dooz');
+    ok('هر بازی جدا شمرده می‌شود',
+       Stats.ranking().map(r => r.id + ':' + r.n).join(',') === 'quiz:2,dooz:1',
+       JSON.stringify(Stats.ranking()));
+    ok('پرکارترین بازی اول می‌آید', Stats.ranking()[0].id === 'quiz');
+
+    /* «امروز» نباید عددِ دیروز را نشان بدهد */
+    Store.update(d => { d.stats.today = { date: '1999-01-01', n: 9, byGame: { quiz: 9 } }; });
+    ok('شمارندهٔ دیروز به‌جای امروز جا نمی‌زند', Stats.todayN() === 0, String(Stats.todayN()));
+    Stats.track('hadith');
+    ok('و نخستین بازیِ امروز، شمارندهٔ تازه می‌سازد',
+       Stats.todayN() === 1 && Stats.todayByGame().hadith === 1,
+       `${Stats.todayN()} — ${JSON.stringify(Stats.todayByGame())}`);
+
+    /* عوض شدنِ روزِ نیمه‌شب */
+    let fake = '2026-01-01';
+    U.today = () => fake;
+    Store.update(d => { d.stats.today = { date: '2026-01-01', n: 4, byGame: { dooz: 4 } }; });
+    fake = '2026-01-02';
+    ok('با عوض شدنِ روز، شمارندهٔ امروز صفر می‌شود',
+       Stats.todayN() === 0 && Object.keys(Stats.todayByGame()).length === 0);
+    Stats.track('dua');
+    ok('و بازیِ روزِ تازه، امروز حساب می‌شود',
+       Stats.todayN() === 1 && Stats.todayByGame().dua === 1);
+    ok('ولی مجموعِ کل از دست نمی‌رود', (Store.get('stats').byGame.dua || 0) === 1);
+
+    ok('نام و آیکنِ هر بازی از فهرستِ خودِ برنامه می‌آید',
+       Stats.nameOf('dua') === DATA.GAMES.dua.name && Stats.iconOf('dua') === DATA.GAMES.dua.icon);
+    ok('بازیِ ناشناس می‌شکند نه پنهان', Stats.nameOf('nope') === 'nope' && Stats.iconOf('nope') === '🎮');
+  }finally{
+    U.today = keepToday;
+    Store.update(d => { d.stats.byGame = before || {}; d.stats.today = beforeToday; });
+  }
+}
+
+section('پنل مدیریت — ویرایشِ محتوا');
+{
+  const keepEdits = JSON.parse(JSON.stringify(Store.get('contentEdits') || { del:{}, add:{} }));
+  const keepQuiz = DATA.quiz;
+  try{
+    Store.update(d => { d.contentEdits = { del: {}, add: {} }; });
+    Content.apply();
+
+    const base = DATA.quiz.length;
+    const victim = DATA.quiz[0];
+    ok('اثر انگشت پایدار است', Content.sig(victim) === Content.sig({ ...victim }),
+       Content.sig(victim));
+    ok('و برای دو پرسشِ متفاوت یکی نیست', Content.sig(victim) !== Content.sig(DATA.quiz[1]));
+
+    Content.remove('quiz', victim);
+    Content.apply();
+    ok('پرسشِ برداشته از بانک می‌رود', DATA.quiz.length === base - 1,
+       `${base} → ${DATA.quiz.length}`);
+    ok('و دقیقاً همان یکی رفته، نه هرچه اولِ فهرست است',
+       !DATA.quiz.some(x => U.norm(x.q) === U.norm(victim.q)));
+    ok('و بقیهٔ پرسش‌ها سرِ جایشان‌اند',
+       keepQuiz.every(x => x === victim || DATA.quiz.some(y => y.q === x.q)));
+
+    Content.restoreAll(); Content.apply();
+    ok('بازگرداندنِ همه، بانک را به اصل برمی‌گرداند', DATA.quiz.length === base,
+       `${DATA.quiz.length} ≠ ${base}`);
+
+    /* افزودن */
+    const fresh = { q: 'پرسشِ آزمونیِ یکتا؟', o: ['الف', 'ب'], a: 'الف',
+                    why: 'چون آزمون است', src: 'آزمون' };
+    ok('پرسشِ ناقص رد می‌شود', Content.add('quiz', { q: 'خالی؟', o: ['a'], a: 'a' }) !== '');
+    ok('پرسشی که پاسخش در گزینه‌ها نیست رد می‌شود',
+       Content.add('quiz', { ...fresh, q: 'x1', a: 'ج' }) !== '');
+    ok('گزینهٔ تکراری رد می‌شود',
+       Content.add('quiz', { ...fresh, q: 'x2', o: ['الف', 'الف'], a: 'الف' }) !== '');
+    ok('پرسشِ درست پذیرفته می‌شود', Content.add('quiz', fresh) === '');
+    ok('و در بانک می‌نشیند', DATA.quiz.some(x => x.q === fresh.q));
+    ok('و مهرِ «افزودهٔ تو» دارد', !!DATA.quiz.find(x => x.q === fresh.q)._added);
+    ok('پرسشِ تکراری دو بار نمی‌آید', Content.add('quiz', fresh) !== '');
+
+    /* حذفِ افزودهٔ خودمان، نه فقط مهر زدن */
+    Content.remove('quiz', DATA.quiz.find(x => x.q === fresh.q));
+    Content.apply();
+    ok('افزودهٔ خودمان واقعاً پاک می‌شود', !DATA.quiz.some(x => x.q === fresh.q));
+    ok('و در فهرستِ «برداشته‌ها» نمی‌نشیند',
+       (Content.edits().del.quiz || []).length === 0,
+       JSON.stringify(Content.edits().del.quiz));
+
+    /* بانکِ مشتق: حذف باید پس از بازسازی هم بماند */
+    Content.apply();
+    const pickLen = DATA.surahPick.length;
+    const one = DATA.surahPick[0];
+    Content.remove('surahPick', one);
+    Content.apply();
+    ok('حذف از بانکِ مشتق هم می‌گیرد', DATA.surahPick.length === pickLen - 1,
+       `${pickLen} → ${DATA.surahPick.length}`);
+
+    /* CSV */
+    const csv = Content.csv(['a', 'b'], [['1', 'x"y'], ['2', 'z']]);
+    ok('CSV سرصفحه دارد', csv.includes('"a","b"'));
+    ok('و گیومهٔ داخلِ مقدار را درست فرار می‌دهد', csv.includes('"x""y"'));
+    ok('و BOM دارد تا اکسل فارسی درست بازش کند', csv.charCodeAt(0) === 0xFEFF);
+    ok('و خطِ تازه‌اش CRLF است', csv.includes('\r\n'));
+
+    /* پشتیبان */
+    ok('پشتیبانِ بی‌ربط رد می‌شود', Content.importJSON('{"hello":1}') !== '');
+    ok('JSON خراب رد می‌شود', Content.importJSON('{oops') !== '');
+    ok('آرایه رد می‌شود', Content.importJSON('[1,2]') !== '');
+
+    Content.restoreAll(); Content.apply();
+  }finally{
+    Store.update(d => { d.contentEdits = keepEdits; });
+    Content.apply();
+    ok('پس از پاک‌کردنِ روکش، بانک‌ها به تصویرِ اصلی برمی‌گردند',
+       DATA.quiz.length === keepQuiz.length,
+       `${DATA.quiz.length} ≠ ${keepQuiz.length}`);
+  }
+}
+
+section('پنل مدیریت — زبانه‌ها و زمانِ نسبی');
+{
+  ok('زبانهٔ پیش‌فرض داشبورد است', Admin.currentTab === 'dash', Admin.currentTab);
+  const tabs = ['dash', 'users', 'games', 'rooms', 'content', 'notif', 'reports', 'ops'];
+  ok('همهٔ زبانه‌ها در سند هستند', (() => {
+    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    return tabs.every(t => src.includes(`data-tab="${t}"`));
+  })());
+  ok('هر زبانه در switch هم یک case دارد', (() => {
+    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    return tabs.every(t => src.includes(`case '${t}'`));
+  })());
+  ok('و renderTab هیچ زبانه‌ای را بی‌پاسخ نمی‌گذارد', (() => {
+    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const i = src.indexOf('renderTab(){');
+    const body = src.slice(i, src.indexOf("case 'ops'", i));
+    return tabs.slice(0, 7).every(t => body.includes(`case '${t}'`));
+  })());
+
+  const t = U.now();
+  ok('«همین حالا» برای زمانِ کنونی', U.ago(t) === 'همین حالا', U.ago(t));
+  ok('دقیقه‌ها درست خوانده می‌شوند', U.ago(t - 5 * 60000).includes('۵'), U.ago(t - 5 * 60000));
+  ok('ساعت‌ها درست خوانده می‌شوند', U.ago(t - 3 * 3600000).includes('۳'), U.ago(t - 3 * 3600000));
+  ok('روزها درست خوانده می‌شوند', U.ago(t - 4 * 86400000).includes('۴'), U.ago(t - 4 * 86400000));
+  ok('زمانِ صفر «همین حالا» است، نه «۵۶ سال پیش»', U.ago(0) === 'همین حالا', U.ago(0));
+  ok('زمانِ آینده هم «همین حالا» است', U.ago(t + 999999) === 'همین حالا', U.ago(t + 999999));
+  ok('ورودیِ بی‌معنا نمی‌شکند', U.ago(undefined) === 'همین حالا' && U.ago('x') === 'همین حالا');
+
+  /* هر بازی که فهرستِ راه‌انداز دارد باید شمارش هم بشود */
+  ok('همهٔ بازی‌های راه‌انداز، شمارنده دارند', (() => {
+    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const need = ['surah', 'scramble', 'match', 'memory', 'dooz', 'esmfamil', 'hadith', 'imams', 'dua'];
+    return need.every(g => src.includes(`Stats.track('${g}')`));
+  })());
+  ok('و آزمونِ خودِ برنامه شمرده نمی‌شود', !/Stats\.track\('selfTest'\)/.test(
+    fs.readFileSync(__dirname + '/index.html', 'utf8')));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
