@@ -85,7 +85,13 @@ ok('دروازهٔ ورود، حالت «ساختن رمز» دارد', (() => {
   return /ساختن رمز مدیر/.test(src) && /id="admPass2"/.test(src) && /ساختن رمز و ورود/.test(src);
 })());
 ok('دروازهٔ ورود بین «اولین بار» و «ورود» فرق می‌گذارد',
-   /const first = !Store\.get\('adminHash'\)/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+   /const first = !remote && !Store\.get\('adminHash'\)/.test(
+     fs.readFileSync(__dirname + '/index.html', 'utf8')));
+/* روی سرور، تنها راهِ ورود رمزِ سرور است — و رمزِ محلی نباید آنجا راه بدهد. */
+ok('دروازهٔ سرور از دروازهٔ محلی جدا شده', (() => {
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  return /const remote = this\.onServer\(\)/.test(src) && /loginServer\(pass\)/.test(src);
+})());
 ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف شد',
    !/رمز پیش‌فرض[:：]\s*noor2024/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
 /* «noor2024» باید فقط دو جا باشد: کامنت‌های توضیحی، و فهرست سیاهِ هشدار.
@@ -309,31 +315,31 @@ S.handle({ ns: SERVER_KEY, from: 'B', t: 'lb:put', name: 'سارا', score: 1500
 const lb = last(m => m.t === 'lb');
 ok('لیدربورد مرتب شده', lb.list[0].name === 'سارا' && lb.list[1].name === 'آرش', JSON.stringify(lb.list));
 
-/* اعلان مدیریتی.
-   رمز مدیر حالا از خودِ Store خوانده می‌شود، نه از یک هشِ ثابت. پیش‌تر یک
-   کپیِ جداگانهٔ هشِ «noor2024» این‌جا بود که با تغییر رمز در تنظیمات عوض
-   نمی‌شد؛ یعنی رمزِ عمومیِ منتشرشده روی حالت محلی تا ابد کار می‌کرد. */
+/* اعلانِ مدیریتی در حالتِ محلی.
+   «سرور» اینجا همان تبِ میزبان است. پیش‌تر این دروازه با مقایسهٔ *هش* باز
+   می‌شد — و چون هش دیگر روی سیم نمی‌رود، آن شرط همیشه بسته بود و فقط توهمِ
+   دروازه می‌ساخت. حالا دروازه صریح است: فقط خودِ میزبان می‌تواند پخش کند.
+   سنجشِ امنیتیِ راستین جای دیگری است و در آزمونِ سرور انجام می‌شود. */
 const __admKeep = Store.get('adminHash');
-const __admGood = U.sha256('ramze-man-14');
-Store.set('adminHash', __admGood);
+Store.set('adminHash', U.sha256('ramze-man-14'));
 
 clear();
 S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: 'wrong', title: 'x', desc: 'y' });
-ok('🔒 اعلان با هش غلط رد می‌شود', srvLog.length === 0);
+ok('🔒 اعلان از غریبه پخش نمی‌شود', srvLog.length === 0);
 
 clear();
 S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: U.sha256('noor2024'), title: 'x', desc: 'y' });
-ok('🔒 رمزِ عمومیِ قدیمی دیگر اعلان پخش نمی‌کند', srvLog.length === 0);
+ok('🔒 رمزِ عمومیِ قدیمی دروازه را باز نمی‌کند', srvLog.length === 0);
 
 clear();
-S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: '', title: 'x', desc: 'y' });
-ok('🔒 هشِ خالی دروازه را باز نمی‌کند', srvLog.length === 0);
+S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', token: 'x'.repeat(64), title: 'x', desc: 'y' });
+ok('🔒 نشانهٔ سروریِ جعلی در حالتِ محلی کاری نمی‌کند', srvLog.length === 0);
 
 clear();
-S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: __admGood, title: 'تست', desc: 'متن' });
-ok('اعلان با هش درست پخش می‌شود', last(m => m.t === 'notif')?.to === '*');
+S.handle({ ns: SERVER_KEY, from: Net.id, t: 'admin:broadcast', title: 'تست', desc: 'متن' });
+ok('اعلان از خودِ میزبان پخش می‌شود', last(m => m.t === 'notif')?.to === '*');
 
-/* بی رمزِ ساخته‌شده، هیچ هشی — حتی خالی — دروازه را باز نمی‌کند */
+/* رمزِ محلی دیگر هیچ نقشی در این دروازه ندارد — حتی رمزِ درست. */
 Store.set('adminHash', '');
 clear();
 S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: '', title: 'x', desc: 'y' });
@@ -3606,6 +3612,53 @@ section('بازی‌ها — قفل‌های بازمانده و پاداشِ چ
     Missions.refresh = keep.missions;
     Sound.play = keep.soundPlay;
     confetti = keep.confetti;
+  }
+}
+
+section('نشستِ سرور — نشانه به‌جای هش');
+{
+  const keep = { t: Store.get('adminToken'), e: Store.get('adminTokenExp'),
+                 h: Store.get('adminHash'), a: Store.get('isAdmin') };
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  try{
+    ok('هیچ پیامِ مدیریتی‌ای دیگر هش نمی‌فرستد',
+       !/t: 'admin:[^']*',\s*hash:/.test(src) && !/hash: Store\.get\('adminHash'\)/.test(src));
+
+    Store.update(d => { d.adminToken = 'a'.repeat(64); d.adminTokenExp = U.now() + 3600000; });
+    ok('نشانهٔ زنده معتبر شمرده می‌شود', Admin.hasToken() === true);
+    Store.update(d => { d.adminTokenExp = U.now() - 1000; });
+    ok('نشانهٔ گذشته معتبر نیست', Admin.hasToken() === false);
+
+    /* نشانهٔ بی‌شکل یا بی‌سررسید دور انداخته می‌شود */
+    Store.update(d => { d.adminToken = 'کوتاه'; d.adminTokenExp = U.now() + 1000; });
+    Store.sanitize();
+    ok('نشانهٔ بی‌شکل دور انداخته می‌شود', Store.get('adminToken') === '', Store.get('adminToken'));
+    Store.update(d => { d.adminToken = 'b'.repeat(64); d.adminTokenExp = 0; });
+    Store.sanitize();
+    ok('نشانهٔ بی‌سررسید دور انداخته می‌شود', Store.get('adminToken') === '');
+    Store.update(d => { d.adminToken = 'c'.repeat(64); d.adminTokenExp = U.now() - 1; });
+    Store.sanitize();
+    ok('نشانهٔ منقضی دور انداخته می‌شود', Store.get('adminToken') === '');
+
+    /* isAdmin با نشانهٔ معتبر می‌ماند — وگرنه مدیرِ سرور در هر باز شدنِ
+       برنامه بیرون می‌افتاد، چون رمزِ محلی ندارد. */
+    Store.update(d => { d.adminHash = ''; d.adminToken = 'd'.repeat(64);
+                        d.adminTokenExp = U.now() + 3600000; d.isAdmin = true; });
+    Store.sanitize();
+    ok('با نشانهٔ سرور، پرچمِ مدیر پاک نمی‌شود', Store.get('isAdmin') === true);
+    Store.update(d => { d.adminToken = ''; d.adminTokenExp = 0; d.isAdmin = true; });
+    Store.sanitize();
+    ok('بی هیچ راهِ ورودی، پرچمِ مدیر پاک می‌شود', Store.get('isAdmin') === false);
+
+    /* بی سرور، دروازهٔ محلی می‌ماند */
+    ok('دروازهٔ محلی هنوز کار می‌کند', /Store\.set\('adminHash', await U\.sha256Async\(pass\)\)/.test(src));
+    ok('و صریح می‌گوید امنیتِ واقعی نیست',
+       /قفلِ محلی/.test(src) && /NOOR_ADMIN_PASS/.test(src));
+    ok('خروج، نشستِ سرور را باطل می‌کند',
+       /async logoutServer\(\)/.test(src) && /logoutServer\(\);\n\s*Store\.set\('isAdmin', false\)/.test(src));
+  }finally{
+    Store.update(d => { d.adminToken = keep.t; d.adminTokenExp = keep.e;
+                        d.adminHash = keep.h; d.isAdmin = keep.a; });
   }
 }
 

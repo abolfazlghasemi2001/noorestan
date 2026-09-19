@@ -2062,6 +2062,11 @@ const Store = {
          منتشر می‌شد و هر کسی که برنامه را باز می‌کرد، مدیر بود. حالا رشتهٔ خالی
          یعنی «هنوز رمزی ساخته نشده» و اولین ورود، ساختن رمز را اجباری می‌کند. */
       adminHash: '',
+      /* ── نسخهٔ ۹: نشستِ مدیر روی سرور ──
+         نشانهٔ نشستی که سرور صادر کرده، با سررسیدش. رمز و هشِ رمز هرگز
+         اینجا نمی‌نشینند و روی سیم نمی‌روند. */
+      adminToken: '',
+      adminTokenExp: 0,
       isAdmin: false,
       /* زمانِ آخرین بستنِ بنر نصب — ۰ یعنی هرگز نبسته. عدد است نه بولین،
          چون می‌خواهیم پس از مدتی دوباره پیشنهاد شود (پایین را ببین). */
@@ -2188,12 +2193,22 @@ const Store = {
     /* ── رمز مدیر ──
        adminHash فقط ۶۴ رقم هگز باشد یا خالی. هر چیز دیگر — از جمله رشتهٔ خالی
        که خودمان گذاشتیم — یعنی «رمزی ساخته نشده».
-       و بی رمز، نشستِ مدیر معنا ندارد: پرچم isAdmin پاک می‌شود تا کسی با
-       دست‌کاری localStorage وارد پنل نشود. (این هنوز محافظت واقعی نیست —
-       مجوزدهیِ سمت سرور در فاز معماری می‌آید — ولی دروازهٔ خالی را می‌بندد.) */
+       و بی هیچ راهی برای ورود، پرچم isAdmin معنا ندارد: پاک می‌شود تا کسی با
+       دست‌کاری localStorage وارد پنل نشود. دو راه ورود داریم و هر دو شمرده
+       می‌شوند: رمزِ محلی (بدونِ سرور) و نشانهٔ نشستِ سرور. اگر فقط رمزِ محلی
+       را می‌شمردیم، مدیرِ سرور در هر بار باز شدنِ برنامه بیرون می‌افتاد. */
     if(typeof d.adminHash !== 'string' || !/^[0-9a-f]{64}$/.test(d.adminHash)) d.adminHash = '';
     if(LEGACY_ADMIN_HASHES.includes(d.adminHash)) d.adminHash = '';
-    if(!d.adminHash) d.isAdmin = false;
+    /* نشانهٔ سرور: ۶۴ رقم هگز و بیهیچ نشانهٔ راز دیگری در خودش. انقضایش را
+       همینجا میسنجیم تا نشانهٔ کهنه در حافظه نماند؛ اعتبارِ راستین را سرور
+       میگوید (Admin.confirmServer). */
+    if(typeof d.adminToken !== 'string' || !/^[0-9a-f]{64}$/.test(d.adminToken)) d.adminToken = '';
+    d.adminTokenExp = Math.max(0, Math.floor(+d.adminTokenExp) || 0);
+    if(d.adminToken && d.adminTokenExp && U.now() > d.adminTokenExp){
+      d.adminToken = ''; d.adminTokenExp = 0;
+    }
+    if(d.adminToken && !d.adminTokenExp) d.adminToken = '';   // نشانهٔ بیسررسید، نشانه نیست
+    if(!d.adminHash && !d.adminToken) d.isAdmin = false;
     d.isAdmin = !!d.isAdmin;
     /* ── پیامک ──
        شماره و پیکربندی رشته‌اند و بریده می‌شوند؛ کدِ در جریان شکل دقیق
@@ -6661,13 +6676,17 @@ const MiniServer = {
             break;
           }
           case 'admin:broadcast': {
-            /* دروازه باید صریحاً بسته باشد: بی رمزِ ساخته‌شده، مقایسهٔ سادهٔ
-               رشته‌ای هر هشِ خالی را قبول می‌کرد. */
-            const cur = Store.get('adminHash');
-            if(cur && msg.hash === cur){
-              this.net.srv({ t: 'notif', to: '*', title: String(msg.title || '').slice(0, 60),
-                             desc: String(msg.desc || '').slice(0, 300), icon: '📢' });
-            }
+            /* در حالتِ محلی، «سرور» همین تبِ میزبان است و میزبان صاحبِ
+               دستگاه. پس پیامِ مدیریتی از دیگری پذیرفته نمی‌شود.
+               پیش‌تر اینجا هشِ رمز مقایسه می‌شد؛ ولی هش دیگر روی سیم نمی‌رود
+               (کلاینت فقط نشانهٔ سرور را می‌فرستد)، پس آن شرط همیشه بسته بود
+               و فقط این توهم را می‌ساخت که دروازه‌ای هست. حالا صریح است:
+               ایستگاهِ خودِ میزبان.
+               رد کردن *بی‌پاسخ* است، مثل خودِ سرور: فرستنده نباید از پاسخ
+               بفهمد دروازه کجاست یا چه می‌خواهد. */
+            if(msg.from !== Net.id) break;
+            this.net.srv({ t: 'notif', to: '*', title: String(msg.title || '').slice(0, 60),
+                           desc: String(msg.desc || '').slice(0, 300), icon: '📢' });
             break;
           }
           case 'bye': {
@@ -10989,23 +11008,75 @@ const Admin = {
     return '';
   },
 
+  /* ── نشستِ سرور ──
+     اگر سرور در دسترس باشد، احراز هویت *روی سرور* انجام می‌شود: رمز یک بار
+     می‌رود، سرور می‌سنجد، و یک نشانهٔ نشست با انقضا برمی‌گرداند. رمز و هش
+     هیچ‌گاه روی دستگاه نمی‌مانند.
+
+     پیش‌تر کلاینت هشِ رمز را نگه می‌داشت و با هر پیامِ مدیریتی می‌فرستاد.
+     دو ایراد داشت: هش بدلِ رمز شده بود (هر که آن را می‌دید مدیر می‌شد) و
+     راهی برای باطل‌کردنش نبود.
+
+     چرا نشانه در localStorage می‌ماند: برنامهٔ PWA است و رمزِ نشستِ کوکیِ
+     httpOnly در دسترسش نیست. نشانه یک *اعتبارنامه* است نه تصمیمِ دسترسی؛
+     تصمیم را سرور می‌گیرد و نشانه را با حافظهٔ خودش می‌سنجد. باقی‌ماندهٔ
+     ریسک: اگر کسی روی همین خاستگاه اسکریپت اجرا کند، نشانه را می‌دزدد —
+     ولی برخلاف گذشته، با انقضای ۱۲ ساعته و امکان باطل‌کردن. */
+  API: '/api/admin',
+  token(){ const t = Store.get('adminToken'); return typeof t === 'string' ? t : ''; },
+  tokenExp(){ return Math.floor(+Store.get('adminTokenExp') || 0); },
+  hasToken(){ return !!this.token() && U.now() < this.tokenExp(); },
+  /* سرور واقعی در دسترس است؟ */
+  onServer(){ return Net.status === 'online' && Net.mode === 'ws'; },
+
+  async loginServer(pass){
+    const r = await SMS.req(this.API + '/login', { body: { pass } });
+    if(r && r.status === 0) return { ok: false, why: 'سرور پاسخ نداد — اتصال را بررسی کن' };
+    const j = r && r.json;
+    if(r && r.ok && j && j.success && typeof j.token === 'string'){
+      Store.update(d => { d.adminToken = j.token; d.adminTokenExp = U.now() + (+j.exp || 0); });
+      return { ok: true };
+    }
+    return { ok: false, why: (j && j.error) || 'ورود نشد' };
+  },
+  async logoutServer(){
+    if(!this.hasToken()) return;
+    await SMS.req(this.API + '/logout', { body: { token: this.token() } });
+    Store.update(d => { d.adminToken = ''; d.adminTokenExp = 0; });
+  },
+  /* نشستِ ذخیره‌شده هنوز معتبر است؟ اگر سرور باطلش کرده باشد، همین می‌فهمد. */
+  async confirmServer(){
+    if(!this.hasToken()) return false;
+    const r = await SMS.req(this.API + '/whoami', { body: { token: this.token() } });
+    if(r && r.ok && r.json && r.json.success && r.json.admin) return true;
+    if(r && r.status === 0) return true;            // شبکه قطع است — نشانه را دور نمی‌ریزیم
+    Store.update(d => { d.adminToken = ''; d.adminTokenExp = 0; });
+    return false;
+  },
+
   /* ── دروازهٔ ورود ──
      دو حالت دارد و تفاوتشان مهم است:
-       رمزی ساخته نشده ⇒ فرم «ساختن رمز». راه دیگری به پنل نیست، پس اولین
-                          ورود همیشه با ساختن رمز همراه است.
-       رمز ساخته شده  ⇒ فرم «ورود».
+       روی سرور       ⇒ رمز به سرور می‌رود و نشست برمی‌گردد. این «امنیت» است.
+       بدونِ سرور     ⇒ رمزی محلی ساخته/سنجیده می‌شود. این امنیت *نیست*؛
+                        قفلی است تا کسی با گوشیِ خودت بی‌اجازه وارد نشود.
+                        صریح همین را به کاربر هم می‌گوییم.
      پیش‌تر رمز پیش‌فرض «noor2024» هم داخل بسته منتشر بود و هم همین صفحه
      چاپش می‌کرد؛ یعنی هر کسی که برنامه را باز می‌کرد، مدیر بود. */
   render(){
     const d = Store.data;
     if(!d.isAdmin){
-      const first = !Store.get('adminHash');
+      /* روی سرور: تنها راهِ ورود، رمزِ سرور است. رمزِ محلی اینجا هیچ نقشی
+         ندارد و عمداً نشان داده نمی‌شود تا کاربر فکر نکند رمزی که در تنظیمات
+         ساخته، روی سرور هم کار می‌کند. */
+      const remote = this.onServer();
+      const first = !remote && !Store.get('adminHash');
       U.$('#adminGate').innerHTML = `
         <div class="card">
-          <b>${first ? '🔐 ساختن رمز مدیر' : '🔐 ورود مدیران'}</b>
+          <b>${remote ? '🔐 ورود مدیر (سرور)' : (first ? '🔐 ساختن رمز مدیر' : '🔐 ورود مدیران')}</b>
           <p style="color:var(--mut);font-size:12px;margin-top:6px">
-            ${first ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
-                    : 'رمز مدیر را وارد کن.'}</p>
+            ${remote ? 'رمزِ مدیرِ سرور را وارد کن. رمز روی سرور سنجیده می‌شود و روی این دستگاه ذخیره نمی‌شود.'
+                     : (first ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
+                              : 'رمز مدیر را وارد کن.')}</p>
           <div class="sep"></div>
           <input class="inp" id="admPass" type="password" dir="ltr" spellcheck="false"
                  placeholder="${first ? 'رمز تازه…' : 'رمز…'}"
@@ -11014,10 +11085,15 @@ const Admin = {
                  placeholder="تکرار رمز تازه…" autocomplete="new-password" style="margin-top:8px">` : ''}
           <div id="admErr" class="hide" style="margin-top:10px;color:var(--red);font-size:12px"></div>
           <button class="btn w" id="admLogin" style="margin-top:12px">
-            ${first ? '🔐 ساختن رمز و ورود' : '🔓 ورود'}</button>
+            ${remote ? '📡 ورود به پنل سرور' : (first ? '🔐 ساختن رمز و ورود' : '🔓 ورود')}</button>
           <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
-            رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود و جایی فرستاده
-            نمی‌شود. اگر گمش کنی، با «ریست کامل» در همین پنل از نو ساخته می‌شود.</p>
+            ${remote
+              ? `رمز فقط یک بار به سرور می‌رود. بازگشتی، نشانهٔ نشست است که
+                 ${U.fa(12)} ساعت اعتبار دارد و سرور می‌تواند باطلش کند.`
+              : `این رمز فقط روی همین دستگاه ذخیره می‌شود (SHA-256) و «قفلِ محلی»
+                 است — امنیتِ واقعی نیست، چون هر کسی به فایل‌های همین مرورگر
+                 دسترسی داشته باشد می‌تواند قفل را بردارد. برای امنیتِ راستین،
+                 برنامه را روی سرور باز کن و NOOR_ADMIN_PASS بگذار.`}</p>
         </div>`;
       U.$('#adminMain').classList.add('hide');
 
@@ -11030,12 +11106,22 @@ const Admin = {
         Timers.after(() => el.classList.add('hide'), 3500);
       };
 
+      /* دکمه هنگامِ رفت‌وبرگشت با سرور قفل می‌شود؛ وگرنه دو بار زدن، دو
+         درخواست می‌فرستد و سقفِ تلاشِ سرور را بی‌دلیل پر می‌کند. */
+      const btn = U.$('#admLogin');
       const tryIt = async () => {
         const el = U.$('#admPass');
         const pass = el ? el.value : '';
         const again = U.$('#admPass2');
+        if(btn && btn.disabled) return;
+        if(!pass) return bad('رمز را بنویس');
 
-        if(first){
+        if(remote){
+          if(btn){ btn.disabled = true; btn.textContent = '⏳ در حال بررسی…'; }
+          const r = await this.loginServer(pass);
+          if(btn){ btn.disabled = false; btn.textContent = '📡 ورود به پنل سرور'; }
+          if(!r.ok) return bad(r.why);
+        }else if(first){
           const why = this.passProblem(pass);
           if(why) return bad(why);
           if(again && again.value !== pass) return bad('دو رمز یکی نیستند');
@@ -11049,10 +11135,10 @@ const Admin = {
         if(again) again.value = '';
         await U.sleep(150);
         this.render(); updateHomeStats();
-        UI.toast(first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر', 'ok');
+        UI.toast(remote ? '👑 ورود مدیر روی سرور' : (first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر'), 'ok');
       };
       const enter = e => { if(e.key === 'Enter') tryIt(); };
-      U.$('#admLogin').onclick = tryIt;
+      if(btn) btn.onclick = tryIt;
       U.$('#admPass').onkeydown = enter;
       const a2 = U.$('#admPass2');
       if(a2) a2.onkeydown = enter;
@@ -11061,6 +11147,12 @@ const Admin = {
     U.$('#adminGate').innerHTML = '';
     U.$('#adminMain').classList.remove('hide');
     this.renderTab();
+    /* نشستِ ذخیره‌شده را در پس‌زمینه با سرور چک می‌کنیم. اگر باطل شده باشد،
+       پنل بسته می‌شود — ولی بی‌آنکه کاربر را وسط کار بیرون بیندازیم: نتیجه
+       فقط وقتی اعمال می‌شود که نشست دیگر معتبر نباشد. */
+    if(this.onServer() && this.hasToken()) this.confirmServer().then(ok => {
+      if(!ok && Store.get('isAdmin')){ Store.set('isAdmin', false); this.render(); }
+    }).catch(() => {});
   },
   renderTab(){
     const d = Store.data;
@@ -11175,7 +11267,7 @@ const Admin = {
           </div>`;
         U.$('#admRoomsRefresh').onclick = () => { Net.requestRooms(); Timers.after(() => this.renderTab(), 700); };
         U.$$('[data-kill]').forEach(b => b.onclick = () => {
-          if(Net.mode === 'ws') Net.post({ t: 'admin:room:close', hash: Store.get('adminHash'), code: b.dataset.kill });
+          if(Net.mode === 'ws') Net.post({ t: 'admin:room:close', token: Admin.token(), code: b.dataset.kill });
           else UI.toast('بستن روم فقط روی سرور واقعی ممکن است', '');
         });
         break;
@@ -11259,7 +11351,7 @@ const Admin = {
           if(!t || !m){ UI.toast('عنوان و متن لازم است', 'err'); return; }
           pushNotif(t, m, '📢');
           if(Net.status === 'online'){
-            Net.post({ t: 'admin:broadcast', hash: Store.get('adminHash'), title: t, desc: m });
+            Net.post({ t: 'admin:broadcast', token: Admin.token(), title: t, desc: m });
             UI.toast('📢 به همه ارسال شد', 'ok');
           } else {
             UI.toast('📡 آفلاین — فقط این دستگاه دریافت کرد', '');
@@ -11473,9 +11565,27 @@ const Admin = {
               <button class="btn dg" id="opReset">🗑️ ریست کامل</button>
             </div>
           </div>
+          ${this.onServer() ? `
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🔑 امنیت</b>
+            <b style="font-size:13px">🔑 امنیتِ نشست</b>
             <div class="sep"></div>
+            <p style="font-size:12px;color:var(--mut)">
+              این نشست از طرف سرور صادر شده و
+              ${this.tokenExp() > U.now()
+                ? `${U.fa(Math.max(0, Math.ceil((this.tokenExp() - U.now()) / 3600000)))} ساعت دیگر`
+                : 'همین حالا'} تمام می‌شود.
+              رمزِ مدیر روی این دستگاه ذخیره نشده و اینجا عوض نمی‌شود —
+              تنها منبعش متغیر محیطی <span dir="ltr">NOOR_ADMIN_PASS</span> روی سرور است.</p>
+            <button class="btn w" id="opPassSave">🔒 باطل کردنِ نشست و گرفتنِ نشستِ تازه</button>
+          </div>` : `
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">🔑 امنیت (محلی)</b>
+            <div class="sep"></div>
+            <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
+              سرور در دسترس نیست، پس این رمز فقط «قفلِ محلی» است: کسی را که
+              گوشی‌ات را برمی‌دارد دور می‌کند، ولی امنیتِ واقعی نیست. امنیتِ
+              راستین وقتی است که برنامه روی سرور باز شود و
+              <span dir="ltr">NOOR_ADMIN_PASS</span> ست شده باشد.</p>
             <label class="lbl">رمز جدید مدیر</label>
             <input class="inp" id="opPass" type="password" dir="ltr" spellcheck="false"
                    placeholder="رمز جدید…" autocomplete="new-password">
@@ -11485,10 +11595,9 @@ const Admin = {
               <button class="btn w" id="opPassSave">💾 تغییر رمز</button>
             </div>
             <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
-              رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود. این رمز پنلِ
-              همین دستگاه را باز می‌کند؛ رمزِ سمت سرور جداست و با متغیر محیطی
-              <span dir="ltr">NOOR_ADMIN_PASS</span> تنظیم می‌شود.</p>
-          </div>
+              رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود و جایی
+              فرستاده نمی‌شود.</p>
+          </div>`}
           <button class="btn dg w" id="opLogout" style="margin-top:12px">🚪 خروج از پنل</button>`;
         U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
         U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateTopHearts(); UI.toast('❤️ پر شد', 'ok'); };
@@ -11500,6 +11609,16 @@ const Admin = {
         };
         U.$('#opReset').onclick = () => UI.confirm('ریست کامل همه داده‌ها؟', () => { Store.reset(); location.reload(); });
         U.$('#opPassSave').onclick = async () => {
+          if(this.onServer()){
+            /* «تغییر رمز» روی سرور ممکن نیست: رمز از متغیر محیطی می‌آید و
+               سرور رمزی را ذخیره نمی‌کند. کاری که *می‌شود* کرد، باطل‌کردنِ
+               نشستِ کنونی و گرفتنِ نشستِ تازه با رمزِ سرور است. */
+            await this.logoutServer();
+            Store.set('isAdmin', false);
+            this.render(); updateHomeStats();
+            UI.toast('🔒 نشست باطل شد — با رمزِ سرور از نو وارد شو', 'ok');
+            return;
+          }
           const a = U.$('#opPass'), b = U.$('#opPass2');
           const v = a ? a.value : '';
           /* همان سنجشِ دروازهٔ ورود — یک‌جا نوشته شده تا دو جای مختلف دو
@@ -11512,7 +11631,13 @@ const Admin = {
           if(b) b.value = '';
           UI.toast('🔑 رمز تغییر کرد', 'ok');
         };
-        U.$('#opLogout').onclick = () => { Store.set('isAdmin', false); this.render(); updateHomeStats(); };
+        U.$('#opLogout').onclick = async () => {
+          /* خروج باید نشستِ *سرور* را هم باطل کند. بی این، نشانه تا پایان
+             انقضایش زنده می‌ماند و «خروج» فقط یک تظاهر بود. */
+          await this.logoutServer();
+          Store.set('isAdmin', false);
+          this.render(); updateHomeStats();
+        };
         break;
     }
   }

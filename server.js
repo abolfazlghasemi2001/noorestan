@@ -77,7 +77,6 @@ const rooms   = new Map();   // code -> room
 let leaderboard = [];
 let friends     = {};        // نام -> [نام دوستان]  (تنها هویت پایدار کاربر، نام اوست)
 let pendingFriends = new Map();  // fromId -> {toId, at}
-let adminHashCurrent = ADMIN_HASH;
 let stats = { startedAt: now(), totalConnections: 0, totalMessages: 0, totalGames: 0, peakOnline: 0 };
 
 /* ─────────────── ذخیره‌سازی ─────────────── */
@@ -385,12 +384,21 @@ function handleMessage(c, msg){
   c.stamps.push(t);
   c.lastSeen = t;
 
-  /* احراز هویت ادمین.
-     دروازه باید صریحاً بسته باشد: اگر adminHashCurrent خالی باشد (یعنی
-     NOOR_ADMIN_PASS ست نشده)، مقایسهٔ سادهٔ رشته‌ای هر هشِ خالیِ کلاینت را
-     قبول می‌کرد و پنل مدیر برای همه باز می‌شد. */
-  if(msg.hash && typeof msg.hash === 'string'){
-    c.isAdmin = !!adminHashCurrent && msg.hash === adminHashCurrent;
+  /* احراز هویت مدیر — با *نشانهٔ نشست*، نه با هشِ رمز.
+     پیش‌تر کلاینت هش را می‌فرستاد و سرور مقایسه می‌کرد؛ یعنی هش بدلِ رمز شده
+     بود. حالا نشانه‌ای که سرور خودش ساخته و در حافظه دارد می‌آید، و هر بار
+     دوباره سنجیده می‌شود تا اتصالِ کهنه اختیارش را از دست بدهد.
+     `msg.hash` عمداً دیگر خوانده *نمی‌شود*: پذیرفتنِ هر دو راه، راهِ قدیمی را
+     زنده نگه می‌داشت. */
+  if(typeof msg.token === 'string'){
+    if(adminAlive(msg.token)){
+      c.isAdmin = true;
+      c.adminExp = now() + ADMIN_SESSION_MS;
+      c.adminToken = msg.token;
+    }else{
+      c.isAdmin = false;
+      c.adminExp = 0;
+    }
   }
 
   /* گیرندهٔ مستقیم — برای پیام‌های نقطه‌به‌نقطه (دوستی و مذاکرهٔ صوتی) */
@@ -605,7 +613,7 @@ function handleMessage(c, msg){
     }
 
     case 'admin:broadcast': {
-      if(!c.isAdmin){ sendRaw(c, { t: 'room:error', to: c.id, msg: 'دسترسی مدیر لازم است' }); return; }
+      if(!isAdminNow(c)){ sendRaw(c, { t: 'room:error', to: c.id, msg: 'دسترسی مدیر لازم است' }); return; }
       const title = clampStr(msg.title, 60), desc = clampStr(msg.desc, LIMITS.textLen);
       if(!title || !desc) return;
       log(`📢 اعلان سراسری: ${title}`);
@@ -614,7 +622,7 @@ function handleMessage(c, msg){
     }
 
     case 'admin:room:close': {
-      if(!c.isAdmin) return;
+      if(!isAdminNow(c)) return;
       const code = clampStr(msg.code, 6);
       const r = rooms.get(code);
       if(!r) return;
@@ -631,7 +639,7 @@ function handleMessage(c, msg){
     }
 
     case 'admin:stats': {
-      if(!c.isAdmin) return;
+      if(!isAdminNow(c)) return;
       sendRaw(c, { t: 'admin:stats', to: c.id, stats: serverStats() });
       break;
     }
@@ -834,6 +842,75 @@ function digits(s){
   });
 }
 
+/* ─────────────── نشستِ مدیر ───────────────
+   پیش‌تر کلاینت *هشِ* رمز را با هر پیامِ مدیریتی می‌فرستاد و سرور فقط آن را با
+   هشِ خودش مقایسه می‌کرد. دو ایراد داشت: هش عملاً بدلِ رمز شده بود (روی سیم
+   می‌رفت و هر که می‌دیدش مدیر می‌شد) و هیچ راهی برای باطل‌کردنش نبود.
+   حالا رمز یک بار به /api/admin/login می‌رود، مقایسه در سرور انجام می‌شود، و
+   سرور یک نشانهٔ نشست برمی‌گرداند: ۳۲ بایت تصادفی، با انقضا، قابلِ باطل‌کردن،
+   و فقط در حافظهٔ سرور. کلاینت دیگر رمز و هش را هیچ‌جا نگه نمی‌دارد. */
+const ADMIN_SESSION_MS   = 12 * 60 * 60 * 1000;
+const ADMIN_MAX_SESSIONS = 32;
+const ADMIN_TRY_MS       = 15 * 60 * 1000;
+const ADMIN_MAX_TRIES    = 6;
+const adminSessions = new Map();   // token -> { at, exp }
+const adminTries    = new Map();   // ip -> [at, …]
+
+/* دروازه بسته است تا وقتی NOOR_ADMIN_PASS ست شده باشد. */
+const adminGateOpen = () => !!ADMIN_HASH;
+
+/* مقایسهٔ زمان‌ثابت. با === می‌شد از روی زمانِ پاسخ، هش را نویسه‌به‌نویسه
+   ساخت. طول‌ها اگر یکی نبود، همان‌جا رد می‌شود (طولِ هشِ sha256 همیشه ۶۴ است
+   و خودش راز نیست). */
+function sameHash(a, b){
+  if(typeof a !== 'string' || typeof b !== 'string') return false;
+  const x = Buffer.from(a, 'utf8'), y = Buffer.from(b, 'utf8');
+  if(x.length !== y.length) return false;
+  return crypto.timingSafeEqual(x, y);
+}
+
+function adminAllow(ip){
+  const t = now();
+  const list = (adminTries.get(ip) || []).filter(x => t - x < ADMIN_TRY_MS);
+  adminTries.set(ip, list);
+  if(list.length >= ADMIN_MAX_TRIES)
+    return { ok: false, why: `تلاشِ زیاد — ${Math.ceil((ADMIN_TRY_MS - (t - list[0])) / 60000)} دقیقه دیگر` };
+  list.push(t);
+  return { ok: true };
+}
+function adminForget(ip){ adminTries.delete(ip); }
+
+function adminNewToken(){
+  const token = crypto.randomBytes(32).toString('hex');
+  /* سقفِ نشست‌های زنده: قدیمی‌ترین می‌رود تا نگاشت بی‌کران رشد نکند و
+     نشست‌های فراموش‌شده تا ابد زنده نمانند. */
+  if(adminSessions.size >= ADMIN_MAX_SESSIONS){
+    let old = null;
+    for(const [t, s] of adminSessions) if(!old || s.at < old.s.at) old = { t, s };
+    if(old) adminSessions.delete(old.t);
+  }
+  adminSessions.set(token, { at: now(), exp: now() + ADMIN_SESSION_MS });
+  return token;
+}
+/* نشانهٔ معتبر؟ منقضی همان‌جا پاک می‌شود. */
+function adminAlive(token){
+  if(typeof token !== 'string' || token.length !== 64) return false;
+  const s = adminSessions.get(token);
+  if(!s) return false;
+  if(now() > s.exp){ adminSessions.delete(token); return false; }
+  return true;
+}
+/* آیا این اتصال، همین حالا، مدیر است؟ `c.isAdmin` تنها کافی نیست: اتصالی که
+   ۱۲ ساعت باز بماند باید خودش اختیارش را از دست بدهد. */
+const isAdminNow = c => !!c && !!c.isAdmin && now() < (c.adminExp || 0);
+
+function adminPruneSessions(){
+  const t = now();
+  let n = 0;
+  for(const [tok, s] of adminSessions) if(t > s.exp){ adminSessions.delete(tok); n++; }
+  return n;
+}
+
 /* ─────────────── هندلر upgrade ─────────────── */
 const server = http.createServer(handleHttp);
 
@@ -959,6 +1036,60 @@ async function handleHttp(req, res){
                                     maxSpectators: LIMITS.roomSpectators }));
   }
 
+  /* ── ورودِ مدیر ──
+     تنها جایی که رمزِ مدیر روی سیم می‌رود، و آن هم یک بار. پاسخ، نشانهٔ
+     نشست است — نه رمز، نه هش. رمز و نشانه هیچ‌گاه لاگ نمی‌شوند. */
+  if(p.startsWith('/api/admin/')){
+    const hdr = { 'Content-Type':'application/json; charset=utf-8',
+                  'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                  'Cache-Control': 'no-store' };
+    const no = (code, error) => { res.writeHead(code, hdr);
+      return res.end(JSON.stringify({ success: false, error })); };
+    const ok = obj => { res.writeHead(200, hdr);
+      return res.end(JSON.stringify({ success: true, ...obj })); };
+
+    if(req.method !== 'POST') return no(405, 'فقط POST');
+    if(!adminGateOpen())
+      return no(503, 'رمز مدیر روی سرور تنظیم نشده (NOOR_ADMIN_PASS) — ورود مدیر روی سرور ممکن نیست');
+
+    const ip = clientIp(req);
+
+    if(p === '/api/admin/login'){
+      const body = await readJson(req, 1024);
+      if(!body) return no(400, 'بدنهٔ درخواست خوانده نشد');
+      const pass = String(body.pass || '');
+      /* پیش از بررسیِ رمز، سقفِ تلاش. وگرنه همین مسیر می‌شد درِ حدس‌زدن.
+         رمزِ بد هم شکلِ پاسخش با رمزِ درست یکی نیست ولی زمانش یکی است. */
+      const lim = adminAllow(ip);
+      if(!lim.ok){ log(`🚫 ورودِ مدیر رد شد (${ip}): ${lim.why}`); return no(429, lim.why); }
+      if(!sameHash(sha256Hex(pass), ADMIN_HASH)){
+        log(`🚫 رمزِ مدیر اشتباه (${ip})`);
+        return no(401, 'رمز اشتباه است');
+      }
+      adminForget(ip);
+      const token = adminNewToken();
+      log(`👑 ورودِ مدیر (${ip}) — نشست تا ${Math.round(ADMIN_SESSION_MS / 3600000)} ساعت`);
+      return ok({ token, exp: ADMIN_SESSION_MS });
+    }
+
+    if(p === '/api/admin/logout'){
+      const body = await readJson(req, 1024);
+      if(body && adminAlive(body.token)){
+        adminSessions.delete(body.token);
+        log('👑 نشستِ مدیر باطل شد');
+      }
+      /* بیرون‌رفتن همیشه «موفق» است؛ وگرنه وجودِ یک نشست را تأیید می‌کرد. */
+      return ok({});
+    }
+
+    if(p === '/api/admin/whoami'){
+      const body = await readJson(req, 1024);
+      return ok({ admin: !!(body && adminAlive(body.token)) });
+    }
+
+    return no(404, 'چنین مسیری نیست');
+  }
+
   /* ── پیامک ──
      /status هیچ‌وقت کلید را برنمی‌گرداند — فقط «دارم یا نه». */
   if(p === '/api/otp/status'){
@@ -1075,6 +1206,19 @@ setInterval(() => {
 setInterval(() => { if(clients.size) pushPeers(); }, 5000);
 setInterval(() => { if(clients.size) pushRooms(); }, 12000);
 setInterval(saveData, 30000);
+/* نشست‌های منقضی هر دقیقه پاک می‌شوند. `adminAlive` خودش هم منقضی را
+   دور می‌ریزد، ولی نشستی که دیگر پرسیده نمی‌شود تا ابد در حافظه می‌ماند. */
+setInterval(() => {
+  const n = adminPruneSessions();
+  if(n) log(`🔒 ${n} نشستِ منقضیِ مدیر پاک شد`);
+  /* سابقهٔ تلاشِ آدرس‌هایی که دیگر نمی‌آیند هم پاک می‌شود؛ وگرنه نگاشت
+     به‌ازای هر آدرسِ دیده‌شده یک ردیف نگه می‌داشت. */
+  const t = now();
+  for(const [ip, list] of adminTries){
+    const live = list.filter(x => t - x < ADMIN_TRY_MS);
+    if(live.length) adminTries.set(ip, live); else adminTries.delete(ip);
+  }
+}, 60000);
 
 /* پیشنهادهای دوستی کهنه (بیش از ۲ دقیقه) پاک می‌شوند */
 setInterval(() => {
@@ -1104,7 +1248,7 @@ server.listen(PORT, HOST, () => {
   console.log('  ─────────────────────────────────────────');
   /* عمداً خودِ رمز چاپ نمی‌شود. لاگ سرور می‌تواند ذخیره، فرستاده یا در
      گزارش خطا دیده شود؛ رمزی که در لاگ بنشیند، رمز نیست. */
-  console.log(`  رمز مدیر سرور : ${adminHashCurrent
+  console.log(`  رمز مدیر سرور : ${ADMIN_HASH
     ? 'تنظیم شده (NOOR_ADMIN_PASS)'
     : '⚠️ تنظیم نشده — پنل مدیریت روی سرور کار نمی‌کند (NOOR_ADMIN_PASS را ست کن)'}`);
   /* هشدار رمز ضعیف. رد نمی‌کنیم — سرورِ در حال کار را نباید بی‌خبر بخوابانیم —

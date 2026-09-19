@@ -449,26 +449,73 @@ const cleanup = () => {
   const lbHttp = await fetch(`http://127.0.0.1:${PORT}/api/leaderboard`).then(r => r.json());
   ok('لیدربورد از HTTP هم خوانده می‌شود', lbHttp[0].score === 9100);
 
-  /* 7. اعلان مدیریتی */
+  /* 7. اعلان مدیریتی — با *نشانهٔ نشست*، نه با هش.
+     پیش‌تر کلاینت هشِ رمز را می‌فرستاد؛ یعنی هش بدلِ رمز شده بود و هر که
+     می‌دیدش مدیر می‌شد. حالا سرور نشانه می‌دهد و همان را می‌سنجد. */
   section('اعلان مدیریتی');
   C.clear(); A.clear();
-  C.send({ t: 'admin:broadcast', hash: 'deadbeef', title: 'هک', desc: 'تلاش غیرمجاز' });
+  C.send({ t: 'admin:broadcast', hash: HASH, title: 'هک', desc: 'تلاش غیرمجاز' });
   await sleep(250);
-  ok('🔒 هش اشتباه رد شد', !A.msgs.some(m => m.t === 'notif'));
-  ok('خطا به فرستنده اطلاع داده شد', C.msgs.some(m => m.t === 'room:error'));
+  ok('🔒 هش — حتی هشِ درست — دیگر دروازه را باز نمی‌کند',
+     !A.msgs.some(m => m.t === 'notif'));
 
-  /* هشِ خالی نباید با هشِ خالیِ سرور تطبیق داده شود. اگر دروازه صریحاً بسته
-     نباشد، کلاینتی که hash:'' می‌فرستد مدیر می‌شود. */
   C.clear(); A.clear();
-  C.send({ t: 'admin:broadcast', hash: '', title: 'خالی', desc: 'تلاش' });
+  C.send({ t: 'admin:broadcast', token: 'deadbeef', title: 'هک', desc: 'تلاش غیرمجاز' });
   await sleep(250);
-  ok('🔒 هشِ خالی هم رد می‌شود', !A.msgs.some(m => m.t === 'notif'));
+  ok('🔒 نشانهٔ بی‌شکل رد می‌شود', !A.msgs.some(m => m.t === 'notif'));
+
+  const zeros = '0'.repeat(64);
   C.clear(); A.clear();
+  C.send({ t: 'admin:broadcast', token: zeros, title: 'خالی', desc: 'تلاش' });
+  await sleep(250);
+  ok('🔒 نشانهٔ ۶۴ رقمیِ ساختگی هم رد می‌شود', !A.msgs.some(m => m.t === 'notif'));
+
+  /* ورودِ درست */
+  const login = await fetch(`http://127.0.0.1:${PORT}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: PASS })
+  }).then(r => r.json());
+  ok('ورودِ مدیر نشانه می‌دهد', login.success === true && /^[0-9a-f]{64}$/.test(login.token || ''),
+     JSON.stringify(login).slice(0, 120));
+  ok('و نشانه، رمز نیست', login.token !== PASS && login.token !== HASH);
+  const token = login.token;
 
   C.clear(); A.clear(); B.clear();
-  C.send({ t: 'admin:broadcast', hash: HASH, title: 'خبر مهم', desc: 'مسابقه امشب' });
-  ok('اعلان با هش درست پخش شد', (await A.wait(m => m.t === 'notif' && m.title === 'خبر مهم'))?.desc === 'مسابقه امشب');
+  C.send({ t: 'admin:broadcast', token, title: 'خبر مهم', desc: 'مسابقه امشب' });
+  ok('اعلان با نشانهٔ درست پخش شد', (await A.wait(m => m.t === 'notif' && m.title === 'خبر مهم'))?.desc === 'مسابقه امشب');
   ok('اعلان به همه رسید', !!(await B.wait(m => m.t === 'notif' && m.title === 'خبر مهم')));
+
+  /* رمزِ اشتباه نشانه نمی‌دهد، و پاسخش با رمزِ درست یکی نیست */
+  const badLogin = await fetch(`http://127.0.0.1:${PORT}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: 'not-the-pass' })
+  });
+  ok('🔒 رمزِ اشتباه نشانه نمی‌گیرد', badLogin.status === 401);
+
+  const who = await fetch(`http://127.0.0.1:${PORT}/api/admin/whoami`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  }).then(r => r.json());
+  ok('نشانه با whoami تأیید می‌شود', who.success === true && who.admin === true);
+
+  /* باطل‌کردن: نشانه نباید بعد از خروج کار کند */
+  C.clear(); A.clear();
+  await fetch(`http://127.0.0.1:${PORT}/api/admin/logout`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  const who2 = await fetch(`http://127.0.0.1:${PORT}/api/admin/whoami`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  }).then(r => r.json());
+  ok('🔒 نشانهٔ باطل‌شده دیگر معتبر نیست', who2.admin === false);
+
+  /* اتصالِ *تازه* با نشانهٔ باطل‌شده: سرور باید از نو بسنجد، نه اینکه
+     به وضعیتِ اتصالِ قبلی تکیه کند. */
+  C.send({ t: 'admin:broadcast', token, title: 'دوباره', desc: 'بعد از خروج' });
+  await sleep(250);
+  ok('🔒 نشانهٔ باطل‌شده دوباره راه نمی‌دهد',
+     !A.msgs.some(m => m.t === 'notif' && m.title === 'دوباره'));
 
   /* ── رمز مدیر: نه پیش‌فرض، نه در لاگ ──
      پیش‌تر مقدار جانشین «noor2024» بود و همان را در بنر هم چاپ می‌کرد؛ یعنی
