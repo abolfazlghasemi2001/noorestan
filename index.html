@@ -2397,6 +2397,10 @@ const Router = {
   go(name, replace = false){
     if(!this.screens[name]) return;
     if(name !== 'play') Timers.clearPage();   // تایمر بازی هنگام خروج پاک می‌شود
+    /* رفتن به صفحهٔ دیگر، پنجرهٔ باز را می‌بندد؛ وگرنه پنجره روی صفحهٔ
+       تازه می‌ماند و ورودیِ نشان‌دارش در تاریخچه بی‌صاحب می‌شود. */
+    if(UI.isOpen()) UI.closeModal();
+    UI.absorbModalEntry();
     if(!replace && this.stack[this.stack.length-1] !== name){
       this.stack.push(name);
       history.pushState({ screen: name }, '', '#' + name);
@@ -2405,8 +2409,14 @@ const Router = {
     if(this.hooks[name]) { try{ this.hooks[name](); }catch(e){ console.warn(e); } }
   },
   back(){
-    if(this.stack.length > 1){ this.stack.pop(); history.back(); }
-    else this.go('home', true);
+    /* پشته را این‌جا کوتاه نمی‌کنیم: popstate خودش این کار را می‌کند.
+       اگر هم این‌جا pop کنیم، مقایسهٔ popstate به هم می‌خورد و پشته از
+       تاریخچه جدا می‌افتد. */
+    if(this.stack.length > 1){ history.back(); return; }
+    /* ته پشته‌ایم ⇒ جایی برای برگشتن نیست. ورودیِ کنونی هم «خانه»
+       نوشته می‌شود تا تاریخچه با آنچه می‌بینیم یکی بماند. */
+    try{ history.replaceState({ screen: 'home' }, '', '#home'); }catch(e){}
+    this.go('home', true);
   },
   _render(name){
     U.$$('.screen').forEach(s => s.classList.remove('active'));
@@ -2429,13 +2439,38 @@ const Router = {
     }catch(e){}
   },
   init(){
+    /* یک بار. بی این نگهبان، هر فراخوانیِ دوباره یک شنوندهٔ popstate
+       تازه می‌گذارد و یک بازگشت، دو بار رسیدگی می‌شود — پشته دو قدم
+       عقب می‌رود و صفحه دو بار رسم می‌شود. */
+    if(this._inited) return; this._inited = true;
     window.addEventListener('popstate', e => {
-      const name = e.state?.screen || 'home';
-      this.stack = [name];
+      /* ۱) ورودیِ نشان‌داری که خودمان پس گرفتیم — بی هیچ بازترسیمی. */
+      if(UI._swallow){ UI._swallow = false; return; }
+
+      /* ۲) پنجرهٔ باز: بازگشت اول پنجره را می‌بندد، نه صفحه را. ورودی
+         نشان‌دار همین حالا از تاریخچه رفته، پس چیزی برای برگرداندن نیست. */
+      if(UI.isOpen()){ UI.closeFromBack(); return; }
+
+      /* ۳) پشته باید آینهٔ تاریخچه بماند. پیش‌تر این‌جا
+         `this.stack = [name]` بود و پشته با هر بازگشت به یک عنصر می‌رفت؛
+         نتیجه این بود که پس از دو «عقب»، شمارشِ پشته با تاریخچه نمی‌خواند
+         و «عقب» بعدی به خانه می‌پرید.
+         حالا فقط وقتی عقب می‌کشیم که ورودیِ رسیده همان یکی‌زیرِ سرِ پشته
+         باشد — یعنی واقعاً یک قدم عقب رفته‌ایم. هر چیز دیگر (پرشِ نشانی،
+         دکمهٔ جلوی مرورگر) پشته را از نو می‌سازد. */
+      const name = (e.state && e.state.screen) || 'home';
+      if(this.stack.length > 1 && this.stack[this.stack.length - 2] === name) this.stack.pop();
+      else this.stack = [name];
       if(name !== 'play') Timers.clearPage();
       this._render(name);
       if(this.hooks[name]) { try{ this.hooks[name](); }catch(err){} }
     });
+    /* اگر صفحه وسطِ یک پنجرهٔ باز دوباره بار شده، نشانهٔ تاریخچه‌اش مانده
+       ولی پنجره‌ای باز نیست. پاکش می‌کنیم تا «عقب» اول بی‌دلیل خرج نشود. */
+    if(history.state && history.state.modal){
+      const cur = this.screens[location.hash.slice(1)] ? location.hash.slice(1) : 'home';
+      try{ history.replaceState({ screen: cur }, '', '#' + cur); }catch(e){}
+    }
     const hash = location.hash.slice(1);
     if(this.screens[hash]){
       this.stack = [hash];
@@ -2456,12 +2491,107 @@ const UI = {
     while(U.$('#toasts').children.length > 4) U.$('#toasts').firstChild.remove();
     setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, ms);
   },
+  /* ── پنجرهٔ جستن ──
+     سه چیز را با هم نگه می‌دارد: نمایش، تاریخچه، و تمرکز.
+
+     • تاریخچه: باز شدنِ پنجره یک ورودیِ «نشان‌دار» می‌گذارد. بی آن، دکمهٔ
+       بازگشتِ اندروید صفحه را عوض می‌کرد و پنجره روی صفحهٔ تازه باز
+       می‌ماند — کاربر گیر می‌کرد. با آن، اولین بازگشت پنجره را می‌بندد.
+     • تمرکز: کلید به داخلِ پنجره می‌رود و همان‌جا می‌ماند؛ وگرنه Tab
+       پشتِ پنجره می‌چرخد و کاربر جایی را می‌زند که نمی‌بیند.
+     • Escape: پنجره را می‌بندد، مثل دکمهٔ انصراف. */
+  _mOpen: false,     // پنجرهٔ باز
+  _drop: null,       // تایمرِ پاک‌کردنِ ورودیِ نشان‌دار
+  _swallow: false,   // یک popstate را بی‌واکنش رد کن (پاک‌کردنِ خودمان)
+  _focusBack: null,  // عنصری که پیش از باز شدن فوکوس داشت
+  _trap: false,
+
+  isOpen(){ return this._mOpen; },
+
   modal(html, onMount){
-    U.$('#modalBox').innerHTML = html;
+    const box = U.$('#modalBox');
+    if(!this._mOpen){
+      this._focusBack = document.activeElement || null;
+      try{
+        history.pushState({ screen: Router.stack[Router.stack.length - 1], modal: true },
+                          '', location.hash || '#home');
+      }catch(e){ console.warn('modal history', e); }
+      this._mOpen = true;
+      this.trap();
+    }
+    box.innerHTML = html;
+    /* کلید روی خودِ جعبه می‌نشیند، نه روی اولین دکمه: فوکوسِ خودکار روی
+       ورودی، روی گوشی صفحه‌کلید را می‌آورد و پنجره را نصفه می‌کند. */
+    box.setAttribute('tabindex', '-1');
     U.$('#modal').classList.add('on');
-    onMount && onMount(U.$('#modalBox'));
+    try{ box.focus({ preventScroll: true }); }catch(e){ try{ box.focus(); }catch(e2){} }
+    onMount && onMount(box);
   },
-  closeModal(){ U.$('#modal').classList.remove('on'); },
+
+  closeModal(){
+    if(!this._mOpen) return;
+    this._mOpen = false;
+    U.$('#modal').classList.remove('on');
+    this.giveBackFocus();
+    /* پاک‌کردنِ ورودیِ نشان‌دار به پایانِ همین چرخهٔ رویداد موکول می‌شود:
+       اگر بلافاصله پس از بستن، Router.go صدا زده شود (الگوی «بستن و رفتن
+       به صفحهٔ دیگر»)، آن مسیر خودش نشانه را با replaceState پس می‌گیرد و
+       دیگر جایی برای back نمی‌ماند. */
+    clearTimeout(this._drop);
+    this._drop = setTimeout(() => this.dropModalEntry(), 0);
+  },
+
+  /* ورودیِ نشان‌دار را با یک back برمی‌گرداند. popstate همان لحظه
+     _swallow را می‌بیند و هیچ صفحه‌ای دوباره رسم نمی‌شود. */
+  dropModalEntry(){
+    clearTimeout(this._drop); this._drop = null;
+    if(history.state && history.state.modal){ this._swallow = true; history.back(); }
+  },
+
+  /* نشانه را به ورودیِ معمولیِ همین صفحه تبدیل می‌کند، بی هیچ جابه‌جایی.
+     Router.go پیش از pushState این را صدا می‌زند. */
+  absorbModalEntry(){
+    clearTimeout(this._drop); this._drop = null;
+    if(history.state && history.state.modal){
+      const top = Router.stack[Router.stack.length - 1] || 'home';
+      try{ history.replaceState({ screen: top }, '', '#' + top); }catch(e){}
+    }
+  },
+
+  /* بستن با دکمهٔ بازگشت: ورودی خودش رفته، پس به تاریخچه دست نمی‌زنیم. */
+  closeFromBack(){
+    this._mOpen = false;
+    clearTimeout(this._drop); this._drop = null;
+    U.$('#modal').classList.remove('on');
+    this.giveBackFocus();
+  },
+
+  giveBackFocus(){
+    const b = this._focusBack;
+    this._focusBack = null;
+    if(b && b.focus) try{ b.focus({ preventScroll: true }); }catch(e){}
+  },
+
+  /* Escape می‌بندد؛ Tab داخلِ پنجره می‌ماند. یک بار نصب می‌شود. */
+  trap(){
+    if(this._trap) return; this._trap = true;
+    document.addEventListener('keydown', e => {
+      if(!this._mOpen) return;
+      if(e.key === 'Escape' || e.key === 'Esc'){
+        e.preventDefault(); this.closeModal(); return;
+      }
+      if(e.key !== 'Tab') return;
+      const box = U.$('#modalBox');
+      if(!box) return;
+      const f = Array.from(box.querySelectorAll('button, a[href], input, select, textarea'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if(!f.length){ e.preventDefault(); return; }   // چیزی برای چرخیدن نیست
+      const first = f[0], last = f[f.length - 1], cur = document.activeElement;
+      if(e.shiftKey){
+        if(cur === first || !box.contains(cur)){ e.preventDefault(); last.focus(); }
+      }else if(cur === last || !box.contains(cur)){ e.preventDefault(); first.focus(); }
+    });
+  },
   confirm(msg, onYes){
     this.modal(`
       <h3 style="margin-bottom:14px">${U.esc(msg)}</h3>
@@ -8702,9 +8832,11 @@ const A11y = {
         if(!b.getAttribute('aria-label'))
           b.setAttribute('aria-label', String(b.textContent || '').trim() || b.dataset.nav);
       });
-      /* صفحه‌ها زنده اعلام شوند */
+      /* صفحه‌ها زنده اعلام شوند. tabindex=-1 یعنی می‌شود برنامه‌ای فوکوس
+         را روی صفحه برد، ولی خودش یک ایستگاهِ Tab نمی‌شود. */
       U.$$('.screen').forEach(s => {
         s.setAttribute('role', 'region');
+        if(!s.hasAttribute('tabindex')) s.setAttribute('tabindex', '-1');
         if(!s.getAttribute('aria-label')) s.setAttribute('aria-label', s.id.replace(/^s-/, 'صفحهٔ '));
       });
       const t = U.$('#toasts');

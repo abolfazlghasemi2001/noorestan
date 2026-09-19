@@ -8,15 +8,50 @@ const el = () => ({
   focus(){}, closest(){ return null; }, dataset:{}
 });
 global.document = { querySelector:()=>el(), querySelectorAll:()=>[], createElement:()=>el(),
-  addEventListener(){},
+  addEventListener(t, f){ (global.__on.document[t] = global.__on.document[t] || []).push(f); },
+  removeEventListener(){},
+  activeElement:null,
   documentElement:{ setAttribute(){}, getAttribute(){ return null; },
     style:{ setProperty(){}, getPropertyValue(){ return ''; }, removeProperty(){} } },
   body: el(), execCommand(){ return true; }, hidden:false };
-global.window = { addEventListener(){}, crypto:null, isSecureContext:false, isSecureContext_:false };
+/* شنونده‌ها ثبت می‌شوند تا بشود رویدادها را دستی انداخت. بی این، رفتار
+   «دکمهٔ بازگشت» و «Escape» هرگز سنجیده نمی‌شد. */
+global.__on = { window:{}, document:{} };
+global.__fire = (where, type, ev = {}) => {
+  const l = (global.__on[where] || {})[type] || [];
+  for(const f of l.slice()){
+    try{ f(Object.assign({ preventDefault(){}, stopPropagation(){}, key:'', shiftKey:false }, ev)); }
+    catch(e){ global.__lateErrs.push(e); }
+  }
+  return l.length;
+};
+global.window = {
+  addEventListener(t, f){ (global.__on.window[t] = global.__on.window[t] || []).push(f); },
+  removeEventListener(){},
+  crypto:null, isSecureContext:false, isSecureContext_:false
+};
 global.navigator = { vibrate(){ return true; } };
 global.localStorage = { _d:{}, getItem(k){ return this._d[k] ?? null; }, setItem(k,v){ this._d[k]=v; }, removeItem(k){ delete this._d[k]; } };
 global.location = { hash:'', replace(){}, href:'http://localhost/' };
-global.history = { pushState(){}, replaceState(){}, back(){} };
+/* تاریخچهٔ کمینه ولی *باحالت*: ورودی‌ها را نگه می‌دارد تا بشود رفتار
+   «دکمهٔ بازگشت» را سنجید. پیش‌تر استابِ بی‌اثر بود و هر سنجشِ تاریخچه
+   بی‌معنا می‌شد. برنامه فقط pushState/replaceState/back را صدا می‌زند.
+   back از سرِ فهرست برمی‌گردد و popstate را همگام می‌اندازد — مرورگر
+   ناهمگام می‌اندازد، ولی منطق برنامه در هر دو حالت یکی است چون همه‌چیز
+   به _swallow و ورودیِ کنونی نگاه می‌کند، نه به زمان‌بندی. */
+global.history = (() => {
+  let list = [{ state:null, url:'#home' }], i = 0;
+  return {
+    get length(){ return list.length; },
+    get state(){ return list[i].state; },
+    pushState(s, _t, url){ list.splice(i + 1); list.push({ state:s, url:url || '' }); i = list.length - 1; },
+    replaceState(s, _t, url){ list[i] = { state:s, url:url || '' }; },
+    back(){ if(i > 0){ i--; global.__fire('window', 'popstate', { state:list[i].state }); } },
+    __list(){ return list.slice(); },
+    __i(){ return i; },
+    __reset(){ list = [{ state:null, url:'#home' }]; i = 0; }
+  };
+})();
 global.URL.createObjectURL = () => 'blob:x';
 global.URL.revokeObjectURL = () => {};
 global.Blob = class { constructor(){} };

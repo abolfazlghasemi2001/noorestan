@@ -2700,7 +2700,117 @@ section('نوار پایین — مدیریت از آن برداشته شد، و
   ok('توضیح می‌دهد که پنهان‌کردن امنیت نیست', /پنهان‌کردنِ نشانی، امنیت نیست/.test(SRC));
 }
 
-section('خطاهای دیرهنگام (تایمرهای جامانده)');
+section('پنجرهٔ جستن — بازگشت اول پنجره را می‌بندد، نه صفحه را');
+{
+  const keepStack = Router.stack.slice();
+
+  history.__reset();
+  Router.stack = ['home'];
+  Router.go('me');
+  ok('آماده‌سازی: پشته و تاریخچه هم‌گام‌اند',
+     Router.stack.join(',') === 'home,me' && history.length === 2);
+
+  UI.modal('<button id="mx">بستن</button>');
+  ok('پنجره باز شد', UI.isOpen() === true);
+  ok('ورودیِ نشان‌دار در تاریخچه نشست', !!(history.state && history.state.modal));
+  ok('و همان صفحهٔ کنونی را نگه می‌دارد', history.state.screen === 'me', history.state.screen);
+  ok('تاریخچه یک ورودی جلو رفت', history.length === 3, history.length);
+  ok('پشته دست نخورد', Router.stack.join(',') === 'home,me');
+
+  /* دکمهٔ بازگشتِ اندروید: popstate با ورودیِ صفحهٔ زیرین می‌آید. */
+  history.back();
+  ok('بازگشت پنجره را بست', UI.isOpen() === false);
+  ok('و صفحه عوض نشد', Router.stack.join(',') === 'home,me', Router.stack.join(','));
+  ok('ورودیِ نشان‌دار رفت', !(history.state && history.state.modal));
+  /* ورودیِ نشان‌دار جلوی اشاره‌گر می‌ماند (مرورگر آن را دور نمی‌ریزد)،
+     ولی بی‌خطر است: هر رفتنِ تازه با pushState همان شاخهٔ جلو را می‌بُرد،
+     و اگر کاربر «جلوی مرورگر» را بزند، شاخهٔ ۳ نشانه را نادیده می‌گیرد. */
+  ok('اشاره‌گر یک قدم عقب رفت', history.length === 3 && history.__i() === 1,
+     `${history.length}/${history.__i()}`);
+
+  /* Escape = دکمهٔ انصراف. */
+  UI.modal('<p>سلام</p>');
+  __fire('document', 'keydown', { key:'Escape' });
+  ok('Escape پنجره را می‌بندد', UI.isOpen() === false);
+  await U.sleep(5);
+  ok('و ورودیِ نشان‌دارش هم پس گرفته می‌شود',
+     !(history.state && history.state.modal) && history.__i() === 1, history.__i());
+
+  /* «بستن و رفتن به صفحهٔ دیگر» — الگویی که در ۲۵ جا صدا زده می‌شود.
+     اگر نشانه پس گرفته نشود، ورودیِ بی‌صاحب در تاریخچه می‌ماند و «عقب»
+     بعدی بی‌دلیل خرج می‌شود. */
+  UI.modal('<p>دوباره</p>');
+  const nMark = history.length;
+  Router.go('quran');
+  ok('رفتن به صفحهٔ دیگر پنجره را می‌بندد', UI.isOpen() === false);
+  ok('هیچ ورودیِ نشان‌داری در تاریخچه نمی‌ماند',
+     !history.__list().some(e => e.state && e.state.modal));
+  ok('ورودیِ اضافی هم نمی‌سازد', history.length === nMark + 1, `${nMark}→${history.length}`);
+  ok('پشته سه قدم شد', Router.stack.join(',') === 'home,me,quran', Router.stack.join(','));
+
+  /* بازگشتِ پیاپی: اشکالِ پیشین این بود که پشته با هر بازگشت به یک عنصر
+     می‌رفت و «عقب» بعدی به خانه می‌پرید. */
+  __fire('window', 'popstate', { state:{ screen:'me' } });
+  ok('یک قدم عقب: پشته کوتاه می‌شود، از نو ساخته نمی‌شود',
+     Router.stack.join(',') === 'home,me', Router.stack.join(','));
+  __fire('window', 'popstate', { state:{ screen:'home' } });
+  ok('دو قدم عقب', Router.stack.join(',') === 'home', Router.stack.join(','));
+  __fire('window', 'popstate', { state:{ screen:'admin' } });
+  ok('پرشِ نشانی پشته را از نو می‌سازد', Router.stack.join(',') === 'admin', Router.stack.join(','));
+
+  /* back() خودش پشته را کوتاه نمی‌کند؛ popstate این کار را می‌کند. */
+  history.__reset();
+  Router.stack = ['home'];
+  Router.go('me'); Router.go('quran');
+  Router.back();
+  ok('back() یک قدم از تاریخچه عقب می‌رود', history.__i() === 1, history.__i());
+  ok('و پشته هم عقب می‌آید', Router.stack.join(',') === 'home,me', Router.stack.join(','));
+  Router.back();
+  ok('بار دوم تا خانه', Router.stack.join(',') === 'home' && history.__i() === 0,
+     `${Router.stack.join(',')} / ${history.__i()}`);
+  Router.back();
+  ok('ته پشته: خانه می‌ماند و ورودی هم «خانه» نوشته می‌شود',
+     Router.stack.join(',') === 'home' && !!(history.state && history.state.screen === 'home'));
+
+  /* بازگشتِ فوکوس: بی آن، کاربر صفحه‌کلید پشتِ پنجرهٔ بسته می‌ماند. */
+  let focused = 0;
+  const prevEl = { focus(){ focused++; } };
+  document.activeElement = prevEl;
+  UI.modal('<p>الف</p>');
+  ok('عنصرِ فوکوس‌دارِ پیشین نگه داشته می‌شود', UI._focusBack === prevEl);
+  UI.closeModal();
+  ok('و پس از بستن فوکوس به همان‌جا برمی‌گردد', focused === 1, focused);
+  document.activeElement = null;
+  await U.sleep(5);
+
+  Router.stack = keepStack;
+  history.__reset();
+  UI._mOpen = false;
+}
+
+section('دسترس‌پذیری پنجره و صفحه‌ها — در متنِ برنامه');
+{
+  const SRC = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  ok('Escape و Tab در یک شنوندهٔ کلید رسیدگی می‌شوند',
+     /e\.key === 'Escape' \|\| e\.key === 'Esc'/.test(SRC) && /e\.key !== 'Tab'/.test(SRC));
+  ok('Tab داخلِ پنجره زندانی می‌شود (چرخشِ اول/آخر)',
+     /cur === last \|\| !box\.contains\(cur\)/.test(SRC) &&
+     /cur === first \|\| !box\.contains\(cur\)/.test(SRC));
+  ok('جعبهٔ پنجره tabindex منفی می‌گیرد', /box\.setAttribute\('tabindex', '-1'\)/.test(SRC));
+  ok('فوکوسِ خودکار روی ورودی نمی‌رود (صفحه‌کلید گوشی باز نشود)',
+     !/const first = box\.querySelector/.test(SRC) &&
+     /box\.focus\(\{ preventScroll: true \}\)/.test(SRC));
+  ok('صفحه‌ها tabindex منفی می‌گیرند تا فوکوس برنامه‌ای ممکن باشد',
+     /if\(!s\.hasAttribute\('tabindex'\)\) s\.setAttribute\('tabindex', '-1'\)/.test(SRC));
+  ok('پنجره نقش dialog و aria-modal دارد',
+     /role', 'dialog'/.test(SRC) && /aria-modal/.test(SRC));
+  ok('پشته دیگر با هر بازگشت از نو ساخته نمی‌شود',
+     !/const name = e\.state\?\.screen \|\| 'home';\s*\n\s*this\.stack = \[name\];/.test(SRC));
+  ok('init یک بار اجرا می‌شود (شنوندهٔ popstate دوباره ثبت نمی‌شود)',
+     /if\(this\._inited\) return; this\._inited = true;/.test(SRC));
+  ok('ورودیِ نشان‌دار پس از رفرش پاک می‌شود (تا «عقب» بی‌دلیل خرج نشود)',
+     /history\.state\.modal\)\{\s*\n\s*const cur = this\.screens/.test(SRC));
+}
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
 
