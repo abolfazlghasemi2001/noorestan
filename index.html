@@ -1091,7 +1091,9 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
 
 /* ── بازی چهارده معصوم ── */
 .imam-q{ text-align:center; font-size:13px; line-height:2; margin-bottom:12px }
-.imam-hint{ font-size:11px; color:var(--mut); text-align:center; margin-top:11px }
+.imam-hint{ font-size:11px; color:var(--mut); text-align:center; margin-top:11px; line-height:2.1 }
+.imam-hint b{ color:var(--txt) }
+.laqab-list{ color:var(--gold); font-size:12px; line-height:2.2; display:inline-block }
 
 /* ── بازی نجوا (چیدن کلمات دعا) ── */
 .dua-target{ text-align:center; font-size:11.5px; color:var(--mut); line-height:2.1;
@@ -5043,6 +5045,18 @@ const DATA = {
     {
       "name": "محمد بن عبدالله (ص)",
       "title": "مصطفی",
+      "titles": [
+        "مصطفی",
+        "امین",
+        "رحمة للعالمین",
+        "حبیب‌الله",
+        "صفی‌الله",
+        "خاتم النبیین",
+        "نبی امّی",
+        "نبی‌الله",
+        "رسول‌الله"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «حضرت محمد صلی الله علیه و آله»",
       "father": "عبدالله بن عبدالمطلب",
       "mother": "آمنه بنت وهب",
       "rank": "پیامبر خدا و خاتم‌النبیین",
@@ -5052,6 +5066,15 @@ const DATA = {
     {
       "name": "فاطمه بنت محمد (س)",
       "title": "زهرا",
+      "titles": [
+        "زهرا",
+        "بتول",
+        "کوثر",
+        "صدیقه",
+        "سیدة نساء العالمین",
+        "محدثه"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «حضرت فاطمه زهرا سلام الله علیها»",
       "father": "حضرت محمد (ص)",
       "mother": "حضرت خدیجه (س)",
       "rank": "دختر پیامبر (ص) و همسر امام علی (ع)",
@@ -5061,6 +5084,20 @@ const DATA = {
     {
       "name": "علی بن ابی‌طالب (ع)",
       "title": "امیرالمؤمنین",
+      "titles": [
+        "امیرالمؤمنین",
+        "صالح المؤمنین",
+        "زوج البتول",
+        "ساقی کوثر",
+        "اسدالله",
+        "صدیق",
+        "فاروق",
+        "قسیم النار و الجنة",
+        "حیدر",
+        "ولی‌الله",
+        "یعسوب‌ الدین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام علی علیه‌السلام»",
       "father": "ابوطالب بن عبدالمطلب",
       "mother": "فاطمه بنت اسد",
       "rank": "امام اول شیعیان",
@@ -5070,6 +5107,13 @@ const DATA = {
     {
       "name": "حسن بن علی (ع)",
       "title": "مجتبی",
+      "titles": [
+        "مجتبی",
+        "کریم اهل‌بیت",
+        "ریحانة نبیّ الله",
+        "سبط النبی"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسن مجتبی علیه‌السلام»",
       "father": "علی بن ابی‌طالب (ع)",
       "mother": "فاطمه زهرا (س)",
       "rank": "امام دوم شیعیان",
@@ -5079,6 +5123,13 @@ const DATA = {
     {
       "name": "حسین بن علی (ع)",
       "title": "سیدالشهداء",
+      "titles": [
+        "سیدالشهداء",
+        "مصباح الهدی",
+        "ثار الله",
+        "قتیل العبرات"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسین علیه‌السلام»",
       "father": "علی بن ابی‌طالب (ع)",
       "mother": "فاطمه زهرا (س)",
       "rank": "امام سوم شیعیان",
@@ -5088,6 +5139,12 @@ const DATA = {
     {
       "name": "علی بن حسین (ع)",
       "title": "سجاد",
+      "titles": [
+        "سجاد",
+        "سید الساجدین",
+        "زین العابدین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام سجاد علیه‌السلام»",
       "father": "حسین بن علی (ع)",
       "mother": null,
       "rank": "امام چهارم شیعیان",
@@ -5097,6 +5154,12 @@ const DATA = {
     {
       "name": "محمد بن علی (ع)",
       "title": "باقر",
+      "titles": [
+        "باقر",
+        "باقرالعلوم",
+        "صادقین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام محمد باقر علیه‌السلام»",
       "father": "علی بن حسین (ع)",
       "mother": "فاطمه دختر امام حسن مجتبی (ع) — مشهور به اُمّ عبدالله",
       "rank": "امام پنجم شیعیان",
@@ -5106,6 +5169,12 @@ const DATA = {
     {
       "name": "جعفر بن محمد (ع)",
       "title": "صادق",
+      "titles": [
+        "صادق",
+        "صادقین",
+        "شیخ‌الائمه"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام صادق علیه‌السلام»",
       "father": "محمد بن علی (ع)",
       "mother": "اُمّ فروه",
       "rank": "امام ششم شیعیان",
@@ -5115,6 +5184,12 @@ const DATA = {
     {
       "name": "موسی بن جعفر (ع)",
       "title": "کاظم",
+      "titles": [
+        "کاظم",
+        "باب‌الحوائج",
+        "عبد صالح"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام موسی کاظم علیه‌السلام»",
       "father": "جعفر بن محمد (ع)",
       "mother": "حمیده بربریه",
       "rank": "امام هفتم شیعیان",
@@ -5124,6 +5199,13 @@ const DATA = {
     {
       "name": "علی بن موسی (ع)",
       "title": "رضا",
+      "titles": [
+        "رضا",
+        "عالم آل محمد",
+        "ضامن آهو",
+        "غریب‌ الغربا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام رضا علیه‌السلام»",
       "father": "موسی بن جعفر (ع)",
       "mother": "نجمه (تکتم)",
       "rank": "امام هشتم شیعیان",
@@ -5133,6 +5215,12 @@ const DATA = {
     {
       "name": "محمد بن علی (ع)",
       "title": "جواد",
+      "titles": [
+        "جواد",
+        "تقی",
+        "ابن الرضا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام جواد علیه‌السلام»",
       "father": "علی بن موسی (ع)",
       "mother": "سبیکه (خیزران)",
       "rank": "امام نهم شیعیان",
@@ -5142,6 +5230,13 @@ const DATA = {
     {
       "name": "علی بن محمد (ع)",
       "title": "هادی",
+      "titles": [
+        "هادی",
+        "نقی",
+        "عسکریین",
+        "ابن‌الرضا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام هادی علیه‌السلام»",
       "father": "محمد بن علی (ع)",
       "mother": "سمانه مغربیه",
       "rank": "امام دهم شیعیان",
@@ -5151,6 +5246,15 @@ const DATA = {
     {
       "name": "حسن بن علی (ع)",
       "title": "عسکری",
+      "titles": [
+        "عسکری",
+        "ابن‌الرضا",
+        "صامت",
+        "هادی",
+        "رفیق",
+        "زکی"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسن عسکری علیه‌السلام»",
       "father": "علی بن محمد (ع)",
       "mother": null,
       "rank": "امام یازدهم شیعیان",
@@ -5160,6 +5264,15 @@ const DATA = {
     {
       "name": "محمد بن حسن (ع)",
       "title": "مهدی",
+      "titles": [
+        "مهدی",
+        "امام زمان",
+        "قائم آل محمد",
+        "ناحیه مقدسه",
+        "بقیةالله",
+        "منتظر"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام مهدی عجل الله تعالی فرجه»",
       "father": "حسن بن علی عسکری (ع)",
       "mother": "نرجس خاتون",
       "rank": "امام دوازدهم شیعیان",
@@ -8834,11 +8947,50 @@ const HadithEngine = {
    ═══════════════════════════════════════════════════════════ */
 const ImamEngine = {
   KINDS: [
-    { id:'title',  q:'لقبِ «…» کدام است؟',        get:i => i.title },
+    { id:'title',  q:'لقبِ نام‌آورِ «…» کدام است؟', get:i => i.title },
     { id:'father', q:'پدرِ «…» کیست؟',             get:i => i.father },
     { id:'rank',   q:'جایگاهِ «…» چیست؟',           get:i => i.rank },
     { id:'shrine', q:'زیارتگاهِ «…» در کجاست؟',    get:i => i.shrine }
   ],
+  /* نرمال‌سازیِ لقب برای مقایسه: نیم‌فاصله، کشیده و فاصله‌ها یکی می‌شوند.
+     «ابن‌الرضا» و «ابن الرضا» یک لقب‌اند — وگرنه پاسخِ درست دو تا می‌شد. */
+  norm(s){
+    return String(s || '')
+      .replace(/[‌‏ـ]/g, '')
+      .replace(/\s+/g, ' ').trim();
+  },
+  /* لقب‌هایی که بیش از یک معصوم دارند. پرسشِ «لقبِ X کدام است؟» با چنین
+     لقبی پاسخِ یگانه ندارد، پس نه پاسخ می‌شود و نه گزینه. */
+  _shared: null,
+  sharedTitles(){
+    if(this._shared) return this._shared;
+    const owner = new Map();
+    (DATA.imams || []).forEach(p => (p.titles || []).forEach(t => {
+      const k = this.norm(t);
+      if(!owner.has(k)) owner.set(k, new Set());
+      owner.get(k).add(p.name);
+    }));
+    this._shared = new Set([...owner].filter(([, who]) => who.size > 1).map(([k]) => k));
+    return this._shared;
+  },
+  /**
+   * wrongPool — گزینه‌های نادرستِ یک پرسش.
+   * برای پرسشِ لقب دو صافیِ اضافه لازم است و هر دو از داده می‌آید:
+   *  ۱) لقبی که خودِ همین معصوم هم دارد، «نادرست» نیست.
+   *  ۲) لقبِ مشترک میان دو معصوم، پاسخِ یگانه ندارد.
+   * پیش‌تر این دو نبود و مثلاً برای «حسن بن علی (ع)» [عسکری] گزینهٔ «هادی»
+   * می‌آمد، در حالی که ویکی‌شیعه «هادی» را از القابِ خودِ او هم می‌داند.
+   */
+  wrongPool(im, k, src){
+    const ans = this.norm(k.get(im));
+    const isTitle = k.id === 'title';
+    const mine = isTitle ? new Set((im.titles || []).map(t => this.norm(t))) : null;
+    const shared = isTitle ? this.sharedTitles() : null;
+    return src.filter(x => x !== im).map(x => k.get(x))
+      .filter(v => v && this.norm(v) !== ans)
+      .filter(v => !(mine && mine.has(this.norm(v))))
+      .filter(v => !(shared && shared.has(this.norm(v))));
+  },
   qs: [], i: 0, score: 0, right: 0, t0: 0, locked: false,
   start(){
     const src = DATA.imams || [];
@@ -8849,9 +9001,16 @@ const ImamEngine = {
       this.KINDS.forEach(k => {
         const ans = k.get(im);
         if(!ans) return;                                  // نبودِ اطلاعات = پرسش ساخته نمی‌شود
-        const wrong = U.shuffle(src.filter(x => x !== im)
-          .map(x => k.get(x)).filter(v => v && v !== ans));
-        const uniq = [...new Set(wrong)].slice(0, 3);
+        const wrong = U.shuffle(this.wrongPool(im, k, src));
+        /* یکتاسازی هم با نرمال‌سازی، تا «ابن‌الرضا» و «ابن الرضا» دو گزینه نشوند */
+        const seen = new Set([this.norm(ans)]);
+        const uniq = [];
+        for(const v of wrong){
+          const n = this.norm(v);
+          if(seen.has(n)) continue;
+          seen.add(n); uniq.push(v);
+          if(uniq.length === 3) break;
+        }
         if(uniq.length < 3) return;
         qs.push({ who:im, k, q:`${k.q.replace('«…»', '«' + im.name + '»')}`, o:[ans, ...uniq],
                   a:ans, d: im.rank === 'امام' ? 2 : 1, src:'منابع معتبر شیعی' });
@@ -8898,8 +9057,15 @@ const ImamEngine = {
     } else {
       Sound.noise(); Haptic.hit(30); FX.shake(btn);
     }
-    U.$('#imWhy').innerHTML = `<div class="imam-hint">${U.esc((q.who.fact || ''))}
-      ${q.who.factSrc ? `<br><span class="tiny">📚 ${U.esc(q.who.factSrc)}</span>` : ''}</div>
+    /* پس از هر پاسخ، القابِ همان معصوم نشان داده می‌شود — این تنها جای
+       برنامه است که فهرستِ کاملِ القاب را می‌شود دید. پیش‌تر این‌جا
+       `q.who.fact` خوانده می‌شد که در هیچ‌یک از چهارده کارت نبود، پس
+       راهنمای پس از پاسخ همیشه خالی می‌ماند. */
+    const t = q.who.titles || [];
+    U.$('#imWhy').innerHTML = `<div class="imam-hint">
+      ${t.length ? `<b>القابِ ${U.esc(q.who.name)}:</b><br>
+        <span class="laqab-list">${t.map(x => U.esc(x)).join(' • ')}</span>` : ''}
+      ${q.who.laqabSrc ? `<br><span class="tiny">📚 ${U.esc(q.who.laqabSrc)}</span>` : ''}</div>
       <button class="btn sm mt10" id="imNext">سؤال بعدی ⏭</button>`;
     U.$('#imNext').onclick = () => { this.locked = false; this.i++; this.paint(); };
     U.$('#pgProg').style.width = Math.round(100 * (this.i + 1) / this.qs.length) + '%';

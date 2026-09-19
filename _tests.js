@@ -3250,6 +3250,102 @@ section('تصاویر — هیچ درخواستی به فایلی که نیست 
        fs.existsSync(ROOT + '/' + d) && fs.readdirSync(ROOT + '/' + d).length > 0);
 }
 
+section('القاب چهارده معصوم — از منبع، بی پاسخِ دوگانه');
+{
+  const ih = DATA.imams || [];
+  ok('هر چهارده معصوم فهرستِ القاب دارد',
+     ih.length === 14 && ih.every(p => Array.isArray(p.titles) && p.titles.length >= 2),
+     ih.filter(p => !(p.titles || []).length).map(p => p.name).join('، '));
+  ok('هر فهرست منبع دارد', ih.every(p => /^ویکی‌شیعه، «.+»$/.test(p.laqabSrc || '')),
+     ih.filter(p => !p.laqabSrc).map(p => p.name).join('، '));
+
+  /* لقبِ نام‌آور باید در فهرست هم باشد، وگرنه دو روایتِ ناسازگار داریم */
+  for(const p of ih)
+    ok(`«${p.name}» لقبِ نام‌آورش را در فهرست هم دارد`, p.titles.includes(p.title), p.title);
+
+  /* هیچ لقبی نباید دو بار بیاید — با نرمال‌سازی، وگرنه «ابن‌الرضا» و
+     «ابن الرضا» دو گزینهٔ یکسان در یک پرسش می‌شوند */
+  const nn = s => String(s || '').replace(/[‌‏ـ]/g, '').replace(/\s+/g, ' ').trim();
+  for(const p of ih){
+    const ks = p.titles.map(nn);
+    ok(`القابِ «${p.name}» تکراری نیست`, new Set(ks).size === ks.length,
+       p.titles.join(' • '));
+  }
+  /* زبالهٔ استخراج: پانویس، «سایر..»، پرانتزِ توضیحی، فاصلهٔ دوتایی.
+     توجه: نیم‌فاصله عیب نیست — «حبیب‌الله» درست است و باید بماند؛
+     نرمال‌سازیِ nn فقط برای مقایسه است، نه برای بازنویسیِ داده. */
+  for(const p of ih)
+    for(const t of p.titles)
+      ok(`لقبِ سالم: «${t}»`,
+         !/[\[\]]/.test(t) && !/^سایر/.test(t) && !/\((?:لقب|کنیه)\)/.test(t) &&
+         /\S/.test(t) && t === t.replace(/\s+/g, ' ').trim(), t);
+
+  /* ── پاسخِ دوگانه ──
+     سخت‌ترین بخش. «هادی» هم لقبِ امام دهم است و هم در القابِ امام یازدهم
+     آمده؛ «صادقین» مالِ باقر و صادق است؛ «ابن‌الرضا» مالِ سه امام.
+     هیچ‌کدام نباید پاسخ یا گزینهٔ یک پرسش شوند. */
+  const shared = ImamEngine.sharedTitles();
+  for(const s of ['صادقین', 'هادی', 'ابن‌الرضا'])
+    ok(`«${s}» مشترک شناخته می‌شود`, shared.has(nn(s)), [...shared].join(' | ').slice(0, 120));
+
+  for(const im of ih){
+    const mine = new Set(im.titles.map(nn));
+    for(const k of ImamEngine.KINDS){
+      const ans = k.get(im);
+      if(!ans) continue;
+      const pool = ImamEngine.wrongPool(im, k, ih);
+      ok(`«${im.name}» / ${k.id}: پاسخ در گزینه‌ها تکرار نمی‌شود`,
+         !pool.some(v => nn(v) === nn(ans)), String(ans));
+      if(k.id !== 'title') continue;
+      ok(`«${im.name}»: گزینه‌ای از القابِ خودش نمی‌آید`,
+         !pool.some(v => mine.has(nn(v))),
+         pool.filter(v => mine.has(nn(v))).join('، '));
+      ok(`«${im.name}»: لقبِ مشترک گزینه نمی‌شود`,
+         !pool.some(v => shared.has(nn(v))),
+         pool.filter(v => shared.has(nn(v))).join('، '));
+    }
+  }
+
+  /* ── راهنمای پس از پاسخ ──
+     پیش‌تر `q.who.fact` خوانده می‌شد که در هیچ کارتی نبود، پس راهنما
+     همیشه خالی می‌ماند. */
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  /* توضیح‌ها اول می‌روند: همین کامنتِ خودمان نامِ فیلدِ قدیمی را می‌آورد و
+     بی این، سنجش به‌جای کد، به توضیح گیر می‌دهد. */
+  const body = src.slice(src.indexOf('answer(word, btn){', src.indexOf('const ImamEngine')))
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  ok('دیگر fact خوانده نمی‌شود', !/q\.who\.fact/.test(body));
+  ok('راهنما فهرستِ القاب را نشان می‌دهد', /q\.who\.titles/.test(body) && /laqab-list/.test(body));
+  ok('راهنما منبع را نشان می‌دهد', /q\.who\.laqabSrc/.test(body));
+  const css = src.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  ok('.laqab-list سبک دارد', /\.laqab-list\s*\{[^}]*color/.test(css));
+
+  /* ── پرسش‌ها واقعاً ساخته می‌شوند ──
+     اگر صافی‌ها زیادی سختگیر بودند، ممکن بود هیچ پرسشی نماند. */
+  const built = [];
+  for(const im of ih)
+    for(const k of ImamEngine.KINDS){
+      const ans = k.get(im);
+      if(!ans) continue;
+      const seen = new Set([nn(ans)]);
+      const uniq = [];
+      for(const v of ImamEngine.wrongPool(im, k, ih)){
+        const n = nn(v);
+        if(seen.has(n)) continue;
+        seen.add(n); uniq.push(v);
+        if(uniq.length === 3) break;
+      }
+      if(uniq.length === 3) built.push({ who:im.name, k:k.id });
+    }
+  ok('از هر چهار پرسش دستِ‌کم یکی ساخته می‌شود',
+     ['title', 'father', 'rank', 'shrine'].every(id => built.some(b => b.k === id)),
+     built.map(b => b.k).filter((v, i, a) => a.indexOf(v) === i).join(', '));
+  ok('پرسشِ لقب برای همهٔ چهارده ساخته می‌شود',
+     ih.every(im => built.some(b => b.k === 'title' && b.who === im.name)),
+     ih.filter(im => !built.some(b => b.k === 'title' && b.who === im.name))
+       .map(im => im.name).join('، '));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
