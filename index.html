@@ -25,6 +25,10 @@
      فایل‌ها در assets/fonts می‌نشینند. این پیش‌اتصال فقط برای فونت‌های
      نمایشی و قرآنیِ اختیاری است که خودِ کاربر انتخاب می‌کند. -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="assets/fonts/vazirmatn-regular.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="assets/fonts/vazirmatn-bold.woff2">
 <style>
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
@@ -40,7 +44,12 @@
    برنامه با قلمِ پیش‌فرضِ سیستم بالا می‌آمد و هیچ‌وقت آفلاین درست
    نمی‌شد. حالا سه وزنِ لازم در assets/fonts هست، بی‌هیچ درخواست بیرونی.
    وزن ۵۰۰ در برنامه یک بار به کار رفته؛ مرورگر خودش آن را به ۴۰۰ یا
-   ۷۰۰ می‌بندد، پس فایلِ جدا لازم نیست. */
+   ۷۰۰ می‌بندد، پس فایلِ جدا لازم نیست.
+
+   پیش‌بارگذاریِ زیر اختیاری است و فقط پنجرهٔ «swap» را کوتاه می‌کند: بی آن،
+   چند صد میلی‌ثانیهٔ اول متن با قلمِ سیستم دیده می‌شود و کاربر فکر می‌کند
+   قلمِ برنامه بار نشده. `crossorigin` لازم است، وگرنه درخواستِ پیش‌بار با
+   درخواستِ خودِ @font-face یکی شمرده نمی‌شود و فایل دوباره گرفته می‌شود. */
 @font-face{
   font-family:Vazirmatn; font-style:normal; font-weight:400; font-display:swap;
   src:url("assets/fonts/vazirmatn-regular.woff2") format("woff2");
@@ -1427,6 +1436,14 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   padding:10px 12px; margin-top:12px; color:var(--mut); text-align:right;
 }
 #gate .gt-note.warn{ border-color:var(--gold2); color:var(--gold) }
+/* همان هشدار، بیرون از صفحهٔ ورود (پروفایل مهمان) — کلاسِ بالا به #gate
+   چسبیده و آنجا کار نمی‌کند، پس یک کلاسِ هم‌ریخت و عمومی داریم. */
+.note{
+  display:flex; gap:8px; align-items:flex-start; font-size:11.5px; line-height:1.9;
+  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2);
+  padding:10px 12px; margin-top:12px; color:var(--mut); text-align:right;
+}
+.note.warn{ border-color:var(--gold2); color:var(--gold) }
 #gate.leaving{ animation:gateOut .26s ease forwards }
 @keyframes gateOut{ to{ opacity:0; transform:translateY(-8px) } }
 /* دکمهٔ غیرفعال باید *دیده* شود که غیرفعال است، نه فقط کار نکند. */
@@ -3511,7 +3528,51 @@ const Fonts = {
     root.setAttribute('data-nast', disp.nast ? '1' : '0');
   },
   isNastaliq(key){ return !!(FONTS[key] && FONTS[key].nast); },
-  family(key){ const f = FONTS[key]; return ((f && f.family) || 'Vazirmatn'); }
+  family(key){ const f = FONTS[key]; return ((f && f.family) || 'Vazirmatn'); },
+
+  /* ── پایشِ قلمِ رابط کاربری ──
+     سه وزنِ وزیرمتن محلی است، ولی سکوتش خطرناک است: اگر فایل‌ها سرو نشوند
+     (پیش‌نمایشی که فقط index.html را می‌گیرد، کشِ ناقصِ PWA، میزبانی‌ای که
+     assets/ را نمی‌دهد) مرورگر بی هیچ خطایی به قلمِ سیستم می‌افتد و کاربر
+     فکر می‌کند برنامه خطِ فارسی ندارد. پس یک بار می‌سنجیم، و اگر نبود هم
+     گزارش می‌دهیم و هم از CDN جانشین می‌گیریم.
+
+     مقدار `ui` را selfTest و پروفایل می‌خوانند: 'local' | 'cdn' | 'unknown'. */
+  ui: 'unknown',
+  pendingUI: null,
+  CDN_UI: 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css',
+  ensureUI(){
+    if(this.pendingUI) return this.pendingUI;
+    this.pendingUI = new Promise(resolve => {
+      const fin = v => { this.ui = v; resolve(v); };
+      /* بی Font Loading API (مرورگرِ قدیمی، یا محیطِ آزمون) داوری نمی‌کنیم
+         و «نامعلوم» می‌مانیم — بهتر از هشدارِ دروغ. */
+      if(!(document.fonts && typeof document.fonts.load === 'function')) return fin('unknown');
+      const done = ok => {
+        if(ok) return fin('local');
+        try{
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = this.CDN_UI;
+          link.onerror = () => fin('unknown');   // CDN هم نیست — دستِ کم دروغ نگوییم
+          const head = document.head || document.querySelector('head');
+          if(head) head.appendChild(link); else return fin('unknown');
+          console.warn('⛔ قلمِ محلی وزیرمتن بار نشد — از CDN جانشین گرفته شد.');
+          fin('cdn');
+        }catch(e){ fin('unknown'); }
+      };
+      let settled = false;
+      const once = ok => { if(!settled){ settled = true; done(ok); } };
+      try{
+        document.fonts.load('400 16px Vazirmatn')
+          .then(() => once(!!(document.fonts.check && document.fonts.check('400 16px Vazirmatn'))))
+          .catch(() => once(false));
+      }catch(e){ return once(false); }
+      /* اگر وعده هرگز نیامد (شبکهٔ گیرکرده)، سکوت را به «نامعلوم» می‌بریم */
+      setTimeout(() => once(false), 4000);
+    });
+    return this.pendingUI;
+  }
 };
 
 /* ═══════════════ 6.6 دادهٔ قرآن کریم: ۱۱۴ سوره ═══════════════
@@ -10634,6 +10695,19 @@ const Me = {
           </span>
         </div>
 
+        ${!d.phone ? `<div class="card mt14">
+          <b style="font-size:13px">📱 اتصال به حساب</b>
+          <div class="sep"></div>
+          <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
+            الان مهمانی: امتیاز و نشان‌هایت فقط روی همین دستگاه می‌ماند.
+            با یک شماره وصل شو تا سرور بشناسدت، امتیازت به نام خودت ثبت شود و
+            روی دستگاه دیگر هم ادامه‌اش را ببینی.</p>
+          ${SMS.ready()
+            ? `<button class="btn w" id="pfConnect">📱 اتصال به حساب</button>`
+            : `<button class="btn gh w" id="pfConnect" disabled>📱 اتصال به حساب</button>
+               <div class="note warn"><span>⚠️</span><span>${U.esc(Gate.whyNot())}</span></div>`}
+        </div>` : ''}
+
         <div class="card mt14">
           <b style="font-size:13px">✏️ ویرایش پروفایل</b>
           <div class="sep"></div>
@@ -10656,9 +10730,11 @@ const Me = {
             if(!u) return '<div class="empty">هویت ساخته نشد — مولدِ امن در این مرورگر در دسترس نیست</div>';
             const verified = !!u.phone;
             /* سه حالِ متفاوت را یک‌جور نگوییم: «رفت»، «در راه»، و «سروری نیست».
-               پیش‌تر هیچ‌کدام دیده نمی‌شد و کاربر نمی‌دانست خوش‌آمدگویی هست یا نه. */
+               پیش‌تر هیچ‌کدام دیده نمی‌شد و کاربر نمی‌دانست خوش‌آمدگویی هست یا نه.
+               این سطر فقط برای حسابِ شماره‌دار معنا دارد؛ برای مهمان اصلاً
+               کشیده نمی‌شود (پایین‌تر شرطش هست) — سطرِ «ثبت نشده» فقط
+               شلوغی بود و کاربر را به پرسش وا می‌داشت. */
             const welcomeLine = () => {
-              if(!verified) return '<span style="color:var(--mut)">بی شماره فرستاده نمی‌شود</span>';
               /* همان سنجشی که پنل ادمین به کار می‌برد: اتصالِ ws به سرور */
               if(!(Net.status === 'online' && Net.mode === 'ws'))
                 return '<span style="color:var(--mut)">⚠️ بدون سرور</span>';
@@ -10686,11 +10762,11 @@ const Me = {
                 <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
               <div class="kv"><span>آخرین ورود</span>
                 <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
-              <div class="kv"><span>📨 خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>
+              ${verified ? `<div class="kv"><span>📨 خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>` : ''}
               <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
                 ${verified
                   ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
-                  : 'بی شماره، حساب فقط روی همین دستگاه است. برای اینکه سرور بشناسدت و امتیازت به نام خودت ثبت شود، با موبایل وارد شو.'}</p>`;
+                  : 'بدون شماره، حساب فقط روی همین دستگاه است. برای اینکه سرور بشناسدت و امتیازت به نام خودت ثبت شود، با موبایل وارد شو.'}</p>`;
           })()}
         </div>
 
@@ -10700,8 +10776,8 @@ const Me = {
           <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
             ${d.isAdmin
               ? 'تو مدیر این دستگاه هستی — پنل باز است.'
-              : 'پنل مدیریت با رمز باز می‌شود. اگر رمزی نساخته‌ای، همان‌جا می‌سازی‌اش.'}</p>
-          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">👑 پنل مدیریت</button>
+              : 'پنل مدیریت با رمز باز می‌شود. اگر این دستگاه هنوز رمزی ندارد، در صفحهٔ ورودِ مدیر اول یک هشدار می‌بینی و بعد رمز می‌سازی — بی آن هشدار، رمز ساخته نمی‌شود.'}</p>
+          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">${d.isAdmin ? '👑 پنل مدیریت' : '🔐 ورود مدیر'}</button>
         </div>
 
         <div class="card mt14">
@@ -10738,6 +10814,12 @@ const Me = {
       const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
       const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
+      /* مهمان بی سرور بی‌پاسخ نماند */
+      const pcx = U.$('#pfConnect');
+      if(pcx) pcx.onclick = () => {
+        if(!SMS.ready()){ UI.toast('⚠️ ' + Gate.whyNot(), 'warn', 4000); return; }
+        Sound.click(); Gate.open('phone');
+      };
       const pc = U.$('#pfCopyId');
       if(pc) pc.onclick = async () => {
         Haptic.hit();
@@ -11662,73 +11744,29 @@ const Admin = {
   render(){
     const d = Store.data;
     if(!d.isAdmin){
-      /* روی سرور: تنها راهِ ورود، رمزِ سرور است. رمزِ محلی اینجا هیچ نقشی
-         ندارد و عمداً نشان داده نمی‌شود تا کاربر فکر نکند رمزی که در تنظیمات
-         ساخته، روی سرور هم کار می‌کند. */
+      /* ── این‌جا هیچ رمزی سنجیده و هیچ رمزی ساخته نمی‌شود ──
+         پیش‌تر همین شاخه یک فرمِ «ساختن رمز مدیر» می‌کاشت، و چون
+         `#setAdmin` در تنظیمات هم بی‌واسطه به همین صفحه می‌آورد، هر کاربری
+         — از جمله مهمان — با یک ضربه می‌توانست برای خودش رمزِ مدیر بسازد و
+         مدیر شود. یعنی نصبِ تازه، برای هر کسی که اول رسیده بود، باز بود.
+
+         حالا این‌جا فقط یک اعلان است و یک دکمه که به *یک* دروازه می‌رود.
+         رمزها همه در `Gate` سنجیده و ساخته می‌شوند؛ یک جا، نه دو جا. */
       const remote = this.onServer();
-      const first = !remote && !Store.get('adminHash');
       U.$('#adminGate').innerHTML = `
         <div class="card">
-          <b>${remote ? '🔐 ورود مدیر (سرور)' : (first ? '🔐 ساختن رمز مدیر' : '🔐 ورود مدیران')}</b>
+          <b>🔐 پنل مدیریت</b>
           <p style="color:var(--mut);font-size:12px;margin-top:6px">
-            ${remote ? 'رمزِ مدیرِ سرور را وارد کن. رمز روی سرور سنجیده می‌شود و روی این دستگاه ذخیره نمی‌شود.'
-                     : (first ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
-                              : 'رمز مدیر را وارد کن.')}</p>
+            برای دیدنِ پنل باید رمزِ مدیر را بزنی.
+            ${remote ? 'رمز روی سرور سنجیده می‌شود.' : ''}</p>
           <div class="sep"></div>
-          <input class="inp" id="admPass" type="password" dir="ltr" spellcheck="false"
-                 placeholder="${first ? 'رمز تازه…' : 'رمز…'}"
-                 autocomplete="${first ? 'new-password' : 'current-password'}">
-          ${first ? `<input class="inp" id="admPass2" type="password" dir="ltr" spellcheck="false"
-                 placeholder="تکرار رمز تازه…" autocomplete="new-password" style="margin-top:8px">` : ''}
-          <div id="admErr" class="hide" style="margin-top:10px;color:var(--red);font-size:12px"></div>
-          <button class="btn w" id="admLogin" style="margin-top:12px">
-            ${remote ? '📡 ورود به پنل سرور' : (first ? '🔐 ساختن رمز و ورود' : '🔓 ورود')}</button>
-          <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
-            ${remote
-              ? `رمز فقط یک بار به سرور می‌رود. بازگشتی، نشانهٔ نشست است که
-                 ${U.fa(12)} ساعت اعتبار دارد و سرور می‌تواند باطلش کند.`
-              : `این رمز فقط روی همین دستگاه ذخیره می‌شود (SHA-256) و «قفلِ محلی»
-                 است — امنیتِ واقعی نیست، چون هر کسی به فایل‌های همین مرورگر
-                 دسترسی داشته باشد می‌تواند قفل را بردارد. برای امنیتِ راستین،
-                 برنامه را روی سرور باز کن و NOOR_ADMIN_PASS بگذار.`}</p>
+          <button class="btn w" id="admGoGate">👑 ورود مدیر</button>
+          <button class="btn gh w" id="admGoHome" style="margin-top:10px">‹ بازگشت</button>
         </div>`;
       U.$('#adminMain').classList.add('hide');
-
-      const bad = msg => {
-        const el = U.$('#admErr');
-        if(!el) return;
-        el.textContent = '❌ ' + msg;
-        el.classList.remove('hide');
-        Haptic.hit(60);
-        Timers.after(() => el.classList.add('hide'), 3500);
-      };
-
-      /* دکمه هنگامِ رفت‌وبرگشت با سرور قفل می‌شود؛ وگرنه دو بار زدن، دو
-         درخواست می‌فرستد و سقفِ تلاشِ سرور را بی‌دلیل پر می‌کند. */
-      const btn = U.$('#admLogin');
-      const tryIt = async () => {
-        const el = U.$('#admPass');
-        const pass = el ? el.value : '';
-        const again = U.$('#admPass2');
-        if(btn && btn.disabled) return;
-        if(again && pass && again.value !== pass) return bad('دو رمز یکی نیستند');
-
-        if(btn && remote){ btn.disabled = true; btn.textContent = '⏳ در حال بررسی…'; }
-        const r = await this.tryPass(pass);
-        if(btn && remote){ btn.disabled = false; btn.textContent = '📡 ورود به پنل سرور'; }
-        if(!r.ok) return bad(r.why);
-
-        if(el) el.value = '';
-        if(again) again.value = '';
-        await U.sleep(150);
-        this.render(); updateHomeStats();
-        UI.toast(r.remote ? '👑 ورود مدیر روی سرور' : (r.first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر'), 'ok');
-      };
-      const enter = e => { if(e.key === 'Enter') tryIt(); };
-      if(btn) btn.onclick = tryIt;
-      U.$('#admPass').onkeydown = enter;
-      const a2 = U.$('#admPass2');
-      if(a2) a2.onkeydown = enter;
+      const go = U.$('#admGoGate'), back = U.$('#admGoHome');
+      if(go) go.onclick = () => { Sound.click(); Gate.open('admin'); };
+      if(back) back.onclick = () => Router.go('home');
       return;
     }
     U.$('#adminGate').innerHTML = '';
@@ -13793,14 +13831,27 @@ const Gate = {
   busy: false,
   devCode: '',
   tid: null,
+  /* خودش آمده یا کاربر خواسته؟ تنها تفاوتش این است که پس از «مهمان» فقط در
+     حالتِ خودآمده کاربر را به خانه می‌بریم؛ وگرنه از هر صفحه‌ای که بودیم
+     بیرونش می‌انداختیم. */
+  auto: false,
+  /* آیا کاربرِ همین نشست تأیید کرده که می‌خواهد نخستین رمزِ مدیر را بسازد؟ */
+  adminConfirm: false,
+  /* الان باز است؟ (نامش `open` نمی‌تواند باشد — همنامِ همان متد می‌شد و
+     متد را بازنویسی می‌کرد؛ یک اشتباهِ یک‌حرفی که تا مدت‌ها دیده نمی‌شود.) */
+  shown: false,
 
   el(){ return U.$('#gate'); },
   /* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
      مستقیم سرِ شماره می‌رود، ولی `Gate.maybe()` همیشه از «خوش آمدی» شروع
      می‌کند تا کاربر بداند سه راه دارد. */
-  open(at){
+  open(at, auto){
     const el = this.el();
     if(!el) return false;
+    this.auto = !!auto;
+    this.shown = true;
+    /* تأییدِ ساختنِ رمز به نشستِ بعدی نمی‌رسد: هر بار از نو پرسیده می‌شود. */
+    this.adminConfirm = false;
     this.step = (at === 'phone' || at === 'admin' || at === 'code') ? at : 'intro';
     this.busy = false;
     this.devCode = '';
@@ -13817,12 +13868,19 @@ const Gate = {
   },
   /* اگر کاربر تصمیمش را گرفته، صفحه خودبه‌خود نمی‌آید. */
   maybe(){
+    /* همین حالا باز است؟ از نو نکش.
+       صفحه یک بار در آغازِ برنامه باز می‌شود (پشتِ پردهٔ آغازین) و یک بار
+       هم پس از کنار رفتنِ پرده از این راه صدا زده می‌شود. بی این سطر،
+       فراخوانیِ دوم گامِ کاربر را به «خوش آمدی» برمی‌گرداند و هر چه تا
+       آن لحظه زده باشد پاک می‌شد. */
+    if(this.shown) return true;
     if(Store.get('gate')) return false;
-    return this.open();
+    return this.open(undefined, true);
   },
   close(why){
     const el = this.el();
     if(!el) return;
+    this.shown = false;
     this.stop();
     el.classList.add('leaving');
     Timers.after(() => {
@@ -13843,8 +13901,17 @@ const Gate = {
      در حالت سوم ورود ممکن نیست و باید صریح گفته شود — نه اینکه دکمه
      باشد و بی‌صدا کار نکند. */
   canLogin(){ return SMS.ready(); },
+  /* ── چرا نمی‌شود؟ ──
+     یک جملهٔ کلی («به سرور وصل شو») برای سه وضعیتِ متفاوت کافی نیست:
+     کاربری که سرورش بالاست ولی کلید ندارد، با آن جمله به جای اشتباهی
+     فرستاده می‌شود. */
   whyNot(){
-    return 'برای ورود، به سرور متصل شوید — بی سرور پیامکی فرستاده نمی‌شود.';
+    const s = SMS.server || {};
+    if(s.on && !s.configured)
+      return 'سرور در دسترس است، ولی کلیدِ پیامک روی آن تنظیم نشده (NOOR_SMS_KEY و NOOR_SMS_DEVICE).';
+    if(!s.on)
+      return 'سروری در دسترس نیست. برای ورود، سرور را بالا بیاور یا از «ادامه به‌عنوان مهمان» استفاده کن.';
+    return 'ورود با پیامک روی این دستگاه ممکن نیست — از «ادامه به‌عنوان مهمان» استفاده کن.';
   },
 
   msg(text, tone, id){
@@ -13895,12 +13962,12 @@ const Gate = {
         <p class="gt-sub">بازی، حفظ و اُنس با قرآن<br>۱۱۴ سوره • ۱۵ بازی • بی هزینه</p>
         <div class="gt-card">
           <button class="btn w" id="gtGo" ${can ? '' : 'disabled'}>📱 ورود با موبایل</button>
+          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
           <button class="btn gh w" id="gtGuest" style="margin-top:10px">👤 ادامه به‌عنوان مهمان</button>
           <button class="btn gh w" id="gtAdmin" style="margin-top:10px">👑 ورود مدیر</button>
           <div class="tiny" id="gtMsg" role="status" aria-live="polite"
                style="margin-top:10px;min-height:1.2em;text-align:center"></div>
         </div>
-        ${can ? '' : `<div class="gt-note warn"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
         <p class="gt-foot">
           بی ورود، همهٔ قرآن و بازی‌ها در دسترس است — فقط امتیازت روی سرور
           ثبت نمی‌شود و روی دستگاهِ دیگری ادامه‌اش را نمی‌بینی.<br>
@@ -13922,11 +13989,11 @@ const Gate = {
           <input class="inp" id="gtPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
                  placeholder="09123456789" value="${U.esc(this.phone)}">
           <button class="btn w" id="gtSend" style="margin-top:14px" ${can ? '' : 'disabled'}>📨 دریافت کد</button>
+          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
           <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
           <div class="tiny" id="gtMsg" role="status" aria-live="polite"
                style="margin-top:10px;min-height:1.2em;text-align:center"></div>
-        </div>
-        ${can ? '' : `<div class="gt-note warn"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}`;
+        </div>`;
       const inp = U.$('#gtPhone', box);
       inp.onkeydown = e => { if(e.key === 'Enter') this.send(); };
       U.$('#gtSend', box).onclick = () => this.send();
@@ -13972,11 +14039,40 @@ const Gate = {
     if(this.step === 'admin'){
       const remote = Admin.onServer();
       const first = !remote && !Store.get('adminHash');
+
+      /* ── ساختنِ نخستین رمز، نه با یک ضربهٔ ناخواسته ──
+         اگر این دستگاه هنوز رمزِ مدیر ندارد، فرم را *نمی‌کاریم*؛ اول یک
+         هشدار می‌گذاریم که صریح می‌گوید این کار چه معنایی دارد. بی این،
+         هر کسی که روی «ورود مدیر» می‌زد — از جمله مهمان — بی‌آنکه بخواهد
+         مدیرِ دستگاه می‌شد. */
+      if(first && !this.adminConfirm){
+        box.innerHTML = `
+          <div class="gt-mark" aria-hidden="true">👑</div>
+          <h2>مدیرِ این دستگاه کیست؟</h2>
+          <p class="gt-sub">این دستگاه هنوز رمزِ مدیر ندارد.</p>
+          <div class="gt-card">
+            <div class="gt-note warn" style="margin-top:0"><span>⚠️</span><span>
+              هر کسی این رمز را بسازد، مدیرِ همین دستگاه می‌شود: می‌تواند
+              کاربران را ببیند، پیامک بفرستد و داده‌ها را پاک کند.
+              این کار فقط <b>یک بار</b> ممکن است.</span></div>
+            <button class="btn w" id="gtMake" style="margin-top:12px">🔐 می‌دانم — رمزِ مدیر را می‌سازم</button>
+            <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
+          </div>
+          <p class="gt-foot">اگر تو صاحبِ این دستگاه نیستی، همین‌جا بایست و بازگرد.</p>`;
+        U.$('#gtMake', box).onclick = () => {
+          Sound.click(); Haptic.hit();
+          this.adminConfirm = true;
+          this.paint();
+        };
+        U.$('#gtBack', box).onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
+        return;
+      }
+
       box.innerHTML = `
         <div class="gt-mark" aria-hidden="true">👑</div>
         <h2>${first ? 'ساختن رمز مدیر' : 'ورود مدیر'}</h2>
         <p class="gt-sub">${first
-            ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
+            ? 'یک رمز بگذار. همین رمز، قفلِ پنلِ مدیریتِ این دستگاه می‌شود.'
             : (remote ? 'رمز روی سرور سنجیده می‌شود و روی این دستگاه ذخیره نمی‌شود.'
                       : 'رمز مدیر را وارد کن.')}</p>
         <div class="gt-card">
@@ -14002,7 +14098,7 @@ const Gate = {
       pass.onkeydown = e => { if(e.key === 'Enter') run(); };
       if(again) again.onkeydown = e => { if(e.key === 'Enter') run(); };
       btn.onclick = run;
-      U.$('#gtBack', box).onclick = () => { this.step = 'intro'; this.paint(); };
+      U.$('#gtBack', box).onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
       Timers.after(() => pass.focus(), 60, 'sys');
       return;
     }
@@ -14014,6 +14110,10 @@ const Gate = {
     Store.set('gate', 'guest');
     Sound.click(); Haptic.hit();
     this.close('🌿 خوش آمدی — هر وقت خواستی از «حساب من» وارد شو');
+    /* اگر این صفحه خودش آمده بود (نه به درخواستِ کاربر)، کاربر را به خانه
+       می‌بریم؛ وگرنه پشتِ صفحهٔ ورود، هر صفحه‌ای که قبلاً باز بود می‌ماند و
+       کاربر نمی‌داند وارد شده یا نه. */
+    if(this.auto) Timers.after(() => { try{ Router.go('home'); }catch(e){} }, 300, 'sys');
   },
 
   async send(){
@@ -14154,9 +14254,18 @@ function init(){
 
   /* فونت‌های فارسی: نمایشی (نستعلیق) و قرآنی — با تنبلی بار می‌شوند */
   try{ Fonts.apply(Store.get('fonts')); }catch(e){ console.warn('fonts', e); }
+  /* و سنجشِ قلمِ رابط کاربری — نتیجه‌اش در selfTest و پروفایل دیده می‌شود */
+  try{ Fonts.ensureUI().catch(() => {}); }catch(e){ console.warn('font-ui', e); }
 
   /* پردهٔ آغازین قرآنی — پیش از هر چیز */
   try{ Splash.init(); }catch(e){ console.warn('splash', e); }
+
+  /* ── صفحهٔ ورود همین‌جا باز می‌شود، نه پس از کنار رفتنِ پرده ──
+     اگر تا لحظهٔ برداشتنِ پرده صبر کنیم، برای یک لحظه صفحهٔ خانه دیده
+     می‌شود و بعد صفحهٔ ورود رویش می‌افتد — همان «پرش»ی که کاربر می‌دید.
+     پرده z-index ۹۹۹۹ دارد و این صفحه ۹۰۰۰، پس بازش کردن همین‌جا هیچ
+     چیزی را لو نمی‌دهد: پشتِ پرده آماده می‌شود. */
+  try{ Gate.maybe(); }catch(e){ console.warn('gate', e); }
 
   /* صدای مرورگر با اولین لمس باز می‌شود (سیاست خودکارپخش موبایل) */
   const unlock = () => { Sound.ensure(); document.removeEventListener('pointerdown', unlock); document.removeEventListener('keydown', unlock); };
