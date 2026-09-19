@@ -2231,7 +2231,11 @@ section('حالت آزمایشی — کد فقط نشان داده می‌شود
 
     ok('حالت آزمایشی موفق گزارش می‌شود', r && r.success === true && r.mock === true, JSON.stringify(r));
     ok('در حالت آزمایشی هیچ درخواستی به بیرون نمی‌رود', fetched === 0, String(fetched));
-    ok('کد در کنسول چاپ می‌شود', logs.some(l => l.includes('54321')), logs.join(' ／ '));
+    /* کد یک رمز یک‌بارمصرف است. کنسول می‌تواند ذخیره، فرستاده یا در گزارش خطا
+       دیده شود، پس عمداً چاپ نمی‌شود؛ فقط روی همان صفحه به کاربر نشان داده
+       می‌شود. (این سنجش پیش‌تر برعکسش را می‌خواست.) */
+    ok('کد در کنسول چاپ نمی‌شود', !logs.some(l => l.includes('54321')), logs.join(' ／ '));
+    ok('ولی رویداد پیامک ثبت می‌شود', logs.some(l => /SMS/.test(l)), logs.join(' ／ '));
     ok('و به کاربر نشان داده می‌شود', toasts.some(t => t.includes('54321')), toasts.join(' ／ '));
     /* سنجش بی‌اثر نباشد: همان تابع با کلید، درخواستِ بیرونی می‌فرستد */
     const saved = globalThis.fetch;
@@ -2296,11 +2300,25 @@ section('مستقیم — قرارداد درخواست textbee');
        JSON.stringify(bad));
     ok('کد وضعیت هم می‌آید', bad.status === 401, bad.status);
 
-    /* ── قطع شبکه ── */
+    /* ── قطع شبکه: «نمی‌دانیم»، نه «نشد» ──
+       مرورگر نمی‌تواند قطعیِ شبکه را از رد شدنِ CORS تشخیص بدهد. در هر دو حالت
+       درخواست ممکن است به textbee رسیده و پیامک رفته باشد، پس گفتن «ارسال نشد»
+       کاربر را از وارد کردن کدی که گرفته باز می‌داشت — همان باگ گزارش‌شده. */
     globalThis.fetch = async () => { const e = new Error('nope'); e.name = 'TypeError'; throw e; };
     const dead = await SMS.sendOTP('09123456789', '13579');
-    ok('قطعی شبکه به خطای خوانا تبدیل می‌شود',
-       dead.success === false && /اتصال/.test(dead.error || ''), JSON.stringify(dead));
+    ok('قطعی شبکه «ناتأیید» گزارش می‌شود، نه «نشد»',
+       dead.success === false && dead.pending === true && dead.state === 'pending',
+       JSON.stringify(dead));
+    ok('پیامِ حالت ناتأیید خوانا است', /در حال ارسال/.test(dead.error || ''), dead.error);
+    ok('در حالت مستقیم، پیشنهاد بردن کلید به سرور داده می‌شود',
+       /NOOR_SMS_KEY/.test(dead.hint || ''), JSON.stringify(dead.hint || ''));
+
+    /* ── تمام شدن وقت: همان «نمی‌دانیم» ── */
+    globalThis.fetch = async () => { const e = new Error('aborted'); e.name = 'AbortError'; throw e; };
+    const to = await SMS.sendOTP('09123456789', '13579');
+    ok('تمام شدن وقت «ناتأیید» گزارش می‌شود، نه «نشد»',
+       to.pending === true && to.state === 'pending', JSON.stringify(to));
+    ok('مهلت پیش‌فرض ۳۰ ثانیه است', SMS.TIMEOUT_MS === 30000, String(SMS.TIMEOUT_MS));
 
     /* ── آزمایش اتصال ── */
     calls.length = 0;
@@ -2318,6 +2336,56 @@ section('مستقیم — قرارداد درخواست textbee');
   };
   /* سنجش‌های بالا به پاسخِ fetch وابسته‌اند؛ پس در دمِ async اجرا می‌شوند. */
   __smsChecks.push(run);
+}
+
+section('قرارداد پاسخ سرویس پیامک — سه حالت، نه دو حالت');
+{
+  /* جدول داوری. ستون آخر عمداً «pending» را از «failed» جدا می‌کند: تنها
+     تفاوتِ این دو، همان چیزی است که کاربر می‌بیند و تصمیم می‌گیرد کد را وارد
+     کند یا نه. */
+  const CASES = [
+    /* شرح                                  پاسخِ سرویس                                     انتظار     پیام/شناسه */
+    ['موفقِ مستند textbee',      { ok:true,  status:200, json:{ success:true, data:{ _id:'abc123', status:'pending' } } }, 'sent',    'abc123'],
+    ['خطای مستند textbee',       { ok:false, status:401, json:{ success:false, message:'Invalid API key' } },           'failed',  'Invalid API key'],
+    ['مهلت تمام‌شده',            { ok:false, status:0,   json:null },                                                  'pending', ''],
+    ['_id بی success',           { ok:true,  status:200, json:{ _id:'xyz' } },                                         'sent',    'xyz'],
+    ['messageId',                { ok:true,  status:200, json:{ messageId:'m1' } },                                    'sent',    'm1'],
+    ['id داخل data',             { ok:true,  status:200, json:{ data:{ id:'d1' } } },                                  'sent',    'd1'],
+    ['۲۰۰ بی هیچ نشانه‌ای',      { ok:true,  status:200, json:{} },                                                    'pending', ''],
+    ['۲۰۰ بی بدنهٔ JSON',        { ok:true,  status:200, json:null },                                                  'pending', ''],
+    ['۵۰۰ خطای موقت',            { ok:false, status:500, json:null },                                                  'pending', ''],
+    ['۴۰۰ با message',           { ok:false, status:400, json:{ message:'شماره بد است' } },                            'failed',  'شماره بد است'],
+    ['success:false با ۲۰۰',     { ok:true,  status:200, json:{ success:false, message:'سقف پر شد' } },                'failed',  'سقف پر شد'],
+    ['۴۰۳ بی بدنه',              { ok:false, status:403, json:null },                                                  'failed',  'HTTP 403']
+  ];
+
+  CASES.forEach(([name, res, wantState, wantText]) => {
+    const v = SMS.verdict(res);
+    const text = v.state === 'sent' ? (v.id || '') : (v.error || '');
+    ok(`${name} ⇒ ${wantState}`, v.state === wantState, `شد ${v.state}`);
+    if(wantText || v.state === 'sent')
+      ok(`${name} ⇒ متن درست`, text === wantText, `«${text}» ≠ «${wantText}»`);
+  });
+
+  ok('متنِ حالت ناتأیید همان چیزی است که خواسته شد',
+     SMS.PENDING_MSG === 'در حال ارسال... لطفاً چک کنید', SMS.PENDING_MSG);
+  ok('«ناتأیید» هیچ‌وقت موفق شمرده نمی‌شود',
+     SMS.verdict({ ok:false, status:0, json:null }).state !== 'sent');
+  ok('«ناتأیید» هیچ‌وقت شکست قطعی شمرده نمی‌شود',
+     SMS.verdict({ ok:false, status:0, json:null }).state !== 'failed');
+
+  /* کد و کلید نباید به هیچ بهانه‌ای وارد گزارش شوند */
+  const seen = [];
+  const cl = console.log;
+  console.log = (...a) => seen.push(a.map(String).join(' '));
+  try{
+    SMS.log('t', { apiKey:'txb_SECRET', key:'k', code:'54321', headers:{ 'x-api-key':'txb_SECRET' }, message:'…54321…', phone:'09123456789', state:'sent' });
+  }finally{ console.log = cl; }
+  const line = seen.join(' ');
+  ok('گزارش، کلید را چاپ نمی‌کند', !line.includes('txb_SECRET'), line);
+  ok('گزارش، کد را چاپ نمی‌کند', !line.includes('54321'), line);
+  ok('گزارش، متن پیام را چاپ نمی‌کند', !line.includes('…54321…'), line);
+  ok('گزارش، فیلد بی‌خطر را نگه می‌دارد', /state/.test(line) && /09123456789/.test(line), line);
 }
 
 section('سرور — مسیر پروکسی (کلید از دستگاه بیرون می‌ماند)');

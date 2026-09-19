@@ -11058,8 +11058,66 @@ const SMS = {
   },
   /* نشانی پروکسی روی سرور خودمان — نسبی است تا هر جا برنامه باز شود کار کند */
   PROXY: '/api/otp',
-  TIMEOUT_MS: 20000,
+  /* ۳۰ ثانیه، نه ۲۰. textbee گاهی کند پاسخ می‌دهد و ۲۰ ثانیه زود تمام می‌شد.
+     مهم‌تر: «تمام شدن وقت» یعنی «نمی‌دانم»، نه «نشد». */
+  TIMEOUT_MS: 30000,
   server: { on: false, configured: false, at: 0 },
+
+  /* ── گزارش ──
+     هر رفت‌وبرگشت پیامک ثبت می‌شود تا وقتی کاربر می‌گوید «پیامک نیامد» بتوانیم
+     بگوییم کدام مرحله شکست خورد. کلید، کد تأیید و هدرها هرگز ثبت نمی‌شوند. */
+  log(ev, data){
+    try{
+      const safe = Object.assign({}, data || {});
+      delete safe.apiKey; delete safe.key; delete safe.code;
+      delete safe.headers; delete safe.message; delete safe.body;
+      /* رشتهٔ فشرده، نه آبجکت: در کنسول موبایل یک خط می‌شود و می‌شود
+         کپی‌اش کرد و در گزارش باگ فرستاد. */
+      console.log('[SMS ' + ev + '] ' + JSON.stringify(safe));
+    }catch(e){}
+  },
+
+  /* ── داوری پاسخ سرویس پیامک ──
+     قرارداد واقعی:
+       موفق : { success: true, data: { _id: 'abc123', status: 'pending' } }
+       خطا  : { success: false, message: 'Invalid API key' }
+     ولی به هیچ‌کدام تکیه نمی‌کنیم: هر نشانه‌ای از موفقیت کافی است و هر نشانه‌ای
+     از شکست، خطا.
+
+     سه حالت داریم، نه دو حالت:
+       sent    → قطعاً پذیرفته شد
+       failed  → قطعاً رد شد
+       pending → نمی‌دانیم: وقت تمام شد یا شبکه پاسخ نداد. پیامک ممکن است رسیده
+                 باشد، پس کاربر را از صفحهٔ کد بیرون نمی‌کنیم.
+
+     چرا pending لازم است: پیش‌تر هر «نمی‌دانم» به «نشد» ترجمه می‌شد و کاربری که
+     پیامکش رسیده بود خطا می‌دید و کد را وارد نمی‌کرد. */
+  verdict(r){
+    const st = (r && typeof r.status === 'number') ? r.status : 0;
+    const j  = r && r.json;
+
+    /* ۰ یعنی درخواست به هیچ نتیجه‌ای نرسید: قطعی شبکه، یا CORS که پاسخ را دور
+       انداخته. در حالت دوم درخواست به textbee رسیده و پیامک رفته است. */
+    if(st === 0)
+      return { state: 'pending', error: (r && r.error) || 'پاسخی از سرویس پیامک نیامد' };
+
+    if(j && typeof j === 'object'){
+      const d  = (j.data && typeof j.data === 'object') ? j.data : {};
+      const id = j._id || j.messageId || j.id || d._id || d.messageId || d.id || '';
+      if(j.success === true || id) return { state: 'sent', id: String(id || '') };
+      const why = j.message || j.error || '';
+      if(j.success === false || why) return { state: 'failed', error: why || ('HTTP ' + st) };
+    }
+
+    /* ۲۰۰ ولی نه نشانهٔ موفقیت و نه شکست ⇒ نمی‌دانیم */
+    if(r && r.ok) return { state: 'pending', error: 'پاسخ سرویس پیامک خوانده نشد' };
+    /* ۵xx خطای موقت است؛ درخواست ممکن است بعداً پذیرفته شود */
+    if(st >= 500) return { state: 'pending', error: 'سرویس پیامک الان در دسترس نیست (HTTP ' + st + ')' };
+    return { state: 'failed', error: (j && (j.message || j.error)) || ('HTTP ' + st), status: st };
+  },
+
+  /* پیام یکسانِ حالت «نمی‌دانیم» — یک‌جا نوشته می‌شود تا همه‌جا یکی باشد. */
+  PENDING_MSG: 'در حال ارسال... لطفاً چک کنید',
 
   /* ── پیکربندی ── */
   hydrate(){
@@ -11133,8 +11191,11 @@ const SMS = {
       try{ j = await res.json(); }catch(e){}
       return { ok: res.ok, status: res.status, json: j };
     }catch(e){
+      const abort = !!e && e.name === 'AbortError';
+      this.log('req:err', { url, abort, name: (e && e.name) || '', msg: (e && e.message) || '' });
       return { ok: false, status: 0, json: null,
-               error: (e && e.name === 'AbortError') ? 'پاسخی نیامد — وقت تمام شد' : 'اتصال برقرار نشد' };
+               error: abort ? `پاسخی نیامد — وقت ${this.TIMEOUT_MS / 1000} ثانیه‌ای تمام شد`
+                            : 'اتصال برقرار نشد' };
     }finally{ if(tid) Timers.clear(tid); }
   },
 
@@ -11157,30 +11218,53 @@ const SMS = {
      پای صاحب کلید بیفتد. با دو قالبِ ثابت، بدترین کاری که می‌شود کرد
      فرستادنِ همان کد به یک شماره است — که کرانِ نرخ جلویش را می‌گیرد. */
   async viaServer(payload){
+    this.log('server:req', { url: this.PROXY + '/send', keys: Object.keys(payload || {}).join(',') });
     const r = await this.req(this.PROXY + '/send', { body: payload });
-    if(r.json && typeof r.json === 'object'){
-      if(!r.ok && r.json.success !== false) r.json.success = false;
-      if(!r.ok && !r.json.error) r.json.error = r.error || ('HTTP ' + r.status);
-      return r.json;
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+
+    if(j && j.state){
+      /* سرور خودش داوری کرده است؛ حرفش را قبول می‌کنیم. */
+      this.log('server:res', { state: j.state, status: r.status, id: j.id || '' });
+      return j;
     }
-    return { success: false, error: r.error || ('HTTP ' + r.status) };
+    /* نسخهٔ قدیمی سرور یا پاسخ غیر-JSON ⇒ خودمان داوری می‌کنیم. */
+    const v = this.verdict(r);
+    const out = v.state === 'sent'
+      ? { success: true,  state: 'sent', id: v.id || '' }
+      : v.state === 'pending'
+        ? { success: false, pending: true, state: 'pending', status: r.status, error: this.PENDING_MSG }
+        : { success: false, state: 'failed', status: r.status,
+            error: v.error || r.error || ('HTTP ' + r.status) };
+    this.log('server:res', { state: out.state, status: r.status });
+    return out;
   },
 
   /* ── فرستادن مستقیم به textbee ──
      تنها جایی که کلید محلی به کار می‌آید. */
   async direct(phone, message){
     const p = this.norm(phone);
+    this.log('direct:req', { phone: p, len: message.length });
     const r = await this.req(this.config.endpoint, {
       headers: { 'x-api-key': this.config.apiKey },
       /* قالب دقیقاً همان چیزی است که textbee می‌خواهد:
          recipients آرایه است، نه رشته — و deviceId کلیدواژهٔ درست است. */
       body: { deviceId: this.config.deviceId, recipients: [p], message }
     });
-    const j = r.json;
-    if(!r.ok || !j || j.success === false)
-      return { success: false, status: r.status,
-               error: (j && (j.error || j.message)) || r.error || ('HTTP ' + r.status) };
-    return j;
+    const v = this.verdict(r);
+    this.log('direct:res', { state: v.state, status: r.status, id: v.id || '', error: v.error || '' });
+
+    /* حالت مستقیم از مرورگر می‌رود و مرورگر به CORS حساس است. اگر شبکه پاسخ
+       نداد، احتمال زیادی هست که پاسخ را دور انداخته باشد — یعنی پیامک رفته و
+       ما ندیدیم. راه‌حل واقعی، بردن کلید به سرور است. */
+    const corsHint = 'اگر تکرار شد، کلید را به‌جای دستگاه روی سرور بگذار (NOOR_SMS_KEY) — احتمالاً مرورگر جلوی خواندن پاسخ را گرفته.';
+
+    if(v.state === 'sent') return { success: true, state: 'sent', id: v.id || '' };
+    if(v.state === 'pending')
+      return { success: false, pending: true, state: 'pending', status: r.status,
+               error: this.PENDING_MSG, hint: corsHint };
+
+    return { success: false, state: 'failed', status: r.status,
+             error: v.error || 'فرستادن پیامک نشد', hint: '' };
   },
 
   /* ── کد تأیید ──
@@ -11190,9 +11274,10 @@ const SMS = {
     const p = this.norm(phone);
     if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
 
-    /* حالت آزمایشی: کد جایی نمی‌رود، فقط نشان داده می‌شود. */
+    /* حالت آزمایشی: کد جایی نمی‌رود، فقط روی همان صفحه نشان داده می‌شود.
+       کد در log نمی‌رود — لاگ می‌تواند ذخیره، فرستاده یا در گزارش خطا دیده شود. */
     if(this.mode() === 'mock'){
-      console.log('🔐 [MOCK] OTP:', code);
+      this.log('mock:otp', { phone: p, note: 'کد در حالت آزمایشی روی صفحه نشان داده شد' });
       UI.toast(`🔐 کد تست: ${code}`, '', 6000);
       return { success: true, mock: true };
     }
@@ -11354,8 +11439,21 @@ const OTP = {
                  tries: 0, lock: 0, at: U.now() };
 
     const res = await SMS.sendOTP(phone, code);
+
+    /* «نمی‌دانیم» با «نشد» یکی نیست. اگر وقت تمام شد یا شبکه پاسخ نداد، پیامک
+       ممکن است رسیده باشد. در آن حالت هم حالت را می‌نشانیم تا کاربر بتواند کدی
+       را که گرفته وارد کند — ولی پیام روشن می‌دهیم که ارسال تأیید نشده.
+       پیش‌تر این حالت «ارسال نشد» شمرده می‌شد و همین باگ گزارش‌شده بود:
+       پیامک می‌رسید ولی برنامه خطا نشان می‌داد و کاربر کد را وارد نمی‌کرد. */
+    if(res && res.pending){
+      this.put(st);
+      this.lastPhone = phone;
+      return { ok: true, pending: true, phone,
+               note: 'ارسال تأیید نشد — اگر پیامک رسید، کد را وارد کن' };
+    }
+
     if(!res || res.success === false){
-      /* ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
+      /* قطعاً ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
          باشد، دو دقیقه انتظار و سه تلاش بی‌فایده می‌گرفت. */
       return { ok: false, why: (res && res.error) || 'فرستادن پیامک نشد', send: res };
     }
@@ -11437,9 +11535,16 @@ const OTP = {
       box => { this.box = box; this.paint(); });
   },
 
-  say(text, ok){
+  /* tone: true/«ok» ⇒ سبز · «wait» ⇒ کهربایی (نمی‌دانیم رسید یا نه) · پیش‌فرض ⇒ قرمز
+     پیش‌تر نام توکن‌ها اشتباه بود (--green/--red وجود ندارند) و رنگ‌ها از راه
+     مقدار جانشین، ثابت می‌ماندند و تم را دنبال نمی‌کردند. */
+  say(text, tone){
     const el = U.$('#otpMsg', this.box || document);
-    if(el) el.innerHTML = `<span style="color:${ok ? 'var(--green, #3ddc84)' : 'var(--red, #ff6b6b)'}">${U.esc(text)}</span>`;
+    if(!el) return;
+    const color = (tone === true || tone === 'ok') ? 'var(--grn)'
+                : (tone === 'wait')               ? 'var(--gold)'
+                : 'var(--red)';
+    el.innerHTML = `<span style="color:${color}">${U.esc(text)}</span>`;
   },
 
   paint(){
@@ -11513,6 +11618,13 @@ const OTP = {
     this.devCode = r.code || '';
     this.step = 2;
     this.paint();
+    if(r.pending){
+      /* نمی‌دانیم رسید یا نه. کاربر را بیرون نمی‌کنیم و وعدهٔ دروغ هم نمی‌دهیم. */
+      this.say('⏳ ' + (r.note || SMS.PENDING_MSG) + (r.hint ? ' — ' + r.hint : ''), 'wait');
+      Haptic.warn();
+      UI.toast('⏳ ' + SMS.PENDING_MSG, '', 5000);
+      return;
+    }
     Haptic.success();
     UI.toast(r.mock ? '🧪 کد آزمایشی ساخته شد' : '📨 کد پیامک شد', 'ok', 2400);
   },
@@ -11523,8 +11635,9 @@ const OTP = {
     const r = await this.start(this.lastPhone);
     if(!r.ok){ this.say(r.why || 'فرستادن نشد'); this.tick(); return; }
     this.devCode = r.code || '';
-    this.say(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', true);
     this.paint();      // ورودی خالی و حلقه از نو
+    if(r.pending){ this.say('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait'); return; }
+    this.say(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', true);
   },
 
   check(){

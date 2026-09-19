@@ -18,19 +18,45 @@ const NS = 'noorestan';
 const SMS_KEY    = 'txb_SERVERKEY_must_not_leak';
 const SMS_DEVICE = 'dev_server_6aadc9c779e3d1b79f0bb06f';
 const FAKE_PORT  = 8801;
-let   smsMode    = 'ok';       // 'ok' | 'fail'
+/* حالت‌ها:
+     ok       → همان قرارداد مستند textbee: { success:true, data:{ _id, status } }
+     fail     → خطای مستند: { success:false, message:'Invalid API key' }  (HTTP 401)
+     noid     → ۲۰۰ با بدنهٔ خالی JSON: نه نشانهٔ موفقیت، نه شکست ⇒ نامعلوم
+     html     → ۲۰۰ با بدنهٔ HTML (پروکسی راه را عوض کرده) ⇒ نامعلوم
+     500      → خطای موقت سرور ⇒ نامعلوم
+     slow     → هرگز پاسخ نمی‌دهد ⇒ مسیر «تمام شدن وقت»
+     echo     → پاسخش کلید را بازگو می‌کند ⇒ باید از گزارش سرور بیرون بماند */
+let   smsMode    = 'ok';
 let   smsHits    = [];
 const fakeSms = http.createServer((req, res) => {
   let body = '';
   req.on('data', c => { body += c; });
   req.on('end', () => {
     smsHits.push({ url: req.url, method: req.method, headers: req.headers, body });
+    if(smsMode === 'slow') return;                      // بی پاسخ، تا وقت تمام شود
     if(smsMode === 'fail'){
       res.writeHead(401, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ error: 'Unauthorized', code: 'AUTH_INVALID' }));
+      return res.end(JSON.stringify({ success: false, message: 'Invalid API key' }));
+    }
+    if(smsMode === 'noid'){
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end('{}');
+    }
+    if(smsMode === 'html'){
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end('<html><body>502 Bad Gateway از پروکسی</body></html>');
+    }
+    if(smsMode === '503'){
+      /* بی بدنه: نه نشانهٔ موفقیت، نه شکست ⇒ باید «نامعلوم» شود، نه «نشد» */
+      res.writeHead(503);
+      return res.end();
+    }
+    if(smsMode === 'echo'){
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, message: 'کلید شما ' + SMS_KEY + ' نامعتبر است' }));
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, data: { id: 'fake-1' } }));
+    res.end(JSON.stringify({ success: true, data: { _id: 'abc123', status: 'pending' } }));
   });
 });
 fakeSms.listen(FAKE_PORT, '127.0.0.1');
@@ -107,7 +133,10 @@ const srv = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     /* پیامک: به textbee جعلیِ بالا وصل می‌شود، نه به textbee واقعی */
     NOOR_SMS_KEY: SMS_KEY,
     NOOR_SMS_DEVICE: SMS_DEVICE,
-    NOOR_SMS_ENDPOINT: `http://127.0.0.1:${FAKE_PORT}/api/v1/gateway/send-sms`
+    NOOR_SMS_ENDPOINT: `http://127.0.0.1:${FAKE_PORT}/api/v1/gateway/send-sms`,
+    /* مسیر «تمام شدن وقت» با ۳۰ ثانیه سنجیده نمی‌شود؛ ۷۰۰ میلی‌ثانیه کافی است
+       تا همان کد اجرا شود. */
+    NOOR_SMS_TIMEOUT: '700'
   },
   stdio: ['ignore', 'pipe', 'pipe']
 });
@@ -161,7 +190,11 @@ const cleanup = () => {
   const os1 = await post('/send', { phone: '09121110001', code: '12345' });
   const t1 = await os1.text();
   ok('ارسال کد ⇒ ۲۰۰', os1.status === 200, os1.status + ' ' + t1);
-  ok('پاسخ فقط {success:true} است', t1 === '{"success":true}', t1);
+  /* قرارداد پاسخ عوض شده: حالا state و شناسهٔ پیام هم می‌آید. شناسه امن است؛
+     چیزی که نباید بیاید، کلید است (سنجش بعدی). */
+  ok('پاسخ فقط سه کلید دارد', JSON.stringify(Object.keys(JSON.parse(t1)).sort()) === '["id","state","success"]', t1);
+  ok('پاسخ موفق، state=sent دارد', JSON.parse(t1).state === 'sent', t1);
+  ok('شناسهٔ پیام به کاربر می‌رسد', JSON.parse(t1).id === 'abc123', t1);
   ok('🔒 کلید در پاسخ نیست', !t1.includes(SMS_KEY));
   ok('درخواست به بیرون رفت', smsHits.length === 1, 'hits=' + smsHits.length);
 
@@ -223,14 +256,43 @@ const cleanup = () => {
   const j4 = await os4.json();
   ok('علت به کاربر گفته می‌شود', typeof j4.error === 'string' && j4.error.length > 5 && j4.success === false, JSON.stringify(j4));
 
-  /* شکست textbee */
-  smsMode = 'fail'; smsHits = [];
-  const rf = await post('/send', { phone: '09121110005', code: '77777' });
-  const tf = await rf.text();
+  /* ── سه حالت پاسخ، نه دو حالت ──
+     تنها تفاوتِ «نامعلوم» با «نشد» این است که کاربر را از صفحهٔ کد بیرون
+     نمی‌کنیم؛ چون پیامک ممکن است رسیده باشد. پس کدِ HTTP باید فرق کند:
+     ۲۰۲ برای نامعلوم، ۵۰۲ برای قطعاً نشد. */
+  section('پیامک — «نامعلوم» از «نشد» جدا می‌شود');
+  const SHAPES = [
+    /* شرح                       حالت جعلی   کد HTTP   state      خطا باید باشد؟ */
+    ['خطای مستند Invalid API key', 'fail',   502, 'failed',  'Invalid API key'],
+    ['۲۰۰ با بدنهٔ خالی',          'noid',   202, 'pending', null],
+    ['۲۰۰ با بدنهٔ HTML',          'html',   202, 'pending', null],
+    ['۵۰۳ بی بدنه',                '503',    202, 'pending', null],
+    ['مهلت تمام‌شده',              'slow',   202, 'pending', null]
+  ];
+  let phoneSeed = 400;
+  for(const [name, mode, wantHttp, wantState, wantErr] of SHAPES){
+    smsMode = mode; smsHits = [];
+    const r = await post('/send', { phone: '091211' + (10000 + phoneSeed++), code: '54321' });
+    const txt = await r.text();
+    smsMode = 'ok';
+    const j = JSON.parse(txt);
+    ok(`${name} ⇒ HTTP ${wantHttp}`, r.status === wantHttp, r.status + ' ' + txt);
+    ok(`${name} ⇒ state=${wantState}`, j.state === wantState, txt);
+    ok(`${name} ⇒ success درست است`, j.success === (wantState === 'sent'), txt);
+    if(wantErr) ok(`${name} ⇒ علت گفته می‌شود`, j.error === wantErr, JSON.stringify(j.error));
+    if(wantState === 'pending')
+      ok(`${name} ⇒ کاربر بیرون رانده نمی‌شود`, j.pending === true, txt);
+    ok(`🔒 ${name} ⇒ کلید در پاسخ نیست`, !txt.includes(SMS_KEY), txt);
+  }
+
+  /* 🔒 اگر سرویس بیرونی کلید را در متن خطا بازگو کند، نباید به کاربر برسد */
+  smsMode = 'echo'; smsHits = [];
+  const re = await post('/send', { phone: '09121130001', code: '54321' });
+  const te = await re.text();
   smsMode = 'ok';
-  ok('شکست textbee ⇒ 502', rf.status === 502, rf.status + ' ' + tf);
-  ok('🔒 پیام خطای textbee بدون کلید به کاربر می‌رسد', tf.includes('Unauthorized') && !tf.includes(SMS_KEY), tf);
-  ok('پاسخ خطا می‌گوید موفق نبود', JSON.parse(tf).success === false);
+  ok('🔒 خطای بازگوکنندهٔ کلید، کلید را به کاربر نمی‌رساند', !te.includes(SMS_KEY), te);
+  ok('🔒 ولی خودِ خطا بی‌صدا پاک نمی‌شود', /نامعتبر/.test(te), te);
+  ok('🔒 جای کلید، نشانهٔ جانشین می‌نشیند', te.includes('«کلید»'), te);
 
   /* پیش‌پرواز مرورگر */
   const op = await fetch(API + '/send', { method: 'OPTIONS' });

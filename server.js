@@ -653,7 +653,13 @@ const SMS_KEY      = process.env.NOOR_SMS_KEY || '';
 const SMS_DEVICE   = process.env.NOOR_SMS_DEVICE || '';
 const SMS_ON       = process.env.NOOR_SMS_ON !== '0';
 const SMS_ENDPOINT = process.env.NOOR_SMS_ENDPOINT || 'https://api.textbee.dev/api/v1/gateway/send-sms';
-const SMS_TIMEOUT  = 20000;
+/* ۳۰ ثانیه، نه ۲۰. textbee گاهی کند پاسخ می‌دهد و ۲۰ ثانیه زود تمام می‌شد.
+   مهم‌تر: «تمام شدن وقت» یعنی «نمی‌دانم»، نه «نشد» — پیامک ممکن است رفته باشد.
+   با NOOR_SMS_TIMEOUT قابل تغییر است (آزمون از این راه مسیر «تمام شدن وقت» را
+   در کسری از ثانیه می‌سنجد، نه با ۳۰ ثانیه انتظار). بین ۱ تا ۱۲۰ ثانیه بسته
+   می‌شود تا یک مقدار غلط، سرور را بی‌دفاع نکند. */
+const SMS_TIMEOUT  = Math.min(120000, Math.max(1000,
+                       Number(process.env.NOOR_SMS_TIMEOUT) || 30000));
 
 const SMS_LIMIT = {
   perPhoneMs:  10 * 60 * 1000,
@@ -698,11 +704,61 @@ function smsTestMessage(){
   return '🌟 نورستان\n✅ آزمایش اتصال پیامک با موفقیت انجام شد.';
 }
 
-/* پاسخ textbee هرگز عیناً به کلاینت نمی‌رود؛ فقط success و error.
-   این‌طور هیچ چیز اضافه‌ای — از جمله خود کلید — بیرون نمی‌ریزد. */
+/* ── داوری پاسخ textbee ──
+   قرارداد واقعی (بر پایهٔ پاسخ خود textbee):
+     موفق : { success: true, data: { _id: 'abc123', status: 'pending' } }
+     خطا  : { success: false, message: 'Invalid API key' }
+   ولی به هیچ‌کدام تکیه نمی‌کنیم: هر نشانه‌ای از موفقیت کافی است («success: true»
+   یا وجود _id / messageId / id) و هر نشانه‌ای از شکست، خطا.
+
+   سه حالت داریم، نه دو حالت:
+     sent    → قطعاً پذیرفته شد
+     failed  → قطعاً رد شد (سرور خودش گفت خطا)
+     pending → نمی‌دانیم: وقت تمام شد، شبکه پاسخ نداد، یا ۵xx.
+               پیامک ممکن است رسیده باشد، پس نباید «نشد» گزارش شود.
+
+   چرا pending لازم است: پیش‌تر هر «نمی‌دانم» به «نشد» ترجمه می‌شد و کاربری که
+   پیامکش رسیده بود، خطا می‌دید و کد را وارد نمی‌کرد. */
+/* سدِ بازگویی کلید.
+   اگر سرویس بیرونی (یا پروکسی میان راه) کلید را داخل متن خطا بازگو کند، آن متن
+   عیناً به کاربر و به گزارش سرور می‌رفت. هرجا خطایی از بیرون می‌آید، از این
+   صافی می‌گذرد. */
+function smsRedact(s){
+  let out = String(s == null ? '' : s);
+  if(SMS_KEY) out = out.split(SMS_KEY).join('«کلید»');
+  return out;
+}
+
+function smsVerdict(status, ok, j){
+  /* ۰ یعنی درخواست به هیچ نتیجه‌ای نرسید */
+  if(!status)
+    return { state: 'pending', error: 'پاسخی از textbee نیامد (وقت تمام شد یا شبکه)' };
+
+  if(j && typeof j === 'object'){
+    const d  = (j.data && typeof j.data === 'object') ? j.data : {};
+    const id = j._id || j.messageId || j.id || d._id || d.messageId || d.id || '';
+    if(j.success === true || id) return { state: 'sent', id: String(id || '') };
+    const why = smsRedact(j.message || j.error || '');
+    if(j.success === false || why) return { state: 'failed', error: why || ('HTTP ' + status) };
+  }
+
+  /* ۲۰۰ ولی نه نشانهٔ موفقیت و نه شکست ⇒ نمی‌دانیم */
+  if(ok) return { state: 'pending', error: 'پاسخ textbee خوانده نشد' };
+  /* ۵xx خطای موقت است؛ درخواست ممکن است بعداً پذیرفته شود */
+  if(status >= 500) return { state: 'pending', error: 'textbee الان در دسترس نیست (HTTP ' + status + ')' };
+  return { state: 'failed', error: smsRedact((j && (j.message || j.error)) || ('HTTP ' + status)) };
+}
+
+/* پاسخ textbee هرگز عیناً به کلاینت نمی‌رود؛ فقط state و شناسهٔ پیام و error.
+   این‌طور هیچ چیز اضافه‌ای — از جمله خود کلید — بیرون نمی‌ریزد.
+
+   بدنه با res.text() خوانده می‌شود نه res.json(): اگر textbee به‌جای JSON یک
+   صفحهٔ خطای HTML برگرداند، res.json() بی‌صدا null می‌داد و ما دلیل شکست را
+   گم می‌کردیم. حالا متن را داریم و در گزارش سرور می‌نویسیم. */
 async function smsSend(phone, message){
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), SMS_TIMEOUT);
+  const t0 = Date.now();
   try{
     const res = await fetch(SMS_ENDPOINT, {
       method: 'POST',
@@ -710,14 +766,28 @@ async function smsSend(phone, message){
       body: JSON.stringify({ deviceId: SMS_DEVICE, recipients: [phone], message }),
       signal: ctrl.signal
     });
-    let j = null;
-    try{ j = await res.json(); }catch(e){}
-    if(!res.ok || !j || j.success === false)
-      return { success: false, error: (j && (j.error || j.message)) || ('HTTP ' + res.status) };
-    return { success: true };
+    let raw = '', j = null;
+    try{ raw = await res.text(); }catch(e){}
+    try{ j = raw ? JSON.parse(raw) : null; }catch(e){}
+    const v = smsVerdict(res.status, res.ok, j);
+    const ms = Date.now() - t0;
+    if(j){
+      log(`📡 textbee → HTTP ${res.status} در ${ms}ms · ${v.state}` +
+          (v.id ? ' · ' + v.id : '') + (v.error ? ' · ' + v.error : ''));
+    }else{
+      /* بدنهٔ غیر-JSON ممکن است بازگویی کلید باشد؛ در آن صورت ثبت نمی‌شود */
+      const leak = !!SMS_KEY && raw.includes(SMS_KEY);
+      log(`📡 textbee → HTTP ${res.status} در ${ms}ms · ${v.state} · بدنهٔ غیر-JSON: ` +
+          (leak ? '(حاوی کلید — ثبت نشد)' : (raw.slice(0, 120) || '(خالی)')));
+    }
+    return v;
   }catch(e){
-    return { success: false,
-             error: (e && e.name === 'AbortError') ? 'پاسخی از textbee نیامد' : 'اتصال به textbee برقرار نشد' };
+    const abort = !!e && e.name === 'AbortError';
+    log(`📡 textbee → بی‌پاسخ در ${Date.now() - t0}ms · ` +
+        (abort ? `وقت ${SMS_TIMEOUT / 1000} ثانیه‌ای تمام شد` : ('خطای شبکه: ' + (e && e.message))));
+    return { state: 'pending',
+             error: abort ? `textbee تا ${SMS_TIMEOUT / 1000} ثانیه پاسخ نداد`
+                          : 'اتصال به textbee برقرار نشد' };
   }finally{ clearTimeout(tid); }
 }
 
@@ -884,7 +954,13 @@ async function handleHttp(req, res){
     const hdr = { 'Content-Type':'application/json; charset=utf-8',
                   'Access-Control-Allow-Origin': ALLOW_ORIGIN,
                   'Cache-Control': 'no-store' };
-    const no = (code, error) => { res.writeHead(code, hdr); return res.end(JSON.stringify({ success:false, error })); };
+    /* هر «قطعاً نشد» با state=failed می‌رود تا کلاینت مجبور نباشد از کد HTTP
+       حدس بزند؛ و هرگز با «نامعلوم» اشتباه گرفته نشود. متن خطا از صافی کلید
+       می‌گذرد (smsRedact) چون ممکن است از بیرون آمده باشد. */
+    const no = (code, error) => {
+      res.writeHead(code, hdr);
+      return res.end(JSON.stringify({ success: false, state: 'failed', error: smsRedact(error) }));
+    };
 
     if(req.method !== 'POST') return no(405, 'فقط POST');
     if(!smsConfigured()) return no(503, 'کلید پیامک روی سرور تنظیم نشده (NOOR_SMS_KEY / NOOR_SMS_DEVICE)');
@@ -907,10 +983,23 @@ async function handleHttp(req, res){
     if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
 
     const out = await smsSend(phone, message);
-    log(`${out.success ? '📨' : '⚠️'} پیامک ${kind} → ${phone}${out.success ? '' : ' — ' + out.error}`);
-    if(!out.success) return no(502, out.error);
+    const stamp = out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️';
+    log(`${stamp} پیامک ${kind} → ${phone} · ${out.state}` +
+        (out.state === 'sent' ? (out.id ? ' · ' + out.id : '') : ' — ' + out.error));
+
+    /* «نمی‌دانیم» با «نشد» یکی نیست. برای pending کد ۲۰۲ می‌فرستیم، نه ۵۰۲، تا
+       کلاینت کاربر را از صفحهٔ کد بیرون نکند؛ شاید پیامک رسیده باشد و فقط
+       پاسخش گم شده باشد. */
+    if(out.state === 'pending'){
+      res.writeHead(202, hdr);
+      return res.end(JSON.stringify({ success: false, pending: true, state: 'pending',
+                                      error: out.error }));
+    }
+    if(out.state !== 'sent') return no(502, out.error);
+
+    /* شناسهٔ پیام (مثل abc123) امن است؛ کلید هرگز. */
     res.writeHead(200, hdr);
-    return res.end(JSON.stringify({ success: true }));
+    return res.end(JSON.stringify({ success: true, state: 'sent', id: out.id || '' }));
   }
 
   let file = p === '/' ? '/index.html' : p;
