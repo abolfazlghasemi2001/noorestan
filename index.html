@@ -1390,6 +1390,48 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   padding-inline: .42em 0; font-variant-numeric: tabular-nums;
 }
 .otp-in::placeholder{ letter-spacing:.42em; color:var(--mut); opacity:.55 }
+
+/* ── صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱) ──
+   پیش از هر چیز می‌آید: نه نوار پایین زیرش دیده می‌شود، نه نوار بالا.
+   z-index کمتر از پردهٔ آغازین است تا پرده رویش بیفتد و بعد کنار برود —
+   وگرنه کاربر صفحهٔ ورود را پشتِ پرده می‌دید و فکر می‌کرد برنامه گیر کرده. */
+#gate{
+  position:fixed; inset:0; z-index:9000; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  padding:calc(20px + env(safe-area-inset-top,0px)) 18px
+          calc(20px + env(safe-area-inset-bottom,0px));
+  background:var(--bg); color:var(--txt); text-align:center;
+}
+#gate::before{
+  content:''; position:fixed; inset:0; pointer-events:none; opacity:.5;
+  background:radial-gradient(120% 70% at 50% 0%, var(--float1), transparent 62%),
+             radial-gradient(90% 60% at 50% 100%, var(--float2), transparent 60%);
+}
+#gate .gt-in{ position:relative; width:100%; max-width:430px; margin:auto }
+#gate .gt-mark{
+  width:76px; height:76px; margin:0 auto 12px; border-radius:26px;
+  background:var(--grad); color:var(--ink); display:grid; place-items:center;
+  font-size:34px; box-shadow:var(--sh);
+}
+#gate h2{ font-family:var(--f-disp); font-size:23px; margin-bottom:4px }
+#gate .gt-sub{ font-size:12.5px; color:var(--mut); line-height:1.9; margin-bottom:16px }
+#gate .gt-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:16px; text-align:right; box-shadow:var(--sh);
+}
+#gate .gt-foot{ font-size:11px; color:var(--mut); line-height:1.9; margin-top:12px }
+#gate .gt-note{
+  display:flex; gap:8px; align-items:flex-start; font-size:11.5px; line-height:1.9;
+  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2);
+  padding:10px 12px; margin-top:12px; color:var(--mut); text-align:right;
+}
+#gate .gt-note.warn{ border-color:var(--gold2); color:var(--gold) }
+#gate.leaving{ animation:gateOut .26s ease forwards }
+@keyframes gateOut{ to{ opacity:0; transform:translateY(-8px) } }
+/* دکمهٔ غیرفعال باید *دیده* شود که غیرفعال است، نه فقط کار نکند. */
+#gate .btn:disabled{ opacity:.45; cursor:not-allowed }
+@media(prefers-reduced-motion:reduce){ #gate.leaving{ animation:none; opacity:0 } }
 </style>
 </head>
 
@@ -1773,6 +1815,15 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <button id="mqNext" title="آیهٔ بعد"><i data-ic="next"></i></button>
   <button id="mqStop" title="بستن"><i data-ic="close"></i></button>
   <span id="mqBar" aria-hidden="true"><i id="mqFill"></i></span>
+</div>
+
+<!-- ═══════ صفحهٔ ورودِ تمام‌صفحه ═══════
+     پیش از هر چیز می‌آید، ولی *هر بار* نه: تنها یک بار در آغاز، و بعد
+     هر وقت کاربر خودش بخواهد. تحمیلِ ورود در هر باز کردن، برنامهٔ قرآنی
+     را به دیوارِ ورود بدل می‌کند و همان کاربری که فقط می‌خواست یک آیه
+     بخواند را بیرون می‌گذارد. پرچمش در Store می‌ماند. -->
+<div id="gate" class="hide" role="dialog" aria-modal="true" aria-label="ورود به نورستان">
+  <div class="gt-in" id="gateBox"></div>
 </div>
 
 <script>
@@ -2161,6 +2212,11 @@ const Store = {
       userTokenExp: 0,
       phone: '',
       otp: null,
+      /* ── صفحهٔ ورودِ تمام‌صفحه ──
+         '' یعنی کاربر هنوز تصمیم نگرفته و صفحه باید یک بار بیاید.
+         'guest' یعنی «مهمان» را انتخاب کرده، 'user' یعنی با موبایل وارد
+         شده. در هر دو حال دیگر خودبه‌خود باز نمی‌شود. */
+      gate: '',
       serverUrl: '',
       notifications: [],
       leaderboard: []
@@ -2298,6 +2354,14 @@ const Store = {
     d.sms.deviceId = d.sms.deviceId.trim().slice(0, 80);
     if(typeof d.phone !== 'string') d.phone = '';
     d.phone = U.unfa(d.phone).replace(/\D/g, '').slice(0, 15);
+    /* صفحهٔ ورود: از کدام در رد شد — «مهمان»، «کاربر» یا «مدیر». هر چیز
+       دیگر — از جمله عدد و آبجکت — به '' برمی‌گردد، یعنی «هنوز نپرسیده»؛
+       وگرنه یک مقدار خراب می‌توانست صفحه را تا ابد پنهان کند و کاربر
+       هیچ‌وقت راه ورود نبیند. */
+    if(d.gate !== 'guest' && d.gate !== 'user' && d.gate !== 'admin') d.gate = '';
+    /* اگر شماره‌ای تأیید شده، پس کاربر تصمیمش را گرفته است — حتی اگر پرچم
+       gate از یک نسخهٔ قدیمی نمانده باشد. */
+    if(d.gate === '' && d.phone) d.gate = 'user';
     /* نشانهٔ نشستِ کاربر: همان قاعدهٔ نشانهٔ مدیر — ۶۴ رقم هگز و با سررسید.
        نشانهٔ بی‌سررسید نگه داشته نمی‌شود، چون هرگز باطل نمی‌شد. */
     if(typeof d.userToken !== 'string' || !/^[0-9a-f]{64}$/.test(d.userToken)) d.userToken = '';
@@ -4541,8 +4605,16 @@ const Splash = {
     }, 1400);
     if(byUser) UI.toast('🌙 به نورستان خوش آمدی', 'ok', 2200);
     /* تازه‌وارد باید *پس از* کنار رفتن پرده بیاید، نه پشتش. پرده z-index
-       9999 دارد؛ صبر می‌کنیم تا انیمیشن خروجش تمام شود. */
-    setTimeout(() => { try{ Onboarding.maybe(); }catch(e){ console.warn('onb', e); } }, 1500);
+       9999 دارد؛ صبر می‌کنیم تا انیمیشن خروجش تمام شود.
+
+       صفحهٔ ورود پیش از راهنمای آغاز می‌آید: راهنمای آغاز دربارهٔ *خودِ
+       برنامه* است و اگر کاربر هنوز تصمیم نگرفته، روی صفحهٔ ورود می‌افتد و
+       هیچ‌کدام دیده نمی‌شوند. */
+    setTimeout(() => {
+      let opened = false;
+      try{ opened = Gate.maybe(); }catch(e){ console.warn('gate', e); }
+      if(!opened){ try{ Onboarding.maybe(); }catch(e){ console.warn('onb', e); } }
+    }, 1500);
   }
 };
 
@@ -10598,15 +10670,19 @@ const Me = {
             };
             return `
               <div class="kv"><span>شناسه</span>
-                <b class="adm-id" data-copy="${U.esc(u.id)}" title="برای کپی بزن"
-                   style="cursor:pointer"><span dir="ltr">${U.esc(u.id)}</span></b></div>
+                <span style="display:inline-flex;gap:6px;align-items:center">
+                  <b class="adm-id" data-copy="${U.esc(u.id)}" title="برای کپی بزن"
+                     style="cursor:pointer"><span dir="ltr">${U.esc(u.id)}</span></b>
+                  <button class="btn gh sm" id="pfCopyId" title="کپی شناسه"
+                          aria-label="کپی شناسه">📋 کپی</button>
+                </span></div>
               <div class="kv"><span>شمارهٔ موبایل</span>
                 <b>${verified ? `<span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span>`
                                : '<span style="color:var(--mut)">ثبت نشده</span>'}</b></div>
               <div class="kv"><span>وضعیت</span>
                 <b>${verified ? '✅ تأییدشده با پیامک' : '👤 مهمانِ همین دستگاه'}</b></div>
               <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
-              <div class="kv"><span>عضویت</span>
+              <div class="kv"><span>📅 عضویت</span>
                 <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
               <div class="kv"><span>آخرین ورود</span>
                 <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
@@ -10616,6 +10692,16 @@ const Me = {
                   ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
                   : 'بی شماره، حساب فقط روی همین دستگاه است. برای اینکه سرور بشناسدت و امتیازت به نام خودت ثبت شود، با موبایل وارد شو.'}</p>`;
           })()}
+        </div>
+
+        <div class="card mt14">
+          <b style="font-size:13px">👑 مدیریت</b>
+          <div class="sep"></div>
+          <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
+            ${d.isAdmin
+              ? 'تو مدیر این دستگاه هستی — پنل باز است.'
+              : 'پنل مدیریت با رمز باز می‌شود. اگر رمزی نساخته‌ای، همان‌جا می‌سازی‌اش.'}</p>
+          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">👑 پنل مدیریت</button>
         </div>
 
         <div class="card mt14">
@@ -10651,7 +10737,22 @@ const Me = {
       const bb = U.$('#pfBadges'); if(bb) bb.onclick = () => { this.tab = 'badges'; this.render(); };
       const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
-      const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => OTP.modal();
+      const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
+      const pc = U.$('#pfCopyId');
+      if(pc) pc.onclick = async () => {
+        Haptic.hit();
+        UI.toast(await copyText(User.get().id) ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار',
+                 'ok', 2000);
+      };
+      /* 👑 پنل مدیریت: مدیر مستقیم می‌رود، کسی که مدیر نیست به صفحهٔ
+         ورودِ مدیر. عمداً پنهان نمی‌شود: دکمهٔ پنهان امنیت نیست — فقط
+         پنهان‌کردنِ ناامنی است، و خودِ پنل هم همین را می‌گوید. */
+      const pa = U.$('#pfAdmin');
+      if(pa) pa.onclick = () => {
+        Sound.click();
+        if(Store.get('isAdmin')) Router.go('admin');
+        else Gate.open('admin');
+      };
       U.$$('.adm-id').forEach(el => el.onclick = async () => {
         const t = el.dataset.copy;
         if(!t) return;
@@ -11416,6 +11517,38 @@ const Admin = {
     }
     return { ok: false, why: (j && j.error) || 'ورود نشد' };
   },
+
+  /* ── یک در، دو جا ──
+     صفحهٔ ورودِ تمام‌صفحه و دروازهٔ درونِ پنل باید *یکی* باشند؛ دو نسخهٔ
+     جدا یعنی دو جای متفاوت برای یک تصمیم، و دیر یا زود یکی از آنها
+     بی‌آنکه کسی بفهمد سست می‌شود.
+
+     این تابع فقط می‌سنجد و پرچم را می‌نشاند؛ پاک‌کردنِ ورودی و رندر به
+     صداکننده می‌ماند چون هر کدام جعبهٔ خودش را دارد. */
+  async tryPass(pass){
+    const remote = this.onServer();
+    const first = !remote && !Store.get('adminHash');
+    if(!pass) return { ok: false, why: 'رمز را بنویس', empty: true };
+
+    if(remote){
+      const r = await this.loginServer(pass);
+      if(!r.ok) return { ok: false, why: r.why };
+    }else if(first){
+      const why = this.passProblem(pass);
+      if(why) return { ok: false, why };
+      await this.setLocalPass(pass);
+    }else if(await U.sha256Async(pass) !== Store.get('adminHash')){
+      return { ok: false, why: 'رمز اشتباه' };
+    }
+    Store.set('isAdmin', true);
+    return { ok: true, remote, first };
+  },
+  /* ── گذاشتنِ رمزِ محلی ──
+     تنها جایی که رمز به هش بدل و ذخیره می‌شود. اگر دو جا هش بسازند، دیر یا
+     زود یکی از آنها قاعدهٔ دیگری پیدا می‌کند و رمزِ سست از درِ دوم می‌آید. */
+  async setLocalPass(pass){
+    Store.set('adminHash', await U.sha256Async(pass));
+  },
   async logoutServer(){
     if(!this.hasToken()) return;
     await SMS.req(this.API + '/logout', { body: { token: this.token() } });
@@ -11578,28 +11711,18 @@ const Admin = {
         const pass = el ? el.value : '';
         const again = U.$('#admPass2');
         if(btn && btn.disabled) return;
-        if(!pass) return bad('رمز را بنویس');
+        if(again && pass && again.value !== pass) return bad('دو رمز یکی نیستند');
 
-        if(remote){
-          if(btn){ btn.disabled = true; btn.textContent = '⏳ در حال بررسی…'; }
-          const r = await this.loginServer(pass);
-          if(btn){ btn.disabled = false; btn.textContent = '📡 ورود به پنل سرور'; }
-          if(!r.ok) return bad(r.why);
-        }else if(first){
-          const why = this.passProblem(pass);
-          if(why) return bad(why);
-          if(again && again.value !== pass) return bad('دو رمز یکی نیستند');
-          Store.set('adminHash', await U.sha256Async(pass));
-        }else if(await U.sha256Async(pass) !== Store.get('adminHash')){
-          return bad('رمز اشتباه');
-        }
+        if(btn && remote){ btn.disabled = true; btn.textContent = '⏳ در حال بررسی…'; }
+        const r = await this.tryPass(pass);
+        if(btn && remote){ btn.disabled = false; btn.textContent = '📡 ورود به پنل سرور'; }
+        if(!r.ok) return bad(r.why);
 
-        Store.set('isAdmin', true);
         if(el) el.value = '';
         if(again) again.value = '';
         await U.sleep(150);
         this.render(); updateHomeStats();
-        UI.toast(remote ? '👑 ورود مدیر روی سرور' : (first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر'), 'ok');
+        UI.toast(r.remote ? '👑 ورود مدیر روی سرور' : (r.first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر'), 'ok');
       };
       const enter = e => { if(e.key === 'Enter') tryIt(); };
       if(btn) btn.onclick = tryIt;
@@ -12144,7 +12267,7 @@ const Admin = {
           const why = this.passProblem(v);
           if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
           if(b && b.value !== v){ UI.toast('⚠️ دو رمز یکی نیستند', 'err'); return; }
-          Store.set('adminHash', await U.sha256Async(v));
+          await this.setLocalPass(v);
           if(a) a.value = '';
           if(b) b.value = '';
           UI.toast('🔑 رمز تغییر کرد', 'ok');
@@ -13454,7 +13577,7 @@ const SMS = {
     };
 
     const login = U.$('#smsLogin');
-    if(login) login.onclick = () => { UI.closeModal(); OTP.modal(); };
+    if(login) login.onclick = () => { UI.closeModal(); Gate.open('phone'); };
   },
 
   async init(){
@@ -13464,6 +13587,11 @@ const SMS = {
        ریسک است. پس پاکش می‌کنیم. */
     if(this.server.configured && (this.config.apiKey || this.config.deviceId))
       this.save({ apiKey: '', deviceId: '' });
+    /* پاسخِ سرور ممکن است پس از باز شدنِ صفحهٔ ورود برسد. تا آن لحظه
+       دکمهٔ «دریافت کد» غیرفعال است؛ همین که فهمیدیم کلید دارد، باید
+       بی‌درنگ روشن شود — وگرنه کاربر می‌بیند «به سرور متصل شوید» در حالی
+       که سرور هست. */
+    try{ Gate.sync(); }catch(e){}
   }
 };
 
@@ -13485,9 +13613,8 @@ const OTP = {
   MAX_TRIES: 3,
   LOCK_MS: 10 * 60 * 1000,      // ۱۰ دقیقه
   RESEND_MS: 60 * 1000,         // فاصلهٔ لازم میان دو ارسال
-  step: 1,
-  box: null,
-  tid: null,
+  /* آخرین شماره‌ای که کد برایش درخواست شد — تنها حالتی که این‌جا می‌ماند.
+     ظاهرِ صفحه در Gate است؛ این شیء فقط منطقِ کد و شمارنده‌هاست. */
   lastPhone: '',
 
   /* ── حالت ذخیره‌شده ── */
@@ -13647,23 +13774,102 @@ const OTP = {
     try{ User.setPhone(phone); }
     catch(e){ Store.update(x => { x.phone = phone; }); }
     return { ok: true, phone, first: wasNew };
+  }
+};
+
+/* ─────────────────── 20.11 GATE — صفحهٔ ورودِ تمام‌صفحه ───────────────────
+   یک صفحه، سه راه: ورود با موبایل، مهمان، مدیر.
+
+   چرا تمام‌صفحه و پیش از هر چیز: ورودِ لابه‌لای تنظیمات، برای کسی که
+   تازه برنامه را باز کرده، عملاً پنهان است. حالا اول می‌پرسیم.
+
+   ولی *هر بار* نه. صفحه فقط وقتی خودبه‌خود می‌آید که کاربر هنوز تصمیم
+   نگرفته باشد (Store.gate خالی). پس از انتخابِ «مهمان» یا ورود، دیگر
+   نمی‌آید — چون تحمیلِ ورود در هر باز کردن، برنامهٔ قرآنی را به دیوار
+   بدل می‌کند و همان کسی که فقط یک آیه می‌خواست را بیرون می‌گذارد. */
+const Gate = {
+  step: 'intro',
+  phone: '',
+  busy: false,
+  devCode: '',
+  tid: null,
+
+  el(){ return U.$('#gate'); },
+  /* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
+     مستقیم سرِ شماره می‌رود، ولی `Gate.maybe()` همیشه از «خوش آمدی» شروع
+     می‌کند تا کاربر بداند سه راه دارد. */
+  open(at){
+    const el = this.el();
+    if(!el) return false;
+    this.step = (at === 'phone' || at === 'admin' || at === 'code') ? at : 'intro';
+    this.busy = false;
+    this.devCode = '';
+    if(this.step === 'phone') this.phone = this.phone || Store.get('phone') || '';
+    el.classList.remove('hide', 'leaving');
+    /* فوکوس به داخلِ صفحه می‌رود، وگرنه صفحه‌خوان همچنان پشتِ آن را
+       می‌خواند و کاربر نمی‌داند چیزی جلوی صفحه باز شده. */
+    Timers.after(() => {
+      const n = U.$('#gtGo', el) || U.$('#gtGuest', el);
+      if(n && n.focus) n.focus();
+    }, 80, 'sys');
+    this.paint();
+    return true;
+  },
+  /* اگر کاربر تصمیمش را گرفته، صفحه خودبه‌خود نمی‌آید. */
+  maybe(){
+    if(Store.get('gate')) return false;
+    return this.open();
+  },
+  close(why){
+    const el = this.el();
+    if(!el) return;
+    this.stop();
+    el.classList.add('leaving');
+    Timers.after(() => {
+      if(el) el.classList.add('hide');
+      el && el.classList.remove('leaving');
+    }, 260, 'sys');
+    if(why) UI.toast(why, 'ok', 2600);
+  },
+  /* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور. */
+  sync(){
+    const el = this.el();
+    if(!el || el.classList.contains('hide')) return;
+    if(this.step === 'intro' || this.step === 'phone') this.paint();
   },
 
-  /* ── ظاهر ── */
-  stop(){
-    if(this.tid){ Timers.clear(this.tid); this.tid = null; }
+  /* ── ورود با پیامک ممکن است؟ ──
+     سه حالت داریم: سرور کلید دارد، خودِ دستگاه کلید دارد، یا هیچ‌کدام.
+     در حالت سوم ورود ممکن نیست و باید صریح گفته شود — نه اینکه دکمه
+     باشد و بی‌صدا کار نکند. */
+  canLogin(){ return SMS.ready(); },
+  whyNot(){
+    return 'برای ورود، به سرور متصل شوید — بی سرور پیامکی فرستاده نمی‌شود.';
   },
+
+  msg(text, tone, id){
+    const el = U.$('#' + (id || 'gtMsg'), this.el() || document);
+    if(!el) return;
+    if(!text){ el.textContent = ''; return; }
+    const c = tone === 'ok' ? 'var(--grn)' : tone === 'wait' ? 'var(--gold)' : 'var(--red)';
+    el.innerHTML = `<span style="color:${c}">${U.esc(text)}</span>`;
+  },
+
+  /* ── شمارندهٔ زنده ──
+     بی این، کاربر نمی‌داند کدش چقدر اعتبار دارد و «ارسال دوباره» را
+     بی‌دلیل می‌زند. حلقه خودترمیم است: اگر گره‌ها نیستند (کاربر از صفحه
+     بیرون رفته) خودش را می‌خواباند. */
+  stop(){ if(this.tid){ Timers.clear(this.tid); this.tid = null; } },
   tick(){
-    const el = U.$('#otpLeft'), again = U.$('#otpAgain');
-    /* خودترمیم: اگر مودال به هر راهی بسته شده باشد، این گره دیگر نیست و
-       حلقه خودش را می‌خواباند — پس لازم نیست دنبال هر مسیر بسته‌شدن برویم. */
+    const el = U.$('#gtLeft', this.el() || document), again = U.$('#gtAgain', this.el() || document);
     if(!el && !again){ this.stop(); return; }
     if(el){
-      const s = this.leftSec();
-      el.textContent = s > 0 ? `⏱ ${U.fa(s)} ثانیه تا پایان اعتبار کد` : '⏱ کد منقضی شد — کد تازه بگیر';
+      const s = OTP.leftSec();
+      el.textContent = s > 0 ? `⏱ ${U.fa(s)} ثانیه تا پایان اعتبار کد`
+                             : '⏱ کد منقضی شد — کد تازه بگیر';
     }
     if(again){
-      const w = this.waitSec();
+      const w = OTP.waitSec();
       again.disabled = w > 0;
       again.textContent = w > 0 ? `🔁 ارسال دوباره (${U.fa(w)})` : '🔁 ارسال دوباره';
     }
@@ -13674,149 +13880,245 @@ const OTP = {
     this.tick();
   },
 
-  modal(){
-    const cur = Store.get('phone');
-    this.lastPhone = this.lastPhone || cur || '';
-    this.devCode = '';
-    this.step = 1;
-    UI.modal(`<h3 style="margin-bottom:10px">📱 ورود با موبایل</h3><div id="otpBox"></div>`,
-      box => { this.box = box; this.paint(); });
-  },
-
-  /* tone: true/«ok» ⇒ سبز · «wait» ⇒ کهربایی (نمی‌دانیم رسید یا نه) · پیش‌فرض ⇒ قرمز
-     پیش‌تر نام توکن‌ها اشتباه بود (--green/--red وجود ندارند) و رنگ‌ها از راه
-     مقدار جانشین، ثابت می‌ماندند و تم را دنبال نمی‌کردند. */
-  say(text, tone){
-    const el = U.$('#otpMsg', this.box || document);
-    if(!el) return;
-    const color = (tone === true || tone === 'ok') ? 'var(--grn)'
-                : (tone === 'wait')               ? 'var(--gold)'
-                : 'var(--red)';
-    el.innerHTML = `<span style="color:${color}">${U.esc(text)}</span>`;
-  },
-
   paint(){
-    const box = this.box;
+    const el = this.el();
+    if(!el) return;
+    const box = U.$('#gateBox', el);
     if(!box) return;
-    const boxEl = U.$('#otpBox', box) || box;
+    const can = this.canLogin();
     const m = SMS.modeName();
 
-    if(this.step === 1){
-      this.stop();
-      boxEl.innerHTML = `
-        <p style="font-size:12px;color:var(--mut);margin-bottom:12px">
-          شمارهٔ موبایلت را وارد کن؛ یک کد ${U.fa(this.LEN)} رقمی پیامک می‌شود.
-          کد ۲ دقیقه اعتبار دارد.</p>
-        <label class="lbl">شمارهٔ موبایل</label>
-        <input class="inp" id="otpPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
-               placeholder="09123456789" value="${U.esc(this.lastPhone)}">
-        <button class="btn w" id="otpGo" style="margin-top:14px">📨 ارسال کد</button>
-        <div class="tiny" id="otpMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>
-        <div class="tiny" style="margin-top:6px">راه فرستادن: <b>${U.esc(m)}</b></div>`;
-      U.$('#otpGo', boxEl).onclick = () => this.go();
-      const inp = U.$('#otpPhone', boxEl);
-      inp.onkeydown = e => { if(e.key === 'Enter') this.go(); };
+    if(this.step === 'intro'){
+      box.innerHTML = `
+        <div class="gt-mark" aria-hidden="true">🌙</div>
+        <h2>نورستان</h2>
+        <p class="gt-sub">بازی، حفظ و اُنس با قرآن<br>۱۱۴ سوره • ۱۵ بازی • بی هزینه</p>
+        <div class="gt-card">
+          <button class="btn w" id="gtGo" ${can ? '' : 'disabled'}>📱 ورود با موبایل</button>
+          <button class="btn gh w" id="gtGuest" style="margin-top:10px">👤 ادامه به‌عنوان مهمان</button>
+          <button class="btn gh w" id="gtAdmin" style="margin-top:10px">👑 ورود مدیر</button>
+          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
+               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+        </div>
+        ${can ? '' : `<div class="gt-note warn"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
+        <p class="gt-foot">
+          بی ورود، همهٔ قرآن و بازی‌ها در دسترس است — فقط امتیازت روی سرور
+          ثبت نمی‌شود و روی دستگاهِ دیگری ادامه‌اش را نمی‌بینی.<br>
+          راهِ فرستادن: <b>${U.esc(m)}</b></p>`;
+      U.$('#gtGo', box).onclick = () => { Sound.click(); this.step = 'phone'; this.paint(); };
+      U.$('#gtGuest', box).onclick = () => this.guest();
+      U.$('#gtAdmin', box).onclick = () => { Sound.click(); this.step = 'admin'; this.paint(); };
+      return;
+    }
+
+    if(this.step === 'phone'){
+      box.innerHTML = `
+        <div class="gt-mark" aria-hidden="true">📱</div>
+        <h2>ورود با موبایل</h2>
+        <p class="gt-sub">یک کد ${U.fa(OTP.LEN)} رقمی پیامک می‌شود. کد ۲ دقیقه اعتبار دارد
+          و شماره به کسی نشان داده نمی‌شود.</p>
+        <div class="gt-card">
+          <label class="lbl" for="gtPhone">شمارهٔ موبایل</label>
+          <input class="inp" id="gtPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
+                 placeholder="09123456789" value="${U.esc(this.phone)}">
+          <button class="btn w" id="gtSend" style="margin-top:14px" ${can ? '' : 'disabled'}>📨 دریافت کد</button>
+          <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
+          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
+               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+        </div>
+        ${can ? '' : `<div class="gt-note warn"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}`;
+      const inp = U.$('#gtPhone', box);
+      inp.onkeydown = e => { if(e.key === 'Enter') this.send(); };
+      U.$('#gtSend', box).onclick = () => this.send();
+      U.$('#gtBack', box).onclick = () => { this.step = 'intro'; this.paint(); };
       Timers.after(() => inp.focus(), 60, 'sys');
       return;
     }
 
-    if(this.step === 2){
-      const st = this.st() || {};
-      boxEl.innerHTML = `
-        <p style="font-size:12px;color:var(--mut);margin-bottom:12px">
-          کد ${U.fa(this.LEN)} رقمی به <b dir="ltr">${U.esc(SMS.faPhone(st.phone || this.lastPhone))}</b> پیامک شد.</p>
-        <label class="lbl">کد تأیید</label>
-        <input class="inp otp-in" id="otpCode" dir="ltr" inputmode="numeric" maxlength="${this.LEN}"
-               autocomplete="one-time-code" placeholder="— — — — —">
-        <div class="tiny" id="otpLeft" style="margin-top:8px;min-height:1em"></div>
-        <button class="btn w" id="otpOk" style="margin-top:12px">✅ تأیید و ورود</button>
-        <button class="btn gh w" id="otpAgain" style="margin-top:8px">🔁 ارسال دوباره</button>
-        <button class="btn gh w" id="otpBack" style="margin-top:8px">✏️ تغییر شماره</button>
-        <div class="tiny" id="otpMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>`;
-      U.$('#otpOk', boxEl).onclick = () => this.check();
-      U.$('#otpAgain', boxEl).onclick = () => this.again();
-      U.$('#otpBack', boxEl).onclick = () => { this.step = 1; this.paint(); };
-      const inp = U.$('#otpCode', boxEl);
+    if(this.step === 'code'){
+      box.innerHTML = `
+        <div class="gt-mark" aria-hidden="true">🔐</div>
+        <h2>کد تأیید</h2>
+        <p class="gt-sub">کد ${U.fa(OTP.LEN)} رقمی به
+          <b dir="ltr">${U.esc(SMS.faPhone(this.phone))}</b> پیامک شد.</p>
+        <div class="gt-card">
+          <label class="lbl" for="gtCode">کد ${U.fa(OTP.LEN)} رقمی</label>
+          <input class="inp otp-in" id="gtCode" dir="ltr" inputmode="numeric" maxlength="${OTP.LEN}"
+                 autocomplete="one-time-code" placeholder="— — — — —">
+          <div class="tiny" id="gtLeft" style="margin-top:8px;min-height:1.2em;text-align:center"></div>
+          <button class="btn w" id="gtOk" style="margin-top:12px">✅ تأیید و ورود</button>
+          <button class="btn gh w" id="gtAgain" style="margin-top:8px">🔁 ارسال دوباره</button>
+          <button class="btn gh w" id="gtEdit" style="margin-top:8px">✏️ تغییر شماره</button>
+          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
+               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+        </div>`;
+      const inp = U.$('#gtCode', box);
       inp.onkeydown = e => { if(e.key === 'Enter') this.check(); };
       inp.oninput = () => {
-        inp.value = U.unfa(inp.value).replace(/\D/g, '').slice(0, this.LEN);
-        if(inp.value.length === this.LEN) this.check();      // پنج رقم که کامل شد، خودش می‌رود
+        inp.value = U.unfa(inp.value).replace(/\D/g, '').slice(0, OTP.LEN);
+        if(inp.value.length === OTP.LEN) this.check();      // پنج رقم که کامل شد، خودش می‌رود
       };
+      U.$('#gtOk', box).onclick = () => this.check();
+      U.$('#gtAgain', box).onclick = () => this.again();
+      U.$('#gtEdit', box).onclick = () => { this.step = 'phone'; this.paint(); };
       Timers.after(() => inp.focus(), 60, 'sys');
       this.run();
-      /* در حالت آزمایشی کد را همان‌جا نشان می‌دهیم، وگرنه کاربر بی کد
-         گیر می‌افتد و فکر می‌کند خراب است. */
-      if(SMS.mode() === 'mock' && this.devCode) this.say(`🧪 حالت آزمایشی — کد: ${U.fa(this.devCode)}`, true);
+      /* در حالت آزمایشی کد همان‌جا نشان داده می‌شود، وگرنه کاربر بی کد
+         گیر می‌افتد و فکر می‌کند برنامه خراب است. */
+      if(this.devCode) Timers.after(() => this.msg(`🧪 حالت آزمایشی — کد: ${U.fa(this.devCode)}`, 'ok'), 40, 'sys');
+      return;
+    }
+
+    if(this.step === 'admin'){
+      const remote = Admin.onServer();
+      const first = !remote && !Store.get('adminHash');
+      box.innerHTML = `
+        <div class="gt-mark" aria-hidden="true">👑</div>
+        <h2>${first ? 'ساختن رمز مدیر' : 'ورود مدیر'}</h2>
+        <p class="gt-sub">${first
+            ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
+            : (remote ? 'رمز روی سرور سنجیده می‌شود و روی این دستگاه ذخیره نمی‌شود.'
+                      : 'رمز مدیر را وارد کن.')}</p>
+        <div class="gt-card">
+          <label class="lbl" for="gtPass">رمز مدیر</label>
+          <input class="inp" id="gtPass" type="password" dir="ltr" spellcheck="false"
+                 autocomplete="${first ? 'new-password' : 'current-password'}"
+                 placeholder="${first ? 'رمز تازه…' : 'رمز…'}">
+          ${first ? `<input class="inp" id="gtPass2" type="password" dir="ltr" spellcheck="false"
+                 autocomplete="new-password" placeholder="تکرار رمز تازه…" style="margin-top:8px">` : ''}
+          <button class="btn w" id="gtLogin" style="margin-top:12px">
+            ${remote ? '📡 ورود به پنل سرور' : (first ? '🔐 ساختن رمز و ورود' : '🔓 ورود')}</button>
+          <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
+          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
+               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+        </div>
+        <p class="gt-foot">${remote
+          ? `رمز فقط یک بار به سرور می‌رود؛ بازگشتی نشانهٔ نشستی ${U.fa(12)} ساعته است.`
+          : `این رمز «قفلِ محلی» است، نه امنیتِ راستین — هر کسی به فایل‌های همین
+             مرورگر دسترسی داشته باشد می‌تواند برش دارد. برای امنیتِ واقعی، برنامه
+             را روی سرور باز کن و NOOR_ADMIN_PASS بگذار.`}</p>`;
+      const pass = U.$('#gtPass', box), again = U.$('#gtPass2', box), btn = U.$('#gtLogin', box);
+      const run = () => this.adminLogin(first, remote);
+      pass.onkeydown = e => { if(e.key === 'Enter') run(); };
+      if(again) again.onkeydown = e => { if(e.key === 'Enter') run(); };
+      btn.onclick = run;
+      U.$('#gtBack', box).onclick = () => { this.step = 'intro'; this.paint(); };
+      Timers.after(() => pass.focus(), 60, 'sys');
       return;
     }
   },
 
-  async go(){
-    const inp = U.$('#otpPhone', this.box);
-    const btn = U.$('#otpGo', this.box);
+  /* ── مهمان ──
+     تصمیمش در Store می‌ماند تا صفحه دیگر خودبه‌خود نیاید. */
+  guest(){
+    Store.set('gate', 'guest');
+    Sound.click(); Haptic.hit();
+    this.close('🌿 خوش آمدی — هر وقت خواستی از «حساب من» وارد شو');
+  },
+
+  async send(){
+    if(this.busy) return;
+    const el = this.el();
+    const inp = U.$('#gtPhone', el), btn = U.$('#gtSend', el);
     const phone = SMS.norm(inp ? inp.value : '');
-    if(!SMS.phoneOk(phone)){ this.say('شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹'); return; }
-    this.lastPhone = phone;
-    Haptic.hit();
+    if(!SMS.phoneOk(phone)){
+      this.msg('شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹');
+      Haptic.warn(); return;
+    }
+    if(!this.canLogin()){ this.msg(this.whyNot()); return; }
+    this.phone = phone;
+    this.busy = true;
     if(btn) btn.disabled = true;
-    this.say('در حال فرستادن کد…', true);
-    const r = await this.start(phone);
-    if(btn) btn.disabled = false;
-    if(!r.ok){ this.say(r.why || 'فرستادن نشد'); Haptic.warn(); return; }
+    this.msg('در حال فرستادن کد…', 'wait');
+    let r;
+    try{ r = await OTP.start(phone); }
+    catch(e){ r = { ok: false, why: 'فرستادن کد ممکن نشد — دوباره امتحان کن' }; }
+    finally{ this.busy = false; if(btn) btn.disabled = false; }
+
+    if(!r.ok){ this.msg(r.why || 'فرستادن نشد'); Haptic.warn(); return; }
     this.devCode = r.code || '';
-    this.step = 2;
+    this.step = 'code';
     this.paint();
     if(r.pending){
       /* نمی‌دانیم رسید یا نه. کاربر را بیرون نمی‌کنیم و وعدهٔ دروغ هم نمی‌دهیم. */
-      this.say('⏳ ' + (r.note || SMS.PENDING_MSG) + (r.hint ? ' — ' + r.hint : ''), 'wait');
-      Haptic.warn();
-      UI.toast('⏳ ' + SMS.PENDING_MSG, '', 5000);
-      return;
+      this.msg('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait');
+      Haptic.warn(); return;
     }
     Haptic.success();
     UI.toast(r.mock ? '🧪 کد آزمایشی ساخته شد' : '📨 کد پیامک شد', 'ok', 2400);
   },
 
   async again(){
-    const btn = U.$('#otpAgain', this.box);
+    if(this.busy) return;
+    const btn = U.$('#gtAgain', this.el());
+    this.busy = true;
     if(btn) btn.disabled = true;
-    const r = await this.start(this.lastPhone);
-    if(!r.ok){ this.say(r.why || 'فرستادن نشد'); this.tick(); return; }
+    let r;
+    try{ r = await OTP.start(this.phone); }
+    catch(e){ r = { ok: false, why: 'فرستادن نشد' }; }
+    finally{ this.busy = false; if(btn) btn.disabled = false; }
+    if(!r.ok){ this.msg(r.why || 'فرستادن نشد'); return; }
     this.devCode = r.code || '';
-    this.paint();      // ورودی خالی و حلقه از نو
-    if(r.pending){ this.say('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait'); return; }
-    this.say(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', true);
+    this.paint();
+    if(r.pending){ this.msg('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait'); return; }
+    this.msg(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', 'ok');
   },
 
-  /* ناهمگام است چون روی سرور یک رفت‌وبرگشت دارد. دکمه در همان فاصله قفل
-     می‌شود؛ وگرنه دو بار زدن، دو درخواست و دو شمارشِ تلاش می‌سازد. */
+  /* دکمه در همان فاصله قفل می‌شود؛ وگرنه دو بار زدن، دو رفت‌وبرگشت و
+     دو شمارشِ تلاش روی سرور می‌سازد. */
   async check(){
-    const inp = U.$('#otpCode', this.box);
+    if(this.busy) return;
+    const el = this.el();
+    const inp = U.$('#gtCode', el), btn = U.$('#gtOk', el);
     const code = inp ? inp.value : '';
-    const btn = U.$('#otpOk', this.box);
-    if(btn && btn.dataset.busy === '1') return;
-    if(btn){ btn.dataset.busy = '1'; btn.disabled = true; }
+    this.busy = true;
+    if(btn) btn.disabled = true;
     let r;
-    try{
-      r = await this.verify(this.lastPhone, code);
-    }catch(e){
-      r = { ok: false, why: 'بررسی کد ممکن نشد — دوباره امتحان کن' };
-    }finally{
-      if(btn){ btn.dataset.busy = ''; btn.disabled = false; }
-    }
+    try{ r = await OTP.verify(this.phone, code); }
+    catch(e){ r = { ok: false, why: 'بررسی کد ممکن نشد — دوباره امتحان کن' }; }
+    finally{ this.busy = false; if(btn) btn.disabled = false; }
+
     if(!r.ok){
-      this.say(r.why || 'کد پذیرفته نشد');
-      Haptic.warn();
-      if(r.expired || r.burned || r.locked || r.left != null) this.paint();
-      return;
+      this.msg(r.why || 'کد پذیرفته نشد');
+      Haptic.warn(); return;
     }
-    this.stop();
     Haptic.success();
-    UI.closeModal();
+    Store.set('gate', 'user');
     /* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
     UI.toast(r.first ? `✅ خوش آمدی! حسابت با ${SMS.faPhone(r.phone)} ساخته شد`
                      : `✅ شماره به ${SMS.faPhone(r.phone)} به‌روز شد`, 'ok', 3200);
     try{ Me.render(); }catch(e){}
+    this.close();
+  },
+
+  async adminLogin(first, remote){
+    if(this.busy) return;
+    const el = this.el();
+    const pass = U.$('#gtPass', el), again = U.$('#gtPass2', el), btn = U.$('#gtLogin', el);
+    const v = pass ? pass.value : '';
+    if(!v){ this.msg('رمز را بنویس'); return; }
+    if(again && again.value !== v){ this.msg('دو رمز یکی نیستند'); return; }
+    this.busy = true;
+    if(btn){ btn.disabled = true; if(remote) btn.textContent = '⏳ در حال بررسی…'; }
+    let r;
+    try{ r = await Admin.tryPass(v); }
+    catch(e){ r = { ok: false, why: 'بررسی رمز ممکن نشد' }; }
+    finally{
+      this.busy = false;
+      if(btn){ btn.disabled = false; if(remote) btn.textContent = '📡 ورود به پنل سرور'; }
+    }
+    if(!r.ok){ this.msg(r.why); Haptic.warn(); return; }
+    Haptic.success();
+    if(pass) pass.value = '';
+    if(again) again.value = '';
+    /* مدیر هم تصمیمش را گرفته؛ صفحه دیگر خودبه‌خود نمی‌آید. «مهمان»
+       نمی‌نویسیم چون مدیر مهمان نیست — و دروغ‌نوشتن در حافظه، بعداً
+       به تصمیمِ غلط می‌رسد. */
+    if(!Store.get('gate')) Store.set('gate', 'admin');
+    this.close(r.first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر');
+    /* پنل را باز می‌کنیم، نه فقط پروفایل را: کسی که رمز مدیر زده،
+       مقصدش پنل است. */
+    Timers.after(() => { try{ Router.go('admin'); }catch(e){} }, 320, 'sys');
   }
 };
 

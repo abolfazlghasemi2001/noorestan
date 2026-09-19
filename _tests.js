@@ -100,8 +100,15 @@ ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف 
    https://، و مانند این‌ها. به‌جایش معنای کد سنجیده می‌شود: هرجا رمزِ مدیر
    نوشته می‌شود، باید از ورودی کاربر هش شده باشد، نه از یک مقدار ثابت. */
 ok('🔒 رمز مدیر فقط از ورودی کاربر ساخته می‌شود', (() => {
-  const calls = fs.readFileSync(__dirname + '/index.html', 'utf8').match(/Store\.set\('adminHash',[^\n]*/g) || [];
-  return calls.length >= 2 && calls.every(c => /sha256Async\(/.test(c));
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const calls = src.match(/Store\.set\('adminHash',[^\n]*/g) || [];
+  /* هر جا رمز نوشته می‌شود، باید از ورودی کاربر هش شده باشد، نه از ثابت. */
+  if(!calls.length || !calls.every(c => /sha256Async\(/.test(c))) return false;
+  /* و تنها *یک* جا می‌نویسد. پیش‌تر دو جا می‌نوشت و این آزمون همان دو را
+     می‌شمرد؛ ولی دو جای نوشتن یعنی دو قاعده که دیر یا زود واگرا می‌شوند.
+     حالا هر دو راه — ساختنِ رمز در صفحهٔ ورود و تغییرش در تنظیمات — از
+     یک جا می‌گذرند، پس شرطِ درست «یک نویسنده، دو خواننده» است. */
+  return calls.length === 1 && (src.match(/this\.setLocalPass\(/g) || []).length >= 2;
 })(), (fs.readFileSync(__dirname + '/index.html', 'utf8').match(/Store\.set\('adminHash',[^\n]*/g) || []).join(' ／ '));
 ok('🔒 هشِ ثابت به‌عنوان مقدار پیش‌فرض نمی‌نشیند',
    !/adminHash:\s*'[0-9a-f]{64}'/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
@@ -4139,6 +4146,153 @@ section('پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴)');
   ok('🔒 و بی شماره، وعدهٔ پیامک داده نمی‌شود', src.includes('بی شماره فرستاده نمی‌شود'));
   ok('🔒 هیچ‌جا نشانهٔ نشست در پروفایل نمایش داده نمی‌شود',
      !/کارنامه[^]{0,400}?token/.test(src.slice(src.indexOf('welcomeLine'))));
+}
+
+section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
+{
+  const keep = Store.get('gate');
+  try{
+    /* ── پرچمِ صفحه ──
+       سه حال دارد و هر چیز دیگر باید به «هنوز نپرسیده» برگردد. یک مقدار
+       خراب می‌توانست صفحه را تا ابد پنهان کند و کاربر هیچ راه ورودی نبیند. */
+    /* بی شماره می‌سنجیم، وگرنه قاعدهٔ «شماره یعنی تصمیم گرفته» روی همین
+       ورودی می‌پوشاندش و آزمون چیز دیگری را می‌سنجد. */
+    Store.update(d => { d.phone = ''; d.gate = 'چیزِبی‌ربط'; });
+    Store.sanitize();
+    ok('پرچمِ ناشناسِ صفحه به «نپرسیده» برمی‌گردد', Store.get('gate') === '', Store.get('gate'));
+
+    Store.set('gate', '');
+    Store.update(d => { d.phone = '09121110001'; });
+    Store.sanitize();
+    ok('شمارهٔ تأییدشده یعنی کاربر تصمیمش را گرفته', Store.get('gate') === 'user', Store.get('gate'));
+    Store.update(d => { d.phone = ''; });
+
+    Store.set('gate', 'guest');
+    ok('مهمان یعنی دیگر خودبه‌خود نمی‌آید', Gate.maybe() === false);
+    Store.set('gate', 'admin');
+    ok('و «مدیر» هم حالِ درستی است، نه مقدارِ خراب', (Store.sanitize(), Store.get('gate') === 'admin'), Store.get('gate'));
+    Store.set('gate', '');
+    ok('بی انتخاب، صفحه خودش می‌آید', Gate.maybe() === true);
+    ok('و گامِ آغازین «خوش آمدی» است', Gate.step === 'intro', Gate.step);
+    ok('ورود از درونِ برنامه مستقیم سرِ شماره می‌رود',
+       (Gate.open('phone'), Gate.step === 'phone'), Gate.step);
+    ok('گامِ ناشناس به «خوش آمدی» برمی‌گردد',
+       (Gate.open('چیزِبی‌ربط'), Gate.step === 'intro'), Gate.step);
+
+    /* ── مهمان ── */
+    Store.set('gate', '');
+    Gate.guest();
+    ok('«ادامه مهمان» در حافظه می‌ماند', Store.get('gate') === 'guest', Store.get('gate'));
+
+    /* ── رنگِ دکمه‌ها با پاسخِ سرور عوض می‌شود ──
+       تا پاسخ نرسیده نمی‌دانیم سرور کلید دارد یا نه؛ نباید کاربر پیام
+       «به سرور متصل شوید» را ببیند وقتی سرور هست. */
+    /* استابِ گره باید مثلِ گرهٔ راستین `querySelector` داشته باشد، چون
+       `U.$` روی والد صدا می‌زند و بی آن، رنگ‌آمیزی وسطِ کار می‌شکند. */
+    const node = () => ({
+      innerHTML:'', textContent:'', value:'', disabled:false, style:{}, dataset:{},
+      classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+      focus(){}, blur(){}, click(){}, setAttribute(){}, getAttribute(){ return null; },
+      appendChild(){}, remove(){}, children:[], firstChild:null, closest(){ return null; },
+      querySelector(){ return node(); }, querySelectorAll(){ return []; }
+    });
+    const paint = at => {
+      const box = node();
+      const gateEl = node();
+      const $0 = U.$;
+      U.$ = (s, p) => s === '#gate' ? gateEl : s === '#gateBox' ? box : $0(s, p);
+      const keepStep = Gate.step;
+      try{ Gate.step = at; Gate.paint(); } finally { Gate.step = keepStep; U.$ = $0; }
+      return box.innerHTML;
+    };
+
+    const intro = paint('intro');
+    ok('صفحهٔ ورود نامِ برنامه را دارد', intro.includes('نورستان'));
+    ok('و هر سه راه را پیش می‌گذارد',
+       intro.includes('📱 ورود با موبایل') && intro.includes('👤 ادامه به‌عنوان مهمان') &&
+       intro.includes('👑 ورود مدیر'));
+    ok('🔒 و می‌گوید بی ورود چه از دست می‌رود، نه اینکه تهدید کند',
+       /امتیازت روی سرور\s*ثبت نمی‌شود/.test(intro));
+
+    const phone = paint('phone');
+    ok('گامِ شماره، ورودیِ شماره دارد', phone.includes('id="gtPhone"'));
+    ok('و دکمهٔ «دریافت کد»', phone.includes('📨 دریافت کد'));
+    ok('🔒 بی سرور، «دریافت کد» غیرفعال است',
+       /id="gtSend"[^>]*disabled/.test(phone), phone.slice(phone.indexOf('gtSend'), phone.indexOf('gtSend') + 90));
+    ok('🔒 و صریح می‌گوید چرا',
+       phone.includes('برای ورود، به سرور متصل شوید'), 'بی پیام');
+    ok('و راهِ بازگشت دارد', phone.includes('id="gtBack"'));
+
+    /* شماره را دستی می‌گذاریم، وگرنه آزمون به حالِ پیشینِ ماژول گره می‌خورد
+       و بسته به ترتیبِ آزمون‌های دیگر، گاهی سبز و گاهی سرخ می‌شود. */
+    const keepPhone = Gate.phone;
+    Gate.phone = '09121110001';
+    const code = paint('code');
+    Gate.phone = keepPhone;
+    ok('گامِ کد، پیشنهادِ کدِ یک‌بارمصرف را می‌گیرد',
+       /id="gtCode"[^>]*autocomplete="one-time-code"/.test(code));
+    ok('و کلیدِ عددی می‌آورد، نه کلیدِ حرف', /id="gtCode"[^>]*inputmode="numeric"/.test(code));
+    ok('و به‌اندازهٔ کد جا می‌دهد', new RegExp('id="gtCode"[^>]*maxlength="' + OTP.LEN + '"').test(code));
+    ok('و شمارندهٔ اعتبار دارد', code.includes('id="gtLeft"'));
+    /* شماره اینجا پنهان نمی‌شود، ولی خواناتر می‌شود: کاربر باید ببیند کد به
+       کدام شماره رفت تا بی‌گمان تأیید کند. */
+    ok('و شماره‌ای که کد به آن رفت را نشان می‌دهد',
+       code.includes('0912 111 0001'), code.slice(0, 200));
+    /* رنگ‌آمیزیِ گامِ کد شمارندهٔ زنده راه می‌اندازد؛ بی خاموش‌کردنش،
+       تایمری تا آخرِ آزمون‌ها می‌چرخد و سنجش‌های بی‌ربط را آلوده می‌کند. */
+    Gate.stop();
+
+    const admin = paint('admin');
+    ok('گامِ مدیر، ورودیِ رمز دارد', admin.includes('id="gtPass"'));
+    ok('🔒 رمز از چشم پنهان است', /id="gtPass"[^>]*type="password"/.test(admin));
+    ok('🔒 و مرورگر بی اجازه ذخیره‌اش نمی‌کند',
+       /id="gtPass"[^>]*autocomplete="(current|new)-password"/.test(admin));
+    ok('🔒 و در حالتِ محلی صریح می‌گوید امنیتِ راستین نیست',
+       Admin.onServer() || admin.includes('قفلِ محلی'), admin.slice(admin.indexOf('gt-foot')));
+
+    /* ── یک در، دو جا ──
+       دروازهٔ درونِ پنل و صفحهٔ ورود باید از یک جا رمز را بسنجند؛ دو نسخهٔ
+       جدا یعنی دو جا برای یک تصمیم، و یکی از آنها دیر یا زود سست می‌شود. */
+    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const setHash = (src.match(/Store\.set\('adminHash'/g) || []).length;
+    ok('🔒 سنجشِ رمز یک جا دارد، نه دو جا', setHash === 1, 'شمارش=' + setHash);
+    ok('و صفحهٔ ورود هم از همان راه می‌رود', /Admin\.tryPass\(/.test(src));
+    ok('🔒 و خودِ رمز هیچ‌جا ذخیره نمی‌شود',
+       !/Store\.(set|update)\(d => \{ d\.adminPass/.test(src));
+
+    /* ── سنجشِ رمزِ محلی ──
+       روی سرور، رمز را سرور می‌سنجد؛ این آزمون مالِ حالتِ محلی است. */
+    __smsChecks.push(async () => {
+      if(Admin.onServer()) return;
+      const keepHash = Store.get('adminHash'), keepAdm = Store.get('isAdmin');
+      try{
+        Store.update(d => { d.adminHash = ''; d.isAdmin = false; });
+
+        ok('رمزِ خالی رد می‌شود', (await Admin.tryPass('')).ok === false);
+        ok('و پرچمِ مدیر روشن نمی‌شود', Store.get('isAdmin') === false);
+
+        const weak = await Admin.tryPass('123');
+        ok('رمزِ کوتاه رد می‌شود', weak.ok === false && /کاراکتر/.test(weak.why), weak.why);
+        const guess = await Admin.tryPass('12345678');
+        ok('🔒 رمزِ حدس‌زدنی رد می‌شود', guess.ok === false && /حدس/.test(guess.why), guess.why);
+
+        const made = await Admin.tryPass('noor-1405-ram');
+        ok('نخستین رمز ساخته می‌شود و در می‌آورد', made.ok === true && Store.get('isAdmin') === true, made.why);
+        ok('و فقط هش می‌ماند، نه خودِ رمز',
+           /^[0-9a-f]{64}$/.test(Store.get('adminHash')) &&
+           !JSON.stringify(Store.data).includes('noor-1405-ram'));
+        ok('و «نخستین بار» بودنش را گزارش می‌کند', made.first === true);
+
+        ok('با رمزِ درست، بارِ بعد هم در می‌آورد', (await Admin.tryPass('noor-1405-ram')).ok === true);
+        const bad = await Admin.tryPass('noor-1405-ram2');
+        ok('🔒 و رمزِ اشتباه رد می‌شود', bad.ok === false && /اشتباه/.test(bad.why), bad.why);
+      }finally{
+        Store.update(d => { d.adminHash = keepHash; d.isAdmin = keepAdm; });
+      }
+    });
+  }finally{
+    Store.set('gate', keep);
+  }
 }
 
 section('پنل مدیریت — شمارشِ بازی‌ها');
