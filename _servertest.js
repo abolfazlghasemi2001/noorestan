@@ -456,10 +456,76 @@ const cleanup = () => {
   await sleep(250);
   ok('🔒 هش اشتباه رد شد', !A.msgs.some(m => m.t === 'notif'));
   ok('خطا به فرستنده اطلاع داده شد', C.msgs.some(m => m.t === 'room:error'));
+
+  /* هشِ خالی نباید با هشِ خالیِ سرور تطبیق داده شود. اگر دروازه صریحاً بسته
+     نباشد، کلاینتی که hash:'' می‌فرستد مدیر می‌شود. */
+  C.clear(); A.clear();
+  C.send({ t: 'admin:broadcast', hash: '', title: 'خالی', desc: 'تلاش' });
+  await sleep(250);
+  ok('🔒 هشِ خالی هم رد می‌شود', !A.msgs.some(m => m.t === 'notif'));
+  C.clear(); A.clear();
+
   C.clear(); A.clear(); B.clear();
   C.send({ t: 'admin:broadcast', hash: HASH, title: 'خبر مهم', desc: 'مسابقه امشب' });
   ok('اعلان با هش درست پخش شد', (await A.wait(m => m.t === 'notif' && m.title === 'خبر مهم'))?.desc === 'مسابقه امشب');
   ok('اعلان به همه رسید', !!(await B.wait(m => m.t === 'notif' && m.title === 'خبر مهم')));
+
+  /* ── رمز مدیر: نه پیش‌فرض، نه در لاگ ──
+     پیش‌تر مقدار جانشین «noor2024» بود و همان را در بنر هم چاپ می‌کرد؛ یعنی
+     رمزِ مدیر در مخزن عمومی منتشر می‌شد. */
+  section('رمز مدیر — نه پیش‌فرض، نه در لاگ');
+  ok('🔒 رمز در بنر سرور چاپ نمی‌شود', !srvOut.includes(PASS), srvOut.split('\n').filter(l => /رمز/.test(l)).join(' ／ '));
+  ok('بنر می‌گوید رمز از کجاست', /NOOR_ADMIN_PASS/.test(srvOut));
+
+  /* سرور دوم، عمداً بی NOOR_ADMIN_PASS: باید بالا بیاید ولی پنل مدیرش بسته باشد */
+  {
+    const PORT2 = PORT + 1, DATA2 = path.join(__dirname, `_srvtest-noadmin.json`);
+    const s2 = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+      env: { ...process.env, PORT: String(PORT2), NOOR_DATA: DATA2, NOOR_ORIGIN: '*' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let out2 = '';
+    s2.stdout.on('data', d => { out2 += d.toString(); });
+    s2.stderr.on('data', d => { out2 += d.toString(); });
+    try{
+      let up2 = false;
+      for(let i = 0; i < 40 && !up2; i++){
+        if(s2.exitCode !== null) break;
+        up2 = await fetch(`http://127.0.0.1:${PORT2}/health`).then(r => r.ok).catch(() => false);
+        if(!up2) await sleep(200);
+      }
+      ok('بی NOOR_ADMIN_PASS هم سرور بالا می‌آید (پنل می‌خوابد، سرور نه)', up2);
+      ok('🔒 بنر هشدار می‌دهد که رمز تنظیم نشده', /تنظیم نشده/.test(out2), out2.split('\n').filter(l => /رمز/.test(l)).join(' ／ '));
+      /* فقط همین یک خط می‌تواند نام رمز را داشته باشد؛ باید «تنظیم نشده» بگوید و
+         هیچ توکنی چاپ نکند. NOOR_ADMIN_PASS نامِ متغیر است، نه رمز. */
+      const adminLine = out2.split('\n').find(l => /رمز مدیر سرور/.test(l)) || '';
+      ok('🔒 و هیچ رمزی چاپ نمی‌شود',
+         /تنظیم نشده/.test(adminLine) && !/[A-Za-z0-9]{6,}/.test(adminLine.replace(/NOOR_ADMIN_PASS/g, '')),
+         adminLine);
+
+      /* با سوکت واقعی: هیچ هشی — نه خالی نه حدسی — مدیر نمی‌شود */
+      const probe = await new Promise(resolve => {
+        const ws = new WebSocket(`ws://127.0.0.1:${PORT2}`);
+        const seen = [];
+        const t0 = Date.now();
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ t: 'hello', ns: 'noorestan', name: 'کاوشگر', level: 1, score: 0 }));
+        };
+        ws.onmessage = e => {
+          let m = null; try{ m = JSON.parse(e.data); }catch(_){}
+          if(m && m.t === 'welcome') ws.send(JSON.stringify({ t: 'admin:broadcast', hash: '', title: 'خالی', desc: 'x' }));
+          if(m && m.t === 'notif') seen.push(m);
+          if(Date.now() - t0 > 1500){ try{ ws.close(); }catch(_){} resolve(seen); }
+        };
+        ws.onerror = () => resolve(seen);
+        setTimeout(() => { try{ ws.close(); }catch(_){} resolve(seen); }, 2500);
+      });
+      ok('🔒 بی رمزِ سرور، هشِ خالی اعلان پخش نمی‌کند', probe.length === 0, JSON.stringify(probe));
+    }finally{
+      try{ s2.kill('SIGKILL'); }catch(e){}
+      try{ require('fs').unlinkSync(DATA2); }catch(e){}
+    }
+  }
 
   /* 8. خروج و پاکسازی */
   section('خروج و پاکسازی');

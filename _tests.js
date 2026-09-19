@@ -20,7 +20,95 @@ const nodeHash = s => require('crypto').createHash('sha256').update(s).digest('h
   const want = exp || nodeHash(inp);
   ok(`sha256(${inp.length > 12 ? inp.slice(0, 9) + '…(' + inp.length + ')' : JSON.stringify(inp)})`, got === want, got + ' ≠ ' + want);
 });
-ok('هش رمز پیش‌فرض ادمین درست است', U.sha256('noor2024') === Store.defaults().adminHash);
+/* ── رمز ادمین هیچ پیش‌فرضی ندارد ──
+   پیش‌تر هشِ «noor2024» داخل خودِ بسته بود؛ یعنی رمزِ مدیر منتشر شده بود و
+   هر کسی که برنامه را باز می‌کرد، مدیر بود. */
+ok('رمز ادمین پیش‌فرض ندارد', Store.defaults().adminHash === '', JSON.stringify(Store.defaults().adminHash));
+/* هشِ قدیمی باید *فقط* در فهرست مهاجرت بماند تا داده‌های قبلی پاک شوند؛ اگر
+   جای دیگری باشد، یعنی هنوز به‌عنوان رمز به کار می‌رود. */
+ok('🔒 هشِ عمومیِ قدیمی فقط یک‌بار و فقط برای مهاجرت مانده', (() => {
+  const LEGACY = 'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded';
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const hits = src.split(LEGACY).length - 1;
+  return hits === 1 && /const LEGACY_ADMIN_HASHES = \[/.test(src);
+})(), String(fs.readFileSync(__dirname + '/index.html', 'utf8').split('e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded').length - 1));
+ok('🔒 کپیِ دوم رمز در حالت محلی حذف شد',
+   !/LOCAL_ADMIN_HASH/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+/* «noor2024» در کامنت‌ها و در فهرست سیاهِ هشدار مانده — مشروع است. چیزی که
+   نباید بماند، مقدارِ جانشین است: هر جای دیگر که رمز به ADMIN_PASS داده شود. */
+ok('🔒 سرور هیچ رمز پیش‌فرضی ندارد', (() => {
+  const s = fs.readFileSync(__dirname + '/server.js', 'utf8');
+  /* مقدار جانشینِ غیرخالی ممنوع؛ `|| ''` یعنی «خالی بماند» و همان چیزی است
+     که می‌خواهیم. */
+  const fallback = s.match(/process\.env\.NOOR_ADMIN_PASS\s*\|\|\s*['"]([^'"]*)['"]/);
+  return !!fallback && fallback[1] === '' && !/e15d190d0175369/.test(s);
+})(), (fs.readFileSync(__dirname + '/server.js', 'utf8').match(/process\.env\.NOOR_ADMIN_PASS[^\n]*/) || [''])[0]);
+ok('🔒 سرور رمزهای حدس‌زدنی را هشدار می‌دهد',
+   /includes\(ADMIN_PASS\.trim\(\)\.toLowerCase\(\)\)/.test(fs.readFileSync(__dirname + '/server.js', 'utf8')));
+ok('🔒 سرور رمز را چاپ نمی‌کند', (() => {
+  const s = fs.readFileSync(__dirname + '/server.js', 'utf8');
+  return !/رمز مدیر سرور : \$\{ADMIN_PASS\}/.test(s) && /\$\{ADMIN_PASS\}/.test(s) === false;
+})());
+/* این سنجش‌ها به Store.data نیاز دارند، ولی این بخش از آزمون‌ها پیش از
+   بارکردن داده اجرا می‌شود (Store.data هنوز null است). پس هر سنجش روی یک
+   نمونهٔ موقتِ خودش کار می‌کند و دادهٔ واقعی را دست‌نخورده برمی‌گرداند. */
+const withData = (patch, fn) => {
+  const keep = Store.data;
+  Store.data = Object.assign(Store.defaults(), patch);
+  try{ return fn(Store.data); }
+  finally{ Store.data = keep; }
+};
+
+ok('🔒 هش عمومی قدیمی، رمز شمرده نمی‌شود',
+   !LEGACY_ADMIN_HASHES.includes(Store.defaults().adminHash));
+ok('🔒 بی رمز، نشست مدیر معنا ندارد',
+   withData({ isAdmin: true, adminHash: '' }, () => { Store.sanitize(); return Store.data.isAdmin; }) === false);
+ok('🔒 هش قدیمی هنگام بارکردن پاک می‌شود',
+   withData({ adminHash: LEGACY_ADMIN_HASHES[0], isAdmin: true },
+            () => { Store.sanitize(); return Store.data.adminHash; }) === '');
+ok('🔒 هشِ غیرهگز دور انداخته می‌شود',
+   withData({ adminHash: 'چیز بی‌ربط' }, () => { Store.sanitize(); return Store.data.adminHash; }) === '');
+ok('🔒 رمز سالم دست‌نخورده می‌ماند', (() => {
+  const good = U.sha256('ramze-man-14');
+  return withData({ adminHash: good }, () => { Store.sanitize(); return Store.data.adminHash; }) === good;
+})(), 'رمز سالم باید بماند');
+ok('🔒 با رمز، نشست مدیر پاک نمی‌شود',
+   withData({ adminHash: U.sha256('ramze-man-14'), isAdmin: true },
+            () => { Store.sanitize(); return Store.data.isAdmin; }) === true);
+/* ── دروازهٔ ورود: دو حالت ──
+   ⚠️ این‌ها سنجشِ سطح-سورس‌اند، نه اجرای واقعی. DOM جعلیِ harness برای هر
+   querySelector یک شیء تازه می‌سازد، پس innerHTML نوشته‌شده در یک فراخوانی در
+   فراخوانی بعدی گم می‌شود و آزمونِ واقعیِ صفحه ممکن نیست. اثباتِ دیداری و
+   لمسی در «نیازمند آزمون دستی» گزارش می‌شود. */
+ok('دروازهٔ ورود، حالت «ساختن رمز» دارد', (() => {
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  return /ساختن رمز مدیر/.test(src) && /id="admPass2"/.test(src) && /ساختن رمز و ورود/.test(src);
+})());
+ok('دروازهٔ ورود بین «اولین بار» و «ورود» فرق می‌گذارد',
+   /const first = !Store\.get\('adminHash'\)/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف شد',
+   !/رمز پیش‌فرض[:：]\s*noor2024/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+/* «noor2024» باید فقط دو جا باشد: کامنت‌های توضیحی، و فهرست سیاهِ هشدار.
+   اگر جای سوم باشد، یعنی جایی هنوز به‌عنوان رمز به کار می‌رود. */
+/* سنجشِ متنی («noor2024 کجا آمده؟») شکننده است — کامنت چندخطی، رشتهٔ حاوی
+   https://، و مانند این‌ها. به‌جایش معنای کد سنجیده می‌شود: هرجا رمزِ مدیر
+   نوشته می‌شود، باید از ورودی کاربر هش شده باشد، نه از یک مقدار ثابت. */
+ok('🔒 رمز مدیر فقط از ورودی کاربر ساخته می‌شود', (() => {
+  const calls = fs.readFileSync(__dirname + '/index.html', 'utf8').match(/Store\.set\('adminHash',[^\n]*/g) || [];
+  return calls.length >= 2 && calls.every(c => /sha256Async\(/.test(c));
+})(), (fs.readFileSync(__dirname + '/index.html', 'utf8').match(/Store\.set\('adminHash',[^\n]*/g) || []).join(' ／ '));
+ok('🔒 هشِ ثابت به‌عنوان مقدار پیش‌فرض نمی‌نشیند',
+   !/adminHash:\s*'[0-9a-f]{64}'/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('🔒 تغییر رمز در تنظیمات همان سنجشِ دروازه را به کار می‌برد',
+   (fs.readFileSync(__dirname + '/index.html', 'utf8').match(/this\.passProblem\(/g) || []).length >= 2,
+   String((fs.readFileSync(__dirname + '/index.html', 'utf8').match(/this\.passProblem\(/g) || []).length));
+ok('رمز کوتاه رد می‌شود', Admin.passProblem('abc') !== '');
+ok('رمز ۸ کاراکتری پذیرفته می‌شود', Admin.passProblem('khoob-14') === '', Admin.passProblem('khoob-14'));
+ok('رمز حدس‌زدنی رد می‌شود', Admin.passProblem('noor2024') !== '');
+ok('رمز یک‌حرفی رد می‌شود', Admin.passProblem('aaaaaaaa') !== '');
+ok('رمز با فاصلهٔ اضافه پذیرفته می‌شود', Admin.passProblem('  ramze-man  ') === '');
+ok('🔒 رمز، رقم فارسی را به لاتین تبدیل نمی‌کند (رشتهٔ تحت‌اللفظی است)',
+   Admin.passProblem('۱۲۳۴۵۶۷۸') === '', Admin.passProblem('۱۲۳۴۵۶۷۸'));
 
 /* 2. ابزارها */
 section('ابزارها');
@@ -221,12 +309,36 @@ S.handle({ ns: SERVER_KEY, from: 'B', t: 'lb:put', name: 'سارا', score: 1500
 const lb = last(m => m.t === 'lb');
 ok('لیدربورد مرتب شده', lb.list[0].name === 'سارا' && lb.list[1].name === 'آرش', JSON.stringify(lb.list));
 
-/* اعلان مدیریتی */
+/* اعلان مدیریتی.
+   رمز مدیر حالا از خودِ Store خوانده می‌شود، نه از یک هشِ ثابت. پیش‌تر یک
+   کپیِ جداگانهٔ هشِ «noor2024» این‌جا بود که با تغییر رمز در تنظیمات عوض
+   نمی‌شد؛ یعنی رمزِ عمومیِ منتشرشده روی حالت محلی تا ابد کار می‌کرد. */
+const __admKeep = Store.get('adminHash');
+const __admGood = U.sha256('ramze-man-14');
+Store.set('adminHash', __admGood);
+
 clear();
 S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: 'wrong', title: 'x', desc: 'y' });
 ok('🔒 اعلان با هش غلط رد می‌شود', srvLog.length === 0);
-S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: U.sha256('noor2024'), title: 'تست', desc: 'متن' });
+
+clear();
+S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: U.sha256('noor2024'), title: 'x', desc: 'y' });
+ok('🔒 رمزِ عمومیِ قدیمی دیگر اعلان پخش نمی‌کند', srvLog.length === 0);
+
+clear();
+S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: '', title: 'x', desc: 'y' });
+ok('🔒 هشِ خالی دروازه را باز نمی‌کند', srvLog.length === 0);
+
+clear();
+S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: __admGood, title: 'تست', desc: 'متن' });
 ok('اعلان با هش درست پخش می‌شود', last(m => m.t === 'notif')?.to === '*');
+
+/* بی رمزِ ساخته‌شده، هیچ هشی — حتی خالی — دروازه را باز نمی‌کند */
+Store.set('adminHash', '');
+clear();
+S.handle({ ns: SERVER_KEY, from: 'A', t: 'admin:broadcast', hash: '', title: 'x', desc: 'y' });
+ok('🔒 بی رمز، دروازهٔ محلی بسته است', srvLog.length === 0);
+Store.set('adminHash', __admKeep);
 
 /* خروج */
 clear();

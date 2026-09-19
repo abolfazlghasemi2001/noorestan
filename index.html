@@ -1760,6 +1760,15 @@ const Timers = {
 };
 
 /* ─────────────────── 3. STORE (نسخه‌دار) ─────────────────── */
+
+/* هشِ رمزهای پیش‌فرضِ نسخه‌های پیشین.
+   این‌ها دیگر رمز نیستند: در مخزن عمومی منتشر شده بودند و هر کسی می‌دانستشان.
+   هنگام بارکردن داده پاک می‌شوند تا کاربر مجبور شود رمز خودش را بگذارد. */
+const LEGACY_ADMIN_HASHES = [
+  'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded',  // sha256('noor2024')
+  '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'   // هش شکستهٔ نسخهٔ ۱۲
+];
+
 const Store = {
   KEY: 'noorestan_v14',
   VERSION: 15,
@@ -1804,8 +1813,11 @@ const Store = {
       profile: { emoji: '🌟', color: 0, joined: 0, motto: '' },
       // فونت‌ها: نمایشی (نستعلیق) و متن قرآن (نسخ)
       fonts: { display: 'gulzar', quran: 'amiri' },
-      // SHA-256 واقعی «noor2024». توجه: هش نسخه ۱۲ اشتباه بود و ورود مدیر هرگز کار نمی‌کرد.
-      adminHash: 'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded',
+      /* رمز مدیر: عمداً هیچ رمز پیش‌فرضی نیست.
+         پیش‌تر هشِ «noor2024» همین‌جا ثابت بود — یعنی رمزِ مدیر داخل خودِ بسته
+         منتشر می‌شد و هر کسی که برنامه را باز می‌کرد، مدیر بود. حالا رشتهٔ خالی
+         یعنی «هنوز رمزی ساخته نشده» و اولین ورود، ساختن رمز را اجباری می‌کند. */
+      adminHash: '',
       isAdmin: false,
       /* زمانِ آخرین بستنِ بنر نصب — ۰ یعنی هرگز نبسته. عدد است نه بولین،
          چون می‌خواهیم پس از مدتی دوباره پیشنهاد شود (پایین را ببین). */
@@ -1843,10 +1855,10 @@ const Store = {
       this.data.dailyChallenge = { ...this.defaults().dailyChallenge, ...(this.data.dailyChallenge || {}) };
       this.data.missions = { ...this.defaults().missions, ...(this.data.missions || {}) };
       this.data.week = { ...this.defaults().week, ...(this.data.week || {}) };
-      // اگر از نسخه ۱۲ آمده، هش شکسته ادمین را با هش درست جایگزین کن
-      if(this.data.adminHash === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'){
-        this.data.adminHash = this.defaults().adminHash;
-      }
+      /* رمزهای پیش‌فرضِ قدیمی (از جمله «noor2024» و هش شکستهٔ نسخهٔ ۱۲) پاک
+         می‌شوند. قبلاً هش شکسته با هش «درست»ِ noor2024 جانشین می‌شد؛ یعنی
+         ارتقا خودش رمزِ عمومیِ شناخته‌شده را سرِ جایش می‌گذاشت. */
+      if(LEGACY_ADMIN_HASHES.includes(this.data.adminHash)) this.data.adminHash = '';
       this.data._v = this.VERSION;
       this.sanitize();
       this.save();
@@ -1914,6 +1926,16 @@ const Store = {
        اگر NaN بماند، مقایسه‌های زمانی پایین همیشه false می‌شوند و بنر
        بی‌دلیل هر بار برمی‌گردد. */
     d.installBar = Math.max(0, Math.floor(+d.installBar) || 0);
+    /* ── رمز مدیر ──
+       adminHash فقط ۶۴ رقم هگز باشد یا خالی. هر چیز دیگر — از جمله رشتهٔ خالی
+       که خودمان گذاشتیم — یعنی «رمزی ساخته نشده».
+       و بی رمز، نشستِ مدیر معنا ندارد: پرچم isAdmin پاک می‌شود تا کسی با
+       دست‌کاری localStorage وارد پنل نشود. (این هنوز محافظت واقعی نیست —
+       مجوزدهیِ سمت سرور در فاز معماری می‌آید — ولی دروازهٔ خالی را می‌بندد.) */
+    if(typeof d.adminHash !== 'string' || !/^[0-9a-f]{64}$/.test(d.adminHash)) d.adminHash = '';
+    if(LEGACY_ADMIN_HASHES.includes(d.adminHash)) d.adminHash = '';
+    if(!d.adminHash) d.isAdmin = false;
+    d.isAdmin = !!d.isAdmin;
     /* ── پیامک ──
        شماره و پیکربندی رشته‌اند و بریده می‌شوند؛ کدِ در جریان شکل دقیق
        دارد و هر چیز بی‌شکل دور انداخته می‌شود، وگرنه یک otp خراب می‌تواند
@@ -5946,7 +5968,11 @@ const MiniServer = {
   create(net){
     const S = {
       net, on: false, rooms: new Map(), clients: new Map(),
-      LOCAL_ADMIN_HASH: 'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded',
+      /* رمز مدیر این‌جا ثابت نیست.
+         پیش‌تر یک کپیِ جداگانهٔ هشِ «noor2024» همین‌جا بود:
+           - با تغییر رمز در تنظیمات هم عوض نمی‌شد، پس روی حالت محلی بی‌اثر بود
+           - رمزِ عمومیِ منتشرشده در مخزن، تا ابد کار می‌کرد
+         حالا از خودِ Store خوانده می‌شود؛ یک منبع حقیقت، نه دو تا. */
 
       roomOfMember(id){ for(const r of this.rooms.values()) if(r.members.some(m => m.id === id)) return r; return null; },
       roomList(){ return [...this.rooms.values()].map(r => ({ code: r.code, name: r.name, game: r.game,
@@ -6038,12 +6064,16 @@ const MiniServer = {
             this.net.srv({ t: 'lb', to: '*', list: Store.get('leaderboard') });
             break;
           }
-          case 'admin:broadcast':
-            if(msg.hash === this.LOCAL_ADMIN_HASH){
+          case 'admin:broadcast': {
+            /* دروازه باید صریحاً بسته باشد: بی رمزِ ساخته‌شده، مقایسهٔ سادهٔ
+               رشته‌ای هر هشِ خالی را قبول می‌کرد. */
+            const cur = Store.get('adminHash');
+            if(cur && msg.hash === cur){
               this.net.srv({ t: 'notif', to: '*', title: String(msg.title || '').slice(0, 60),
                              desc: String(msg.desc || '').slice(0, 300), icon: '📢' });
             }
             break;
+          }
           case 'bye': {
             this.clients.delete(msg.from);
             const r = this.roomOfMember(msg.from);
@@ -9906,35 +9936,95 @@ const Me = {
 /* ─────────────────── 18. ADMIN ─────────────────── */
 const Admin = {
   currentTab: 'users',
+
+  /* ── سنجش رمز ──
+     تنها سنجشی که واقعاً جلوی رمز بد را می‌گیرد، کمینهٔ طول است؛ بقیه فقط
+     بدیهی‌ترین حالت‌ها را می‌بندند. عمداً پیچیدگی اجباری (حرف بزرگ و نماد)
+     نگذاشتم: کاربر را به نوشتن رمزی می‌کشاند که یادش نمی‌ماند و روی کاغذ
+     می‌نویسد. */
+  MIN_PASS: 8,
+  WEAK_PASS: ['12345678', '123456789', '1234567890', 'password', 'passw0rd',
+              'qwertyui', 'noorestan', 'noor2024', 'admin123', '11111111', '00000000'],
+  passProblem(v){
+    /* عمداً U.unfa صدا زده نمی‌شود: رمز یک رشتهٔ تحت‌اللفظی است، نه عددی که
+       رقم فارسی‌اش باید لاتین شود. */
+    const p = String(v == null ? '' : v);
+    if(p.trim().length < this.MIN_PASS)
+      return `رمز حداقل ${U.fa(this.MIN_PASS)} کاراکتر باشد`;
+    if(this.WEAK_PASS.includes(p.trim().toLowerCase()))
+      return 'این رمز حدس‌زدنی است — یکی دیگر بگذار';
+    if(/^(.)\1+$/.test(p.trim()))
+      return 'رمز نباید همه‌اش یک حرف تکراری باشد';
+    return '';
+  },
+
+  /* ── دروازهٔ ورود ──
+     دو حالت دارد و تفاوتشان مهم است:
+       رمزی ساخته نشده ⇒ فرم «ساختن رمز». راه دیگری به پنل نیست، پس اولین
+                          ورود همیشه با ساختن رمز همراه است.
+       رمز ساخته شده  ⇒ فرم «ورود».
+     پیش‌تر رمز پیش‌فرض «noor2024» هم داخل بسته منتشر بود و هم همین صفحه
+     چاپش می‌کرد؛ یعنی هر کسی که برنامه را باز می‌کرد، مدیر بود. */
   render(){
     const d = Store.data;
     if(!d.isAdmin){
+      const first = !Store.get('adminHash');
       U.$('#adminGate').innerHTML = `
         <div class="card">
-          <b>🔐 ورود مدیران</b>
-          <p style="color:var(--mut);font-size:12px;margin-top:6px">رمز پیش‌فرض: noor2024 — از تنظیمات قابل تغییر است</p>
+          <b>${first ? '🔐 ساختن رمز مدیر' : '🔐 ورود مدیران'}</b>
+          <p style="color:var(--mut);font-size:12px;margin-top:6px">
+            ${first ? 'این دستگاه هنوز رمز مدیر ندارد. برای ورود، اول یک رمز بساز.'
+                    : 'رمز مدیر را وارد کن.'}</p>
           <div class="sep"></div>
-          <input class="inp" id="admPass" type="password" placeholder="رمز..." autocomplete="current-password">
-          <div id="admErr" class="hide" style="margin-top:10px;color:var(--red);font-size:12px">❌ رمز اشتباه</div>
-          <button class="btn w" id="admLogin" style="margin-top:12px">🔓 ورود</button>
+          <input class="inp" id="admPass" type="password" dir="ltr" spellcheck="false"
+                 placeholder="${first ? 'رمز تازه…' : 'رمز…'}"
+                 autocomplete="${first ? 'new-password' : 'current-password'}">
+          ${first ? `<input class="inp" id="admPass2" type="password" dir="ltr" spellcheck="false"
+                 placeholder="تکرار رمز تازه…" autocomplete="new-password" style="margin-top:8px">` : ''}
+          <div id="admErr" class="hide" style="margin-top:10px;color:var(--red);font-size:12px"></div>
+          <button class="btn w" id="admLogin" style="margin-top:12px">
+            ${first ? '🔐 ساختن رمز و ورود' : '🔓 ورود'}</button>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+            رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود و جایی فرستاده
+            نمی‌شود. اگر گمش کنی، با «ریست کامل» در همین پنل از نو ساخته می‌شود.</p>
         </div>`;
       U.$('#adminMain').classList.add('hide');
-      const tryIt = async () => {
-        const pass = U.$('#admPass').value;
-        const hash = await U.sha256Async(pass);
-        if(hash === Store.get('adminHash')){
-          Store.set('isAdmin', true);
-          await U.sleep(150);
-          this.render(); updateHomeStats();
-          UI.toast('👑 خوش آمدی مدیر', 'ok');
-        } else {
-          U.$('#admErr').classList.remove('hide');
-          Haptic.hit(60);
-          Timers.after(() => U.$('#admErr').classList.add('hide'), 2500);
-        }
+
+      const bad = msg => {
+        const el = U.$('#admErr');
+        if(!el) return;
+        el.textContent = '❌ ' + msg;
+        el.classList.remove('hide');
+        Haptic.hit(60);
+        Timers.after(() => el.classList.add('hide'), 3500);
       };
+
+      const tryIt = async () => {
+        const el = U.$('#admPass');
+        const pass = el ? el.value : '';
+        const again = U.$('#admPass2');
+
+        if(first){
+          const why = this.passProblem(pass);
+          if(why) return bad(why);
+          if(again && again.value !== pass) return bad('دو رمز یکی نیستند');
+          Store.set('adminHash', await U.sha256Async(pass));
+        }else if(await U.sha256Async(pass) !== Store.get('adminHash')){
+          return bad('رمز اشتباه');
+        }
+
+        Store.set('isAdmin', true);
+        if(el) el.value = '';
+        if(again) again.value = '';
+        await U.sleep(150);
+        this.render(); updateHomeStats();
+        UI.toast(first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر', 'ok');
+      };
+      const enter = e => { if(e.key === 'Enter') tryIt(); };
       U.$('#admLogin').onclick = tryIt;
-      U.$('#admPass').onkeydown = e => { if(e.key === 'Enter') tryIt(); };
+      U.$('#admPass').onkeydown = enter;
+      const a2 = U.$('#admPass2');
+      if(a2) a2.onkeydown = enter;
       return;
     }
     U.$('#adminGate').innerHTML = '';
@@ -10084,12 +10174,17 @@ const Admin = {
             <b style="font-size:13px">🔑 امنیت</b>
             <div class="sep"></div>
             <label class="lbl">رمز جدید مدیر</label>
-            <input class="inp" id="opPass" type="password" placeholder="رمز جدید...">
+            <input class="inp" id="opPass" type="password" dir="ltr" spellcheck="false"
+                   placeholder="رمز جدید…" autocomplete="new-password">
+            <input class="inp" id="opPass2" type="password" dir="ltr" spellcheck="false"
+                   placeholder="تکرار رمز جدید…" autocomplete="new-password" style="margin-top:8px">
             <div class="row" style="margin-top:10px">
               <button class="btn w" id="opPassSave">💾 تغییر رمز</button>
             </div>
             <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
-              رمز به‌صورت SHA-256 ذخیره می‌شود. برای تغییر رمز سمت سرور، متغیر محیطی NOOR_ADMIN_PASS را ست کن.</p>
+              رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود. این رمز پنلِ
+              همین دستگاه را باز می‌کند؛ رمزِ سمت سرور جداست و با متغیر محیطی
+              <span dir="ltr">NOOR_ADMIN_PASS</span> تنظیم می‌شود.</p>
           </div>
           <button class="btn dg w" id="opLogout" style="margin-top:12px">🚪 خروج از پنل</button>`;
         U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
@@ -10102,11 +10197,16 @@ const Admin = {
         };
         U.$('#opReset').onclick = () => UI.confirm('ریست کامل همه داده‌ها؟', () => { Store.reset(); location.reload(); });
         U.$('#opPassSave').onclick = async () => {
-          const v = U.$('#opPass').value.trim();
-          if(v.length < 4){ UI.toast('رمز حداقل ۴ کاراکتر', 'err'); return; }
-          const h = await U.sha256Async(v);
-          Store.set('adminHash', h);
-          U.$('#opPass').value = '';
+          const a = U.$('#opPass'), b = U.$('#opPass2');
+          const v = a ? a.value : '';
+          /* همان سنجشِ دروازهٔ ورود — یک‌جا نوشته شده تا دو جای مختلف دو
+             قاعدهٔ متفاوت نداشته باشند. */
+          const why = this.passProblem(v);
+          if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
+          if(b && b.value !== v){ UI.toast('⚠️ دو رمز یکی نیستند', 'err'); return; }
+          Store.set('adminHash', await U.sha256Async(v));
+          if(a) a.value = '';
+          if(b) b.value = '';
           UI.toast('🔑 رمز تغییر کرد', 'ok');
         };
         U.$('#opLogout').onclick = () => { Store.set('isAdmin', false); this.render(); updateHomeStats(); };
@@ -11966,7 +12066,9 @@ function init(){
 
   console.log('%c🌟 نورستان ۱۴', 'font-size:16px;font-weight:bold;color:#f5c451');
   console.log('📡 شبکه:', Net.status, '| حالت:', Net.mode);
-  console.log('👑 ادمین پیش‌فرض: noor2024  •  رمز سرور: NOOR_ADMIN_PASS');
+  /* عمداً هیچ رمزی چاپ نمی‌شود. رمز ادمین را کاربر در پنل خودش می‌سازد و
+     رمزِ سرور از متغیر محیطی NOOR_ADMIN_PASS می‌آید. */
+  console.log('👑 رمز ادمین: در پنل مدیریت ساخته می‌شود • رمز سرور: NOOR_ADMIN_PASS');
   console.log('💡 برای چندنفره واقعی: node server.js');
 }
 

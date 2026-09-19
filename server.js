@@ -11,6 +11,12 @@
 
    اجرا:   node server.js
    متغیرها: PORT (پیش‌فرض 8787)  HOST  NOOR_ADMIN_PASS  NOOR_DATA  NOOR_ORIGIN
+            NOOR_SMS_KEY  NOOR_SMS_DEVICE  NOOR_SMS_ENDPOINT  NOOR_SMS_ON
+            NOOR_SMS_TIMEOUT (میلی‌ثانیه، پیش‌فرض ۳۰۰۰۰)
+
+   ⚠️ NOOR_ADMIN_PASS هیچ مقدار جانشینی ندارد. اگر ستش نکنی، پنل مدیریت روی
+      سرور کار نمی‌کند. این عمدی است: پیش‌تر مقدار جانشین «noor2024» بود و
+      رمزِ مدیر داخل مخزن عمومی منتشر می‌شد.
    ═══════════════════════════════════════════════════════════════════ */
 
 const http = require('http');
@@ -22,8 +28,14 @@ const os = require('os');
 /* ─────────────── تنظیمات ─────────────── */
 const PORT        = +(process.env.PORT || 8787);
 const HOST        = process.env.HOST || '0.0.0.0';
-const ADMIN_PASS  = process.env.NOOR_ADMIN_PASS || 'noor2024';
-const ADMIN_HASH  = sha256Hex(ADMIN_PASS);
+/* ── رمز مدیر ──
+   فقط از متغیر محیطی. پیش‌تر مقدار جانشین «noor2024» بود — یعنی رمزِ مدیر در
+   مخزن عمومی منتشر می‌شد و هر کسی که سورس را می‌خواند، مدیرِ سرور بود.
+   حالا اگر NOOR_ADMIN_PASS ست نشده باشد، احراز هویت مدیر روی سرور کار نمی‌کند
+   (پیام‌های مدیریتی رد می‌شوند) و سرور روشن می‌ماند. عمداً «رمز تازه چاپ کن»
+   هم نمی‌کنیم: رمزی که در لاگ بنشیند، رمز نیست. */
+const ADMIN_PASS  = process.env.NOOR_ADMIN_PASS || '';
+const ADMIN_HASH  = ADMIN_PASS ? sha256Hex(ADMIN_PASS) : '';
 const DATA_FILE   = process.env.NOOR_DATA || path.join(__dirname, 'noorestan-data.json');
 const ALLOW_ORIGIN= process.env.NOOR_ORIGIN || '*';
 const NS          = 'noorestan';
@@ -75,7 +87,11 @@ function loadData(){
       const d = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
       if(Array.isArray(d.leaderboard)) leaderboard = d.leaderboard;
       if(d.friends && typeof d.friends === 'object') friends = d.friends;
-      if(d.adminHash) adminHashCurrent = d.adminHash;
+      /* رمز مدیر از فایل داده خوانده نمی‌شود.
+         پیش‌تر اگر این کلید در فایل بود، همان رمزِ مدیر می‌شد — یعنی یک منبع
+         دوم و پنهان برای رمز، که با «فقط از متغیر محیطی» در تضاد است. حالا
+         تنها منبع، NOOR_ADMIN_PASS است و فایل داده هیچ نقشی در ورود ندارد. */
+      if(d.adminHash) log('ℹ️ هشِ رمزِ داخل فایل داده نادیده گرفته شد — رمز مدیر فقط از NOOR_ADMIN_PASS می‌آید');
       if(d.stats) stats = { ...stats, ...d.stats, startedAt: stats.startedAt };
       log(`📂 بارگذاری شد: ${leaderboard.length} رکورد، ${Object.keys(friends).length} کاربر با دوست`);
     }
@@ -84,7 +100,7 @@ function loadData(){
 
 function snapshot(){
   return {
-    leaderboard, friends, adminHash: adminHashCurrent,
+    leaderboard, friends,
     stats: { totalConnections: stats.totalConnections, totalMessages: stats.totalMessages,
              totalGames: stats.totalGames, peakOnline: stats.peakOnline }
   };
@@ -369,9 +385,12 @@ function handleMessage(c, msg){
   c.stamps.push(t);
   c.lastSeen = t;
 
-  /* احراز هویت ادمین */
+  /* احراز هویت ادمین.
+     دروازه باید صریحاً بسته باشد: اگر adminHashCurrent خالی باشد (یعنی
+     NOOR_ADMIN_PASS ست نشده)، مقایسهٔ سادهٔ رشته‌ای هر هشِ خالیِ کلاینت را
+     قبول می‌کرد و پنل مدیر برای همه باز می‌شد. */
   if(msg.hash && typeof msg.hash === 'string'){
-    c.isAdmin = (msg.hash === adminHashCurrent);
+    c.isAdmin = !!adminHashCurrent && msg.hash === adminHashCurrent;
   }
 
   /* گیرندهٔ مستقیم — برای پیام‌های نقطه‌به‌نقطه (دوستی و مذاکرهٔ صوتی) */
@@ -1083,7 +1102,17 @@ server.listen(PORT, HOST, () => {
   ips.forEach(ip => console.log(`  شبکه محلی  : http://${ip}:${PORT}`));
   ips.forEach(ip => console.log(`  آدرس WS    : ws://${ip}:${PORT}`));
   console.log('  ─────────────────────────────────────────');
-  console.log(`  رمز مدیر سرور : ${ADMIN_PASS}  (NOOR_ADMIN_PASS)`);
+  /* عمداً خودِ رمز چاپ نمی‌شود. لاگ سرور می‌تواند ذخیره، فرستاده یا در
+     گزارش خطا دیده شود؛ رمزی که در لاگ بنشیند، رمز نیست. */
+  console.log(`  رمز مدیر سرور : ${adminHashCurrent
+    ? 'تنظیم شده (NOOR_ADMIN_PASS)'
+    : '⚠️ تنظیم نشده — پنل مدیریت روی سرور کار نمی‌کند (NOOR_ADMIN_PASS را ست کن)'}`);
+  /* هشدار رمز ضعیف. رد نمی‌کنیم — سرورِ در حال کار را نباید بی‌خبر بخوابانیم —
+     ولی بی‌صدا هم رد نمی‌شویم. */
+  if(ADMIN_PASS && ADMIN_PASS.trim().length < 8)
+    console.log(`  ⚠️ هشدار      : NOOR_ADMIN_PASS کوتاه است (${ADMIN_PASS.trim().length} کاراکتر) — حداقل ۸ بگذار`);
+  if(ADMIN_PASS && ['noor2024', '12345678', 'password', 'admin123', 'noorestan'].includes(ADMIN_PASS.trim().toLowerCase()))
+    console.log('  ⚠️ هشدار      : NOOR_ADMIN_PASS یک رمز حدس‌زدنی است — عوضش کن');
   console.log(`  پیامک (OTP)   : ${smsConfigured()
     ? 'آماده — دستگاه …' + SMS_DEVICE.slice(-4)
     : 'تنظیم نشده — NOOR_SMS_KEY و NOOR_SMS_DEVICE را بگذار'}`);
