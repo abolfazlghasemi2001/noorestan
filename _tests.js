@@ -2877,6 +2877,54 @@ section('کنتراست رنگ‌ها — همهٔ شش تم، روی هر سه 
      Object.values(themes).every(t => t['--ink'] && t['--fill']));
 }
 
+section('هدف لمسی — هر کلید جای انگشت دارد (۴۴px)');
+{
+  /* ۴۴ پیکسل کمینهٔ شناخته‌شدهٔ هدف لمسی است (راهنمای اپل، و همان چیزی
+     که اندروید با ۴۸dp به آن نزدیک است). پیش از این دکمه‌های کوچک بودند:
+     ✕ پیام ۳۰px، کلید پخش ۲۸px، نوار پایین ۳۶px. جاهایی که ردیف چنان
+     تنگ است که خودِ دکمه نمی‌تواند رشد کند، یک لایهٔ نامرئی ::after روی
+     دکمه کشیده شده؛ پس سه راه پذیرفته است: اندازهٔ خودِ عنصر، min-height،
+     یا ::after. */
+  const raw = fs.readFileSync(__dirname + '/index.html', 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  /* توضیح‌های CSS باید بروند؛ وگرنه متنِ توضیح به شناسهٔ قاعده می‌چسبد
+     و قاعده پیدا نمی‌شود (همان اشتباهی که یک بار در همین پرونده رخ داد). */
+  const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(m => ({ sel: m[1].trim(), body: m[2] }));
+
+  const bodies = s => rules
+    .filter(r => r.sel.split(',').map(x => x.trim()).includes(s))
+    .map(r => r.body);
+  const px = (body, prop) => {
+    const m = body.match(new RegExp(prop + '\\s*:\\s*([0-9.]+)px'));
+    return m ? parseFloat(m[1]) : null;
+  };
+  const MIN = 44;
+  const why = sel => {
+    const bs = bodies(sel);
+    if(bs.some(b => (px(b, 'width') || 0) >= MIN && (px(b, 'height') || 0) >= MIN)) return 'اندازه';
+    if(bs.some(b => (px(b, 'min-height') || 0) >= MIN)) return 'min-height';
+    const a = bodies(sel + '::after');
+    if(a.some(b => (px(b, 'min-height') || 0) >= MIN && /position\s*:\s*absolute/.test(b)))
+      return '::after';
+    return '';
+  };
+
+  const CTRL = ['.btn', '.btn.sm', '.iconbtn', '.back', '.qsm', '#miniQ button', '.tab',
+    '.nav button', '.rec .prev', '.ib .ib-x', '.ib .ib-go', '.emoji-bar button',
+    '.wbx', '.bm-row .bx', '.dua-word', '.sp-skip'];
+  for(const s of CTRL){
+    const w = why(s);
+    ok(`«${s}» جای انگشت دارد`, !!w, w || 'نه اندازه، نه min-height، نه ::after');
+  }
+
+  const small = [...css.matchAll(/font-size\s*:\s*([0-9.]+)px/g)]
+    .map(m => parseFloat(m[1])).filter(v => v < 11);
+  ok('هیچ متنی در برنامه زیر ۱۱px نیست', small.length === 0,
+     [...new Set(small)].join(', '));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

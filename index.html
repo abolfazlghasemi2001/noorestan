@@ -125,7 +125,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .brand small{display:block;font-weight:500;font-size:11px;color:var(--mut)}
 .top .sp{flex:1}
 .iconbtn{
-  width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+  width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);
   display:grid;place-items:center;cursor:pointer;position:relative;transition:.18s
 }
 .iconbtn:hover{background:var(--card2);transform:translateY(-2px)}
@@ -206,9 +206,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tile .ti{font-size:30px;margin-bottom:10px;display:block}
 .tile b{display:block;font-size:14px;margin-bottom:5px}
 .tile small{color:var(--mut);font-size:11.5px;line-height:1.7}
-.tile .rec{display:block;margin-top:8px;font-size:10.5px;color:var(--gold);opacity:.9}
+.tile .rec{display:block;margin-top:8px;font-size:11px;color:var(--gold);opacity:.9}
 .badge{
-  position:absolute;top:10px;left:10px;font-size:9.5px;padding:4px 8px;border-radius:999px;
+  position:absolute;top:10px;left:10px;font-size:11px;padding:4px 8px;border-radius:999px;
   background:var(--grad);color:var(--ink);font-weight:700
 }
 .badge.g{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
@@ -221,7 +221,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .btn{
   border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer;
   background:var(--grad);color:var(--ink);transition:.18s;display:inline-flex;
-  align-items:center;justify-content:center;gap:8px
+  align-items:center;justify-content:center;gap:8px;min-height:44px
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.28)}
 .btn:active{transform:none}
@@ -230,7 +230,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .btn.dg{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
 .btn.ok{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
 .btn.w{width:100%}
-.btn.sm{padding:9px 13px;font-size:12px;border-radius:11px}
+.btn.sm{padding:9px 13px;font-size:12px;border-radius:11px;min-height:44px}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .inp{
   width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
@@ -249,8 +249,20 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .phead{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .phead h2{font-size:18px}
 .phead p{font-size:12px;color:var(--mut);margin-top:2px}
-.back{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);
+.back{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
   background:var(--card);cursor:pointer;font-size:18px;flex:none}
+
+/* هدف لمسی — کمینهٔ ۴۴ پیکسل، ولی بی آنکه چیدمان تنگِ ردیف‌ها به‌هم بخورد.
+   ردیف‌های فشرده (مثل جفت‌های «✕» و «پخش») جای رشدِ خودِ دکمه را ندارند،
+   پس خودِ دکمه کوچک می‌ماند و یک لایهٔ نامرئی ::after روی آن کشیده می‌شود
+   که انگشت را می‌گیرد. پهنا دست‌نخورده می‌ماند تا همسایهٔ چسبیده کلیک
+   دزدیده‌نشود؛ فقط ارتفاع تا ۴۴ بالا می‌رود. */
+.rec .prev,.ib .ib-x,.ib .ib-go,.emoji-bar button,.wbx,.bm-row .bx,.dua-word{position:relative}
+.rec .prev::after,.ib .ib-x::after,.ib .ib-go::after,.emoji-bar button::after,
+.wbx::after,.bm-row .bx::after,.dua-word::after{
+  content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  min-height:44px;pointer-events:auto
+}
 
 /* Game shell */
 .gbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -347,13 +359,14 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background:var(--card2);align-self:flex-start;word-break:break-word}
 .msg.me{background:linear-gradient(135deg,var(--card2),var(--card));border:1px solid var(--line);align-self:flex-end}
 .msg.sys{align-self:center;background:transparent;color:var(--mut);font-size:11px;text-align:center;max-width:100%}
-.msg .who{font-size:10px;color:var(--gold);display:block;margin-bottom:3px}
+.msg .who{font-size:11px;color:var(--gold);display:block;margin-bottom:3px}
 .code{font-family:ui-monospace,monospace;letter-spacing:3px;font-size:22px;color:var(--gold);font-weight:800}
 
 /* Tabs */
 .tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px}
 .tab{white-space:nowrap;padding:9px 14px;border-radius:999px;background:var(--card);
-  border:1px solid var(--line);cursor:pointer;font-size:12.5px;transition:.16s}
+  border:1px solid var(--line);cursor:pointer;font-size:12.5px;transition:.16s;
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .tab.on{background:var(--grad);color:var(--ink);border-color:transparent;font-weight:700}
 
 /* Bottom nav */
@@ -362,16 +375,20 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background:rgba(8,13,24,.9);backdrop-filter:blur(16px);border-top:1px solid var(--line);
   display:flex;justify-content:space-around;padding:9px 6px calc(9px + env(safe-area-inset-bottom))
 }
+/* نوار پایین پرمصرف‌ترین کلیدهای اپ است. برچسب‌هایش ۹٫۵px بود (و در
+   صفحه‌های باریک هم همان) — روی گوشی خواندنش زحمت داشت. حالا ۱۱٫۵px
+   است، با ۴۴px ارتفاع برای لمس. */
 .nav button{
-  background:0;border:0;cursor:pointer;color:var(--mut);font-size:10.5px;
-  display:grid;justify-items:center;gap:3px;padding:5px 10px;border-radius:12px;transition:.16s
+  background:0;border:0;cursor:pointer;color:var(--mut);font-size:11.5px;
+  display:grid;justify-items:center;gap:3px;padding:5px 10px;border-radius:12px;
+  min-height:44px;transition:.16s
 }
 .nav button i{font-size:19px;font-style:normal}
 /* پنج دکمه در نوار پایین — روی گوشی‌های باریک جا شود.
    «مدیریت» عمداً این‌جا نیست؛ از «حساب ← تنظیمات» باز می‌شود. */
 @media(max-width:430px){
   .nav{padding:8px 2px calc(8px + env(safe-area-inset-bottom))}
-  .nav button{padding:5px 5px;font-size:9.5px;gap:2px}
+  .nav button{padding:5px 4px;font-size:11px;gap:2px}
   .nav button i{font-size:17px}
   #miniQ{inset:auto 8px 74px 8px;padding:8px 10px;gap:7px}
 }
@@ -465,7 +482,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sp-note b{color:var(--gold)}
 .sp-skip{position:absolute;bottom:22px;z-index:3;background:var(--card2);
   border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:8px 18px;
-  font-size:12.5px;cursor:pointer;backdrop-filter:blur(6px)}
+  font-size:12.5px;cursor:pointer;backdrop-filter:blur(6px);
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
 .sp-skip:hover{background:var(--card)}
 
 /* ═══════════════ 19.7 تلاوت قرآن (Quran screen) ═══════════════ */
@@ -487,7 +505,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background:var(--grad);color:var(--ink);display:grid;place-items:center;
   box-shadow:0 8px 22px rgba(0,0,0,.35);transition:transform .15s}
 .qbig:active{transform:scale(.93)}
-.qsm{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+.qsm{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);
   color:var(--txt);cursor:pointer;font-size:16px;display:grid;place-items:center}
 .qsm.on{border-color:var(--gold);color:var(--gold)}
 .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
@@ -496,8 +514,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .qcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .qcard.on{border-color:var(--gold);background:var(--card2);box-shadow:0 0 0 1px var(--gold) inset}
 .qcard b{display:block;font-size:14px;margin-bottom:3px}
-.qcard small{color:var(--mut);font-size:10.5px}
-.qcard .qnum{font-size:10px;color:var(--mut);margin-top:3px}
+.qcard small{color:var(--mut);font-size:11px}
+.qcard .qnum{font-size:11px;color:var(--mut);margin-top:3px}
 .ayahgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px;
   margin-top:10px;max-height:210px;overflow:auto;padding:2px}
 .ayahgrid button{aspect-ratio:1;border-radius:11px;border:1px solid var(--line);background:var(--card);
@@ -511,8 +529,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 #miniQ.on{display:flex;animation:in .25s both}
 #miniQ .m-t{flex:1;min-width:0}
 #miniQ .m-t b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#miniQ .m-t small{color:var(--mut);font-size:10.5px}
-#miniQ button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+#miniQ .m-t small{color:var(--mut);font-size:11px}
+#miniQ button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);
   background:var(--card2);color:var(--txt);cursor:pointer;font-size:15px;flex:none}
 .spin{display:inline-block;animation:spin 1s linear infinite}
 input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:26px;cursor:pointer}
@@ -610,7 +628,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .fpick:hover{border-color:var(--gold);transform:translateY(-1px)}
 .fpick.on{border-color:var(--gold);background:var(--card2);box-shadow:0 0 0 1px var(--gold2) inset}
 .fpick .fname{flex:1;font-size:13px;min-width:0}
-.fpick .fname small{display:block;color:var(--mut);font-size:10.5px;margin-top:2px}
+.fpick .fname small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
 .fpick .fdemo{font-size:25px;color:var(--gold);white-space:nowrap;line-height:1.5;
   padding:.04em .1em .14em;max-width:46%}
 .fpick .fdemo.nast{font-size:28px;line-height:1.85;padding:.08em .14em .3em}
@@ -630,12 +648,12 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .nahj-ar{font-family:var(--f-quran);font-size:19px;line-height:2.05;color:var(--gold);
   padding-bottom:.16em;direction:rtl}
 .nahj-fa{font-size:13px;line-height:1.95;margin-top:7px}
-.nahj-src{font-size:10.5px;color:var(--mut);margin-top:7px}
+.nahj-src{font-size:11px;color:var(--mut);margin-top:7px}
 .ornsvg{display:block;width:100%;height:22px;opacity:.5;margin:2px 0 10px}
 
 /* ── منبع و توضیح سوال ── */
 .qbox .qsrc{font-size:11px;color:var(--gold);opacity:.9;margin-bottom:9px;letter-spacing:.3px}
-.qbox .qhint{display:inline-block;margin-top:11px;font-size:10.5px;padding:3px 9px;border-radius:20px;
+.qbox .qhint{display:inline-block;margin-top:11px;font-size:11px;padding:3px 9px;border-radius:20px;
   border:1px solid var(--line);color:var(--mut)}
 .qbox .qhint.d1{border-color:rgba(90,200,140,.5);color:#7fd6a4}
 .qbox .qhint.d2{border-color:rgba(245,196,81,.5);color:var(--gold)}
@@ -841,7 +859,7 @@ body.focus #focusExit{ animation:fadeIn .3s both }
 .coll.got{ opacity:1; filter:none; border-color:var(--gold);
   box-shadow:0 0 0 1px var(--gold2) inset }
 .coll .ci{ font-size:26px; display:block }
-.coll .cn{ font-size:10.5px; margin-top:6px; line-height:1.6 }
+.coll .cn{ font-size:11px; margin-top:6px; line-height:1.6 }
 .tree-wrap{ position:relative; padding:6px 0 }
 .tree-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px }
 .tree-row .tl{ width:112px; font-size:11.5px; color:var(--mut); text-align:end; flex:none }
@@ -945,7 +963,7 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
   border:1.5px solid var(--gold2); display:grid; place-items:center; font-size:17px;
   background:var(--card) }
 .rec .rn{ font-size:11.5px; font-weight:700; line-height:1.6 }
-.rec .rc{ font-size:10px; color:var(--mut) }
+.rec .rc{ font-size:11px; color:var(--mut) }
 .rec .prev{ width:28px; height:28px; border-radius:50%; flex:none; display:grid; place-items:center;
   background:var(--card); border:1px solid var(--line); font-size:11px; cursor:pointer }
 .rec .prev.on{ background:var(--grad); color:var(--ink); border-color:transparent }
@@ -955,7 +973,7 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
   background:var(--card2); border:1px solid var(--line); margin-bottom:7px }
 .bm-row .bi{ font-size:17px }
 .bm-row .bb{ flex:1; min-width:0; font-size:12px }
-.bm-row .bd{ font-size:10px; color:var(--mut); margin-top:3px }
+.bm-row .bd{ font-size:11px; color:var(--mut); margin-top:3px }
 .bm-row .bx{ font-size:15px; color:var(--mut); cursor:pointer; padding:4px 7px }
 .bm-row .bx:hover{ color:var(--red) }
 .resume-bar{ display:flex; gap:9px; align-items:center; padding:9px 12px; border-radius:14px;
@@ -973,7 +991,7 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
 .night-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px }
 .night-row select,.night-row input[type=number]{ background:var(--card2); color:var(--txt);
   border:1px solid var(--line); border-radius:11px; padding:6px 9px; font:inherit }
-.fade-note{ font-size:10.5px; color:var(--mut); margin-top:6px; line-height:1.8 }
+.fade-note{ font-size:11px; color:var(--mut); margin-top:6px; line-height:1.8 }
 
 /* ── کارت اشتراک‌گذاری آیه ── */
 #shareWrap{ display:grid; place-items:center; gap:11px }
@@ -992,13 +1010,13 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
 .fr-row .fav{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
   background:var(--card); border:1px solid var(--line); font-size:15px; flex:none }
 .fr-row .fb{ flex:1; min-width:0; font-size:12px }
-.fr-row .fd{ font-size:10px; color:var(--mut) }
+.fr-row .fd{ font-size:11px; color:var(--mut) }
 .invite-box{ display:flex; gap:7px; align-items:center; margin-top:9px }
 .invite-box input{ flex:1; background:var(--card2); color:var(--txt); border:1px solid var(--line);
   border-radius:12px; padding:9px 11px; font:11px/1.6 ui-monospace,monospace; direction:ltr }
 
 /* ── تماشاچی و واکنش زنده ── */
-.spec-badge{ font-size:10px; padding:3px 9px; border-radius:9px; background:var(--card2);
+.spec-badge{ font-size:11px; padding:3px 9px; border-radius:9px; background:var(--card2);
   border:1px solid var(--line); color:var(--mut) }
 .emoji-bar{ display:flex; gap:6px; flex-wrap:wrap; margin-top:9px }
 .emoji-bar button{ font-size:19px; padding:6px 9px; border-radius:13px; background:var(--card2);
@@ -1080,7 +1098,7 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
 .row{ display:flex; gap:8px; align-items:center }
 .row.wrap{ flex-wrap:wrap }
 .grow{ flex:1; min-width:0 }
-.tiny{ font-size:10.5px; color:var(--mut) }
+.tiny{ font-size:11px; color:var(--mut) }
 .ctr{ text-align:center }
 }
 
@@ -1142,7 +1160,7 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
 .ring .rv{ position:absolute; inset:0; display:grid; place-items:center;
   text-align:center; line-height:1.25 }
 .ring .rv b{ font-size:19px; display:block }
-.ring .rv span{ font-size:9.5px; color:var(--mut) }
+.ring .rv span{ font-size:11px; color:var(--mut) }
 .xpbar{ height:7px; border-radius:5px; background:var(--line); overflow:hidden; margin-top:8px }
 .xpbar i{ display:block; height:100%; background:var(--grad); border-radius:5px;
   transition:width .75s cubic-bezier(.2,1,.3,1) }
@@ -1171,7 +1189,7 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
 .shop-item .si{ font-size:24px; flex:none; width:38px; text-align:center }
 .shop-item .sb{ flex:1; min-width:0 }
 .shop-item .sb b{ font-size:13px; display:block }
-.shop-item .sb small{ font-size:10.5px; color:var(--mut); line-height:1.7 }
+.shop-item .sb small{ font-size:11px; color:var(--mut); line-height:1.7 }
 .shop-item .sp{ flex:none }
 .shop-item .btn.sm{ padding:7px 12px; font-size:11.5px }
 
@@ -1182,7 +1200,7 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
   animation:asIn .34s cubic-bezier(.2,1.3,.4,1) both }
 .streak-warn .swe{ font-size:22px; flex:none }
 .streak-warn b{ font-size:12.5px; display:block }
-.streak-warn small{ font-size:10.5px; color:var(--mut) }
+.streak-warn small{ font-size:11px; color:var(--mut) }
 /* ─────────── نسخهٔ ۱۶: گام‌های راهنمای نصب ───────────
    بیرون از @layer نوشته می‌شود تا بر همهٔ لایه‌ها مقدم باشد (همان قاعدهٔ
    بلوک‌های نسخهٔ ۱۶). هر گام یک شمارهٔ طلایی و یک متن دارد؛ چیدمان با
@@ -9877,7 +9895,7 @@ const Me = {
               return `<div class="stat" style="opacity:${ok ? 1 : .38};padding:12px 6px" title="${U.esc(b.desc)}">
                 <b style="font-size:26px">${b.icon}</b>
                 <span style="font-size:11px">${U.esc(b.name)}</span>
-                <span style="font-size:9.5px;opacity:.8;margin-top:3px;display:block">${U.esc(b.desc)}</span>
+                <span style="font-size:11px;opacity:.8;margin-top:3px;display:block">${U.esc(b.desc)}</span>
               </div>`;
             }).join('')}
           </div>
