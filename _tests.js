@@ -3035,6 +3035,38 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
   }
 }
 
+section('حلقهٔ فوکوس و حاشیهٔ ایمنِ گوشی');
+{
+  /* دو چیز که فقط روی دستگاهِ واقعی خودشان را نشان می‌دهند:
+     ۱) حلقهٔ فوکوس اگر border-radius بدهد، شکلِ عنصر را عوض می‌کند —
+        دکمهٔ گردِ پخش با تب‌گردی مربعی می‌شد.
+     ۲) هرچه به پایینِ صفحه چسبیده، باید env(safe-area-inset-bottom)
+        را حساب کند؛ وگرنه روی آیفون زیر نوارِ خانه می‌رود. */
+  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(m => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }));
+  const forSel = s => rules.filter(r => r.sel.split(',').map(x => x.trim()).includes(s));
+
+  const fv = rules.filter(r => r.sel.split(',').map(x => x.trim()).includes(':focus-visible'));
+  ok('حلقهٔ فوکوس سراسری تعریف شده', fv.length > 0);
+  ok('حلقهٔ فوکوس شکلِ عنصر را عوض نمی‌کند', !fv.some(r => /border-radius/.test(r.body)),
+     fv.map(r => r.body).join(' | ').slice(0, 80));
+  ok('حلقهٔ فوکوس رنگِ تم دارد', fv.some(r => /outline\s*:\s*3px solid var\(--gold\)/.test(r.body)));
+
+  for(const sel of ['#miniQ', '#dbg', '#dbgBtn']){
+    const rs = forSel(sel).filter(r => /position\s*:\s*fixed/.test(r.body));
+    ok(`«${sel}» به پایینِ صفحه چسبیده است`, rs.length > 0);
+    ok(`«${sel}» حاشیهٔ ایمنِ پایین را حساب می‌کند`,
+       rs.length > 0 && rs.every(r => /safe-area-inset-bottom/.test(r.body)),
+       rs.map(r => r.body.replace(/\s+/g, ' ').slice(0, 90)).join(' ／ '));
+  }
+  ok('بدنهٔ برنامه هم برای نوارِ خانهٔ آیفون جا باز می‌کند',
+     /padding:0 14px calc\(120px \+ env\(safe-area-inset-bottom/.test(css));
+  ok('نوار پایین حاشیهٔ ایمن را در padding خودش دارد',
+     /padding:9px 6px calc\(9px \+ env\(safe-area-inset-bottom/.test(css));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
