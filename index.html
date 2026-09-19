@@ -42,6 +42,12 @@
   --r:18px; --r2:12px;
   --sh:0 10px 30px rgba(0,0,0,.45);
   --grad:linear-gradient(135deg,#f5c451,#e0a325);
+  /* --fill: پرِ نوارهای پیشرفت. جدا از --grad است چون شرطِ خوانایی‌اش
+     فرق دارد: --grad روی سطحِ خودش متن می‌گیرد (مرکبِ تیره)، ولی --fill
+     باید از «زمینهٔ خودش» جدا دیده شود (حداقل ۳ به ۱، قاعدهٔ ۱٫۴٫۱۱).
+     در تم تاریک هر دو یکی‌اند؛ در تم روشن، پرِ طلاییِ روشن روی زمینهٔ
+     روشن گم می‌شد، پس آنجا طلاییِ تیره پر می‌کند. */
+  --fill:linear-gradient(135deg,#f5c451,#e0a325);
   /* ── فونت‌ها: همه با متغیر، تا از تنظیمات زنده عوض شوند ── */
   --f-ui: Vazirmatn, system-ui, "Segoe UI", Tahoma, sans-serif;
   --f-disp: Vazirmatn, system-ui, sans-serif;   /* تیتر و نام نورستان */
@@ -54,14 +60,14 @@
 [data-theme="ocean"]{
   --bg:#03101a; --bg2:#062230; --card:#0a2c3f; --card2:#0e374d;
   --line:#1a4d68; --txt:#e2f6ff; --mut:#88b6cc;
-  --gold:#4ad8ff; --gold2:#0fa5d6; --grn:#2fd3c0; --red:#ff6b8a;
+  --gold:#4ad8ff; --gold2:#0fa5d6; --grn:#2fd3c0; --red:#ff6b8a; --prp:#af87ff;
   --glow1:#0a3550; --glow2:#0b3b3a; --ink:#04202b;
   --grad:linear-gradient(135deg,#4ad8ff,#0fa5d6);
 }
 [data-theme="forest"]{
   --bg:#05100b; --bg2:#0a1f14; --card:#0e2a1c; --card2:#123726;
   --line:#1d4c34; --txt:#e6fff1; --mut:#89bfa3;
-  --gold:#6fe08a; --gold2:#33b35c; --grn:#2fd39b; --red:#ff7a6b;
+  --gold:#6fe08a; --gold2:#33b35c; --grn:#2fd39b; --red:#ff7a6b; --prp:#ab82ff;
   --glow1:#0d3324; --glow2:#123b26; --ink:#04200f;
   --grad:linear-gradient(135deg,#6fe08a,#33b35c);
 }
@@ -149,7 +155,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{
   font-size:12px;padding:7px 12px;border-radius:999px;
-  background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--mut)
+  background:var(--card2);border:1px solid var(--line);color:var(--mut)
 }
 .chip.on{background:rgba(47,211,155,.13);border-color:rgba(47,211,155,.45);color:var(--grn)}
 .chip.off{background:rgba(255,95,109,.12);border-color:rgba(255,95,109,.4);color:var(--red)}
@@ -158,8 +164,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 /* Level bar */
 .lvlwrap{margin-top:16px}
 .lvlwrap .lbl2{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:6px}
-.lvlbar{height:8px;border-radius:9px;background:rgba(0,0,0,.35);overflow:hidden;border:1px solid var(--line)}
-.lvlbar i{display:block;height:100%;background:var(--grad);width:0;transition:.5s}
+.lvlbar{height:8px;border-radius:9px;background:var(--card);overflow:hidden;border:1px solid var(--line)}
+.lvlbar i{display:block;height:100%;background:var(--fill);width:0;transition:.5s}
 
 /* Stats */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
@@ -253,8 +259,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .pill b{color:var(--gold)}
 .pill.danger{border-color:var(--red);color:var(--red)}
 .prog{height:7px;background:var(--card);border-radius:9px;overflow:hidden;margin-bottom:18px}
-.prog i{display:block;height:100%;background:var(--grad);width:0;transition:.35s linear}
-.prog.timer i{background:linear-gradient(90deg,#2fd39b,#f5c451,#ff5f6d);transition:width 1s linear}
+.prog i{display:block;height:100%;background:var(--fill);width:0;transition:.35s linear}
+.prog.timer i{background:linear-gradient(90deg,var(--grn),var(--gold),var(--red));transition:width 1s linear}
 .qbox{
   background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
   border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:16px
@@ -438,24 +444,29 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
   animation:shine 4.5s linear infinite;letter-spacing:1px}
 @keyframes shine{to{background-position:280% 0}}
-.sp-title-sub{font-size:11px;color:#8fa0c4;letter-spacing:7px;margin-top:-4px;z-index:2;
+/* نوارِ آمادگی و متن‌های پیرامونش از توکن می‌آیند.
+   پیش‌تر رنگ‌ها ثابت و مخصوص تم تاریک بودند (#8fa0c4، #cfe0ff، #cdd9f0،
+   سفیدِ نیمه‌شفاف) و در تم روشن که پس‌زمینهٔ اسپلش روشن می‌شود، متنِ
+   روشن روی زمینهٔ روشن می‌نشست و خوانده نمی‌شد. حالا در هر شش تم
+   درست است. */
+.sp-title-sub{font-size:11px;color:var(--mut);letter-spacing:7px;margin-top:-4px;z-index:2;
   animation:rise 1.3s .2s both}
-.sp-sub{font-size:13.5px;color:#b9c8e6;z-index:2;text-align:center;animation:rise 1.3s .25s both}
+.sp-sub{font-size:13.5px;color:var(--txt);z-index:2;text-align:center;animation:rise 1.3s .25s both}
 .sp-bar{position:relative;width:min(280px,76vw);height:7px;border-radius:99px;overflow:hidden;
-  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);z-index:2;
+  background:var(--card2);border:1px solid var(--line);z-index:2;
   animation:rise 1.3s .3s both}
 .sp-bar i{display:block;height:100%;width:0;border-radius:99px;
-  background:linear-gradient(90deg,#e0a325,#f5c451,#fff3cc);box-shadow:0 0 16px rgba(245,196,81,.75);
+  background:var(--grad);box-shadow:0 0 16px var(--glow1);
   transition:width .35s ease}
 .sp-meta{display:flex;justify-content:space-between;width:min(280px,76vw);font-size:11.5px;
-  color:#8fa0c4;z-index:2;animation:rise 1.3s .35s both}
-.sp-note{font-size:12.5px;color:#cfe0ff;z-index:2;text-align:center;min-height:19px;
+  color:var(--mut);z-index:2;animation:rise 1.3s .35s both}
+.sp-note{font-size:12.5px;color:var(--txt);z-index:2;text-align:center;min-height:19px;
   transition:opacity .35s;animation:rise 1.3s .4s both}
-.sp-note b{color:#f5c451}
-.sp-skip{position:absolute;bottom:22px;z-index:3;background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.16);color:#cdd9f0;border-radius:99px;padding:8px 18px;
+.sp-note b{color:var(--gold)}
+.sp-skip{position:absolute;bottom:22px;z-index:3;background:var(--card2);
+  border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:8px 18px;
   font-size:12.5px;cursor:pointer;backdrop-filter:blur(6px)}
-.sp-skip:hover{background:rgba(255,255,255,.13)}
+.sp-skip:hover{background:var(--card)}
 
 /* ═══════════════ 19.7 تلاوت قرآن (Quran screen) ═══════════════ */
 .qnow{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);
@@ -563,11 +574,16 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .read-ayah.on{background:rgba(245,196,81,.1)}
 .read-ayah.on:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--gold)}
 .read-ar{font-size:var(--read-size);text-align:right;color:var(--txt);direction:rtl;padding-left:42px}
-.read-ayah.on .read-ar{color:#ffe9b0}
+/* رنگ آیهٔ انتخاب‌شده از توکن می‌آید. پیش‌تر #ffe9b0 ثابت بود و در تم
+   روشن، طلاییِ روشن روی زمینهٔ طلاییِ روشن می‌نشست و خوانده نمی‌شد. */
+.read-ayah.on .read-ar{color:var(--gold)}
 .read-fa{font-size:13px;color:var(--mut);margin-top:9px;line-height:2;padding-left:42px}
+/* پیش‌تر زمینهٔ این قرص rgba(0,0,0,.22) بود: یک لکهٔ تیره که فقط در تم
+   تاریک جا می‌افتاد و در تم روشن، عددِ طلاییِ تیره را روی خاکستریِ تیره
+   می‌نشاند. حالا از سطحِ خودِ تم می‌آید. */
 .read-num{position:absolute;left:12px;top:15px;width:30px;height:30px;border-radius:50%;
   border:1px solid var(--gold2);color:var(--gold);display:grid;place-items:center;font-size:11.5px;
-  background:rgba(0,0,0,.22)}
+  background:var(--card2)}
 .read-ayah.on .read-num{background:var(--grad);color:var(--ink);border-color:transparent;font-weight:700}
 .bism{text-align:center;color:var(--gold);font-size:calc(var(--read-size) * .92);
   padding:14px 0 8px;border-bottom:1px dashed rgba(128,128,128,.2);margin-bottom:2px}
@@ -605,9 +621,12 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .nahj-list{display:grid;gap:9px;max-height:56vh;overflow-y:auto;padding-inline-end:4px}
 .nahj-card{position:relative;background:var(--card2);border:1px solid var(--line);
   border-radius:16px;padding:14px 15px 12px 46px}
+/* مثل بقیهٔ قرص‌های طلایی: پرِ گرادیانِ تم با مرکبِ تم. پیش‌تر گرادیانِ
+   دستیِ روشن→طلایی با متنِ تیرهٔ ثابت بود و در تم روشن، نیمهٔ راستش
+   خوانده نمی‌شد. */
 .nahj-n{position:absolute;inset-inline-start:12px;top:12px;width:24px;height:24px;border-radius:50%;
-  display:grid;place-items:center;font-size:11px;color:#1a1305;font-weight:800;
-  background:linear-gradient(140deg,#ffe9ad,var(--gold));opacity:.85}
+  display:grid;place-items:center;font-size:11px;color:var(--ink);font-weight:800;
+  background:var(--grad);opacity:.85}
 .nahj-ar{font-family:var(--f-quran);font-size:19px;line-height:2.05;color:var(--gold);
   padding-bottom:.16em;direction:rtl}
 .nahj-fa{font-size:13px;line-height:1.95;margin-top:7px}
@@ -844,7 +863,7 @@ body.focus #focusExit{ animation:fadeIn .3s both }
   backdrop-filter:blur(8px); display:none }
 #dbg.on{ display:block }
 #dbg b{ color:var(--gold) }
-#dbg .k{ color:#8fa0c4 }
+#dbg .k{ color:var(--mut) }
 #dbgBtn{ position:fixed; inset-inline-start:10px; bottom:44px; z-index:501; width:34px; height:34px;
   border-radius:50%; display:none; place-items:center; background:var(--card);
   border:1px solid var(--line); color:var(--gold); font-size:15px }
@@ -855,13 +874,28 @@ body.focus #focusExit{ animation:fadeIn .3s both }
    لایهٔ theme — تم روشن. چون بعد از base می‌آید، روی آن می‌نشیند.
    ════════════════════════════════════════════════════════════════ */
 @layer theme {
+/* ── تم روشن: اندازه‌گیری‌شده، نه چشمی ──
+   سه رنگ در نسخهٔ پیشین از حدِ AA رد می‌شدند و روی هر سه سطح روشن
+   (bg / card / card2) سنجیده و اصلاح شدند:
+     --gold  #b8801a → #8f6314   (۳٫۰۹ → ۴٫۶۲ در بدترین حالت)
+     --grn   #12855f → #117a57   (۴٫۱۷ → ۴٫۶۴)
+     --mut   #7d6f58 → #776a54   (۴٫۴۲ → ۴٫۶۱)
+   بقیه از قبل می‌گذشتند و دست نخوردند. */
 html[data-theme="light"]{
   --bg:#f7f3ea; --bg2:#fffdf8; --card:#ffffff; --card2:#f4efe4;
-  --line:#e0d6c2; --txt:#231c10; --mut:#7d6f58;
-  --gold:#b8801a; --gold2:#8f6210; --grn:#12855f; --red:#c8364a;
+  --line:#e0d6c2; --txt:#231c10; --mut:#776a54;
+  --gold:#8f6314; --gold2:#8f6210; --grn:#117a57; --red:#c53549;
   --blu:#2563c9; --prp:#6d43c8;
   --glow1:#efe4cc; --glow2:#e6efe4;
-  --ink:#fffaf0;
+  /* --ink = «مرکب روی طلایی»، نه «مرکب روی سطح». تنها جایی که به کار
+     می‌رود متنِ روی var(--grad) است. نسخهٔ پیشین این‌جا #fffaf0 گذاشته
+     بود و نتیجه‌اش متنِ سفید روی طلایی روشن بود: نسبت ۱٫۵۷ به ۱ روی
+     هر دکمهٔ اصلی، تبِ فعال و گزینهٔ انتخاب‌شده. حالا مثل پنج تم دیگر
+     تیره است و نسبت ۸٫۳۳ به ۱ می‌دهد. */
+  --ink:#1a1204;
+  /* پرِ نوارهای پیشرفت با طلاییِ تیره پر می‌شود تا از زمینهٔ روشن جدا
+     بماند (۴٫۶۲ به ۱). گرادیانِ روشنِ --grad این‌جا فقط ۱٫۵ می‌داد. */
+  --fill:linear-gradient(135deg,#8f6314,#8f6210);
   color-scheme:light;
 }
 html[data-theme="light"] body{
@@ -914,7 +948,7 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
 .rec .rc{ font-size:10px; color:var(--mut) }
 .rec .prev{ width:28px; height:28px; border-radius:50%; flex:none; display:grid; place-items:center;
   background:var(--card); border:1px solid var(--line); font-size:11px; cursor:pointer }
-.rec .prev.on{ background:var(--gold); color:#1a1206; border-color:var(--gold) }
+.rec .prev.on{ background:var(--grad); color:var(--ink); border-color:transparent }
 
 /* ── نشانه‌ها و ادامهٔ خواندن ── */
 .bm-row{ display:flex; gap:9px; align-items:center; padding:10px 11px; border-radius:14px;
@@ -1155,7 +1189,7 @@ html[data-motion="off"] *{ animation-duration:.001ms !important; transition-dura
    grid تا شماره هرگز زیر متن نرود، حتی در باریک‌ترین صفحه. */
 .steps{ display:flex; flex-direction:column; gap:9px; margin-top:4px }
 .step{ display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start;
-  background:rgba(255,255,255,.035); border:1px solid var(--line);
+  background:var(--card2); border:1px solid var(--line);
   border-radius:13px; padding:10px 12px }
 .step b{ display:grid; place-items:center; width:24px; height:24px; flex:0 0 auto;
   border-radius:50%; font-size:12px; font-weight:700;
@@ -1204,9 +1238,9 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 .ib .ib-x{
   border:0; cursor:pointer; font:inherit; font-size:15px; line-height:1;
   width:30px; height:30px; border-radius:50%;
-  background:rgba(255,255,255,.07); color:var(--mut);
+  background:var(--card2); color:var(--mut);
 }
-.ib .ib-x:hover{ background:rgba(255,255,255,.13); color:var(--txt) }
+.ib .ib-x:hover{ background:var(--line); color:var(--txt) }
 .ib :focus-visible{ outline:3px solid var(--gold); outline-offset:2px }
 @media(max-width:360px){
   .ib .ib-t small{ display:none }

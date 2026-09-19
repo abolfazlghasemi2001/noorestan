@@ -2811,6 +2811,73 @@ section('دسترس‌پذیری پنجره و صفحه‌ها — در متنِ
   ok('ورودیِ نشان‌دار پس از رفرش پاک می‌شود (تا «عقب» بی‌دلیل خرج نشود)',
      /history\.state\.modal\)\{\s*\n\s*const cur = this\.screens/.test(SRC));
 }
+section('کنتراست رنگ‌ها — همهٔ شش تم، روی هر سه سطح');
+{
+  /* این سنجش هیچ مرورگری لازم ندارد: توکن‌ها را از CSS می‌خواند و نسبتِ
+     کنتراستِ WCAG را حساب می‌کند. تمِ روشن پیش‌تر سه رنگِ زیرِ حد داشت:
+     طلایی ۳٫۰۹، سبز ۴٫۱۷، خاکستری ۴٫۴۲ (حد لازم ۴٫۵). بدتر از آن،
+     --ink روی گرادیانِ طلایی ۱٫۵۷ بود — یعنی متنِ سفید روی طلاییِ روشن،
+     روی هر دکمهٔ اصلی و تبِ فعال. بی این سنجش، بارِ بعد هم بی‌صدا
+     برمی‌گشت. */
+  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const lum = h => {
+    const c = [1,3,5].map(i => parseInt(h.slice(i, i+2), 16)/255)
+      .map(v => v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4));
+    return .2126*c[0] + .7152*c[1] + .0722*c[2];
+  };
+  const ratio = (a, b) => {
+    const x = lum(a), y = lum(b);
+    return (Math.max(x,y) + .05) / (Math.min(x,y) + .05);
+  };
+  const toks = sel => {
+    const re = new RegExp(sel.replace(/[[\]"]/g, m => '\\' + m) + '\\s*\\{([\\s\\S]*?)\\}', 'g');
+    const out = {}; let m;
+    while((m = re.exec(css)))
+      for(const t of m[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[t[1]] = t[2].trim();
+    return out;
+  };
+
+  const base = toks(':root');
+  const themes = { dark: base };
+  for(const t of Theme.ALL.filter(x => x !== 'dark'))
+    themes[t] = Object.assign({}, base, toks(`[data-theme="${t}"]`));
+
+  for(const t of Theme.ALL)
+    ok(`تم «${t}» در CSS هست`, !!(themes[t] && themes[t]['--bg']));
+
+  const FG = ['txt','mut','gold','grn','red','blu','prp'];
+  let worst = { r: 99, at: '—' };
+  for(const [name, t] of Object.entries(themes)){
+    if(!t['--bg']) continue;
+    const bgs = ['bg','card','card2'].map(k => t['--'+k]).filter(Boolean);
+    for(const f of FG){
+      const c = t['--'+f];
+      if(!c || !/^#[0-9a-f]{6}$/i.test(c)){ ok(`تم ${name}: رنگ ${f} هگزِ کامل است`, false, c); continue; }
+      for(const b of bgs){
+        const r = ratio(c, b);
+        if(r < worst.r) worst = { r, at: `${name}: --${f} روی ${b}` };
+        ok(`تم ${name}: --${f} روی ${b} از حد AA می‌گذرد (${r.toFixed(2)})`, r >= 4.5);
+      }
+    }
+    /* --ink = متنِ روی گرادیان؛ متنِ دکمه است، پس حد ۴٫۵. */
+    for(const stop of ((t['--grad'] || '').match(/#[0-9a-f]{6}/gi) || [])){
+      const r = ratio(t['--ink'], stop);
+      ok(`تم ${name}: مرکب روی گرادیان ${stop} خوانا است (${r.toFixed(2)})`, r >= 4.5);
+    }
+    /* --fill = پرِ نوارِ پیشرفت روی سطح؛ گرافیک است، پس حد ۳. */
+    for(const stop of ((t['--fill'] || '').match(/#[0-9a-f]{6}/gi) || [])){
+      const r = ratio(stop, t['--card']);
+      ok(`تم ${name}: پرِ نوارِ پیشرفت از کارت جدا دیده می‌شود (${r.toFixed(2)})`, r >= 3);
+    }
+  }
+  ok('بدترین نسبتِ کل تم‌ها هنوز از AA می‌گذرد', worst.r >= 4.5,
+     `${worst.r.toFixed(2)} در ${worst.at}`);
+  ok('همهٔ تم‌ها --ink و --fill دارند',
+     Object.values(themes).every(t => t['--ink'] && t['--fill']));
+}
+
+section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
 
