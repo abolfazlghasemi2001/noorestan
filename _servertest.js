@@ -21,11 +21,16 @@ const FAKE_PORT  = 8801;
 /* حالت‌ها:
      ok       → همان قرارداد مستند textbee: { success:true, data:{ _id, status } }
      fail     → خطای مستند: { success:false, message:'Invalid API key' }  (HTTP 401)
-     noid     → ۲۰۰ با بدنهٔ خالی JSON: نه نشانهٔ موفقیت، نه شکست ⇒ نامعلوم
+     noid     → ۲۰۰ با `{}`: بدنهٔ JSON ولی بی هیچ نشانه ⇒ پذیرفته (sent)
      html     → ۲۰۰ با بدنهٔ HTML (پروکسی راه را عوض کرده) ⇒ نامعلوم
-     500      → خطای موقت سرور ⇒ نامعلوم
+     503      → خطای موقت سرور ⇒ نامعلوم
      slow     → هرگز پاسخ نمی‌دهد ⇒ مسیر «تمام شدن وقت»
-     echo     → پاسخش کلید را بازگو می‌کند ⇒ باید از گزارش سرور بیرون بماند */
+     echo     → پاسخش کلید را بازگو می‌کند ⇒ باید از گزارش سرور بیرون بماند
+     statusonly → ۲۰۰ با فقط `data.status` ⇒ پذیرفته (sent)
+     msgonly    → ۲۰۰ با فقط `message` ⇒ پذیرفته (sent)
+     emptydata  → ۲۰۱ با `{data:{}}` ⇒ پذیرفته (sent)
+     badstatus  → `success:true` ولی `status:'failed'` ⇒ رد (failed)
+     faildata   → ۴۰۰ با `error` ⇒ رد، با همان علت */
 let   smsMode    = 'ok';
 let   smsHits    = [];
 const fakeSms = http.createServer((req, res) => {
@@ -54,6 +59,34 @@ const fakeSms = http.createServer((req, res) => {
     if(smsMode === 'echo'){
       res.writeHead(401, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ success: false, message: 'کلید شما ' + SMS_KEY + ' نامعتبر است' }));
+    }
+    /* ── شکل‌های واقعیِ پاسخِ textbee ──
+       اینها از یک نصبِ زنده گرفته شده‌اند، نه از مستندات: پیامک می‌رسید ولی
+       سرور «نمی‌دانم» می‌گفت. هیچ‌کدام `success:true` و `_id` را با هم
+       نداشتند، پس از صافیِ پیشین رد می‌شدند. */
+    if(smsMode === 'statusonly'){        // فقط data.status — بی _id و بی success
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ data: { status: 'pending' } }));
+    }
+    if(smsMode === 'msgonly'){           // پیامِ کامیابی، بی هیچ میدانِ دیگری
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ message: 'SMS sent successfully' }));
+    }
+    if(smsMode === 'emptydata'){         // ۲xx با JSONِ خالی
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ data: {} }));
+    }
+    if(smsMode === 'badstatus'){         // متناقض: success:true ولی وضعیت failed
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: true, data: { _id: 'x9', status: 'failed' } }));
+    }
+    if(smsMode === 'faildata'){          // شکستِ صریح با کلیدِ error
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Invalid recipients' }));
+    }
+    if(smsMode === 'emptyok'){           // ۲۰۰ با بدنهٔ کاملاً تهی
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end();
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, data: { _id: 'abc123', status: 'pending' } }));
@@ -136,7 +169,13 @@ const srv = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     NOOR_SMS_ENDPOINT: `http://127.0.0.1:${FAKE_PORT}/api/v1/gateway/send-sms`,
     /* مسیر «تمام شدن وقت» با ۳۰ ثانیه سنجیده نمی‌شود؛ ۷۰۰ میلی‌ثانیه کافی است
        تا همان کد اجرا شود. */
-    NOOR_SMS_TIMEOUT: '700'
+    NOOR_SMS_TIMEOUT: '700',
+    /* سقف‌های ساعتی این‌جا بالا برده می‌شوند، وگرنه این آزمون‌ها خودشان سقفِ
+       هر نشانی (۲۰ در ساعت) را پر می‌کنند و از آن به بعد هر درخواستِ تازه
+       ۴۲۹ می‌گیرد — یعنی آزمون به‌جای سنجیدنِ منطق، سقف را می‌سنجد.
+       سقفِ هر شماره (۳) دست‌نخورده می‌ماند چون آزمونِ خودش را دارد. */
+    NOOR_SMS_MAX_IP: '2000',
+    NOOR_SMS_MAX_HOUR: '5000'
   },
   stdio: ['ignore', 'pipe', 'pipe']
 });
@@ -408,15 +447,30 @@ const cleanup = () => {
   /* ── سه حالت پاسخ، نه دو حالت ──
      تنها تفاوتِ «نامعلوم» با «نشد» این است که کاربر را از صفحهٔ کد بیرون
      نمی‌کنیم؛ چون پیامک ممکن است رسیده باشد. پس کدِ HTTP باید فرق کند:
-     ۲۰۲ برای نامعلوم، ۵۰۲ برای قطعاً نشد. */
-  section('پیامک — «نامعلوم» از «نشد» جدا می‌شود');
+     ۲۰۲ برای نامعلوم، ۵۰۲ برای قطعاً نشد، ۲۰۰ برای «رفت».
+
+     باگِ C3 درست همین‌جا بود: بدنهٔ سالمِ textbee شکلِ مستندشده را نداشت،
+     پس «نمی‌دانم» می‌گفتیم در حالی که پیامک رسیده بود. حالا هر پاسخِ ۲xx
+     که *بدنهٔ JSON* داشته باشد پذیرفته می‌شود؛ بدنهٔ HTML یا خالی همچنان
+     «نامعلوم» است چون از دهانهٔ textbee نیامده. */
+  section('پیامک — «رفت» از «نامعلوم» از «نشد» جدا می‌شود');
   const SHAPES = [
     /* شرح                       حالت جعلی   کد HTTP   state      خطا باید باشد؟ */
     ['خطای مستند Invalid API key', 'fail',   502, 'failed',  'Invalid API key'],
-    ['۲۰۰ با بدنهٔ خالی',          'noid',   202, 'pending', null],
+    /* `{}` بدنهٔ JSON است، پس پاسخ از دهانه آمده — نه صفحهٔ HTML پروکسی.
+       پذیرفتنش همان رفعِ باگِ C3 است: پیامک می‌رسید ولی «⏳» نشان می‌دادیم. */
+    ['۲۰۰ با JSONِ خالی',          'noid',   200, 'sent',    null],
     ['۲۰۰ با بدنهٔ HTML',          'html',   202, 'pending', null],
     ['۵۰۳ بی بدنه',                '503',    202, 'pending', null],
-    ['مهلت تمام‌شده',              'slow',   202, 'pending', null]
+    ['مهلت تمام‌شده',              'slow',   202, 'pending', null],
+    /* ── شکل‌های واقعی که باگ را ساختند ── */
+    ['۲۰۰ با فقط data.status',      'statusonly', 200, 'sent', null],
+    ['۲۰۰ با فقط message',          'msgonly',    200, 'sent', null],
+    /* ۲۰۱ خودِ textbee است؛ پاسخِ ما به کلاینت همیشه ۲۰۰ در حالتِ «رفت» است */
+    ['۲۰۱ با data خالی',            'emptydata',  200, 'sent', null],
+    ['success:true ولی status=failed', 'badstatus', 502, 'failed', 'textbee وضعیتِ «failed» را گزارش کرد'],
+    ['۴۰۰ با error',                'faildata',   502, 'failed', 'Invalid recipients'],
+    ['۲۰۰ با بدنهٔ تهی',            'emptyok',    200, 'sent',   null]
   ];
   let phoneSeed = 400;
   for(const [name, mode, wantHttp, wantState, wantErr] of SHAPES){
@@ -834,6 +888,55 @@ const cleanup = () => {
     }finally{
       try{ s2.kill('SIGKILL'); }catch(e){}
       try{ require('fs').unlinkSync(DATA2); }catch(e){}
+    }
+  }
+
+  /* ── NOOR_DEBUG_SMS: بدنهٔ خام در لاگ می‌نشیند، ولی هرگز با کلید ──
+     این خطِ تازه‌ای است که *خودمان* به لاگ اضافه کردیم، پس باید سنجیده شود:
+     اگر textbee کلید را در پاسخش بازگو کند، صافی باید بگیردش. سرورِ جدا
+     لازم است چون این متغیر هنگامِ راه‌اندازی خوانده می‌شود. */
+  section('🔍 عیب‌یابیِ پیامک — خام در لاگ، بی کلید');
+  {
+    /* ۸۸۰۱ دهانهٔ textbee جعلی است و ۸۸۰۰ سرورِ دوم؛ این یکی جای خالی می‌خواهد */
+    const PORT3 = PORT + 5, DATA3 = path.join(__dirname, `_srvtest-debug.json`);
+    const s3 = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
+      env: { ...process.env, PORT: String(PORT3), NOOR_DATA: DATA3, NOOR_ORIGIN: '*',
+             NOOR_ADMIN_PASS: PASS,
+             NOOR_SMS_KEY: SMS_KEY, NOOR_SMS_DEVICE: SMS_DEVICE,
+             NOOR_SMS_ENDPOINT: `http://127.0.0.1:${FAKE_PORT}/api/v1/gateway/send-sms`,
+             NOOR_SMS_MAX_IP: '2000', NOOR_SMS_MAX_HOUR: '5000',
+             NOOR_DEBUG_SMS: '1' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let out3 = '';
+    s3.stdout.on('data', d => { out3 += d.toString(); });
+    s3.stderr.on('data', d => { out3 += d.toString(); });
+    try{
+      let up3 = false;
+      for(let i = 0; i < 40 && !up3; i++){
+        if(s3.exitCode !== null) break;
+        up3 = await fetch(`http://127.0.0.1:${PORT3}/health`).then(r => r.ok).catch(() => false);
+        if(!up3) await sleep(200);
+      }
+      ok('سرورِ عیب‌یابی بالا می‌آید', up3);
+      smsMode = 'echo'; smsHits = [];
+      const rd = await fetch(`http://127.0.0.1:${PORT3}/api/otp/request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: '09121140001' })
+      });
+      smsMode = 'ok';
+      await rd.text();
+      let dbg = '';
+      for(let i = 0; i < 40 && !dbg; i++){
+        dbg = out3.split('\n').find(l => l.includes('textbee خام')) || '';
+        if(!dbg) await sleep(50);
+      }
+      ok('بدنهٔ خام در لاگ ثبت می‌شود', !!dbg, out3.split('\n').slice(-4).join(' ／ '));
+      ok('🔒 ولی کلید در آن لاگ نیست', !out3.includes(SMS_KEY));
+      ok('🔒 و نشانهٔ جانشین جایش نشسته', /«کلید»/.test(dbg), dbg.slice(0, 160));
+    }finally{
+      try{ s3.kill('SIGKILL'); }catch(e){}
+      try{ require('fs').unlinkSync(DATA3); }catch(e){}
     }
   }
 

@@ -13,6 +13,10 @@
    متغیرها: PORT (پیش‌فرض 8787)  HOST  NOOR_ADMIN_PASS  NOOR_DATA  NOOR_ORIGIN
             NOOR_SMS_KEY  NOOR_SMS_DEVICE  NOOR_SMS_ENDPOINT  NOOR_SMS_ON
             NOOR_SMS_TIMEOUT (میلی‌ثانیه، پیش‌فرض ۳۰۰۰۰)
+            NOOR_SMS_MAX_HOUR (سقف کلِ پیامک در ساعت، پیش‌فرض ۴۰)
+            NOOR_SMS_MAX_IP (سقف هر نشانی در ساعت، پیش‌فرض ۲۰)
+            NOOR_SMS_MAX_PHONE (سقف هر شماره در ۱۰ دقیقه، پیش‌فرض ۳)
+            NOOR_DEBUG_SMS=1 (ثبتِ بدنهٔ خامِ پاسخِ textbee در لاگ — برای عیب‌یابی)
 
    ⚠️ NOOR_ADMIN_PASS هیچ مقدار جانشینی ندارد. اگر ستش نکنی، پنل مدیریت روی
       سرور کار نمی‌کند. این عمدی است: پیش‌تر مقدار جانشین «noor2024» بود و
@@ -813,11 +817,20 @@ const SMS_ENDPOINT = process.env.NOOR_SMS_ENDPOINT || 'https://api.textbee.dev/a
 const SMS_TIMEOUT  = Math.min(120000, Math.max(1000,
                        Number(process.env.NOOR_SMS_TIMEOUT) || 30000));
 
+/* سقف‌های ساعتی با متغیر محیطی تنظیم‌شدنی‌اند: هر نصب الگوی ترافیک خودش را
+   دارد و بی این، تنها راهِ تنظیم، ویرایشِ کد بود و هر به‌روزرسانی آن را
+   پاک می‌کرد. کف و سقف دارند تا یک مقدار غلط (منفی، صفر، بی‌نهایت) سرور را
+   بی‌دفاع نکند — همان کاری که با NOOR_SMS_TIMEOUT کردیم. */
+const smsEnvCap = (name, def, lo, hi) => {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n >= lo ? Math.min(hi, Math.floor(n)) : def;
+};
+
 const SMS_LIMIT = {
   perPhoneMs:  10 * 60 * 1000,
-  perPhoneMax: 3,
-  perIpHour:   20,
-  globalHour:  40
+  perPhoneMax: smsEnvCap('NOOR_SMS_MAX_PHONE', 3,  1, 100),
+  perIpHour:   smsEnvCap('NOOR_SMS_MAX_IP',    20, 1, 5000),
+  globalHour:  smsEnvCap('NOOR_SMS_MAX_HOUR',  40, 1, 20000)
 };
 const smsByPhone = new Map();   // phone -> [at, …]
 const smsByIp    = new Map();   // ip    -> [at, …]
@@ -898,24 +911,60 @@ function smsRedact(s){
   return out;
 }
 
-function smsVerdict(status, ok, j){
+/* ── نشانه‌های وضعیت در بدنهٔ textbee ──
+   textbee وضعیت را در `data.status` می‌گذارد و مقادیرش با زمان عوض می‌شود
+   (نخست `pending` یعنی در صف، بعد `sent`، بعد `delivered`). پیش‌تر فقط
+   `_id` و `success` نگاه می‌شد؛ پاسخِ سالمی که این دو را نداشت ولی
+   `data.status: 'pending'` داشت، «خوانده‌نشده» شمرده می‌شد و کاربری که
+   پیامکش رسیده بود، ۲۰۲ و «⏳» می‌گرفت. */
+const SMS_OK_STATUS  = ['pending', 'queued', 'sent', 'delivered', 'accepted',
+                        'success', 'ok', 'scheduled', 'submitted'];
+const SMS_BAD_STATUS = ['failed', 'error', 'rejected', 'invalid', 'undelivered',
+                        'blocked', 'expired', 'cancelled'];
+
+function smsVerdict(status, ok, j, raw){
   /* ۰ یعنی درخواست به هیچ نتیجه‌ای نرسید */
   if(!status)
     return { state: 'pending', error: 'پاسخی از textbee نیامد (وقت تمام شد یا شبکه)' };
 
-  if(j && typeof j === 'object'){
-    const d  = (j.data && typeof j.data === 'object') ? j.data : {};
-    const id = j._id || j.messageId || j.id || d._id || d.messageId || d.id || '';
-    if(j.success === true || id) return { state: 'sent', id: String(id || '') };
-    const why = smsRedact(j.message || j.error || '');
-    if(j.success === false || why) return { state: 'failed', error: why || ('HTTP ' + status) };
-  }
+  const isObj = !!j && typeof j === 'object';
+  const d  = isObj && j.data && typeof j.data === 'object' ? j.data : {};
+  const id = isObj ? (j._id || j.messageId || j.id || d._id || d.messageId || d.id || '') : '';
+  const ds = isObj ? String(d.status || j.status || '').toLowerCase() : '';
+  const okMark  = isObj && (j.success === true || !!id || SMS_OK_STATUS.indexOf(ds) >= 0);
+  /* `j.error` عمداً، نه `j.message`: در پاسخِ *موفق*، `data.message` خودِ متنِ
+     پیامک است. اگر `j.message` را نشانهٔ شکست بگیریم، پاسخِ موفقِ حاویِ متن
+     را «نشد» می‌خوانیم — دقیقاً همان اشتباهی که کاربر را بی‌دلیل می‌ترساند. */
+  const badMark = isObj && (j.success === false || !!j.error || SMS_BAD_STATUS.indexOf(ds) >= 0);
 
-  /* ۲۰۰ ولی نه نشانهٔ موفقیت و نه شکست ⇒ نمی‌دانیم */
-  if(ok) return { state: 'pending', error: 'پاسخ textbee خوانده نشد' };
+  /* نشانهٔ صریحِ شکست بر موفقیت مقدم است: اگر textbee گفته «نشد»، گفتنِ «شد»
+     کاربر را به انتظارِ کدی می‌نشاند که هرگز نمی‌آید. */
+  if(badMark){
+    const why = smsRedact(j.error || j.message || d.message || '');
+    const byStatus = ds && SMS_BAD_STATUS.indexOf(ds) >= 0;
+    return { state: 'failed',
+             error: why || (byStatus ? `textbee وضعیتِ «${ds}» را گزارش کرد` : ('HTTP ' + status)) };
+  }
+  if(okMark)
+    return { state: 'sent', id: String(id || ds) };
+
+  /* ۲xx با بدنهٔ *JSON* ولی بی هیچ نشانه: دهانه درخواست را پذیرفت. اینجا
+     «نمی‌دانم» گفتن، کاربری را که پیامکش رسیده بود پشتِ «⏳» می‌نشاند؛
+     و اگر پیامک نرسیده باشد، «ارسال دوباره» هست — راهِ بازگشت ارزان است.
+     ولی بدنهٔ *غیرِ*JSON (صفحهٔ HTML پروکسی، بدنهٔ خالی) همچنان «نامعلوم»
+     می‌ماند: ۲۰۰ با بدنهٔ HTML یعنی پاسخ از دهانهٔ textbee نیامده. */
+  if(ok && isObj) return { state: 'sent', id: '', guessed: true };
+
   /* ۵xx خطای موقت است؛ درخواست ممکن است بعداً پذیرفته شود */
   if(status >= 500) return { state: 'pending', error: 'textbee الان در دسترس نیست (HTTP ' + status + ')' };
-  return { state: 'failed', error: smsRedact((j && (j.message || j.error)) || ('HTTP ' + status)) };
+
+  /* ۲xx با بدنهٔ *تهی* هم پذیرش است: دهانه جواب داد و چیزی برای گفتن نداشت.
+     (بدنهٔ غیرِتهیِ غیرِJSON اینجا نمی‌آید — آن یکی صفحهٔ HTMLِ پروکسی است.) */
+  if(ok && !String(raw == null ? '' : raw).trim())
+    return { state: 'sent', id: '', guessed: true };
+
+  if(ok) return { state: 'pending', error: 'پاسخ textbee خوانده نشد' };
+  return { state: 'failed', error: smsRedact((isObj && (j.error || j.message)) || ('HTTP ' + status)) };
 }
 
 /* پاسخ textbee هرگز عیناً به کلاینت نمی‌رود؛ فقط state و شناسهٔ پیام و error.
@@ -938,10 +987,16 @@ async function smsSend(phone, message){
     let raw = '', j = null;
     try{ raw = await res.text(); }catch(e){}
     try{ j = raw ? JSON.parse(raw) : null; }catch(e){}
-    const v = smsVerdict(res.status, res.ok, j);
+    const v = smsVerdict(res.status, res.ok, j, raw);
     const ms = Date.now() - t0;
+    /* بدنهٔ خامِ پاسخ، فقط با NOOR_DEBUG_SMS=1 و فقط پس از عبور از smsRedact.
+       بی صافی، اگر textbee کلید را در پاسخش بازگو کند، کلید در لاگ می‌نشیند —
+       همان چیزی که خودِ برنامه در جای دیگر جلوگیری می‌کند. */
+    if(process.env.NOOR_DEBUG_SMS === '1')
+      log('🔍 textbee خام: ' + smsRedact(raw.slice(0, 500)));
     if(j){
       log(`📡 textbee → HTTP ${res.status} در ${ms}ms · ${v.state}` +
+          (v.guessed ? ' (بی نشانه — از ۲xx حدس زده شد)' : '') +
           (v.id ? ' · ' + v.id : '') + (v.error ? ' · ' + v.error : ''));
     }else{
       /* بدنهٔ غیر-JSON ممکن است بازگویی کلید باشد؛ در آن صورت ثبت نمی‌شود */
