@@ -3609,6 +3609,102 @@ section('بازی‌ها — قفل‌های بازمانده و پاداشِ چ
   }
 }
 
+section('هویتِ کاربر — شناسهٔ مبهم و نشست');
+{
+  const keepUser = Store.get('user');
+  const keepPhone = Store.get('phone');
+  const keepName = Store.get('playerName');
+  const keepEntered = User.entered;
+  try{
+    Store.update(d => { d.user = null; d.phone = ''; });
+    User.entered = false;
+
+    const u = User.ensure();
+    ok('هویت ساخته می‌شود', !!u && !!u.id);
+    ok('شناسه شکل درست دارد', User.okId(u.id), u.id);
+    ok('شناسه از شماره ساخته نمی‌شود و شماره در آن نیست',
+       !u.id.includes('09') && !/\d{11}/.test(u.id));
+    ok('شناسه دو بار عوض نمی‌شود', User.ensure().id === u.id);
+    ok('شناسه‌های دو کاربر یکی نیستند', User.makeId() !== User.makeId());
+
+    ok('شناسهٔ بی‌شکل رد می‌شود', !User.okId('usr_short')
+       && !User.okId('usr_' + 'z'.repeat(20))
+       && !User.okId('u-abc') && !User.okId('') && !User.okId(null));
+    /* شناسه باید از مولدِ رمزنگاری‌شده بیاید، نه Math.random */
+    ok('شناسه از Math.random نمی‌آید', (() => {
+      const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+      const i = src.indexOf('const User = {');
+      const body = src.slice(i, src.indexOf('makeId(', i));
+      return !/Math\.random/.test(body) && /U\.salt/.test(src.slice(i, i + 4000));
+    })());
+
+    /* نشست */
+    User.enter();
+    ok('نخستین ورود، بازدید را می‌شمارد', User.get().visits === 1, String(User.get().visits));
+    ok('و «آخرین ورود» را می‌نشاند', User.get().lastLogin > 0);
+    ok('و تاریخِ عضویت را پر می‌کند', User.get().joinedAt > 0);
+    User.enter(); User.enter();
+    ok('ورودهای بعدیِ همان نشست، بازدید را دوباره نمی‌شمارند',
+       User.get().visits === 1, String(User.get().visits));
+
+    /* شمارشِ بازی */
+    const p0 = User.get().plays;
+    Store.update(d => { d.stats.byGame = {}; d.stats.today = { date:'', n:0, byGame:{} }; });
+    Stats.track('dooz');
+    ok('هر بازی، یک بار روی هویت می‌نشیند', User.get().plays === p0 + 1,
+       `${p0} → ${User.get().plays}`);
+    Stats.track(null);
+    ok('بازیِ بی‌نام شمرده نمی‌شود', User.get().plays === p0 + 1);
+
+    /* نام و شماره */
+    ok('نام روی هویت و روی وضعیت می‌نشیند',
+       User.setName('  علی  رضا ') === 'علی رضا' && User.name() === 'علی رضا'
+       && Store.get('playerName') === 'علی رضا', User.name());
+    ok('نام خالی به پیش‌فرض برمی‌گردد', User.setName('   ') === 'بازیکن');
+    ok('نام بلند بریده می‌شود', User.setName('x'.repeat(50)).length === 20);
+
+    User.setPhone('۰۹۱۲۳۴۵۶۷۸۹');
+    ok('شمارهٔ فارسی به لاتین روی هویت می‌نشیند', User.get().phone === '09123456789',
+       User.get().phone);
+    ok('و روی وضعیتِ دستگاه هم', Store.get('phone') === '09123456789');
+    ok('شمارهٔ نامعتبر هم بی‌خطا پذیرفته و پاک می‌شود', User.setPhone('abc') === '');
+
+    /* قفلِ محلی */
+    User.setBlocked(true);
+    ok('قفلِ محلی می‌نشیند', User.blocked() === true);
+    User.setBlocked(false);
+    ok('و برداشته می‌شود', User.blocked() === false);
+
+    /* آنچه به سرور می‌رود نباید شماره باشد */
+    const w = User.wire();
+    ok('در پیامِ شبکه شماره نمی‌رود', !JSON.stringify(w).includes('09123'),
+       JSON.stringify(w));
+    ok('و شناسه می‌رود', w.id === User.get().id);
+
+    const r = User.row();
+    ok('ردیفِ پنل ادمین شناسه و نام دارد', r && r.id === User.get().id && r.me === true);
+    ok('و «من» بودنش را می‌گوید', r.me === true);
+
+    /* پاک‌سازیِ روکشِ خراب */
+    Store.update(d => { d.user = { id: 'bad', visits: -5 }; });
+    Store.sanitize();
+    ok('هویتِ بی‌شکل دور انداخته می‌شود تا از نو ساخته شود',
+       Store.get('user') === null, JSON.stringify(Store.get('user')));
+    ok('و ensure از نو می‌سازدش', User.okId(User.ensure().id));
+
+    Store.update(d => { d.user = { id: 'usr_' + 'a'.repeat(20), name:'ن', phone:'09120000000',
+                                   joinedAt: -1, visits: -3, plays: -2, blocked: 'yes' }; });
+    Store.sanitize();
+    const s = Store.get('user');
+    ok('عددهای منفی به صفر برمی‌گردند', s.joinedAt === 0 && s.visits === 0 && s.plays === 0,
+       JSON.stringify(s));
+    ok('قفل به بولین برمی‌گردد', s.blocked === true);
+  }finally{
+    Store.update(d => { d.user = keepUser; d.phone = keepPhone; d.playerName = keepName; });
+    User.entered = keepEntered;
+  }
+}
+
 section('پنل مدیریت — شمارشِ بازی‌ها');
 {
   const before = Store.get('stats').byGame;

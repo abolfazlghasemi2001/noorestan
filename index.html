@@ -2072,6 +2072,11 @@ const Store = {
          phone: شماره‌ای که با OTP تأیید شده — رشتهٔ خالی یعنی هنوز نه.
          otp: تنها کدِ در جریان. هش و نمک نگه داشته می‌شود، نه خودِ کد. */
       sms: { apiKey: '', deviceId: '', testPhone: '' },
+      /* ── نسخهٔ ۹: هویتِ کاربر ──
+         `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
+         plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
+         در نخستین فرصت می‌سازدش. */
+      user: null,
       phone: '',
       otp: null,
       serverUrl: '',
@@ -2200,7 +2205,34 @@ const Store = {
     d.sms.apiKey   = d.sms.apiKey.trim().slice(0, 200);
     d.sms.deviceId = d.sms.deviceId.trim().slice(0, 80);
     if(typeof d.phone !== 'string') d.phone = '';
-    d.phone = d.phone.replace(/\D/g, '').slice(0, 15);
+    d.phone = U.unfa(d.phone).replace(/\D/g, '').slice(0, 15);
+    /* ── هویتِ کاربر ──
+       روکشِ خراب دور انداخته می‌شود تا User.ensure از نو بسازدش. شناسهٔ
+       بی‌شکل هم همین حکم را دارد: اعتبارسنجی‌اش در User.okId است و اینجا
+       تکرار نمی‌شود تا دو جای متفاوت یک چیز را نسنجند. */
+    if(d.user != null){
+      if(typeof d.user !== 'object' || Array.isArray(d.user) || !User.okId(d.user.id)){
+        d.user = null;
+      }else{
+        const u = d.user;
+        if(typeof u.name !== 'string') u.name = '';
+        u.name = u.name.replace(/\s+/g, ' ').trim().slice(0, 20) || 'بازیکن';
+        if(typeof u.phone !== 'string') u.phone = '';
+        u.phone = U.unfa(u.phone).replace(/\D/g, '').slice(0, 15);
+        u.joinedAt  = Math.max(0, Math.floor(+u.joinedAt)  || 0);
+        u.lastLogin = Math.max(0, Math.floor(+u.lastLogin) || 0);
+        u.visits    = Math.max(0, Math.floor(+u.visits)    || 0);
+        u.plays     = Math.max(0, Math.floor(+u.plays)     || 0);
+        u.blocked   = !!u.blocked;
+        if(typeof u.lastIp !== 'string') u.lastIp = '';
+        u.lastIp    = u.lastIp.replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45);
+        if(typeof u.legacyId !== 'string') u.legacyId = '';
+        /* شمارهٔ هویت و شمارهٔ سنجش‌شده یک چیزند؛ اگر از هم جدا افتادند،
+           آنکه پیامک تأیید کرده (phone) مرجع است. */
+        if(d.phone && u.phone !== d.phone) u.phone = d.phone;
+        if(!d.phone && u.phone) d.phone = u.phone;
+      }
+    }
     if(d.otp && (typeof d.otp !== 'object' || Array.isArray(d.otp) ||
        typeof d.otp.hash !== 'string' || typeof d.otp.salt !== 'string' ||
        !d.otp.phone || !d.otp.exp))
@@ -10639,6 +10671,117 @@ const Me = {
   }
 };
 
+/* ─────────────────── 17.8 هویتِ کاربر ───────────────────
+   شناسهٔ کاربر (`usr_…`) عمداً از شمارهٔ موبایل ساخته نمی‌شود و هیچ بخشِ
+   قابل‌حدسی ندارد: بیست نویسهٔ هگز از مولدِ رمزنگاری‌شدهٔ مرورگر. کسی که
+   شناسه را ببیند نمی‌تواند شماره را از آن دربیاورد، و دو کاربر با شمارهٔ
+   یکسان هم شناسهٔ یکسان نمی‌گیرند تا فهرستِ کاربران با هم قاطی نشود.
+
+   کجا ساخته می‌شود: همین‌جا. برنامه باید آفلاین هم کار کند و اگر ساختِ
+   شناسه را به سرور می‌سپردیم، کاربرِ بی‌سرور هیچ هویتی نداشت. سرور هم
+   شناسه را بی‌چون‌وچرا قبول نمی‌کند: شکلش را می‌سنجد و تا شماره با پیامک
+   تأیید نشده، هیچ اختیاری به آن نمی‌دهد (پنل ادمین را در سرور ببین).
+
+   شناسهٔ پیشین (playerId از U.uid) از Math.random می‌آمد و قابلِ حدس بود.
+   هنگامِ ارتقا یک‌بار عوض می‌شود و آن یکی می‌ماند تا خواننده‌های قدیمی
+   نشکنند؛ ولی مرجع، همین `user.id` است. */
+const User = {
+  ID_RE: /^usr_[0-9a-f]{20}$/,
+  okId(id){ return this.ID_RE.test(String(id || '')); },
+  makeId(){
+    const s = U.salt(10);
+    return s.length === 20 ? 'usr_' + s : '';   // '' = تصادفِ امن در دسترس نیست
+  },
+  get(){
+    const u = Store.get('user');
+    return (u && typeof u === 'object' && !Array.isArray(u)) ? u : null;
+  },
+  /* هویت را می‌سازد اگر نبود یا اگر شناسه‌اش بی‌شکل بود. null یعنی
+     «ساخته نشد» — و در آن حالت هیچ‌جای برنامه هویتی نمی‌سازد، چون
+     شناسهٔ ضعیف از نبودِ شناسه بدتر است. */
+  ensure(){
+    let u = this.get();
+    if(u && this.okId(u.id)) return u;
+    const id = this.makeId();
+    if(!id) return null;
+    const old = Store.get('playerId');
+    Store.update(d => {
+      d.user = { id, name: String(d.playerName || '').slice(0, 20) || 'بازیکن',
+                 phone: String(d.phone || ''), joinedAt: U.now(), lastLogin: 0,
+                 visits: 0, plays: 0, blocked: false, lastIp: '',
+                 /* یادگارِ هویتِ پیشین، فقط برای پیگیری — نه مرجع */
+                 legacyId: (old && !this.okId(old)) ? String(old).slice(0, 20) : '' };
+    });
+    return this.get();
+  },
+  /* یک بار در هر نشست: بازدید و «آخرین ورود» بالا می‌رود. اگر در هر
+     رندر صدا زده می‌شد، شمارندهٔ بازدید بی‌معنا می‌شد. */
+  entered: false,
+  enter(){
+    const u = this.ensure();
+    if(!u) return null;
+    if(this.entered) return u;
+    this.entered = true;
+    Store.update(d => {
+      const v = d.user;
+      if(!v || !this.okId(v.id)) return;
+      v.visits = (v.visits || 0) + 1;
+      v.lastLogin = U.now();
+      if(!v.joinedAt) v.joinedAt = U.now();
+    });
+    return this.get();
+  },
+  /* نام نمایشی — تنها جایی که از playerName به user.name می‌رسیم */
+  setName(v){
+    const n = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 20) || 'بازیکن';
+    Store.update(d => {
+      d.playerName = n;
+      if(d.user) d.user.name = n;
+    });
+    return n;
+  },
+  name(){ const u = this.get(); return (u && u.name) || Store.get('playerName') || 'بازیکن'; },
+  phone(){ const u = this.get(); return (u && u.phone) || Store.get('phone') || ''; },
+  /* شماره پس از تأییدِ پیامک روی هویت می‌نشیند. جای دیگری نباید صداش بزند.
+     `U.unfa` پیش از جدا کردنِ رقم‌ها می‌آید: کاربر با صفحه‌کلید فارسی
+     «۰۹۱۲…» می‌زند و آن رشته از دیدِ /\D/ هیچ رقمی ندارد — بی این تبدیل،
+     شمارهٔ درست به رشتهٔ خالی بدل می‌شد. */
+  setPhone(phone){
+    const p = U.unfa(String(phone || '')).replace(/\D/g, '').slice(0, 15);
+    this.ensure();
+    Store.update(d => { d.phone = p; if(d.user) d.user.phone = p; });
+    return p;
+  },
+  bumpPlay(){
+    const u = this.ensure();
+    if(!u) return;
+    Store.update(d => { if(d.user) d.user.plays = (d.user.plays || 0) + 1; });
+  },
+  /* آنچه از این هویت به سرور می‌رود. عمداً کم است: نه امتیاز، نه شماره.
+     شماره فقط پس از تأییدِ پیامک و در همان مسیرِ ورود می‌رود. */
+  wire(){
+    const u = this.get();
+    return u ? { id: u.id, name: this.name(), level: Store.get('level'),
+                 score: Store.get('score') } : null;
+  },
+  /* فهرستِ پنل ادمین — یک ردیف برای کاربرِ همین دستگاه */
+  row(){
+    const u = this.get();
+    if(!u) return null;
+    return { id: u.id, name: this.name(), phone: u.phone || '', joinedAt: u.joinedAt || 0,
+             lastLogin: u.lastLogin || 0, visits: u.visits || 0, plays: u.plays || 0,
+             score: Store.get('score'), level: Store.get('level'), blocked: !!u.blocked,
+             me: true };
+  },
+  /* قفلِ محلی. این «امنیت» نیست — مانعِ خودِ کاربر است تا با حسابی
+     مسدودشده بازی نکند؛ قفلِ راستین در سرور است. */
+  setBlocked(v){
+    if(!this.get()) return;
+    Store.update(d => { if(d.user) d.user.blocked = !!v; });
+  },
+  blocked(){ const u = this.get(); return !!(u && u.blocked); }
+};
+
 /* ─────────────────── 17.9 شمارشِ بازی‌ها ───────────────────
    پنل مدیریت باید بتواند بگوید «کدام بازی بیشتر بازی می‌شود» و «امروز چند
    دست بازی شد». پیش‌تر فقط `stats.plays` بود که تنها دوزِ آفلاین آن را
@@ -10661,6 +10804,10 @@ const Stats = {
       s.today.n = (s.today.n || 0) + 1;
       s.today.byGame[game] = (s.today.byGame[game] || 0) + 1;
     });
+    /* شمارشِ بازی روی هویتِ کاربر هم می‌نشیند، نه فقط روی آمارِ دستگاه.
+       جدا از آمار است چون پنل ادمین کاربر را با همین عدد می‌شناسد و
+       آمارِ دستگاه با پاک‌شدنِ داده صفر می‌شود. */
+    User.bumpPlay();
   },
   /* امروز چند دست — اگر تاریخ ذخیره‌شده امروز نباشد، صفر */
   todayN(){
@@ -12757,7 +12904,10 @@ const OTP = {
     /* درست بود: کد سوخته و شماره ثبت می‌شود. */
     this.clear();
     const wasNew = Store.get('phone') !== phone;
-    Store.update(x => { x.phone = phone; });
+    /* شماره روی *هویت* می‌نشیند، نه فقط روی وضعیتِ دستگاه؛ پنل ادمین
+       کاربر را با همین شماره می‌شناسد. */
+    try{ User.setPhone(phone); }
+    catch(e){ Store.update(x => { x.phone = phone; }); }
     return { ok: true, phone, first: wasNew };
   },
 
@@ -12919,6 +13069,11 @@ function init(){
   applyTheme(Store.get('settings').theme);
   /* روکشِ ویرایشِ محتوا، پیش از آن‌که چیزی از بانک‌ها بخواند */
   try{ Content.apply(); }catch(e){ console.warn('content', e); }
+  /* هویت، پیش از هر چیزی که نام یا شناسهٔ کاربر را می‌خواند */
+  try{
+    User.enter();
+    if(!User.get()) console.warn('هویت ساخته نشد — مولدِ امن در دسترس نیست');
+  }catch(e){ console.warn('user', e); }
 
   /* ── نسخهٔ ۱۵: تصویرها، PWA، دسترس‌پذیری، پنل اشکال‌زدایی ── */
   try{ Assets.watch(); Assets.pwa(); }catch(e){ console.warn('assets', e); }
