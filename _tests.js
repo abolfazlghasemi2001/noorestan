@@ -3865,6 +3865,64 @@ section('هویتِ کاربر — شناسهٔ مبهم و نشست');
   }
 }
 
+section('حساب کاربری در پروفایل');
+{
+  /* رندرِ صفحهٔ «من» را می‌گیریم تا بشود دربارهٔ آنچه کاربر می‌بیند سنجید */
+  const draw = () => {
+    const box = { innerHTML: '', classList:{ add(){}, remove(){}, toggle(){} } };
+    const $0 = U.$;
+    const tab = Me.tab;
+    U.$ = (s, p) => s === '#meBody' ? box : $0(s, p);
+    try{ Me.tab = 'profile'; Me.render(); } finally { U.$ = $0; Me.tab = tab; }
+    return box.innerHTML;
+  };
+  const keepUser = Store.get('user'), keepPhone = Store.get('phone');
+  try{
+    Store.update(d => { d.user = null; d.phone = ''; });
+    User.entered = false;
+    const u = User.ensure();
+    ok('هویت پیش از رندر ساخته می‌شود', !!u);
+
+    let html = draw();
+    ok('شناسه در پروفایل دیده می‌شود', html.includes(u.id), 'بی شناسه');
+    ok('و کپی‌شدنی است', new RegExp(`data-copy="${u.id}"`).test(html));
+    ok('بی شماره، «ثبت نشده» می‌گوید', html.includes('ثبت نشده'));
+    ok('و مهمان خوانده می‌شود', html.includes('مهمانِ همین دستگاه'));
+    ok('و از کاربر می‌خواهد وارد شود', /با موبایل وارد شو/.test(html));
+    ok('دکمهٔ ورود، «ورود با موبایل» است', html.includes('📱 ورود با موبایل'));
+    ok('🔒 و هیچ‌جا وعده نمی‌دهد بی سرور حساب ساخته می‌شود',
+       !/حساب شما ساخته شد/.test(html));
+
+    /* پس از تأییدِ پیامک */
+    User.setPhone('۰۹۱۲۳۴۵۶۷۸۹');
+    User.enter();
+    html = draw();
+    ok('شماره در پروفایل می‌آید', html.includes('0912 345 6789'), 'بی شماره');
+    ok('و به لاتین ذخیره می‌شود', Store.get('phone') === '09123456789', Store.get('phone'));
+    ok('وضعیت «تأییدشده با پیامک» می‌شود', html.includes('تأییدشده با پیامک'));
+    ok('دکمه به «تغییر شماره» بدل می‌شود', html.includes('📱 تغییر شماره'));
+    ok('و قول می‌دهد شماره به کسی نشان داده نشود', html.includes('نشان داده نمی‌شود'));
+    ok('بازی‌های حساب شمرده می‌شوند', /بازی‌های این حساب/.test(html));
+
+    /* نام از یک راه می‌رود */
+    User.setName('  زهرا   جان  ');
+    ok('نامِ هویت با نامِ نمایشی یکی می‌ماند',
+       User.get().name === 'زهرا جان' && Store.get('playerName') === 'زهرا جان',
+       `${User.get().name} / ${Store.get('playerName')}`);
+    ok('نامِ خالی به «بازیکن» برمی‌گردد', User.setName('   ') === 'بازیکن');
+
+    /* «وارد شدی» با «شماره عوض شد» یکی نیست */
+    ok('ورودِ نخست و تغییرِ شماره، پیامِ جدا می‌گیرند', (() => {
+      const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+      const i = src.indexOf('async check(){');
+      const body = src.slice(i, src.indexOf('Me.render()', i));
+      return /r\.first \?/.test(body) && /به‌روز شد/.test(body);
+    })());
+  }finally{
+    Store.update(d => { d.user = keepUser; d.phone = keepPhone; d.playerName = 'بازیکن'; });
+  }
+}
+
 section('پنل مدیریت — شمارشِ بازی‌ها');
 {
   const before = Store.get('stats').byGame;

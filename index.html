@@ -10307,6 +10307,32 @@ const Me = {
         </div>
 
         <div class="card mt14">
+          <b style="font-size:13px">🪪 حساب کاربری</b>
+          <div class="sep"></div>
+          ${(() => {
+            const u = User.row();
+            if(!u) return '<div class="empty">هویت ساخته نشد — مولدِ امن در این مرورگر در دسترس نیست</div>';
+            const verified = !!u.phone;
+            return `
+              <div class="kv"><span>شناسه</span>
+                <b class="adm-id" data-copy="${U.esc(u.id)}" title="برای کپی بزن"
+                   style="cursor:pointer"><span dir="ltr">${U.esc(u.id)}</span></b></div>
+              <div class="kv"><span>شمارهٔ موبایل</span>
+                <b>${verified ? `<span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span>`
+                               : '<span style="color:var(--mut)">ثبت نشده</span>'}</b></div>
+              <div class="kv"><span>وضعیت</span>
+                <b>${verified ? '✅ تأییدشده با پیامک' : '👤 مهمانِ همین دستگاه'}</b></div>
+              <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
+              <div class="kv"><span>آخرین ورود</span>
+                <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
+              <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+                ${verified
+                  ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
+                  : 'بی شماره، حساب فقط روی همین دستگاه است. برای اینکه سرور بشناسدت و امتیازت به نام خودت ثبت شود، با موبایل وارد شو.'}</p>`;
+          })()}
+        </div>
+
+        <div class="card mt14">
           <b style="font-size:13px">📇 شناسنامه</b>
           <div class="sep"></div>
           ${Streak.rows()}
@@ -10327,7 +10353,7 @@ const Me = {
             <button class="btn gh sm" id="pfBadges">🎖️ نشان‌ها</button>
             <button class="btn gh sm" id="pfRecords">🏅 رکوردها</button>
             <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
-            <button class="btn gh sm" id="pfPhone">📱 ورود با موبایل</button>
+            <button class="btn gh sm" id="pfPhone">${User.phone() ? '📱 تغییر شماره' : '📱 ورود با موبایل'}</button>
           </div>
         </div>`;
       const av = U.$('#pfAva'), avb = U.$('#pfAvaBtn');
@@ -10340,10 +10366,15 @@ const Me = {
       const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
       const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => OTP.modal();
+      U.$$('.adm-id').forEach(el => el.onclick = async () => {
+        const t = el.dataset.copy;
+        if(!t) return;
+        UI.toast(await copyText(t) ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار', 'ok');
+      });
       const nm = U.$('#pfName');
       if(nm) nm.onchange = () => {
-        const v = (nm.value || '').trim().slice(0, 20) || 'بازیکن';
-        Store.update(x => x.playerName = v);
+        /* از راهِ User می‌رود تا نامِ هویت و نامِ نمایشی از هم جدا نیفتند */
+        User.setName(nm.value);
         UI.toast('✅ نام ذخیره شد', 'ok');
         this.render();
       };
@@ -13470,7 +13501,9 @@ const OTP = {
     this.stop();
     Haptic.success();
     UI.closeModal();
-    UI.toast(`✅ خوش آمدی! ${SMS.faPhone(r.phone)}`, 'ok', 3000);
+    /* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
+    UI.toast(r.first ? `✅ خوش آمدی! حسابت با ${SMS.faPhone(r.phone)} ساخته شد`
+                     : `✅ شماره به ${SMS.faPhone(r.phone)} به‌روز شد`, 'ok', 3200);
     try{ Me.render(); }catch(e){}
   }
 };
