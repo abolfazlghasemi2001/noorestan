@@ -472,6 +472,28 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 #modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.75);backdrop-filter:blur(6px);
   display:none;place-items:center;padding:18px}
 #modal.on{display:grid}
+/* ── برگهٔ پایین‌کش ──
+   انتخابِ سریعِ قاری هنگامِ پخش باید از پایین بیاید تا انگشت به آن برسد و
+   پخش هم زیرش دیده بماند. قاعده باید *پس از* `#modal.on` بنشیند؛ هر دو
+   هم‌وزن‌اند و ترتیبِ سند تعیین می‌کند. */
+#modal.sheet.on{display:flex;align-items:flex-end;justify-content:center;padding:0}
+#modal.sheet .box{width:100%;max-width:560px;border-radius:22px 22px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  max-height:min(78vh,620px);overflow-y:auto;overscroll-behavior:contain;
+  animation:sheetUp .28s cubic-bezier(.22,.9,.3,1) both}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* دستهٔ برگه — نشانهٔ بصریِ اینکه می‌شود کشیدش پایین */
+.sheet-grab{width:38px;height:4px;border-radius:99px;background:var(--line);
+  margin:0 auto 12px}
+.rec-row{display:flex;gap:10px;align-items:center;padding:10px;border-radius:15px;
+  background:var(--card2);border:1px solid var(--line);margin-bottom:7px;cursor:pointer;
+  transition:.16s}
+.rec-row:hover{transform:translateY(-2px)}
+.rec-row.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold2) inset}
+.rec-row .rb{flex:1;min-width:0;font-size:12.5px;font-weight:700}
+.rec-row .rb small{display:block;font-weight:500;color:var(--mut);font-size:11px;margin-top:2px}
+.rec-row .rk{font-size:16px;color:var(--gold)}
+.rec-row .rw{font-size:11px;color:var(--red);margin-top:3px}
 #modal .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;
   width:100%;max-width:420px;animation:in .25s both;max-height:86vh;overflow:auto}
 .empty{text-align:center;color:var(--mut);font-size:13px;padding:30px 12px}
@@ -593,14 +615,28 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .ayahgrid button.done{border-color:var(--grn);color:var(--grn)}
 .qsrc{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--mut);margin-top:8px}
 #miniQ{position:fixed;inset:auto 10px calc(82px + env(safe-area-inset-bottom,0px)) 10px;z-index:45;display:none;align-items:center;gap:10px;
-  padding:9px 12px;border-radius:16px;border:1px solid var(--line);
+  padding:9px 12px 12px;border-radius:16px;border:1px solid var(--line);overflow:hidden;
   background:var(--float2);backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.5)}
 #miniQ.on{display:flex;animation:in .25s both}
 #miniQ .m-t{flex:1;min-width:0}
 #miniQ .m-t b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#miniQ .m-t small{color:var(--mut);font-size:11px}
+#miniQ .m-t small{color:var(--mut);font-size:11px;display:block;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 #miniQ button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);
   background:var(--card2);color:var(--txt);cursor:pointer;font-size:15px;flex:none}
+/* ── دکمهٔ قاری در نوار پخش ──
+   تنها راهِ عوض کردنِ قاری *بدونِ* ترکِ صفحه. متنِ داخلش باید بُرش بخورد،
+   وگرنه نامِ بلندِ قاری چهار دکمهٔ پخش را از لبه بیرون می‌راند. */
+#mqRec{display:flex;align-items:center;gap:5px;max-width:100%;width:auto;height:auto;
+  padding:2px 8px;border-radius:99px;font-size:11px;margin-bottom:3px;
+  background:var(--card);border:1px solid var(--gold2);color:var(--gold)}
+#mqRec .ic{width:12px;height:12px}
+#mqRec b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:11ch}
+#mqRec .car{font-size:11px;opacity:.7;line-height:1}
+#mqRec:hover{background:var(--card2)}
+/* نوارِ پیشرفتِ نازک چسبیده به لبهٔ پایین — بی اینکه ارتفاع نوار را زیاد کند */
+#mqBar{position:absolute;inset:auto 0 0 0;height:3px;background:var(--line)}
+#mqBar i{display:block;height:100%;width:0;background:var(--grad);transition:width .25s linear}
 .spin{display:inline-block;animation:spin 1s linear infinite}
 input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:26px;cursor:pointer}
 input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:99px;background:var(--card2);
@@ -1728,11 +1764,15 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 <!-- نوار پخش قرآن (همیشه همراه) -->
 <div id="miniQ">
   <span id="mqArt"></span>
-  <div class="m-t"><b id="mqTitle">—</b><small id="mqSub">—</small></div>
+  <div class="m-t">
+    <button id="mqRec" title="عوض کردن قاری" aria-label="عوض کردن قاری"><i data-ic="mic"></i> <b id="mqRecName">—</b><span class="car" aria-hidden="true">▾</span></button>
+    <b id="mqTitle">—</b><small id="mqSub">—</small>
+  </div>
   <button id="mqPrev" title="آیهٔ قبل"><i data-ic="prev"></i></button>
   <button id="mqPlay" title="پخش/توقف"><i data-ic="play"></i></button>
   <button id="mqNext" title="آیهٔ بعد"><i data-ic="next"></i></button>
   <button id="mqStop" title="بستن"><i data-ic="close"></i></button>
+  <span id="mqBar" aria-hidden="true"><i id="mqFill"></i></span>
 </div>
 
 <script>
@@ -1969,6 +2009,7 @@ const Icon = {
     tools:  { d:'<path d="M14.5 6.6a3.6 3.6 0 0 1 4.9 4.9l-7 7a2 2 0 0 1-2.8-2.8z"/><path d="M6.6 4.4l2.5 2.5M4.4 6.6l2.5 2.5M5.5 4.4l-.1 2.2 2.2-.1"/>' },
     play:   { f:1, d:'<path d="M8.2 5.3v13.4a.9.9 0 0 0 1.37.77l10.5-6.7a.9.9 0 0 0 0-1.54L9.57 4.53A.9.9 0 0 0 8.2 5.3z"/>' },
     heart:  { d:'<path d="M12 20.4c-2.1-1.7-8-6.3-8-10.5a4.4 4.4 0 0 1 8-2.6 4.4 4.4 0 0 1 8 2.6c0 4.2-5.9 8.8-8 10.5z"/>' },
+    mic:    { d:'<path d="M12 3.6a2.6 2.6 0 0 1 2.6 2.6v5.3a2.6 2.6 0 0 1-5.2 0V6.2A2.6 2.6 0 0 1 12 3.6z"/><path d="M5.8 11.1v.4a6.2 6.2 0 0 0 12.4 0v-.4M12 17.7v2.7M9 20.4h6"/>' },
     pause:  { f:1, d:'<path d="M8.2 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7H8.2a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/><path d="M13.1 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7h-2.7a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/>' },
     prev:   { f:1, d:'<path d="M6.1 5.2h2.2v13.6H6.1z"/><path d="M19.4 5.7v12.6a.8.8 0 0 1-1.23.68l-9.3-6.3a.8.8 0 0 1 0-1.36l9.3-6.3A.8.8 0 0 1 19.4 5.7z"/>' },
     next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' }
@@ -2794,6 +2835,11 @@ const UI = {
 
   modal(html, onMount){
     const box = U.$('#modalBox');
+    /* نشانِ برگه فقط برای همان فراخوانیِ sheet معتبر است؛ وگرنه پنجرهٔ
+       بعدی که با modal باز می‌شود هم از پایین می‌آمد. */
+    const wrap = U.$('#modal');
+    if(wrap && wrap.classList) wrap.classList.toggle('sheet', !!this._wantSheet);
+    this._wantSheet = false;
     if(!this._mOpen){
       this._focusBack = document.activeElement || null;
       try{
@@ -2812,10 +2858,20 @@ const UI = {
     onMount && onMount(box);
   },
 
+  /* برگهٔ پایین‌کش — همان پنجره، ولی از پایین می‌آید و به لبه می‌چسبد.
+     برای انتخابِ سریع در حینِ پخش: پخش زیرش دیده می‌ماند. */
+  sheet(html, onMount){
+    this._wantSheet = true;
+    this.modal(html, onMount);
+  },
+
   closeModal(){
     if(!this._mOpen) return;
     this._mOpen = false;
     U.$('#modal').classList.remove('on');
+    /* نشانِ برگه پاک شود، وگرنه پنجرهٔ بعدی هم از پایین می‌آید */
+    U.$('#modal').classList.remove('sheet');
+    this._wantSheet = false;
     this.giveBackFocus();
     /* پاک‌کردنِ ورودیِ نشان‌دار به پایانِ همین چرخهٔ رویداد موکول می‌شود:
        اگر بلافاصله پس از بستن، Router.go صدا زده شود (الگوی «بستن و رفتن
@@ -3494,6 +3550,13 @@ const Recite = {
   srcTried: {},       // کدام منبع‌ها برای آیهٔ جاری آزموده شده‌اند
   state: 'idle',      // idle | loading | playing | paused | error
   listeners: [],
+  srcIdx: 0,
+  _seekTo: 0,         // ثانیه‌ای که پس از رسیدنِ متادیتا باید برویم سرش
+  _seekTok: 0,        // نشانهٔ نوبتِ جست‌وجو؛ دو تعویضِ پشت‌سرهم را جدا می‌کند
+  _recRevert: null,   // اگر قاریِ تازه فایل نداشت، به این قاری برگرد
+  /* قاریانی که در همین نشست بارگذاری‌شان نشد. «غیرفعال»شان نمی‌کنیم —
+     شبکه ممکن است برگردد — ولی در برگهٔ انتخاب هشدار می‌گیرند. */
+  _bad: new Set(),
 
   pref(){ return Store.get('quran') || {}; },
 
@@ -3502,12 +3565,36 @@ const Recite = {
     const a = new Audio();
     a.preload = 'none';
     this.el = a;
-    a.addEventListener('playing', () => this.set('playing'));
+    a.addEventListener('playing', () => {
+      /* بارگذاری شد ⇒ نشانِ خرابیِ این قاری برداشته می‌شود */
+      this._bad.delete(U.clamp(+(this.pref().reciter ?? 0), 0, RECITERS.length - 1));
+      this.set('playing');
+    });
     a.addEventListener('pause',   () => { if(this.state !== 'idle') this.set('paused'); });
     a.addEventListener('waiting', () => this.set('loading'));
     a.addEventListener('ended',   () => this.onEnded());
     a.addEventListener('error',   () => this.onError());
+    a.addEventListener('timeupdate', () => this.tick());
     return a;
+  },
+  /* نوارِ پیشرفتِ نوارِ پخش. عمداً سبک است: timeupdate چند بار در ثانیه
+     می‌آید و هر کار سنگین‌تری اینجا پخش را می‌لرزاند. */
+  tick(){
+    const el = this.el;
+    if(!el) return;
+    const fill = U.$('#mqFill');
+    if(fill){
+      const d = el.duration;
+      fill.style.width = (d && isFinite(d) && d > 0 ? U.clamp(el.currentTime / d * 100, 0, 100) : 0) + '%';
+    }
+    const t = U.$('#mqTime');
+    if(t) t.textContent = this.clock(el.currentTime) + (isFinite(el.duration) ? ' / ' + this.clock(el.duration) : '');
+  },
+  clock(sec){
+    if(!isFinite(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    const f = n => (n < 10 ? '0' : '') + n;
+    return f(m) + ':' + f(s);
   },
   on(fn){ this.listeners.push(fn); },
   set(st){
@@ -3550,6 +3637,18 @@ const Recite = {
     a.src = url;
     this.set('loading');
     U.$('#qStat').textContent = `منبع: ${QSOURCES[idx].name}`;
+    /* تعویضِ قاری نباید آیه را از سر بگیرد. زمان را *پیش از* بارگذاری
+       نمی‌شود ست کرد (فراخوانیِ بی‌متادیتا بی‌اثر است)، پس تا رسیدنِ
+       متادیتا نگه می‌داریمش. نشانه لازم است وگرنه دو تعویضِ پشت‌سرهم
+       هر دو روی همان متادیتا می‌سوزند و دومی زمانِ کهنه را می‌نشاند. */
+    if(this._seekTo > 0 && a.addEventListener){
+      const want = ++this._seekTok, to = this._seekTo;
+      this._seekTo = 0;
+      a.addEventListener('loadedmetadata', () => {
+        if(want !== this._seekTok) return;
+        try{ a.currentTime = Math.min(to, (a.duration || to)); }catch(e){}
+      }, { once: true });
+    }
     const p = a.play();
     if(p && p.catch) p.catch(() => this.onError());
   },
@@ -3562,7 +3661,51 @@ const Recite = {
     }
     this.fail();
   },
+
+  /* ── تعویضِ قاری بی قطعِ صدا ──
+     تا پیش از این، عوض‌کردنِ قاری آیه را از ثانیهٔ صفر از نو می‌خواند و
+     کاربر جای خودش را گم می‌کرد. حالا همان لحظه حفظ می‌شود و اگر پخش
+     جریان داشته باشد، از همان‌جا با صدای تازه ادامه می‌یابد. */
+  switchTo(i, opts = {}){
+    const idx = U.clamp(Math.floor(+i) || 0, 0, RECITERS.length - 1);
+    const was = U.clamp(Math.floor(+(this.pref().reciter ?? 0)) || 0, 0, RECITERS.length - 1);
+    if(idx === was) return false;
+    const at = this.el ? this.el.currentTime || 0 : 0;
+    const cur = this.cur;
+    const live = !!cur && !!(this.el && this.el.src) && this.state !== 'idle' && this.state !== 'error';
+    Store.update(d => { d.quran.reciter = idx; });
+    /* اگر قاریِ تازه این آیه را نداشته باشد، به همین قاری برمی‌گردیم. */
+    this._recRevert = (opts.noRevert || !live) ? null : was;
+    if(!live) return true;
+    this._seekTo = at;
+    this.play(cur.s, cur.a, { source: this.srcIdx, queue: this.queue });
+    /* play صف را از نو می‌سازد؛ صفِ آیه‌های بعدی باید دست‌نخورده بماند */
+    return true;
+  },
+
+  /* عوض‌کردنِ منبع صدا هم نباید آیه را از سر بگیرد — همان قاعدهٔ قاری. */
+  switchSource(i){
+    const idx = U.clamp(Math.floor(+i) || 0, 0, QSOURCES.length - 1);
+    const at = this.el ? this.el.currentTime || 0 : 0;
+    const cur = this.cur;
+    const live = !!cur && !!(this.el && this.el.src) && this.state !== 'idle' && this.state !== 'error';
+    Store.update(d => d.quran.source = idx);
+    if(!live) return false;
+    this._seekTo = at;
+    this.srcTried = {};
+    this.play(cur.s, cur.a, { source: idx, queue: this.queue });
+    return true;
+  },
+
   fail(){
+    this._bad.add(U.clamp(+(this.pref().reciter ?? 0), 0, RECITERS.length - 1));
+    /* قاریِ تازه فایل نداشت؟ کاربر نباید بی صدا بماند. */
+    if(this._recRevert != null){
+      const back = this._recRevert;
+      this._recRevert = null;
+      UI.toast(`⚠️ ${RECITERS[U.clamp(Store.get('quran').reciter, 0, RECITERS.length - 1)].short} این آیه را ندارد — به قاری پیشین برگشتیم`, 'err', 3600);
+      if(this.cur){ this.switchTo(back, { noRevert: true }); return; }
+    }
     this.set('error');
     UI.toast('⚠️ تلاوت بارگذاری نشد — اینترنت یا منبع صدا را بررسی کن', 'err', 3200);
     U.$('#qStat').innerHTML = '<b style="color:var(--red)">اتصال به منبع صدا ممکن نشد</b>';
@@ -3747,12 +3890,59 @@ const QuranUI = {
       </div>`).join('');
     U.$$('#qReciters .qcard').forEach(el => el.onclick = () => {
       const i = +el.dataset.rec;
-      Store.update(d => d.quran.reciter = i);
       Sound.tick();
-      this.renderReciters();
-      const cur = Recite.cur;
-      if(cur){ Recite.play(cur.s, cur.a); UI.toast(`🎙 ${RECITERS[i].name}`, 'ok', 1600); }
-      else UI.toast(`🎙 ${RECITERS[i].name} انتخاب شد`, 'ok', 1600);
+      /* از راهِ switchTo می‌رود تا اگر پخشی در جریان است، از همین لحظه
+         ادامه یابد — نه از ثانیهٔ صفر. */
+      this.pickReciter(i);
+    });
+  },
+
+  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارت‌های صفحه، برگهٔ پایین‌کش. */
+  pickReciter(i){
+    const before = Store.get('quran').reciter;
+    const changed = Recite.switchTo(i);
+    Sound.tick();
+    this.renderReciters();
+    if(!changed){ UI.toast(`🎙 ${RECITERS[i].short} از قبل انتخاب بود`, '', 1400); return; }
+    const same = before === Store.get('quran').reciter;
+    UI.toast(same ? `🎙 ${RECITERS[i].name} انتخاب شد` : `🎙 از همین لحظه با ${RECITERS[i].short}`, 'ok', 1800);
+  },
+
+  /* ── برگهٔ پایین‌کشِ قاری ──
+     هنگامِ پخش باز می‌شود تا کاربر بی ترکِ صفحه قاری را عوض کند. */
+  reciterSheet(){
+    const q = Store.get('quran');
+    const playing = Recite.state === 'playing' || Recite.state === 'loading';
+    const rows = RECITERS.map((r, i) => `
+      <div class="rec-row ${i === q.reciter ? 'on' : ''}" data-rec="${i}"
+           role="button" tabindex="0" aria-label="${U.esc(r.name)}">
+        ${this.medal(r, 36)}
+        <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
+          ${Recite._bad.has(i) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — می‌توانی باز امتحان کنی</small>' : ''}</span>
+        ${i === q.reciter ? '<span class="rk" aria-hidden="true">✓</span>' : ''}
+      </div>`).join('');
+    UI.sheet(`
+      <div class="sheet-grab"></div>
+      <h3 style="margin-bottom:4px">🎙 انتخاب قاری</h3>
+      <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
+        ${playing ? 'پخش از همین لحظه با صدای تازه ادامه می‌یابد — چیزی از دست نمی‌رود.'
+                  : 'با زدن روی هر قاری، پخش با او آغاز می‌شود.'}</p>
+      <div id="recSheetRows">${rows}</div>
+      <p style="font-size:11px;color:var(--mut);margin-top:10px">
+        🔊 منبع صدا: ${U.esc(QSOURCES[U.clamp(q.source, 0, QSOURCES.length - 1)].label)}</p>
+      <div class="row" style="gap:8px;margin-top:12px">
+        <button class="btn gh" id="recSheetClose">بستن</button>
+      </div>`, box => {
+      const go = el => {
+        const i = +(el.dataset.rec ?? el.getAttribute('data-rec'));
+        UI.closeModal();
+        this.pickReciter(i);
+      };
+      U.$$('#recSheetRows .rec-row').forEach(el => {
+        el.onclick = () => go(el);
+        el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(el); } };
+      });
+      U.$('#recSheetClose').onclick = () => UI.closeModal();
     });
   },
 
@@ -3915,15 +4105,25 @@ const QuranUI = {
     if(!on) return;
     const su = QURAN[c.s - 1], r = Recite.reciter();
     U.$('#mqArt').innerHTML = this.medal(r, 34);
+    U.$('#mqRecName').textContent = r.short;
     U.$('#mqTitle').textContent = `${su.name} • آیهٔ ${U.fa(c.a)}`;
-    U.$('#mqSub').textContent = `${r.short} — ${Recite.state === 'playing' ? 'در حال پخش' : Recite.state === 'loading' ? 'بارگذاری…' : Recite.state === 'error' ? 'خطا در پخش' : 'آمادهٔ پخش'}`;
+    const how = Recite.state === 'playing' ? 'در حال پخش'
+              : Recite.state === 'loading' ? 'بارگذاری…'
+              : Recite.state === 'error' ? 'خطا در پخش' : 'آمادهٔ پخش';
+    const el = Recite.el;
+    const dur = el && isFinite(el.duration) && el.duration > 0 ? ' • ' + Recite.clock(el.currentTime || 0) + ' / ' + Recite.clock(el.duration) : '';
+    U.$('#mqSub').textContent = how + dur;
     U.$('#mqPlay').innerHTML = Icon.of(Recite.state === 'playing' ? 'pause' : 'play');
+    Recite.tick();          // نوارِ پیشرفت بعد از هر تغییرِ وضعیت تازه شود
     if(!U.$('#mqPlay').onclick){
       U.$('#mqPlay').onclick = () => Recite.toggle();
       U.$('#mqPrev').onclick = () => Recite.step(-1);
       U.$('#mqNext').onclick = () => Recite.step(1);
       U.$('#mqStop').onclick = () => { Recite.stop(); UI.toast('🎧 بسته شد', '', 1200); };
     }
+    /* قاری از نوارِ پخش عوض می‌شود: بی ترکِ صفحه و بی قطعِ صدا. */
+    const rb = U.$('#mqRec');
+    if(rb && !rb.onclick) rb.onclick = () => this.reciterSheet();
   }
 };
 Recite.on(() => QuranUI.renderNow());
@@ -8197,13 +8397,14 @@ const ReciterUI = {
       const i = +el.dataset.rec;
       el.onclick = e => {
         if(e.target.closest('[data-prev]')){ this.preview(i, e.target.closest('[data-prev]')); return; }
-        Store.update(d => d.quran.reciter = i);
-        Sound.tick(); Haptic.hit();
+        /* نمونهٔ ۵ ثانیه‌ای اگر در جریان باشد، جایش را به پخش اصلی می‌دهد */
+        this.stopPreview();
+        Haptic.hit();
         U.$$('#modal .rec').forEach(x => x.classList.remove('on'));
         el.classList.add('on');
-        const c = Recite.cur;
-        if(c) Recite.play(c.s, c.a);
-        UI.toast(`🎙 ${RECITERS[i].name} انتخاب شد`, 'ok', 1700);
+        /* همین مسیرِ بی‌قطع: اگر پخشی در جریان است، از همان لحظه ادامه بده */
+        QuranUI.pickReciter(i);
+        QuranUI.renderReciters();
       };
     });
   },
@@ -10679,10 +10880,9 @@ const Me = {
       // ── تلاوت: قاری، بلندی، منبع، آزمایش ──
       U.$('#setQnext').onclick = () => {
         const i = ((Store.get('quran').reciter || 0) + 1) % RECITERS.length;
-        Store.update(x => x.quran.reciter = i);
+        /* از راهِ switchTo می‌رود تا در حینِ پخش، آیه از نو خوانده نشود */
+        Recite.switchTo(i);
         U.$('#setQuran').textContent = RECITERS[i].name;
-        Sound.tick();
-        const c = Recite.cur; if(c) Recite.play(c.s, c.a);
         UI.toast(`🎙 ${RECITERS[i].name} — ${RECITERS[i].note}`, 'ok', 2200);
       };
       U.$('#setQvol').onclick = function(){
@@ -10694,9 +10894,8 @@ const Me = {
       };
       U.$('#setQsrc').onclick = function(){
         const i = ((Store.get('quran').source || 0) + 1) % QSOURCES.length;
-        Store.update(x => x.quran.source = i);
+        Recite.switchSource(i);        // مثلِ قاری: از همین لحظه، نه از صفر
         this.textContent = `📡 منبع: ${QSOURCES[i].name}`;
-        const c = Recite.cur; if(c) Recite.play(c.s, c.a);
       };
       U.$('#setQtest').onclick = () => {
         Recite.play(1, 1);

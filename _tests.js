@@ -471,6 +471,111 @@ ok('شماره‌گذاری سه‌رقمی درست است', QSOURCES[0].url(RE
 ok('آیه‌های برگزیده معتبرند', QPICKS.every(p => QURAN[p.s - 1] && p.a >= 1 && p.a <= QURAN[p.s - 1].count),
    QPICKS.filter(p => !(QURAN[p.s - 1] && p.a >= 1 && p.a <= QURAN[p.s - 1].count)).map(p => `${p.s}:${p.a}`).join());
 
+/* ── تعویضِ قاری بی قطعِ صدا (۱۷.۱ بخش ۳) ──
+   پیش‌تر عوض‌کردنِ قاری آیه را از ثانیهٔ صفر از نو می‌خواند و کاربر جای
+   خودش را گم می‌کرد. این آزمون‌ها همان نگه‌داشتنِ لحظه را قفل می‌کنند. */
+{
+  const _r0 = Store.get('quran').reciter;
+  Store.update(d => { d.quran.reciter = 0; d.quran.surah = 2; d.quran.ayah = 255; });
+  ok('switchTo پیش‌فرضِ نادرست را به بازهٔ فهرست می‌بُرد',
+     (Recite.switchTo(9999), Store.get('quran').reciter === RECITERS.length - 1), String(Store.get('quran').reciter));
+  Store.update(d => d.quran.reciter = 0);
+
+  /* بی پخشِ جریان‌دار: فقط ترجیح عوض می‌شود، پخشی آغاز نمی‌شود. */
+  Recite.state = 'idle'; Recite.cur = null; Recite.el = null;
+  ok('بی پخشِ جریان‌دار، switchTo فقط ترجیح را عوض می‌کند',
+     Recite.switchTo(3) === true && Store.get('quran').reciter === 3);
+  ok('قاریِ همان‌قبلی، تغییر حساب نمی‌شود',
+     Recite.switchTo(3) === false && Store.get('quran').reciter === 3);
+
+  /* با پخشِ جریان‌دار: لحظه حفظ می‌شود و آیه عوض نمی‌شود. */
+  let played = null;
+  const _realPlay = Recite.play;
+  Recite.play = function(s, a, o){ played = { s, a, o }; return true; };
+  Recite.el = { src: 'x', currentTime: 41.5, duration: 100, addEventListener(){}, play(){ return Promise.resolve(); },
+                pause(){}, removeAttribute(){}, load(){}, volume: 1, playbackRate: 1, paused: false, readyState: 4 };
+  Recite.state = 'playing'; Recite.cur = { s: 2, a: 255 }; Recite.srcIdx = 0;
+  const _sw = Recite.switchTo(5);
+  ok('با پخشِ جریان‌دار، آیه دوباره از صفر خوانده نمی‌شود',
+     _sw === true && played && played.s === 2 && played.a === 255,
+     JSON.stringify(played));
+  ok('لحظهٔ پخش برای پس از متادیتا نگه داشته می‌شود',
+     Recite._seekTo === 41.5, String(Recite._seekTo));
+  ok('منبعِ جاری حفظ می‌شود', played && played.o && played.o.source === 0, JSON.stringify(played && played.o));
+  ok('صفِ آیه‌های بعدی پاک نمی‌شود', played && played.o && Array.isArray(played.o.queue));
+  ok('قاریِ تازه ثبت می‌شود', Store.get('quran').reciter === 5);
+
+  /* قاریِ تازه فایل ندارد → برگشت به قاری پیشین، نه سکوت. */
+  const was5 = Store.get('quran').reciter;
+  Recite.fail();
+  ok('بارگذاریِ ناموفق، قاری را به پیشین برمی‌گرداند',
+     Store.get('quran').reciter === 3, String(Store.get('quran').reciter));
+  ok('قاریِ خراب در فهرستِ هشدار می‌نشیند', Recite._bad.has(5), [...Recite._bad].join());
+  ok('برگشت، خودش نشانِ برگشت نمی‌سازد (بی حلقهٔ بی‌پایان)',
+     Recite._recRevert === null, String(Recite._recRevert));
+  /* بارِ دوم: دیگر کسی برای برگشت نیست → خطای راستین */
+  Recite.fail();
+  ok('بی قاریِ پیشین، خطای راستین اعلام می‌شود', Recite.state === 'error');
+
+  Recite.play = _realPlay;
+  Recite.el = null; Recite.cur = null; Recite.state = 'idle'; Recite._bad.clear();
+  Store.update(d => d.quran.reciter = _r0);
+  ok('switchTo بی Audio خطا نمی‌دهد',
+     (() => { try{ Recite.el = null; Recite.cur = { s: 1, a: 1 }; Recite.state = 'playing'; Recite.switchTo(1); return true; }catch(e){ return false; } })());
+  Recite.cur = null; Recite.state = 'idle'; Store.update(d => d.quran.reciter = _r0);
+}
+
+/* نوارِ پخش: قاری از همان‌جا عوض می‌شود */
+{
+  const src = require('fs').readFileSync(__dirname + '/index.html', 'utf8');
+  ok('نوارِ پخش دکمهٔ قاری دارد', /id="mqRec"/.test(src) && /id="mqRecName"/.test(src));
+  ok('دکمهٔ قاری به برگهٔ پایین‌کش وصل است', /rb\.onclick = \(\) => this\.reciterSheet\(\)/.test(src));
+  ok('نوارِ پخش نوارِ پیشرفت دارد', /id="mqBar"[\s\S]{0,40}id="mqFill"/.test(src));
+  ok('برگهٔ قاری از پایین می‌آید نه وسط', /UI\.sheet\(/.test(src) && /#modal\.sheet\.on\{display:flex/.test(src));
+  ok('برگهٔ پایین‌کش به لبهٔ پایین می‌چسبد و حاشیهٔ ایمن را می‌شناسد',
+     /#modal\.sheet \.box\{[^}]*border-radius:22px 22px 0 0/.test(src) &&
+     /#modal\.sheet \.box\{[^}]*env\(safe-area-inset-bottom/.test(src));
+  ok('برگهٔ قاری فهرستِ قاریان و نشانِ قاریِ کنونی دارد',
+     /reciterSheet\(\)\{/.test(src) && /class="rec-row/.test(src));
+  ok('برگهٔ قاری هنگامِ پخش وعدهٔ ادامه از همین لحظه می‌دهد',
+     /پخش از همین لحظه با صدای تازه ادامه می‌یابد/.test(src));
+  ok('قاریِ خراب در برگه هشدار می‌گیرد ولی غیرفعال نمی‌شود',
+     /Recite\._bad\.has\(i\)/.test(src) && !/disabled/.test(src.slice(src.indexOf('reciterSheet(){'), src.indexOf('reciterSheet(){') + 2200)));
+  /* هر راهی که قاری را عوض می‌کند باید از مسیرِ بی‌قطع برود. سه راه هست:
+     کارت‌های صفحهٔ تلاوت، برگهٔ پایین‌کش، گزینشگرِ پیش‌نمایش — به‌علاوهٔ
+     دکمهٔ «قاری بعدی» و «منبع بعدی» در تنظیمات. */
+  const gui = src.slice(src.indexOf('const QuranUI'), src.indexOf('const ReaderUI'));
+  const rui = src.slice(src.indexOf('const ReciterUI'), src.indexOf('const ShareCard'));
+  const set = src.slice(src.indexOf("U.$('#setQnext')"), src.indexOf("U.$('#setQtest')"));
+  ok('گزینشگرِ پیش‌نمایش هم از همان مسیرِ بی‌قطع می‌رود',
+     /QuranUI\.pickReciter\(i\)/.test(rui) && !/Recite\.play\(c\.s, c\.a\)/.test(rui));
+  ok('تنظیمات هم برای قاری و منبع آیه را از نو نمی‌خواند',
+     /Recite\.switchTo\(i\)/.test(set) && /Recite\.switchSource\(i\)/.test(set) &&
+     !/Recite\.play\(c\.s, c\.a\)/.test(set) && !/Recite\.play\(c\.s, c\.a\)/.test(gui));
+  ok('switchSource لحظهٔ پخش را نگه می‌دارد و آیه را عوض نمی‌کند',
+     (() => {
+       const q0 = Store.get('quran').source, s0 = Store.get('quran').surah;
+       let seek = null, url = 'x';      // srcِ آغازین باید پُر باشد وگرنه «پخشی نیست»
+       Recite.el = { src:'', currentTime: 12, duration: 60,
+         addEventListener(t, f){ if(t === 'loadedmetadata') seek = f; },
+         play(){ return Promise.resolve(); }, pause(){}, removeAttribute(){}, load(){},
+         volume:1, playbackRate:1, paused:false, readyState:0 };
+       Object.defineProperty(Recite.el, 'src', { get:() => url, set(v){ url = v; } });
+       Recite.cur = { s: 1, a: 1 }; Recite.state = 'playing'; Recite.srcIdx = 0;
+       const r = Recite.switchSource(q0 === 0 ? 1 : 0);
+       let fine = r === true && !!seek && Recite.cur.s === 1 && Recite.cur.a === 1 &&
+                  Store.get('quran').source === (q0 === 0 ? 1 : 0) && /everyayah|islamic/.test(url);
+       if(seek){ Recite.el.currentTime = 0; seek(); fine = fine && Recite.el.currentTime === 12; }
+       Recite.el = null; Recite.cur = null; Recite.state = 'idle';
+       Store.update(d => { d.quran.source = q0; d.quran.surah = s0; });
+       return fine;
+     })());
+  ok('پیشرفتِ نوار ضخامتِ کم دارد و ارتفاع نوار را نمی‌خورد',
+     /#mqBar\{position:absolute/.test(src) && /#miniQ\{[^}]*overflow:hidden/.test(src));
+  ok('دکمهٔ قاریِ نوارِ پخش ایموجی ندارد (آیکن دارد)',
+     !/🎙/.test(src.slice(src.indexOf('id="miniQ"'), src.indexOf('id="miniQ"') + 700)));
+}
+
 section('پیوند بازی «سفر سوره‌ها» با تلاوت');
 ok('هر سورهٔ بازی شمارهٔ سوره و آیه دارد',
    DATA.surah.every(q => Number.isInteger(q.n) && q.n >= 1 && q.n <= 114 && Number.isInteger(q.a) && q.a >= 1));
