@@ -3067,6 +3067,49 @@ section('حلقهٔ فوکوس و حاشیهٔ ایمنِ گوشی');
      /padding:9px 6px calc\(9px \+ env\(safe-area-inset-bottom/.test(css));
 }
 
+section('قلمِ پایه — میزبانی‌شده، بی گره به شبکه');
+{
+  /* قلمِ پایه تا پیش از این از jsDelivr می‌آمد، با یک <link> که رندر را
+     هم می‌بست. اگر CDN نمی‌آمد، برنامه با قلمِ پیش‌فرضِ سیستم بالا
+     می‌آمد و آفلاین هم هیچ‌وقت درست نمی‌شد. این سنجش سه چیز را نگه
+     می‌دارد: فایلِ قلم واقعاً باشد، وزن‌های لازم تعریف شده باشند، و
+     هیچ‌جای دیگری در <head> به بیرون گره نخورده باشد. */
+  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const head = doc.slice(0, doc.indexOf('<style'));
+  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+
+  const faces = [...css.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map(m => m[1]);
+  ok('قلمِ پایه @font-face دارد', faces.length >= 3, String(faces.length));
+
+  const srcs = faces.flatMap(f => [...f.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(m => m[1]));
+  ok('همهٔ قلم‌ها فایلِ محلی‌اند (نه نشانیِ بیرونی)',
+     srcs.every(s => !/^https?:|^\/\//.test(s)), srcs.filter(s => /^https?:|^\/\//.test(s)).join(' '));
+  for(const s of srcs)
+    ok(`فایلِ قلم هست: ${s}`, fs.existsSync(__dirname + '/' + s));
+  for(const s of srcs){
+    const head4 = fs.existsSync(__dirname + '/' + s)
+      ? fs.readFileSync(__dirname + '/' + s).subarray(0, 4).toString('latin1') : '';
+    ok(`«${s}» یک WOFF2ِ سالم است`, head4 === 'wOF2', head4);
+  }
+  const weights = faces.map(f => (f.match(/font-weight\s*:\s*(\d+)/) || [])[1]).filter(Boolean);
+  for(const w of ['400', '700', '800'])
+    ok(`وزن ${w} قلمِ پایه تعریف شده`, weights.includes(w), weights.join(','));
+  ok('قلم‌ها با swap می‌آیند (متن بی‌قلم نمی‌ماند)',
+     faces.every(f => /font-display\s*:\s*swap/.test(f)));
+
+  /* هیچ برگهٔ سبکِ بیرونیِ مسدودکننده‌ای در <head> نماند. */
+  ok('در <head> برگهٔ سبکِ بیرونی نیست',
+     !/<link[^>]+rel=["']stylesheet["'][^>]*>/i.test(head),
+     (head.match(/<link[^>]+rel=["']stylesheet["'][^>]*>/i) || [''])[0]);
+
+  ok('نامِ قلم در زنجیرهٔ جانشینِ نمایشی هست', /Vazirmatn/.test(FALLBACK_DISP));
+  ok('نامِ قلم در زنجیرهٔ جانشینِ قرآنی هم هست', /Vazirmatn/.test(FALLBACK_QURAN));
+
+  const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+  for(const s of srcs)
+    ok(`سرویس‌ورکر «${s}» را پیش‌ذخیره می‌کند`, sw.includes(s.replace(/^\.\//, './')));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

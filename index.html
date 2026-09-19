@@ -21,7 +21,10 @@
 <meta name="apple-mobile-web-app-title" content="نورستان">
 <meta name="application-name" content="نورستان">
 <meta name="color-scheme" content="dark light">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<!-- فونت پایه دیگر از بیرون نمی‌آید؛ @font-face آن در <style> پایین است و
+     فایل‌ها در assets/fonts می‌نشینند. این پیش‌اتصال فقط برای فونت‌های
+     نمایشی و قرآنیِ اختیاری است که خودِ کاربر انتخاب می‌کند. -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <style>
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
@@ -29,6 +32,27 @@
    بازنویسی کنند بی‌آنکه لازم باشد سلکتورها سنگین‌تر شوند.
    تقدم:  tokens < base < layout < comp < anim < theme < motion < utils      */
 @layer tokens, base, layout, comp, anim, theme, motion, utils;
+
+/* ── فونت پایه، میزبانی‌شده روی خودِ برنامه ──
+   پیش‌تر این فونت از jsDelivr می‌آمد، با یک <link> در <head> — یعنی
+   قلمِ پایهٔ برنامه به شبکه گره خورده بود و آن <link> هم رندر را
+   می‌بست. اگر CDN در دسترس نبود (که برای کاربر ایرانی زیاد پیش می‌آید)
+   برنامه با قلمِ پیش‌فرضِ سیستم بالا می‌آمد و هیچ‌وقت آفلاین درست
+   نمی‌شد. حالا سه وزنِ لازم در assets/fonts هست، بی‌هیچ درخواست بیرونی.
+   وزن ۵۰۰ در برنامه یک بار به کار رفته؛ مرورگر خودش آن را به ۴۰۰ یا
+   ۷۰۰ می‌بندد، پس فایلِ جدا لازم نیست. */
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:400; font-display:swap;
+  src:url("assets/fonts/vazirmatn-regular.woff2") format("woff2");
+}
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:700; font-display:swap;
+  src:url("assets/fonts/vazirmatn-bold.woff2") format("woff2");
+}
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:800; font-display:swap;
+  src:url("assets/fonts/vazirmatn-extrabold.woff2") format("woff2");
+}
 
 @layer base {
 /* ═══════════════ 1. TOKENS ═══════════════ */
@@ -3135,7 +3159,10 @@ const FONTS = {
                  group:'ساده', family:'Vazirmatn', w:400, lh:2.1 }
 };
 const FALLBACK_DISP = 'Vazirmatn, system-ui, sans-serif';
-const FALLBACK_QURAN = 'Amiri, "Scheherazade New", serif';
+/* قلمِ قرآنیِ انتخابی هم اگر نیامد (مثلاً نخستین اجرای آفلاین)، باید
+   به قلمِ همراهِ خودِ برنامه برسد، نه به serifِ سیستم که ممکن است
+   پوششِ عربی نداشته باشد. */
+const FALLBACK_QURAN = 'Amiri, "Scheherazade New", Vazirmatn, serif';
 
 const Fonts = {
   pending: {},

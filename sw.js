@@ -40,6 +40,12 @@ const PRECACHE = [
 
 /* تصویرها و فونت‌ها — نبودنشان ایرادی ندارد */
 const OPTIONAL = [
+  /* قلمِ پایهٔ برنامه، میزبانی‌شده روی خودمان. بی اینها برنامه با قلمِ
+     پیش‌فرضِ سیستم بالا می‌آید؛ نبودشان نصب را نمی‌شکند ولی ظاهر را
+     عوض می‌کند، پس هر سه وزن پیش‌ذخیره می‌شوند. */
+  './assets/fonts/vazirmatn-regular.woff2',
+  './assets/fonts/vazirmatn-bold.woff2',
+  './assets/fonts/vazirmatn-extrabold.woff2',
   './assets/images/icons/icon-512.png',
   './assets/images/icons/maskable-512.png',
   './assets/images/icons/apple-touch-icon.png',

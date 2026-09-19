@@ -27,6 +27,7 @@
 
 ```
 assets/
+├── fonts/             قلمِ پایهٔ برنامه (Vazirmatn)
 ├── images/
 │   ├── splash/          پردهٔ آغازین
 │   ├── patterns/        کاشی و بافت بی‌درز
@@ -58,6 +59,9 @@ assets/
 | `images/illustrations/shot-read.webp` | 1080×1920 | تصویر فروشگاه PWA | — |
 | `images/surahs/thumbs/001.webp` … `114.webp` | ۳۰۰×۳۰۰ | بندانگشتی سوره (شمارهٔ سه‌رقمی) | مدال گرادیانی |
 | `images/avatars/reciter-1.webp` … `reciter-10.webp` | ۱۲۸×۱۲۸ | چهرهٔ قاری (ترتیب همان `RECITERS`) | حرف اول با گرادیان |
+| `fonts/vazirmatn-regular.woff2` | ۵۱KB | وزن ۴۰۰ — متنِ همه‌جای برنامه | قلمِ پیش‌فرضِ سیستم |
+| `fonts/vazirmatn-bold.woff2` | ۵۱KB | وزن ۷۰۰ — دکمه‌ها و `b` | ضخیم‌سازیِ مصنوعیِ مرورگر |
+| `fonts/vazirmatn-extrabold.woff2` | ۵۱KB | وزن ۸۰۰ — تیترها (`--f-disp-w`) | ضخیم‌سازیِ مصنوعیِ مرورگر |
 | `audio/ui/click.mp3` | < ۲۰KB | ضربهٔ دکمه | موتور صوتی Web Audio |
 | `audio/ambient/night.mp3` | ۱–۳MB | صدای آرام شب | سکوت |
 
