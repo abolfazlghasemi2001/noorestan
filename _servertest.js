@@ -88,6 +88,22 @@ const fakeSms = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end();
     }
+    /* پاسخِ *راستین* textbee، عیناً از یک نصبِ زنده. هیچ `success`ی در ریشه
+       نیست، `data.status` هم نیست، و شناسه `smsBatchId` نام دارد. */
+    if(smsMode === 'real'){
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ data: {
+        success: true,
+        message: 'SMS added to queue for processing',
+        smsBatchId: '6aaee39579e3d1b79fc1d770',
+        recipientCount: 1
+      } }));
+    }
+    if(smsMode === 'realfail'){          // همان ساختار، ولی شکست درونِ data
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ data: {
+        success: false, message: 'Invalid recipients' } }));
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, data: { _id: 'abc123', status: 'pending' } }));
   });
@@ -470,7 +486,10 @@ const cleanup = () => {
     ['۲۰۱ با data خالی',            'emptydata',  200, 'sent', null],
     ['success:true ولی status=failed', 'badstatus', 502, 'failed', 'textbee وضعیتِ «failed» را گزارش کرد'],
     ['۴۰۰ با error',                'faildata',   502, 'failed', 'Invalid recipients'],
-    ['۲۰۰ با بدنهٔ تهی',            'emptyok',    200, 'sent',   null]
+    ['۲۰۰ با بدنهٔ تهی',            'emptyok',    200, 'sent',   null],
+    /* پاسخِ راستین textbee: success درونِ data، شناسه smsBatchId */
+    ['پاسخِ راستین textbee',        'real',       200, 'sent',   null],
+    ['شکست درونِ data',             'realfail',   502, 'failed', 'textbee درخواست را نپذیرفت']
   ];
   let phoneSeed = 400;
   for(const [name, mode, wantHttp, wantState, wantErr] of SHAPES){
@@ -487,6 +506,17 @@ const cleanup = () => {
       ok(`${name} ⇒ کاربر بیرون رانده نمی‌شود`, j.pending === true, txt);
     ok(`🔒 ${name} ⇒ کلید در پاسخ نیست`, !txt.includes(SMS_KEY), txt);
   }
+
+  /* ── شناسهٔ پیگیری ──
+     «رفت» گفتن کافی نیست: بی شناسه، نه می‌شود پیگیری کرد و نه در لاگ
+     فهمید کدام پیامک کدام است. پاسخِ راستین، شناسه را در `data.smsBatchId`
+     می‌گذارد — نه در `_id` که کدِ پیشین می‌گشت. */
+  smsMode = 'real'; smsHits = [];
+  const rReal = await post('/request', { phone: '09121116001' });
+  const jReal = JSON.parse(await rReal.text());
+  smsMode = 'ok';
+  ok('شناسهٔ پیگیریِ textbee گم نمی‌شود',
+     jReal.id === '6aaee39579e3d1b79fc1d770', JSON.stringify(jReal));
 
   /* 🔒 اگر سرویس بیرونی کلید را در متن خطا بازگو کند، نباید به کاربر برسد */
   smsMode = 'echo'; smsHits = [];

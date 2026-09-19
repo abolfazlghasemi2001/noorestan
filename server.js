@@ -918,32 +918,53 @@ function smsRedact(s){
    `data.status: 'pending'` داشت، «خوانده‌نشده» شمرده می‌شد و کاربری که
    پیامکش رسیده بود، ۲۰۲ و «⏳» می‌گرفت. */
 const SMS_OK_STATUS  = ['pending', 'queued', 'sent', 'delivered', 'accepted',
-                        'success', 'ok', 'scheduled', 'submitted'];
+                        'success', 'ok', 'scheduled', 'submitted', 'processed'];
 const SMS_BAD_STATUS = ['failed', 'error', 'rejected', 'invalid', 'undelivered',
-                        'blocked', 'expired', 'cancelled'];
+                        'blocked', 'expired', 'cancelled', 'bounced'];
 
 function smsVerdict(status, ok, j, raw){
   /* ۰ یعنی درخواست به هیچ نتیجه‌ای نرسید */
   if(!status)
     return { state: 'pending', error: 'پاسخی از textbee نیامد (وقت تمام شد یا شبکه)' };
 
+  /* ── پاسخِ راستینِ textbee کجا نشانه می‌گذارد ──
+     یک نمونهٔ واقعی از نصبِ زنده:
+
+       { "data": { "success": true,
+                   "message": "SMS added to queue for processing",
+                   "smsBatchId": "6aaee39579e3d1b79fc1d770",
+                   "recipientCount": 1 } }
+
+     هیچ `success`ی در ریشه نیست، `data.status` هم نیست، و شناسه
+     `smsBatchId` نام دارد نه `_id`. هر سه باید دیده شوند؛ وگرنه «رفت» را
+     از راهِ حدس می‌فهمیم و شناسهٔ پیگیری را از دست می‌دهیم. */
   const isObj = !!j && typeof j === 'object';
   const d  = isObj && j.data && typeof j.data === 'object' ? j.data : {};
-  const id = isObj ? (j._id || j.messageId || j.id || d._id || d.messageId || d.id || '') : '';
+  const id = isObj ? (j._id || j.messageId || j.id || d._id || d.messageId || d.id ||
+                      d.smsBatchId || '') : '';
   const ds = isObj ? String(d.status || j.status || '').toLowerCase() : '';
-  const okMark  = isObj && (j.success === true || !!id || SMS_OK_STATUS.indexOf(ds) >= 0);
-  /* `j.error` عمداً، نه `j.message`: در پاسخِ *موفق*، `data.message` خودِ متنِ
-     پیامک است. اگر `j.message` را نشانهٔ شکست بگیریم، پاسخِ موفقِ حاویِ متن
-     را «نشد» می‌خوانیم — دقیقاً همان اشتباهی که کاربر را بی‌دلیل می‌ترساند. */
-  const badMark = isObj && (j.success === false || !!j.error || SMS_BAD_STATUS.indexOf(ds) >= 0);
+  const okMark  = isObj && (j.success === true || d.success === true || !!id ||
+                            SMS_OK_STATUS.indexOf(ds) >= 0);
+  /* `error` عمداً، نه `message`: در پاسخِ *موفق*، `data.message` توضیحِ
+     کامیابی است («در صف نشست») و در پاسخِ خطا هم متنِ خطا در `j.message`
+     می‌آید. اگر `message` را نشانهٔ شکست بگیریم، پاسخِ موفق را «نشد»
+     می‌خوانیم — دقیقاً همان اشتباهی که کاربر را بی‌دلیل می‌ترساند. */
+  const badMark = isObj && (j.success === false || d.success === false || !!j.error ||
+                            !!d.error || SMS_BAD_STATUS.indexOf(ds) >= 0);
 
   /* نشانهٔ صریحِ شکست بر موفقیت مقدم است: اگر textbee گفته «نشد»، گفتنِ «شد»
      کاربر را به انتظارِ کدی می‌نشاند که هرگز نمی‌آید. */
   if(badMark){
-    const why = smsRedact(j.error || j.message || d.message || '');
+    /* `d.message` عمداً در فهرست نیست: در پاسخِ خطا هم ممکن است متنِ خودِ
+       پیامک باشد، و متنِ پیامکِ ما *کدِ تأیید* را در خود دارد. علتِ خطا
+       به کلاینت و به لاگ می‌رود، پس کد نباید از این راه بیرون بزند. */
+    const why = smsRedact(j.error || d.error || j.message || '');
     const byStatus = ds && SMS_BAD_STATUS.indexOf(ds) >= 0;
+    const denied = j.success === false || d.success === false;
     return { state: 'failed',
-             error: why || (byStatus ? `textbee وضعیتِ «${ds}» را گزارش کرد` : ('HTTP ' + status)) };
+             error: why || (byStatus ? `textbee وضعیتِ «${ds}» را گزارش کرد`
+                          : denied ? 'textbee درخواست را نپذیرفت'
+                          : ('HTTP ' + status)) };
   }
   if(okMark)
     return { state: 'sent', id: String(id || ds) };
