@@ -3379,6 +3379,236 @@ section('محتوا — بازرسِ ساختاری، صفر ایراد');
   ok('کشیده‌های جامانده فقط ارقامِ فهرست‌اند', left >= 1 && left <= 12, left + '');
 }
 
+section('دوز — پاداش به برندهٔ واقعی می‌رسد، و فقط یک بار');
+{
+  const mk = (board, player = 'O') => ({
+    board: [...board], turn: player, over: false, winner: null, last: -1, settled: false,
+    online: false, mySide: 'X', waiting: false, thinking: false
+  });
+  const reset = () => Store.update(d => {
+    d.stats.tttWins = 0; d.stats.tttLoss = 0; d.stats.tttDraw = 0;
+    d.stats.onlineWins = 0; d.score = 0; d.xp = 0; d.stats.plays = 0;
+  });
+  const snap = () => ({ wins: Store.get('stats').tttWins, loss: Store.get('stats').tttLoss,
+                        draw: Store.get('stats').tttDraw, onl: Store.get('stats').onlineWins,
+                        score: Store.get('score') });
+
+  /* متدهای واقعی را کنار می‌گذاریم و در پایان برمی‌گردانیم — اگر رهایشان
+     کنیم، بخش‌های بعدیِ همین فایل با موتورِ ناقص کار می‌کنند. */
+  const real = {};
+  const silence = () => {
+    for(const k of ['render', 'think', 'autosave', 'settleRender'])
+      if(!(k in real)){ real[k] = DoozEngine[k]; DoozEngine[k] = () => {}; }
+    /* پاداشِ مأموریتِ روزانه هم روی همین امتیاز می‌نشیند و اندازه‌گیری را
+       خراب می‌کند: نخستین بردِ امروز مأموریت را کامل می‌کند و ۶۰ امتیازِ
+       دیگر می‌دهد. یک باگ نیست، ولی سنجشِ «+۵۰» را به «+۱۱۰» می‌برد. */
+    if(!('refresh' in real)){
+      real.refresh = Missions.refresh;
+      /* شکلِ بازگشتی را باید نگه دارد: updateHomeStats از `doneCount`
+         می‌خواند و بی آن، استثنا وسطِ settle می‌افتد. */
+      Missions.refresh = () => ({ paid: 0, doneCount: 0 });
+    }
+  };
+  const restore = () => {
+    for(const [k, fn] of Object.entries(real))
+      if(k === 'refresh') Missions.refresh = fn; else DoozEngine[k] = fn;
+  };
+  const place = (board, i, player) => {
+    DoozEngine.state = mk(board, player);
+    DoozEngine.place(i, player);
+    return snap();
+  };
+
+  try{
+    silence();
+
+    /* کامپیوتر برنده می‌شود → کاربر نباید امتیاز بگیرد */
+    reset();
+    let r = place(['O','O',null,'X','X',null,null,null,null], 2, 'O');
+    ok('بردِ کامپیوتر = باختِ کاربر', r.loss === 1 && r.wins === 0,
+       `برد ${r.wins}، باخت ${r.loss}`);
+    ok('بردِ کامپیوتر امتیاز نمی‌دهد', r.score === 0, String(r.score));
+
+    /* کاربر برنده می‌شود → امتیاز می‌گیرد */
+    reset();
+    r = place(['X','X',null,'O','O',null,null,null,null], 2, 'X');
+    ok('بردِ کاربر ثبت می‌شود', r.wins === 1 && r.loss === 0, `برد ${r.wins}، باخت ${r.loss}`);
+    ok('بردِ کاربر امتیاز می‌دهد', r.score === 50, String(r.score));
+
+    /* مساوی */
+    reset();
+    r = place(['X','O','X','X','O','O','O','X',null], 8, 'X');
+    ok('تختهٔ پر = مساوی، بی امتیاز', r.draw === 1 && r.score === 0,
+       `مساوی ${r.draw}، امتیاز ${r.score}`);
+
+    /* settle چندباره نباید چندبار حساب شود */
+    reset();
+    DoozEngine.state = mk(['X','X','X','O','O',null,null,null,null]);
+    DoozEngine.state.over = true; DoozEngine.state.winner = 'X';
+    DoozEngine.settle('X'); DoozEngine.settle('X'); DoozEngine.settle('X');
+    r = snap();
+    ok('settle سه‌باره فقط یک بار حساب می‌شود', r.score === 50 && r.wins === 1,
+       `امتیاز ${r.score}، برد ${r.wins}`);
+
+    /* بازی آنلاین: پیامِ تکراریِ پایانی نباید امتیاز را چند برابر کند */
+    reset();
+    DoozEngine.state = { ...mk(['X','X','X','O','O',null,null,null,null]),
+                         online: true, mySide: 'X', over: true, winner: 'X' };
+    DoozEngine.settleOnline(); DoozEngine.settleOnline();
+    r = snap();
+    ok('پیامِ تکراریِ پایانی امتیاز را چند برابر نمی‌کند', r.score === 60 && r.onl === 1,
+       `امتیاز ${r.score}، برد آنلاین ${r.onl}`);
+
+    /* قفلِ thinking باید با پیامِ سرور باز شود */
+    DoozEngine.state = { ...mk(Array(9).fill(null)), online: true, thinking: true, waiting: true, mySide: 'X' };
+    DoozEngine.online({ phase: 'state',
+      state: { board: Array(9).fill(null), turn: 'O', over: false, winner: null, last: -1 } });
+    ok('پیامِ سرور قفلِ خوش‌بینانه را باز می‌کند',
+       DoozEngine.state.thinking === false && DoozEngine.state.waiting === false,
+       `thinking=${DoozEngine.state.thinking} waiting=${DoozEngine.state.waiting}`);
+
+    /* و اگر بازی تمام شده باشد، باید همان‌جا حساب شود */
+    reset();
+    DoozEngine.state = { ...mk(['X','X','X','O','O',null,null,null,null]),
+                         online: true, mySide: 'O', over: true, winner: 'X' };
+    DoozEngine.online({ phase: 'state',
+      state: { board: ['X','X','X','O','O',null,null,null,null], turn: 'X', over: true, winner: 'X', last: 2 } });
+    ok('پایانِ آنلاین حساب می‌شود', snap().loss === 1, JSON.stringify(snap()));
+  }finally{
+    restore();
+    reset();
+    DoozEngine.state = null;
+  }
+}
+
+section('بازی‌ها — قفل‌های بازمانده و پاداشِ چندباره');
+{
+  /* همهٔ موتورها این‌جا روی یک «صحنهٔ خنثی» کار می‌کنند: تایمرها واقعی
+     ساخته نمی‌شوند (وگرنه تایمرِ زندهٔ یک موتور، فرآیند را زنده نگه
+     می‌دارد و آزمون هرگز تمام نمی‌شود) و مأموریتِ روزانه هم خاموش است
+     (پاداشش روی همان امتیاز می‌نشیند و اندازه‌گیری را خراب می‌کند). */
+  const keep = {
+    every: Timers.every, after: Timers.after, clear: Timers.clear,
+    clearPage: Timers.clearPage, missions: Missions.refresh,
+    soundPlay: Sound.play, confetti: confetti
+  };
+  const jobs = [];
+  try{
+    Timers.every = (fn, ms) => { jobs.push(fn); return 'job' + jobs.length; };
+    Timers.after = (fn, ms) => { jobs.push(fn); return 'job' + jobs.length; };
+    Timers.clear = () => {};
+    Timers.clearPage = () => {};
+    Missions.refresh = () => ({ paid: 0, doneCount: 0 });
+    Sound.play = () => {};
+    confetti = () => {};
+    const runJobs = () => { const j = jobs.splice(0); j.forEach(fn => fn()); };
+
+    /* ── ۱. «سؤال بعدیِ» حدیث‌یاب ───────────────────────────────── */
+    const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    ok('🔗 دکمهٔ «سؤال بعدیِ» حدیث‌یاب بسته می‌شود',
+       /U\.\$\('#hadNext'\)\.onclick = \(\) => this\.next\(\)/.test(html));
+    ok('🔗 و `next` جای دیگری هم پیشروی نمی‌کند',
+       (html.match(/this\.i\+\+/g) || []).length >= 1 && /  next\(\)\{\n[\s\S]{0,80}this\.i\+\+/.test(html));
+
+    HadithEngine.qs = (DATA.hadith || []).slice(0, 3);
+    HadithEngine.i = 0; HadithEngine.filled = 'چیزی'; HadithEngine.locked = true;
+    HadithEngine.next();
+    ok('پرسش بعدیِ حدیث جلو می‌رود', HadithEngine.i === 1 || HadithEngine.qs.length < 2,
+       'i=' + HadithEngine.i);
+    ok('و جای خالی و قفل را پاک می‌کند',
+       HadithEngine.filled === null && HadithEngine.locked === false,
+       `filled=${JSON.stringify(HadithEngine.filled)} locked=${HadithEngine.locked}`);
+
+    /* تایمرِ پاسخِ حدیث باید از Timers باشد، نه setTimeout خام */
+    const hadBody = html.slice(html.indexOf('const HadithEngine'), html.indexOf('const DuaEngine'));
+    ok('⏱ پاسخِ حدیث با Timers می‌آید نه setTimeout خام',
+       !/setTimeout\(\(\) => \{ this\.locked/.test(hadBody) && /Timers\.after\(/.test(hadBody));
+
+    /* ── ۲. اسم فامیلِ تک‌نفره: دورِ دوم و سوم ──────────────────── */
+    const st = { online:false, letter:'ب', round:1, total:3, time:60, timer:null,
+                 phase:'round', results:null, answers:{}, submitted:false };
+    EsmFamilEngine.state = st;
+    st.submitted = true;                       // بازمانده از دورِ پیشین
+    st.round = 1;
+    EsmFamilEngine.render();
+    ok('رندرِ دورِ تازه مهرِ «ثبت شد» را برمی‌دارد', st.submitted === false);
+
+    st.submitted = false;
+    EsmFamilEngine.submit();
+    ok('دورِ اول ثبت می‌شود', st.submitted === true && st.round === 2,
+       `submitted=${st.submitted} round=${st.round}`);
+    runJobs();                                 // تایمرِ ۱٫۸ ثانیه‌ایِ دورِ بعد
+    ok('دورِ دوم قابلِ بازی است (باگِ قفلِ ابدی)', st.submitted === false && st.round === 2,
+       `submitted=${st.submitted} round=${st.round}`);
+    EsmFamilEngine.submit();
+    ok('دورِ دوم هم ثبت می‌شود', st.submitted === true && st.round === 3, 'round=' + st.round);
+
+    /* و گاردِ ضدِ ثبتِ دوباره در همان دور */
+    st.submitted = false; st.round = 3;
+    EsmFamilEngine.submit(); const r3 = st.round;
+    EsmFamilEngine.submit();
+    ok('دو بار ثبت در یک دور، دور را دو تا جلو نمی‌برد', st.round === r3 && st.submitted === true);
+
+    /* ── ۳. اسم فامیلِ آنلاین: امتیاز یک دور، دو بار ─────────────── */
+    const onlineSt = { online:true, letter:'ب', round:2, total:3, time:60, timer:null,
+                       phase:'round', results:null, answers:{}, submitted:false };
+    EsmFamilEngine.state = onlineSt;
+    let before = Store.get('score');
+    EsmFamilEngine.submit();
+    ok('ثبتِ آنلاین امتیاز نمی‌دهد (نتیجه از سرور می‌آید)', Store.get('score') === before,
+       `${before} → ${Store.get('score')}`);
+    /* دو بازیکن، یکی خودِ کاربر */
+    const mine = { id: Net.id, name: 'من', score: 30, answers: {} };
+    const other = { id: 'x1', name: 'حریف', score: 12, answers: {} };
+    before = Store.get('score');
+    EsmFamilEngine.renderResults([other, mine]);
+    ok('امتیاز در نتایجِ دور، یک بار می‌آید', Store.get('score') === before + 30,
+       `${before} → ${Store.get('score')}`);
+    before = Store.get('score');
+    EsmFamilEngine.renderResults([other, mine]);
+    ok('و رندرِ دوبارهٔ نتایج امتیاز را تکرار نمی‌کند', Store.get('score') === before + 30,
+       `${before} → ${Store.get('score')}`);
+
+    /* ── ۴. نجوا: قفلِ بازمانده ─────────────────────────────────── */
+    DuaEngine.locked = true; DuaEngine.i = 5;
+    DuaEngine.start();
+    ok('شروعِ دوبارهٔ نجوا قفل را پاک می‌کند و از اول می‌آید',
+       DuaEngine.locked === false && DuaEngine.i === 0,
+       `locked=${DuaEngine.locked} i=${DuaEngine.i}`);
+
+    /* ── ۵. پازلِ حل‌شده دوباره پاداش نمی‌گیرد ─────────────────── */
+    const scrSt = () => ({ word:'اب', chosen:[0,1], solved:false, t0:U.now(),
+                           pool:[{ ch:'ا', used:true }, { ch:'ب', used:true }] });
+    let scrBeforeScore = Store.get('score');
+    let scrBeforePuz = Store.get('stats').puzzles;
+    ScrambleEngine.state = scrSt();
+    ScrambleEngine.check();
+    ok('پازلِ درست پاداش می‌گیرد', Store.get('score') > scrBeforeScore,
+       `${scrBeforeScore} → ${Store.get('score')}`);
+    const afterFirst = Store.get('score'), afterPuz = Store.get('stats').puzzles;
+    ScrambleEngine.check();
+    ScrambleEngine.check();
+    ok('و «بررسی»ـهای بعدی پاداش را تکرار نمی‌کنند',
+       Store.get('score') === afterFirst && Store.get('stats').puzzles === afterPuz,
+       `امتیاز ${afterFirst} → ${Store.get('score')}، پازل ${afterPuz} → ${Store.get('stats').puzzles}`);
+
+    /* ── ۶. تایمرِ بازی با تغییرِ بازی پاک می‌شود ───────────────── */
+    ok('🔗 رفتن از یک بازی به بازیِ دیگر تایمرِ صفحه را پاک می‌کند',
+       /name !== 'play' \|\| this\.stack\[this\.stack\.length - 1\] === 'play'/.test(html));
+
+    ScrambleEngine.state = null;
+    HadithEngine.qs = []; HadithEngine.i = 0;
+    EsmFamilEngine.state = null;
+    DuaEngine.i = 0; DuaEngine.locked = false;
+  }finally{
+    Timers.every = keep.every; Timers.after = keep.after;
+    Timers.clear = keep.clear; Timers.clearPage = keep.clearPage;
+    Missions.refresh = keep.missions;
+    Sound.play = keep.soundPlay;
+    confetti = keep.confetti;
+  }
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

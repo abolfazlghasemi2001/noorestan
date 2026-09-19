@@ -2567,7 +2567,11 @@ const Router = {
   hooks: {},
   go(name, replace = false){
     if(!this.screens[name]) return;
-    if(name !== 'play') Timers.clearPage();   // تایمر بازی هنگام خروج پاک می‌شود
+    /* تایمرِ بازی هنگام خروج پاک می‌شود. حالتِ دوم هم لازم است: رفتن از
+       یک بازی به بازیِ دیگر همان صفحه است (`play` → `play`)، پس شرطِ اول
+       نمی‌گیرد و تایمرِ رهاشدهٔ بازیِ قبلی روی صفحهٔ تازه شلیک می‌کرد —
+       مثلاً «حدیث‌یاب» نیم‌ثانیه بعد از ترک، در DOMِ آزمون می‌نوشت. */
+    if(name !== 'play' || this.stack[this.stack.length - 1] === 'play') Timers.clearPage();
     /* رفتن به صفحهٔ دیگر، پنجرهٔ باز را می‌بندد؛ وگرنه پنجره روی صفحهٔ
        تازه می‌ماند و ورودیِ نشان‌دارش در تاریخچه بی‌صاحب می‌شود. */
     if(UI.isOpen()) UI.closeModal();
@@ -7150,6 +7154,10 @@ const ScrambleEngine = {
   },
   check(){
     const s = this.state;
+    /* پازل حل شده و تا ۱٫۵ ثانیهٔ بعد صفحه دست‌نخورده می‌ماند تا پازلِ
+       تازه بیاید. در این فاصله هر ضربهٔ دیگر روی «بررسی» یک `Progress.award`
+       و یک `stats.puzzles++` و یک تایمرِ تازه ثبت می‌کرد. */
+    if(s.solved) return;
     const guess = s.chosen.map(i => s.pool[i].ch).join('');
     if(s.chosen.length < s.word.length){
       Sound.buzz();
@@ -7368,7 +7376,7 @@ const DoozEngine = {
                saved.board.every(c => c === null || c === 'X' || c === 'O');
     this.state = { board: ok ? saved.board.slice() : Array(9).fill(null),
                    turn: ok && saved.turn === 'O' ? 'O' : 'X',
-                   over: false, winner: null, last: -1,
+                   over: false, winner: null, last: -1, settled: false,
                    online: !!online, mySide: 'X', waiting: !!online, thinking: false };
     if(ok){ this.state.last = Number.isInteger(saved.last) ? saved.last : -1; }
     Router.go('play');
@@ -7418,6 +7426,11 @@ const DoozEngine = {
       st.board = msg.state.board; st.turn = msg.state.turn;
       st.over = msg.state.over; st.winner = msg.state.winner; st.last = msg.state.last;
       st.waiting = false;
+      /* قفلِ خوش‌بینانه باید همین‌جا باز شود. `click` پس از فرستادنِ حرکت
+         `thinking` را ۳ ثانیه قفل می‌کند تا پاسخِ سرور برسد؛ ولی پیامِ
+         سرور آن را باز نمی‌کرد، پس اگر نوبت زود برمی‌گشت کاربر تا ۳ ثانیه
+         می‌توانست هیچ خانه‌ای را نزند. */
+      st.thinking = false;
       this.render();
       if(st.over) this.settleOnline();
     }
@@ -7471,7 +7484,11 @@ const DoozEngine = {
     s.board[i] = player; s.last = i;
     Sound.tick(); Haptic.hit(12);
     const w = this.winnerOf(s.board);
-    if(w){ s.over = true; s.winner = w.player; this.render(); this.settle('X'); return; }
+    /* برندهٔ واقعی به settle می‌رود، نه یک 'X' ثابت. پیش‌تر این‌جا همیشه
+       'X' پاس می‌شد، پس وقتی کامپیوتر می‌برد هم کاربر «بردی! +۵۰ امتیاز»
+       می‌گرفت، `tttWins` بالا می‌رفت و جشن می‌شد — پیام درست بود (از
+       `s.winner` خوانده می‌شد) ولی پاداش دروغ. */
+    if(w){ s.over = true; s.winner = w.player; this.render(); this.settle(w.player); return; }
     if(s.board.every(Boolean)){ s.over = true; s.winner = 'D'; this.render(); this.settle(null); return; }
     s.turn = player === 'X' ? 'O' : 'X';
     this.render();
@@ -7493,6 +7510,11 @@ const DoozEngine = {
   },
   settleOnline(){
     const s = this.state;
+    /* هر بازی فقط یک بار حساب می‌شود. سرور می‌تواند حالتِ پایانی را دوباره
+       بفرستد (اتصال دوباره، پیام تکراری)، و بی این نگهبان هر بار ۶۰ امتیاز
+       و یک برد دیگر به حساب می‌رفت. */
+    if(s.settled) return;
+    s.settled = true;
     const iWon = s.winner === s.mySide;
     if(s.winner === 'D'){ Store.update(d => d.stats.tttDraw++); }
     else if(iWon){
@@ -7504,6 +7526,8 @@ const DoozEngine = {
   },
   settle(winner){
     const s = this.state;
+    if(s.settled) return;
+    s.settled = true;
     s.over = true;
     Autosave.clear();                      // بازی تمام شد؛ تخته دیگر «ادامه» ندارد
     Store.update(d => d.stats.plays++);
@@ -7633,6 +7657,11 @@ const EsmFamilEngine = {
   render(){
     const s = this.state;
     if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    /* هر رندر، آغازِ یک دورِ تازه است — پس مهرِ «ثبت شد» برداشته می‌شود.
+       پیش‌تر فقط مسیرِ آنلاین این کار را می‌کرد؛ در بازیِ تک‌نفره دورِ دوم
+       و سوم مرده بودند: `submit()` همان اول برمی‌گشت، تایمرِ دور هم که به
+       صفر می‌رسید همان‌جا می‌مرد و صفحه تا ابد روی «دور ۲/۳» می‌ماند. */
+    s.submitted = false;
     s.time = this.ROUND_TIME;
     U.$('#pgProg').style.width = ((s.round - 1) / s.total * 100) + '%';
     U.$('#pgBar').innerHTML =
@@ -7699,15 +7728,18 @@ const EsmFamilEngine = {
     s.answers = answers; s.score = score;
     Progress.record('esmfamil_best', score);
     Store.update(d => d.stats.esmFamilBest = Math.max(d.stats.esmFamilBest, score));
-    if(validCount >= inputs.length * 0.5){
+    const good = validCount >= inputs.length * 0.5;
+    /* در بازیِ آنلاین پاداش همین‌جا داده نمی‌شود: سرور نتیجه را برای همه
+       می‌فرستد و `renderResults` همان امتیاز را می‌نشاند. پیش‌تر هر دو
+       مسیر می‌دادند و هر دور دو برابر امتیاز و XP حساب می‌شد. */
+    if(good && !s.online){
       Store.update(d => { d.score += score; d.xp += score; });
-      checkLevelUp();
-      Sound.play(true); confetti(30);
-      U.$('#efRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 ${U.fa(validCount)} پاسخ معتبر! +${U.fa(score)} امتیاز</div>`;
-    } else {
-      Sound.play(false);
-      U.$('#efRes').innerHTML = `<div class="toast" style="text-align:center;margin-top:14px">📝 ${U.fa(validCount)} از ${U.fa(inputs.length)} معتبر — امتیاز ${U.fa(score)}</div>`;
+      checkLevelUp(); confetti(30);
     }
+    Sound.play(good);
+    U.$('#efRes').innerHTML = good
+      ? `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 ${U.fa(validCount)} پاسخ معتبر!${s.online ? ' — امتیاز در پایان دور' : ` +${U.fa(score)} امتیاز`}</div>`
+      : `<div class="toast" style="text-align:center;margin-top:14px">📝 ${U.fa(validCount)} از ${U.fa(inputs.length)} معتبر — امتیاز ${U.fa(score)}</div>`;
     checkBadges(); Sync.push();
 
     if(s.online){
@@ -7752,7 +7784,12 @@ const EsmFamilEngine = {
           </div>`).join('')}
       </div>
       ${Net.room?.isHost ? `<button class="btn ok w" id="efNext" style="margin-top:12px">▶️ دور بعد</button>` : ''}`;
-    if(mine && mine.score) Store.update(d => { d.score += mine.score; d.xp += mine.score; });
+    /* تنها جایِ دادنِ امتیاز در حالت آنلاین. `checkLevelUp` هم لازم است:
+       پیش‌تر XP اضافه می‌شد ولی سطح هرگز بالا نمی‌رفت. */
+    if(mine && mine.score){
+      Store.update(d => { d.score += mine.score; d.xp += mine.score; });
+      checkLevelUp(); Sound.play(true); confetti(24);
+    }
     if(Net.room?.isHost) U.$('#efNext').onclick = () => Net.nextRound();
   }
 };
@@ -8885,8 +8922,18 @@ const HadithEngine = {
       });
     } else {
       U.$('#hadWhy').innerHTML = this.whyHtml(q);
+      /* پیش‌تر این دکمه هیچ‌جا بسته نمی‌شد. `filled` هم پاک نمی‌شد و
+         `this.i` هیچ‌گاه جلو نمی‌رفت، پس بازی دقیقاً پس از پرسشِ اول
+         برای همیشه روی «۱/۱۰» می‌ماند. */
+      U.$('#hadNext').onclick = () => this.next();
     }
-    U.$('#pgProg').style.width = Math.round(100 * this.i / this.qs.length) + '%';
+    U.$('#pgProg').style.width = Math.round(100 * (this.i + 1) / this.qs.length) + '%';
+  },
+  next(){
+    this.i++;
+    this.filled = null;
+    this.locked = false;
+    this.paint();
   },
   whyHtml(q){
     return `<div class="qwhy on">
@@ -8916,7 +8963,13 @@ const HadithEngine = {
       if(el){ el.textContent = '؟'; el.classList.add('empty'); }
       U.$$('#hadCard .opt').forEach(b => { if(U.norm(b.dataset.o) === U.norm(q.key)) b.classList.add('right'); });
     }
-    setTimeout(() => { this.locked = false; this.paint(); }, ok ? 900 : 1400);
+    /* از Timers و نه setTimeout خام: با تغییر مسیر پاک می‌شود، وگرنه
+       تایمرِ رهاشده روی صفحهٔ بازیِ بعدی شلیک می‌کرد. */
+    const run = this.qs;
+    Timers.after(() => {
+      if(this.qs !== run) return;             // بازیِ دیگری شروع شده
+      this.locked = false; this.paint();
+    }, ok ? 900 : 1400);
   },
   finish(){
     const ms = U.now() - this.t0;
@@ -9100,6 +9153,12 @@ const DuaEngine = {
     const bank = DATA.duas || [];
     if(!bank.length){ UI.toast('🤲 بانک دعا خالی است', 'err'); return; }
     this.qs = U.shuffle(bank).slice(0, 8);
+    /* `locked` باید همین‌جا پاک شود. تنها جای دیگری که پاک می‌شد، دکمهٔ
+       «سؤال بعدی» بود؛ اگر کاربر پس از پاسخ (بی زدنِ آن دکمه) بیرون
+       می‌رفت و «نجوا» را از نو باز می‌کرد، بازی با قفلِ بازمانده از دورِ
+       قبل بالا می‌آمد: هیچ واژه‌ای انتخاب نمی‌شد و «بررسی/از نو/یکی عقب»
+       هر سه در گاردِ `if(this.locked) return` می‌مردند. */
+    this.locked = false;
     this.i = this.score = this.right = 0; this.t0 = U.now();
     Router.go('play');
     U.$('#pgTitle').textContent = '🤲 نجوا';
