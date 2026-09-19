@@ -2993,6 +2993,48 @@ section('اجزای دو-تمی — رنگِ ثابت ندارند');
      `${hard} مورد`);
 }
 
+section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
+{
+  /* ایموجی به‌عنوان آیکنِ کارکردی سه ایراد دارد: در هر سیستم جورِ دیگری
+     درمی‌آید، رنگِ تم را نمی‌گیرد، و اندازه‌اش با font-size قاطی می‌شود.
+     این سنجش سه چیز را می‌گیرد: نامِ آیکنِ ناموجود (که جای خالی می‌دهد)،
+     ایموجیِ جامانده در آیکن‌های ثابت، و از‌قلم‌افتادنِ رنگ‌پذیریِ SVG. */
+  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = doc.slice(0, doc.indexOf('<script>'));
+
+  const named = [...new Set([...body.matchAll(/data-ic="([a-z]+)"/g)].map(m => m[1]))];
+  ok('در سند آیکنِ نشانه‌گذاری‌شده هست', named.length >= 10, String(named.length));
+  for(const n of named)
+    ok(`آیکنِ «${n}» در دفتر هست`, !!Icon.REG[n], 'نامی که وجود ندارد یعنی جای خالی');
+
+  const viaOf = [...new Set([...doc.matchAll(/Icon\.of\('([a-z]+)'\)/g)].map(m => m[1]))];
+  for(const n of viaOf) ok(`Icon.of('${n}') به آیکنِ موجود می‌رسد`, !!Icon.REG[n]);
+
+  const svg = Icon.of('home');
+  ok('آیکن SVG است با viewBoxِ درست', /^<svg /.test(svg) && /viewBox="0 0 24 24"/.test(svg));
+  ok('آیکن برای صفحه‌خوان پنهان است (برچسب از دکمه می‌آید)', /aria-hidden="true"/.test(svg));
+  ok('آیکنِ ناشناس چیزی برنمی‌گرداند', Icon.of('چنین‌چیزی') === '');
+  ok('آیکن خطی، تو‌خالی است و رنگ را از متن می‌گیرد',
+     /stroke:currentColor/.test(css) && /\.ic\{[^}]*fill:none/.test(css));
+  ok('آیکنِ توپر (پخش/توقف) با fill پر می‌شود', /\.icf\{[^}]*fill:currentColor/.test(css));
+
+  /* نوار پایین و نوار پخش، آیکنشان ثابت است — نباید ایموجی داشته باشند. */
+  const emoji = /[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
+  const nav = doc.match(/<nav class="nav"[\s\S]*?<\/nav>/)[0];
+  ok('نوار پایین ایموجی ندارد (آیکن دارد)', !emoji.test(nav),
+     (nav.match(emoji) || []).join(' '));
+  const mq = doc.slice(doc.indexOf('id="miniQ"'), doc.indexOf('id="miniQ"') + 700);
+  ok('نوار پخش ایموجی ندارد', !emoji.test(mq), (mq.match(emoji) || []).join(' '));
+
+  /* هر دکمهٔ آیکنیِ ثابت باید یا آیکن داشته باشد یا متن. */
+  for(const b of body.match(/<button[^>]*class="[^"]*iconbtn[^"]*"[^>]*>[\s\S]*?<\/button>/g) || []){
+    const inner = b.replace(/^[\s\S]*?<button[^>]*>/, '');
+    ok('دکمهٔ آیکنیِ ثابت ایموجی ندارد',
+       !emoji.test(inner) && /data-ic|[؀-ۿ]/.test(inner), inner.trim().slice(0, 60));
+  }
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

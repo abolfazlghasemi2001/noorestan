@@ -390,6 +390,24 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   min-height:44px;transition:.16s
 }
 .nav button i{font-size:19px;font-style:normal}
+
+/* ── آیکن‌ها: SVGِ درون‌خطی، رنگ از currentColor ── */
+.ic{ width:20px; height:20px; display:block; flex:none; fill:none;
+  stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round }
+.icf{ fill:currentColor; stroke:none }
+.nav button .ic{ width:22px; height:22px }
+.iconbtn .ic{ width:21px; height:21px }
+.qsm .ic{ width:19px; height:19px }
+.qbig .ic{ width:22px; height:22px }
+#miniQ button .ic{ width:19px; height:19px }
+.btn .ic{ width:17px; height:17px }
+.rec .prev .ic{ width:14px; height:14px }
+.playb .ic{ width:15px; height:15px }
+.wbx .ic,.bx .ic{ width:15px; height:15px }
+.ib-x .ic,.ib-go .ic{ width:16px; height:16px }
+/* دکمه‌هایی که تنها فرزندشان آیکن است، باید وسط‌چین باشند؛ SVG بلوکی
+   است و وگرنه می‌چسبد به کنارِ جعبهٔ دکمه. */
+#miniQ button,.qbig,.wbx,.bm-row .bx,.ib-x{ display:grid; place-items:center }
 /* پنج دکمه در نوار پایین — روی گوشی‌های باریک جا شود.
    «مدیریت» عمداً این‌جا نیست؛ از «حساب ← تنظیمات» باز می‌شود. */
 @media(max-width:430px){
@@ -1334,9 +1352,9 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     </div>
     <div class="sp"></div>
     <div class="hearts-top" id="tbHearts" title="جان"></div>
-    <button class="iconbtn" id="btnQuran" title="تلاوت قرآن">🎧</button>
-    <button class="iconbtn" id="btnNotif" title="اعلان‌ها">🔔<span class="dot hide" id="notifDot"></span></button>
-    <button class="iconbtn" id="btnNet" title="وضعیت شبکه">📡</button>
+    <button class="iconbtn" id="btnQuran" title="تلاوت قرآن"><i data-ic="listen"></i></button>
+    <button class="iconbtn" id="btnNotif" title="اعلان‌ها"><i data-ic="bell"></i><span class="dot hide" id="notifDot"></span></button>
+    <button class="iconbtn" id="btnNet" title="وضعیت شبکه"><i data-ic="signal"></i></button>
   </div>
 
   <section class="screen active" id="s-home">
@@ -1397,7 +1415,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
       <label class="lbl">شناسه شما</label>
       <div class="row">
         <input class="inp" id="myPeer" readonly>
-        <button class="btn gh" id="copyPeer">📋</button>
+        <button class="btn gh" id="copyPeer" title="رونوشت پیوند" aria-label="رونوشت پیوند"><i data-ic="copy"></i></button>
       </div>
       <label class="lbl">آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه</label>
       <div class="row">
@@ -1482,7 +1500,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
       <div class="chatbox" id="chatBox"></div>
       <div class="row">
         <input class="inp" id="chatInp" placeholder="پیام..." maxlength="200" style="flex:1">
-        <button class="btn" id="chatSend">📤</button>
+        <button class="btn" id="chatSend" title="فرستادن" aria-label="فرستادن پیام"><i data-ic="send"></i></button>
       </div>
     </div>
   </section>
@@ -1543,10 +1561,10 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <!-- ═══════ تلاوت قرآن کریم ═══════ -->
   <section class="screen" id="s-quran">
     <div class="phead">
-      <button class="iconbtn" data-back>←</button>
+      <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2>🎧 تلاوت قرآن</h2><p>صوت قاریان نامدار جهان — آیه‌به‌آیه</p></div>
-      <button class="iconbtn" id="qOpenReader" title="مصحف‌نما">📖</button>
-      <button class="iconbtn" id="qBookmarks" title="نشانه‌های من">🔖</button>
+      <button class="iconbtn" id="qOpenReader" title="مصحف‌نما"><i data-ic="book"></i></button>
+      <button class="iconbtn" id="qBookmarks" title="نشانه‌های من"><i data-ic="mark"></i></button>
     </div>
 
     <div id="qHero" class="art-hero"></div>
@@ -1610,9 +1628,9 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <!-- ═══════ مصحف‌نما — خواندن آیه‌به‌آیه با ترجمه ═══════ -->
   <section class="screen" id="s-read">
     <div class="phead">
-      <button class="iconbtn" data-back>←</button>
+      <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2 id="readTitle">📖 مصحف‌نما</h2><p id="readSub">خواندن، شنیدن و اندیشیدن</p></div>
-      <button class="iconbtn" id="readMarks" title="نشانه‌گذاری">🔖</button>
+      <button class="iconbtn" id="readMarks" title="نشانه‌گذاری"><i data-ic="mark"></i></button>
     </div>
 
     <div class="card read-tools">
@@ -1640,11 +1658,11 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   </section>
 
   <nav class="nav" id="nav" aria-label="راهبری اصلی">
-    <button class="navi on" data-nav="home" aria-label="خانه" data-tip="خانه: دسته‌بندی بازی‌ها، آیهٔ روز و چالش امروز"><i class="ni">🏠</i>خانه</button>
-    <button class="navi" data-nav="quran" aria-label="تلاوت" data-tip="تلاوت قرآن با ۱۰ قاری نامدار — آیه‌به‌آیه و با ترجمه"><i class="ni">🎧</i>تلاوت</button>
-    <button class="navi" data-nav="online" aria-label="محفل" data-tip="محفل: اتاق چندنفره، چت زنده و بازی دونفره"><i class="ni">🌐</i>محفل</button>
-    <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — روی 🎮 دوباره بزن تا فهرست باز شود"><i class="ni">🎮</i>بازی</button>
-    <button class="navi" data-nav="me" aria-label="حساب من" data-tip="پروفایل، آمار، نشان‌ها، رکوردها و تنظیمات"><i class="ni">👤</i>حساب</button>
+    <button class="navi on" data-nav="home" aria-label="خانه" data-tip="خانه: دسته‌بندی بازی‌ها، آیهٔ روز و چالش امروز"><i class="ni" data-ic="home"></i>خانه</button>
+    <button class="navi" data-nav="quran" aria-label="تلاوت" data-tip="تلاوت قرآن با ۱۰ قاری نامدار — آیه‌به‌آیه و با ترجمه"><i class="ni" data-ic="listen"></i>تلاوت</button>
+    <button class="navi" data-nav="online" aria-label="محفل" data-tip="محفل: اتاق چندنفره، چت زنده و بازی دونفره"><i class="ni" data-ic="globe"></i>محفل</button>
+    <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — روی «بازی» دوباره بزن تا فهرست باز شود"><i class="ni" data-ic="gamepad"></i>بازی</button>
+    <button class="navi" data-nav="me" aria-label="حساب من" data-tip="پروفایل، آمار، نشان‌ها، رکوردها و تنظیمات"><i class="ni" data-ic="user"></i>حساب</button>
   </nav>
   <div style="height:74px"></div>
 </div>
@@ -1656,10 +1674,10 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 <div id="miniQ">
   <span id="mqArt"></span>
   <div class="m-t"><b id="mqTitle">—</b><small id="mqSub">—</small></div>
-  <button id="mqPrev" title="آیهٔ قبل">⏮</button>
-  <button id="mqPlay" title="پخش/توقف">▶</button>
-  <button id="mqNext" title="آیهٔ بعد">⏭</button>
-  <button id="mqStop" title="بستن">✕</button>
+  <button id="mqPrev" title="آیهٔ قبل"><i data-ic="prev"></i></button>
+  <button id="mqPlay" title="پخش/توقف"><i data-ic="play"></i></button>
+  <button id="mqNext" title="آیهٔ بعد"><i data-ic="next"></i></button>
+  <button id="mqStop" title="بستن"><i data-ic="close"></i></button>
 </div>
 
 <script>
@@ -1847,6 +1865,58 @@ const U = {
       }catch(e){ /* می‌افتیم روی نسخه خالص */ }
     }
     return this.sha256(str);
+  }
+};
+
+/* ─────────────────── آیکن‌ها ─────────────────── */
+/* آیکنِ کارکردی، نه ایموجی. ایموجی در هر فونت و هر سیستمی جورِ دیگری
+   درمی‌آید، بعضی‌جاها رنگی و ناهمخوان با تم است، و رنگِ متن را هم
+   نمی‌گیرد. این‌ها SVGِ درون‌خطی‌اند و رنگشان از currentColor می‌آید،
+   پس در هر شش تم خودشان را با دکمه هم‌رنگ می‌کنند.
+   عنصرهای ثابتِ سند با data-ic نشانه‌گذاری شده‌اند و Icon.hydrate در
+   زمان بالا آمدن پرشان می‌کند؛ صفحه‌های ساختهٔ JS از Icon.of می‌گیرند.
+   f:۱ یعنی آیکنِ توپر (پخش، توقف) — وگرنه خطی است. */
+const Icon = {
+  REG: {
+    home:   { d:'<path d="M3.6 10.9 12 3.5l8.4 7.4"/><path d="M5.9 9.7V20a1 1 0 0 0 1 1h10.2a1 1 0 0 0 1-1V9.7"/><path d="M10 21v-5.5h4V21"/>' },
+    listen: { d:'<path d="M4.2 15.1v-3.3a7.8 7.8 0 0 1 15.6 0v3.3"/><path d="M7.4 13.3H6.1a1.6 1.6 0 0 0-1.6 1.6v3a1.6 1.6 0 0 0 1.6 1.6h1.3z"/><path d="M16.6 13.3h1.3a1.6 1.6 0 0 1 1.6 1.6v3a1.6 1.6 0 0 1-1.6 1.6h-1.3z"/>' },
+    globe:  { d:'<path d="M12 3.3a8.7 8.7 0 1 0 0 17.4 8.7 8.7 0 0 0 0-17.4z"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/><path d="M12 3.3c2.4 2.6 2.4 14.8 0 17.4M12 3.3c-2.4 2.6-2.4 14.8 0 17.4"/>' },
+    gamepad:{ d:'<path d="M8.4 9h7.2a4.9 4.9 0 0 1 4.6 6.6l-.3.9a1.9 1.9 0 0 1-3.2.6L15 15.6H9l-1.7 1.5a1.9 1.9 0 0 1-3.2-.6l-.3-.9A4.9 4.9 0 0 1 8.4 9z"/><path d="M8.4 11.3v2.6M7.1 12.6h2.6M15.4 11.8h.01M17.3 13.7h.01"/>' },
+    user:   { d:'<path d="M12 12.2a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8z"/><path d="M4.6 20.6a7.4 7.4 0 0 1 14.8 0"/>' },
+    bell:   { d:'<path d="M18.2 15.9H5.8l1.3-1.9V10a4.9 4.9 0 0 1 9.8 0v4z"/><path d="M10.1 19a2 2 0 0 0 3.8 0M12 3.4v1.6"/>' },
+    signal: { d:'<path d="M4.8 20v-5.6M9.6 20v-9.4M14.4 20V7.2M19.2 20V4"/>' },
+    book:   { d:'<path d="M12 6.6C10 5.2 7.6 4.6 4.4 4.6v12.9c3.2 0 5.6.6 7.6 2 2-1.4 4.4-2 7.6-2V4.6c-3.2 0-5.6.6-7.6 2z"/><path d="M12 6.6v12.9"/>' },
+    mark:   { d:'<path d="M7.2 4.4h9.6v15.2L12 15.7l-4.8 3.9z"/>' },
+    /* در RTL «بازگشت» به راست اشاره می‌کند، نه چپ. */
+    back:   { d:'<path d="M4.6 12h14.8M13.4 6l6 6-6 6"/>' },
+    retry:  { d:'<path d="M19.5 12a7.5 7.5 0 1 0-2.3 5.4"/><path d="M17.5 17.7l-.3-3.6M17.5 17.7l3.5-.6"/>' },
+    close:  { d:'<path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"/>' },
+    trash:  { d:'<path d="M5.4 7.4h13.2M9.6 7.4V5.6a1 1 0 0 1 1-1h2.8a1 1 0 0 1 1 1v1.8"/><path d="M7.4 7.4l.8 11a1.4 1.4 0 0 0 1.4 1.3h4.8a1.4 1.4 0 0 0 1.4-1.3l.8-11"/>' },
+    copy:   { d:'<path d="M9.4 8.6h9.2a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H9.4a1 1 0 0 1-1-1V9.6a1 1 0 0 1 1-1z"/><path d="M15.6 6.4V5.2a1 1 0 0 0-1-1H5.4a1 1 0 0 0-1 1v9.2a1 1 0 0 0 1 1h1.2"/>' },
+    send:   { d:'<path d="M4.6 11.6 19.4 5l-6.6 14.8-2-6.2z"/><path d="M10.8 13.6 19.4 5"/>' },
+    cart:   { d:'<path d="M3.6 4.6h2.2l2.3 10.4h9.4l2.1-7.6H6.6"/><path d="M9.4 19.4h.01M16.4 19.4h.01"/>' },
+    link:   { d:'<path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3"/><path d="M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3"/>' },
+    snow:   { d:'<path d="M12 3.4v17.2M5 7.4l14 9.2M19 7.4 5 16.6"/><path d="M9.4 5.2 12 7.6l2.6-2.4M9.4 18.8 12 16.4l2.6 2.4"/>' },
+    tools:  { d:'<path d="M14.5 6.6a3.6 3.6 0 0 1 4.9 4.9l-7 7a2 2 0 0 1-2.8-2.8z"/><path d="M6.6 4.4l2.5 2.5M4.4 6.6l2.5 2.5M5.5 4.4l-.1 2.2 2.2-.1"/>' },
+    play:   { f:1, d:'<path d="M8.2 5.3v13.4a.9.9 0 0 0 1.37.77l10.5-6.7a.9.9 0 0 0 0-1.54L9.57 4.53A.9.9 0 0 0 8.2 5.3z"/>' },
+    pause:  { f:1, d:'<path d="M8.2 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7H8.2a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/><path d="M13.1 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7h-2.7a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/>' },
+    prev:   { f:1, d:'<path d="M6.1 5.2h2.2v13.6H6.1z"/><path d="M19.4 5.7v12.6a.8.8 0 0 1-1.23.68l-9.3-6.3a.8.8 0 0 1 0-1.36l9.3-6.3A.8.8 0 0 1 19.4 5.7z"/>' },
+    next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' }
+  },
+  of(name){
+    const r = this.REG[name];
+    if(!r) return '';
+    return '<svg class="ic' + (r.f ? ' icf' : '') +
+      '" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + r.d + '</svg>';
+  },
+  /* برچسبِ دکمه‌ها با title/aria-label می‌آید؛ خودِ آیکن تزئینی است. */
+  hydrate(root){
+    try{
+      (root || document).querySelectorAll('[data-ic]').forEach(el => {
+        const svg = this.of(el.getAttribute('data-ic'));
+        if(svg) el.innerHTML = svg;
+      });
+    }catch(err){}
   }
 };
 
@@ -3573,7 +3643,7 @@ const QuranUI = {
     // اگر همان آیه است، کارت را از نو نساز؛ فقط نشانگرها را تازه کن
     const key = `${s}:${a}:${q.reciter}`;
     if(this._nowKey === key && U.$('#qToggle')){
-      U.$('#qToggle').textContent = st === 'playing' ? '⏸' : '▶';
+      U.$('#qToggle').innerHTML = Icon.of(st === 'playing' ? 'pause' : 'play');
       U.$('#qNowSt').textContent = st === 'playing' ? '🔊' : st === 'loading' ? '⏳' : st === 'error' ? '⚠️' : '🎧';
       U.$('.qwave')?.classList.toggle('pause', st !== 'playing');
       U.$('#qRetry')?.classList.toggle('on', st === 'error');
@@ -3595,10 +3665,10 @@ const QuranUI = {
       <div class="q-tr" id="qTr"></div>
       <div class="qwave ${st === 'playing' ? '' : 'pause'}">${bars}</div>
       <div class="qctrls">
-        <button class="qsm" id="qPrev" title="آیهٔ قبل">⏮</button>
-        <button class="qbig" id="qToggle" title="پخش/توقف">${st === 'playing' ? '⏸' : '▶'}</button>
-        <button class="qsm" id="qNext" title="آیهٔ بعد">⏭</button>
-        <button class="qsm ${st === 'error' ? 'on' : ''}" id="qRetry" title="تلاش دوباره">🔄</button>
+        <button class="qsm" id="qPrev" title="آیهٔ قبل">${Icon.of('prev')}</button>
+        <button class="qbig" id="qToggle" title="پخش/توقف">${Icon.of(st === 'playing' ? 'pause' : 'play')}</button>
+        <button class="qsm" id="qNext" title="آیهٔ بعد">${Icon.of('next')}</button>
+        <button class="qsm ${st === 'error' ? 'on' : ''}" id="qRetry" title="تلاش دوباره">${Icon.of('retry')}</button>
       </div>`;
     U.$('#qToggle').onclick = () => { Sound.tick(); Recite.toggle(); };
     U.$('#qPrev').onclick   = () => Recite.step(-1);
@@ -3633,7 +3703,7 @@ const QuranUI = {
           <b>${U.esc(su.name)} — آیهٔ ${U.fa(p.a)}</b>
           <small style="display:block">${U.esc(p.why)}</small>
         </div>
-        <span style="font-size:17px">▶️</span>
+        <span style="color:var(--gold)">${Icon.of('play')}</span>
       </div>`;
     }).join('');
     U.$$('#qPicks .qcard').forEach(el => el.onclick = () => {
@@ -3657,7 +3727,7 @@ const QuranUI = {
     U.$('#mqArt').innerHTML = this.medal(r, 34);
     U.$('#mqTitle').textContent = `${su.name} • آیهٔ ${U.fa(c.a)}`;
     U.$('#mqSub').textContent = `${r.short} — ${Recite.state === 'playing' ? 'در حال پخش' : Recite.state === 'loading' ? 'بارگذاری…' : Recite.state === 'error' ? 'خطا در پخش' : 'آمادهٔ پخش'}`;
-    U.$('#mqPlay').textContent = Recite.state === 'playing' ? '⏸' : '▶';
+    U.$('#mqPlay').innerHTML = Icon.of(Recite.state === 'playing' ? 'pause' : 'play');
     if(!U.$('#mqPlay').onclick){
       U.$('#mqPlay').onclick = () => Recite.toggle();
       U.$('#mqPrev').onclick = () => Recite.step(-1);
@@ -3830,7 +3900,7 @@ const Daily = {
     const it = this.cur(), su = QURAN[it.s - 1];
     box.innerHTML = `
       <div class="daily">
-        <button class="iconbtn playb" id="dayPlay" title="شنیدن این آیه">▶️</button>
+        <button class="iconbtn playb" id="dayPlay" title="شنیدن این آیه">${Icon.of('play')}</button>
         <div class="daily-tag">🌙 آیهٔ امروز</div>
         <div class="daily-ayah-ar ${it.long ? 'long' : ''}">${U.esc(it.ar)}</div>
         <div class="daily-fa">${U.esc(it.fa)}</div>
@@ -7666,7 +7736,7 @@ const Bookmarks = {
           <span class="bb"><b>سورهٔ ${U.esc(b.name)}</b> — آیهٔ ${U.fa(b.a)}
             ${b.note ? `<div class="bd">📝 ${U.esc(b.note)}</div>` : ''}
             <div class="bd">🕒 ${U.esc(new Date(b.at || U.now()).toLocaleDateString('fa-IR'))}</div></span>
-          <button class="bx" data-del="1" title="برداشتن">🗑</button>
+          <button class="bx" data-del="1" title="برداشتن">${Icon.of('trash')}</button>
         </div>`).join('')}</div>`
         : '<div class="empty" style="margin-top:12px">هنوز آیه‌ای نشان نکرده‌ای.<br>در مصحف‌نما روی 🔖 بزن.</div>'}`);
     U.$$('#modal .bm-row').forEach(row => {
@@ -7718,7 +7788,7 @@ const ReciterUI = {
       return `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
         ${Assets.avatar(r.short)}
         <span class="rn">${U.esc(r.name)}<div class="rc">${U.esc(r.note)}</div></span>
-        <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">▶</button>
+        <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">${Icon.of('play')}</button>
       </div>`;
     }).join('');
   },
@@ -7763,7 +7833,7 @@ const ReciterUI = {
   stopPreview(){
     clearTimeout(this.timer); this.timer = null;
     try{ if(this._au) this._au.pause(); }catch(e){}
-    if(this.prev){ this.prev.classList.remove('on'); this.prev.textContent = '▶'; this.prev = null; }
+    if(this.prev){ this.prev.classList.remove('on'); this.prev.innerHTML = Icon.of('play'); this.prev = null; }
   }
 };
 
@@ -8274,7 +8344,7 @@ const Friends = {
       ${Assets.avatar(f.name)}
       <span class="fb"><b>${U.esc(f.name)}</b><div class="fd">آخرین بازی: ${U.esc(new Date(f.lastSeen || f.at).toLocaleDateString('fa-IR'))}</div></span>
       <button class="btn sm" data-invite="1">📨 دعوت</button>
-      <button class="wbx" data-del="1" title="برداشتن">✕</button></div>`).join('');
+      <button class="wbx" data-del="1" title="برداشتن">${Icon.of('close')}</button></div>`).join('');
   },
   /* بازیکنان آنلاینی که هنوز در فهرست دوستان نیستند */
   strangers(){
@@ -8297,7 +8367,7 @@ const Friends = {
       <div style="max-height:46vh;overflow-y:auto;margin-top:10px">${this.rows()}${this.onlineRows()}</div>
       <div class="invite-box">
         <input id="frLink" readonly value="${U.esc(this.invite(code))}">
-        <button class="btn sm" id="frCopy">📋</button>
+        <button class="btn sm" id="frCopy" title="رونوشت پیوند" aria-label="رونوشت پیوند">${Icon.of('copy')}</button>
       </div>
       <div class="tiny mt6">${code ? 'این پیوند با کد روم تو ساخته شده — بفرست تا دوستت مستقیم وارد شود.' : 'برای پیوند دعوت، اول یک روم بساز تا کد داشته باشی.'}</div>`);
     U.$('#frCopy').onclick = () => Share.copy(this.invite(code));
@@ -8982,7 +9052,7 @@ const Debug = {
     p.id = 'dbg'; p.dir = 'ltr';
     document.body.appendChild(p);
     const b = document.createElement('button');
-    b.id = 'dbgBtn'; b.textContent = '🛠'; b.title = 'پنل اشکال‌زدایی';
+    b.id = 'dbgBtn'; b.innerHTML = Icon.of('tools'); b.title = 'پنل اشکال‌زدایی';
     b.onclick = () => this.toggle();
     document.body.appendChild(b);
     b.classList.add('on');
@@ -9263,7 +9333,7 @@ const Launcher = {
           <span class="chip wr">سطح ${U.fa(Store.get('level'))}</span>
           <span class="chip wr">${U.fa(Store.get('score'))} امتیاز</span>
           ${Wallet.chip()}
-          <button class="btn gh sm" data-shop="1" data-tip="فروشگاه: سکه را خرج کن">🛒</button></div>
+          <button class="btn gh sm" data-shop="1" data-tip="فروشگاه: سکه را خرج کن" aria-label="فروشگاه">${Icon.of('cart')}</button></div>
         <div class="sep"></div>
         <div class="row" style="flex-wrap:wrap;gap:6px">
           ${'❤️'.repeat(Store.get('hearts'))}${'🖤'.repeat(Store.HEART_MAX - Store.get('hearts'))}
@@ -9582,7 +9652,7 @@ function renderOnline(){
       <div class="sp"><b>${U.esc(p.name)}${p.me ? ' (شما)' : ''}</b>
         <small>سطح ${U.fa(p.level || 1)} • ${U.fa(p.score || 0)} امتیاز</small></div>
       ${!p.me && !friendIds.has(p.id)
-        ? `<button class="btn gh sm" data-fr="${U.esc(p.id)}" title="پیشنهاد دوستی" aria-label="پیشنهاد دوستی به ${U.esc(p.name)}">🤝</button>`
+        ? `<button class="btn gh sm" data-fr="${U.esc(p.id)}" title="پیشنهاد دوستی" aria-label="پیشنهاد دوستی به ${U.esc(p.name)}">${Icon.of('link')}</button>`
         : `<span class="chip on">🟢</span>`}
     </div>`).join('');
   U.$$('#players [data-fr]').forEach(b => b.onclick = () => {
@@ -10851,7 +10921,7 @@ const Streak = {
       <span class="grow"><b>زنجیرهٔ ${U.fa(this.count())} روزه‌ات امشب می‌شکند</b>
         <small>چالش امروز را بزن، یا با ۸۰ سکه یخش بزن.</small></span>
       <button class="btn sm" data-streak="go">بزن</button>
-      <button class="btn gh sm" data-streak="freeze">🧊</button>
+      <button class="btn gh sm" data-streak="freeze" title="نگه‌داشتن رشته" aria-label="نگه‌داشتن رشته">${Icon.of('snow')}</button>
     </div>`;
   },
   wire(host){
@@ -11230,11 +11300,11 @@ const Install = {
       ? 'روی آیفون: «اشتراک» ← «Add to Home Screen»'
       : 'آیکنش روی صفحهٔ اصلی می‌آید و بدون نوار آدرس باز می‌شود';
     el.innerHTML = this.LOGO +
-      `<span class="ib-t"><b>📲 نورستان را نصب کن</b>
+      `<span class="ib-t"><b>نورستان را نصب کن</b>
         <small>${U.esc(sub)}</small></span>
       <span class="ib-btns">
         <button class="ib-go" id="ibGo">${ios ? 'چطور؟' : 'نصب'}</button>
-        <button class="ib-x" id="ibX" aria-label="بستن این پیشنهاد" title="بستن">✕</button>
+        <button class="ib-x" id="ibX" aria-label="بستن این پیشنهاد" title="بستن">${Icon.of('close')}</button>
       </span>`;
     U.$('#ibGo', el).onclick = () => this.act();
     U.$('#ibX', el).onclick  = () => { Haptic.hit(); this.snooze(); };
@@ -12024,6 +12094,9 @@ function init(){
 
   /* ── نسخهٔ ۱۵: تصویرها، PWA، دسترس‌پذیری، پنل اشکال‌زدایی ── */
   try{ Assets.watch(); Assets.pwa(); }catch(e){ console.warn('assets', e); }
+  /* آیکن‌های ثابتِ سند — نوار پایین، نوار بالا، سرِ صفحه‌ها، نوار پخش.
+     اول از همه، تا هیچ‌وقت جای خالی دیده نشود. */
+  try{ Icon.hydrate(); }catch(e){ console.warn('icons', e); }
   try{
     Theme.fromSystem(); Theme.paintAmbient();
     if(Store.get('settings').motionOff) document.documentElement.setAttribute('data-motion', 'off');
