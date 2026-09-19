@@ -133,19 +133,56 @@ ok('U.fmtTime', U.fmtTime(90) === '1:30' && U.fmtTime(45) === '45 ثانیه', U
 /* 3. ذخیره‌سازی و جان */
 section('Store و جان');
 Store.load();
-ok('بارگذاری پیش‌فرض', Store.get('hearts') === 5 && Store.get('score') === 0);
+ok('بارگذاری پیش‌فرض', Store.get('hearts') === 3 && Store.get('score') === 0);
+/* سقفِ جان در ۱۷.۱ از پنج به سه رسید. آزمون‌های زیر عددِ تازه را قفل می‌کنند
+   تا کسی بی‌تصمیم برش نگرداند. */
+ok('سقفِ جان سه است', Store.HEART_MAX === 3, Store.HEART_MAX);
 Store.update(d => d.hearts = 0);
 ok('spendHeart با جان صفر رد می‌کند', Store.spendHeart() === false);
 Store.update(d => { d.hearts = 3; d.heartsAt = 0; });
 ok('spendHeart جان کم می‌کند', Store.spendHeart() === true && Store.get('hearts') === 2, Store.get('hearts'));
 ok('زمان جان بعدی ثبت شد', Store.get('heartsAt') > 0);
-Store.update(d => { d.hearts = 1; d.heartsAt = U.now() - 7 * 60 * 1000; });  // ۷ دقیقه پیش
+Store.update(d => { d.hearts = 0; d.heartsAt = U.now() - 7 * 60 * 1000; });  // ۷ دقیقه پیش
 Store.regenHearts();
-ok('بازیابی جان پس از ۷ دقیقه = ۲ جان', Store.get('hearts') === 3, Store.get('hearts'));
-Store.update(d => { d.hearts = 5; d.heartsAt = U.now() - 60000; });
+ok('بازیابی جان پس از ۷ دقیقه = ۲ جان', Store.get('hearts') === 2, Store.get('hearts'));
+Store.update(d => { d.hearts = 2; d.heartsAt = U.now() - 12 * 60 * 1000; });  // ۴ جان می‌شد، سقف ۳
 Store.regenHearts();
+ok('بازیابی از سقف نمی‌گذرد', Store.get('hearts') === 3, Store.get('hearts'));
 ok('در حالت پر، heartsAt صفر می‌شود', Store.get('heartsAt') === 0);
-ok('جان از ۵ بالاتر نمی‌رود', (Store.addHearts(10), Store.get('hearts') === 5));
+ok('جان از ۳ بالاتر نمی‌رود', (Store.addHearts(10), Store.get('hearts') === 3));
+Store.update(d => { d.hearts = 5; d.heartsAt = 0; });   // ذخیرهٔ کهنهٔ نسخهٔ پیشین
+Store.sanitize();
+ok('ذخیرهٔ کهنه با ۵ جان به ۳ کوتاه می‌شود', Store.get('hearts') === 3, Store.get('hearts'));
+
+/* نوارِ جان: در ۱۷.۱ قلب‌ها از نوارِ بالای همهٔ صفحه‌ها و از صفحهٔ اصلی و
+   پروفایل برداشته شدند و فقط داخلِ بازی می‌مانند. ایموجی هم جایش را به SVG
+   داد؛ ایموجیِ قلب رنگِ پوسته را نمی‌گیرد و در پوسته‌های روشن ناخوانا بود. */
+Store.update(d => { d.hearts = 2; d.heartsAt = 0; });
+const _hb = HeartBar.inner();
+ok('نوارِ جان سه قلب می‌کشد', (_hb.match(/class="gh /g) || []).length === 3, _hb);
+ok('قلبِ پُر و قلبِ خالی جدا شمرده می‌شوند',
+   (_hb.match(/gh-full/g) || []).length === 2 && (_hb.match(/gh-empty/g) || []).length === 1);
+ok('نوارِ جان SVG است نه ایموجی', !/[❤\u{1F496}\u{1F5A4}]/u.test(_hb) && /<svg/.test(_hb), _hb.slice(0, 40));
+const _hud = HeartBar.hud();
+ok('نوارِ جان شناسه و برچسبِ دسترس‌پذیر دارد',
+   /id="gameHearts"/.test(_hud) && /role="img"/.test(_hud) && /aria-label="۲ جان از ۳"/.test(_hud), _hud.slice(0, 90));
+Store.update(d => d.hearts = 1);
+HeartBar.paint();                       // در هارنس جعبه‌ای نیست؛ نباید خطا بدهد
+HeartBar.break(2);                      // و شکستنِ قلبی که در DOM نیست هم نباید خطا بدهد
+ok('paint و break بی جعبه خطا نمی‌دهند', true);
+Store.update(d => { d.hearts = 3; d.heartsAt = 0; });
+
+/* قلب‌ها نباید به صفحهٔ اصلی برگردند — نه در نوارِ بالا، نه در کارتِ بازی،
+   نه در پروفایل. رگرسیونِ خاموشِ این تصمیم خیلی آسان است. */
+{
+  const src = require('fs').readFileSync(__dirname + '/index.html', 'utf8');
+  const has = id => new RegExp('id="' + id + '"').test(src);
+  ok('نوارِ بالای صفحه دیگر جعبهٔ جان ندارد', !has('tbHearts') && !/hearts-top/.test(src));
+  ok('نوارِ جان فقط جایی کشیده می‌شود که بازی در جریان است',
+     /s\.hearts \? HeartBar\.hud\(\) : ''/.test(src));
+  ok('صفحهٔ اصلی جان نشان نمی‌دهد', !/speed'\) sub = `❤/.test(src));
+  ok('پروفایل جان را در آمارِ کلی نمی‌آورد', !/<span>❤️ جان<\/span>/.test(src));
+}
 
 /* 4. منطق دوز */
 section('دوز');

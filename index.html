@@ -161,7 +161,19 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .iconbtn:hover{background:var(--card2);transform:translateY(-2px)}
 .dot{position:absolute;top:5px;left:5px;width:9px;height:9px;border-radius:50%;
   background:var(--red);border:2px solid var(--card)}
-.hearts-top{display:flex;gap:1px;font-size:13px;letter-spacing:-1px}
+/* قلب‌ها فقط داخلِ بازی دیده می‌شوند و فقط با SVG کشیده می‌شوند. ایموجیِ
+   قلب رنگِ قلم را نمی‌گیرد و در پوسته‌های روشن ناخوانا می‌شد. */
+.game-hearts{display:inline-flex;gap:6px;align-items:center}
+.gh{width:22px;height:22px;transition:.3s;filter:drop-shadow(0 0 6px rgba(255,95,109,.5))}
+.gh-full{fill:#ff5f6d;stroke:#ff5f6d}
+/* قلبِ خالی فقط خطِ دور دارد — «از دست رفته» باید خالی دیده شود، نه سیاه. */
+.gh-empty{fill:transparent;stroke:var(--line);opacity:.4;filter:none}
+.gh.lost{animation:heartBreak .4s ease}
+@keyframes heartBreak{
+  0%{transform:scale(1) rotate(0)}
+  50%{transform:scale(1.4) rotate(-15deg);filter:drop-shadow(0 0 12px rgba(255,95,109,.8))}
+  100%{transform:scale(1) rotate(0);opacity:.3}
+}
 
 /* Hero */
 .hero{
@@ -1393,7 +1405,6 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
       <div>نورستان<small id="tbSub">آموزش قرآن، بازی و محفل واقعی</small></div>
     </div>
     <div class="sp"></div>
-    <div class="hearts-top" id="tbHearts" title="جان"></div>
     <button class="iconbtn" id="btnQuran" title="تلاوت قرآن"><i data-ic="listen"></i></button>
     <button class="iconbtn" id="btnNotif" title="اعلان‌ها"><i data-ic="bell"></i><span class="dot hide" id="notifDot"></span></button>
     <button class="iconbtn" id="btnNet" title="وضعیت شبکه"><i data-ic="signal"></i></button>
@@ -1957,6 +1968,7 @@ const Icon = {
     snow:   { d:'<path d="M12 3.4v17.2M5 7.4l14 9.2M19 7.4 5 16.6"/><path d="M9.4 5.2 12 7.6l2.6-2.4M9.4 18.8 12 16.4l2.6 2.4"/>' },
     tools:  { d:'<path d="M14.5 6.6a3.6 3.6 0 0 1 4.9 4.9l-7 7a2 2 0 0 1-2.8-2.8z"/><path d="M6.6 4.4l2.5 2.5M4.4 6.6l2.5 2.5M5.5 4.4l-.1 2.2 2.2-.1"/>' },
     play:   { f:1, d:'<path d="M8.2 5.3v13.4a.9.9 0 0 0 1.37.77l10.5-6.7a.9.9 0 0 0 0-1.54L9.57 4.53A.9.9 0 0 0 8.2 5.3z"/>' },
+    heart:  { d:'<path d="M12 20.4c-2.1-1.7-8-6.3-8-10.5a4.4 4.4 0 0 1 8-2.6 4.4 4.4 0 0 1 8 2.6c0 4.2-5.9 8.8-8 10.5z"/>' },
     pause:  { f:1, d:'<path d="M8.2 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7H8.2a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/><path d="M13.1 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7h-2.7a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/>' },
     prev:   { f:1, d:'<path d="M6.1 5.2h2.2v13.6H6.1z"/><path d="M19.4 5.7v12.6a.8.8 0 0 1-1.23.68l-9.3-6.3a.8.8 0 0 1 0-1.36l9.3-6.3A.8.8 0 0 1 19.4 5.7z"/>' },
     next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' }
@@ -2012,7 +2024,7 @@ const LEGACY_ADMIN_HASHES = [
 const Store = {
   KEY: 'noorestan_v14',
   VERSION: 15,
-  HEART_MAX: 5,
+  HEART_MAX: 3,      // سه قلب، نه پنج — پر شدنِ نوار باید به چشم بیاید
   HEART_REGEN_MS: 3 * 60 * 1000,   // هر ۳ دقیقه یک جان
   data: null,
 
@@ -6937,6 +6949,7 @@ const QuizEngine = {
       `<span class="pill">سوال <b>${U.fa(s.i + 1)}</b> از <b>${U.fa(s.qs.length)}</b></span>
        <span class="pill">✅ <b>${U.fa(s.correct)}</b></span>
        ${Combo.label()}
+       ${s.hearts ? HeartBar.hud() : ''}
        ${s.mode === 'speed' ? `<span class="pill" id="qTime">⏱ <b>${U.fa(12)}</b></span>` : ''}`;
     U.$('#pgProg').style.width = ((s.i / s.qs.length) * 100) + '%';
     const labels = ['الف','ب','پ','ت'];
@@ -7025,11 +7038,13 @@ const QuizEngine = {
   penalty(){
     const s = this.state;
     if(!s.hearts) return;
+    const had = Store.get('hearts');   // پیش از خرج، تا بدانیم کدام قلب خالی شد
     if(!Store.spendHeart()){
       this.gameOver();
       return true;
     }
-    updateTopHearts();
+    HeartBar.paint();
+    HeartBar.break(had - 1);
     UI.toast('💔 یک جان کم شد', 'err', 1500);
   },
   answer(btn, correct){
@@ -7102,7 +7117,7 @@ const QuizEngine = {
       if(!el){ Timers.clear(tick); return; }
       el.textContent = ms ? `⏳ جان بعدی تا ${U.fmtTime(ms/1000)}` : '❤️ جان‌ها پر شد';
     }, 1000);
-    updateTopHearts();
+    updateHearts();
   },
   finish(){
     const s = this.state;
@@ -9796,7 +9811,7 @@ const Launcher = {
           <button class="btn gh sm" data-shop="1" data-tip="فروشگاه: سکه را خرج کن" aria-label="فروشگاه">${Icon.of('cart')}</button></div>
         <div class="sep"></div>
         <div class="row" style="flex-wrap:wrap;gap:6px">
-          ${'❤️'.repeat(Store.get('hearts'))}${'🖤'.repeat(Store.HEART_MAX - Store.get('hearts'))}
+          ${HeartBar.hud()}
           <span style="font-size:11.5px;color:var(--mut)">
             ${Store.get('hearts') < Store.HEART_MAX && Store.heartsLeftMs()
               ? `— جان بعدی تا ${U.fmtTime(Store.heartsLeftMs()/1000)}` : '— جان‌ها کامل'}</span>
@@ -9838,7 +9853,7 @@ function checkLevelUp(){
     UI.toast(`🎉 سطح ${U.fa(Store.get('level'))}!`, 'ok');
     if(Store.get('level') === 1) Store.addHearts(Store.HEART_MAX);
   }
-  updateTopHearts();
+  updateHearts();
   updateHomeStats();
 }
 
@@ -9894,7 +9909,7 @@ function saveLeaderboard(){
   Store.save();
 }
 
-function saveAll(){ Store.save(); updateHomeStats(); updateTopHearts(); }
+function saveAll(){ Store.save(); updateHomeStats(); updateHearts(); }
 
 /* ─────────────────── 13. چالش روزانه با زنجیره ─────────────────── */
 const DailyChallenge = {
@@ -9938,11 +9953,40 @@ const DailyChallenge = {
 };
 
 /* ─────────────────── 14. RENDER: HOME ─────────────────── */
-function updateTopHearts(){
-  const h = Store.get('hearts');
-  const el = U.$('#tbHearts');
-  if(el) el.innerHTML = '❤️'.repeat(h) + '<span style="opacity:.28">' + '❤️'.repeat(Store.HEART_MAX - h) + '</span>';
-}
+/* ── نوارِ جان ──
+   قلب‌ها پیش‌تر در نوارِ بالای همهٔ صفحه‌ها بودند و چشم را از محتوا می‌دزدیدند؛
+   الان فقط جایی که معنا دارند — داخلِ بازی — کشیده می‌شوند. */
+const HeartBar = {
+  inner(){
+    const h = Store.get('hearts'), m = Store.HEART_MAX;
+    let s = '';
+    for(let i = 0; i < m; i++)
+      s += '<svg class="gh' + (i < h ? ' gh-full' : ' gh-empty') +
+           '" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + Icon.REG.heart.d + '</svg>';
+    return s;
+  },
+  /* مارک‌آپِ کامل برای جاهایی که خودشان innerHTML را می‌سازند (نوارِ بازی). */
+  hud(){
+    const h = Store.get('hearts'), m = Store.HEART_MAX;
+    return '<span class="game-hearts" id="gameHearts" role="img" aria-label="' +
+           U.fa(h) + ' جان از ' + U.fa(m) + '">' + this.inner() + '</span>';
+  },
+  paint(){
+    const el = U.$('#gameHearts');
+    if(!el) return;
+    el.innerHTML = this.inner();
+    el.setAttribute('aria-label', U.fa(Store.get('hearts')) + ' جان از ' + U.fa(Store.HEART_MAX));
+  },
+  /* قلبی که همین حالا خالی شد می‌لرزد. بی این، کاربر فقط یک قلبِ کم‌شده
+     می‌بیند و نمی‌فهمد کِی خورد. */
+  break(i){
+    const el = U.$('#gameHearts');
+    if(!el || !el.children) return;
+    const k = el.children[i];
+    if(k && k.classList) k.classList.add('lost');
+  }
+};
+function updateHearts(){ HeartBar.paint(); }
 
 function updateHomeStats(){
   const d = Store.data;
@@ -10004,7 +10048,7 @@ function updateHomeStats(){
     };
   }
   updateHomeStats._first = false;
-  updateTopHearts();
+  updateHearts();
 }
 updateHomeStats._first = true;
 updateHomeStats._pct = 0;
@@ -10049,7 +10093,6 @@ function renderHome(){
               sub = st.done ? `✅ امروز انجام شد • زنجیره ${U.fa(st.streak)} روز` : 'امروز انجام نشده — جایزه بگیر';
             }
             if(g === 'surah') sub = `${U.fa(DATA.surah.filter(q => d.completed[q.surah]).length)} از ${U.fa(DATA.surah.length)} سوره کامل شده`;
-            if(g === 'speed') sub = `❤️ ${U.fa(Store.get('hearts'))} جان داری`;
             return `<div class="tile" data-game="${g}">${tag}
               <span class="ti">${gm.icon}</span><b>${U.esc(gm.name)}</b><small>${U.esc(sub)}</small></div>`;
           }).join('')}
@@ -10396,7 +10439,6 @@ const Me = {
             <div class="stat"><b>${U.fa(acc)}%</b><span>🎯 دقت</span></div>
             <div class="stat"><b>${U.fa(st.maxCombo)}</b><span>🔥 بهترین کمبو</span></div>
             <div class="stat"><b>${st.fastestAnswer < 999 ? U.fa(st.fastestAnswer.toFixed(1)) : '—'}</b><span>⚡ سریع‌ترین (ثانیه)</span></div>
-            <div class="stat"><b>${U.fa(d.hearts)}/${U.fa(Store.HEART_MAX)}</b><span>❤️ جان</span></div>
           </div>
         </div>
         <div class="card" style="margin-top:12px">
@@ -11806,7 +11848,7 @@ const Admin = {
           </div>`}
           <button class="btn dg w" id="opLogout" style="margin-top:12px">🚪 خروج از پنل</button>`;
         U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
-        U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateTopHearts(); UI.toast('❤️ پر شد', 'ok'); };
+        U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateHearts(); UI.toast('❤️ پر شد', 'ok'); };
         U.$('#opUnlock').onclick = () => { Store.update(x => DATA.badges.forEach(b => x.badges[b.id] = true)); updateHomeStats(); checkBadges(); UI.toast('🔓 همه نشان‌ها باز شد', 'ok'); };
         U.$('#opExport').onclick = () => {
           const blob = new Blob([Store.export()], { type: 'application/json' });
@@ -12103,7 +12145,7 @@ const Wallet = {
 const Shop = {
   ITEMS: [
     { id:'heart1', icon:'❤️', name:'یک جان',            desc:'فوراً یک جان پر می‌کند',                price:30  },
-    { id:'hearts', icon:'💖', name:'پر کردن جان‌ها',     desc:'هر پنج جان، یک‌جا',                    price:110 },
+    { id:'hearts', icon:'💖', name:'پر کردن جان‌ها',     desc:'هر سه جان، یک‌جا',                     price:110 },
     { id:'freeze', icon:'🧊', name:'یخِ زنجیره',        desc:'امروز را بی‌بازی هم زنجیره‌ات نگه می‌دارد', price:80  },
     { id:'theme-desert', icon:'🏜', name:'پوستهٔ کویر', desc:'ششمین پوسته — گرم و خاکی',              price:250, once:true },
     { id:'avapack', icon:'🦋', name:'چهرک‌های ویژه',    desc:'۱۲ چهرک تازه آزاد می‌شود',               price:150, once:true },
@@ -13807,7 +13849,7 @@ function init(){
   Net.on('chat', ({ name, text }) => appendChat({ name, text }));
   Net.on('tick', () => {
     if(Router.stack[Router.stack.length-1] === 'online') renderOnline();
-    if(Store.get('hearts') < Store.HEART_MAX) Store.regenHearts(), updateTopHearts();
+    if(Store.get('hearts') < Store.HEART_MAX) Store.regenHearts(), updateHearts();
   });
 
   // چند ثانیه بعد از بارگذاری، اتصال خودکار
