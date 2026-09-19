@@ -126,7 +126,13 @@
   --grad:linear-gradient(135deg,#ffc46b,#e08b2c);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+/* در زوم، تصویر و شکلِ پهن ستون را می‌شکست و اسکرولِ افقی می‌ساخت.
+   `height:auto` فقط برای `img`: آیکن‌های SVG این پرونده کلاس `.ic` با
+   پهنا/بلندای صریح دارند و آن‌ها از این قاعده مستثنا می‌مانند، ولی
+   SVGهایی که اندازه را از صفت گرفته‌اند با `height:auto` جابه‌جا می‌شدند. */
+img{max-width:100%;height:auto}
+svg{max-width:100%}
+html,body{height:100%;max-width:100%}
 body{
   font-family:var(--f-ui);
   background:
@@ -473,11 +479,22 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .nav button.on{color:var(--gold);background:rgba(128,128,128,.12)}
 
 /* Toast / Modal */
-#toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:200;
-  display:grid;gap:8px;width:calc(100% - 28px);max-width:400px}
+/* زیرِ نوارِ بالا (بلندایش ~۶۴px)، نه روی آن: پیش‌تر توست روی عنوان و
+   دکمه‌های هدر می‌افتاد و همان‌ها را می‌پوشاند. */
+#toasts{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:200;
+  display:grid;gap:8px;width:calc(100% - 28px);max-width:480px}
 .toast{background:var(--card2);border:1px solid var(--line);border-right:4px solid var(--gold);
   border-radius:12px;padding:12px 14px;font-size:13px;box-shadow:var(--sh);animation:in .25s both}
 .toast.ok{border-right-color:var(--grn)}.toast.err{border-right-color:var(--red)}
+/* همین کلاس در جاهای دیگر به‌عنوان پیامِ درون‌صفحه‌ای هم به کار می‌رود
+   (مثلاً زیرِ گزینه‌های بازی). پس چیدمانِ نواری فقط روی توستِ زنده می‌آید
+   و آن پیام‌ها دست‌نخورده می‌مانند. */
+.toast.live{display:flex;align-items:flex-start;gap:10px}
+.toast.live .tx{flex:1;min-width:0;text-align:right}
+.toast.live .x{flex:none;width:28px;height:28px;margin:-2px -4px 0 0;border:0;
+  background:transparent;color:var(--mut);font-size:14px;line-height:1;
+  border-radius:8px;cursor:pointer;display:grid;place-items:center}
+.toast.live .x:hover,.toast.live .x:focus-visible{background:rgba(128,128,128,.16);color:var(--txt)}
 #modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.75);backdrop-filter:blur(6px);
   display:none;place-items:center;padding:18px}
 #modal.on{display:grid}
@@ -2909,13 +2926,40 @@ const Router = {
 
 /* ─────────────────── 5. UI ─────────────────── */
 const UI = {
-  toast(msg, type = '', ms = 2500){
+  /* ── توست ──
+     • چهار ثانیه می‌ماند: پیام‌های این برنامه جمله‌های کامل‌اند، نه یک
+       واژه؛ ۲٫۵ ثانیه برای خواندنشان کم بود.
+     • دکمهٔ ✕ دارد، چون پیامِ نامربوط باید کنار رود بی آنکه کاربر صبر کند.
+     • حداکثر دو تا: بیشتر از آن روی هم می‌افتاد و پیامِ تازه در انبوهِ
+       کهنه‌ها گم می‌شد.
+     متن با `textContent` نوشته می‌شود، نه `innerHTML` — پیام‌ها از دادهٔ
+     سرور و نام کاربر می‌آیند. */
+  toast(msg, type = '', ms = 4000){
+    const box = U.$('#toasts');
+    if(!box) return;
     const el = document.createElement('div');
-    el.className = 'toast ' + type;
-    el.textContent = msg;
-    U.$('#toasts').appendChild(el);
-    while(U.$('#toasts').children.length > 4) U.$('#toasts').firstChild.remove();
-    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, ms);
+    el.className = 'toast live ' + type;
+    const tx = document.createElement('span');
+    tx.className = 'tx';
+    tx.textContent = msg;
+    const x = document.createElement('button');
+    x.className = 'x'; x.type = 'button';
+    x.setAttribute('aria-label', 'بستن پیام');
+    x.title = 'بستن';
+    x.textContent = '✕';
+    el.appendChild(tx); el.appendChild(x);
+    box.appendChild(el);
+    while(box.children.length > 2) box.firstChild.remove();
+    let done = false, t = 0;
+    const close = () => {
+      if(done) return;
+      done = true;
+      clearTimeout(t);
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 300);
+    };
+    x.onclick = close;
+    t = setTimeout(close, ms);
   },
   /* ── پنجرهٔ جستن ──
      سه چیز را با هم نگه می‌دارد: نمایش، تاریخچه، و تمرکز.
@@ -4687,7 +4731,7 @@ const DATA = {
     {surah:'اخلاص',  n:112, a:1, before:'قُلْ هُوَ اللَّهُ',               ans:'أَحَدٌ',       wrong:['الصَّمَدُ','الْوَالِدُ','الْمَوْلُودُ'],                tr:'بگو او خدای یکتاست'},
     {surah:'فلق',    n:113, a:2, before:'مِنْ شَرِّ',                      ans:'مَا خَلَقَ',   wrong:['الْفَلَقِ','الْغَاسِقِ','النَّفَّاثَاتِ'],              tr:'از شر آنچه آفریده'},
     {surah:'ناس',    n:114, a:6, before:'مِنَ الْجِنَّةِ',                 ans:'وَالنَّاسِ',   wrong:['الْوَسْوَاسِ','الْخَنَّاسِ','الْجِنَّةِ'],              tr:'از شر جن و انس'},
-    {surah:'عصر',    n:103, a:2, before:'إِنَّ',                           ans:'الْإِنْسَانَ', wrong:['الْعَصْرِ','الَّذِينَ آمَنُوا','الْخُسْرِ'],          tr:'همانا انسان در زیان است'},
+    {surah:'عصر',    n:103, a:2, before:'إِنَّ',                           ans:'الْإِنْسَانَ', after:'لَفِى خُسْرٍ', wrong:['الْعَصْرِ','الَّذِينَ آمَنُوا','الْخُسْرِ'],          tr:'همانا انسان در زیان است'},
     {surah:'کوثر',   n:108, a:1, before:'إِنَّا أَعْطَيْنَاكَ',            ans:'الْكَوْثَرَ',  wrong:['الْخَيْرَ','الْحَوْضَ','الْيَتِيمَ'],                  tr:'ما به تو خیر کثیر دادیم'},
     {surah:'فاتحه',  n:1,   a:2, before:'الْحَمْدُ لِلَّهِ رَبِّ',          ans:'الْعَالَمِينَ',wrong:['الْمُؤْمِنِينَ','الْآخِرَةِ','الْكَوْنِ'],            tr:'ستایش مخصوص خداوند پروردگار جهانیان است'},
     {surah:'قدر',    n:97,  a:1, before:'إِنَّا أَنْزَلْنَاهُ فِي لَيْلَةِ', ans:'الْقَدْرِ',   wrong:['الْجُمُعَةِ','الْبَرَكَةِ','النُّورِ'],                tr:'ما آن را در شب قدر نازل کردیم'},
@@ -4699,6 +4743,7 @@ const DATA = {
     /* ── آیه‌های نامدار — همان‌ها که در منبر و مناجات می‌شنویم ── */
     {surah:'احزاب',  n:33,  a:33, level:'آیهٔ تطهیر',
      before:'إِنَّمَا يُرِيدُ ٱللَّهُ لِيُذْهِبَ عَنكُمُ ٱلرِّجْسَ', ans:'أَهْلَ ٱلْبَيْتِ',
+     after:'وَيُطَهِّرَكُمْ تَطْهِيرًۭا',
      wrong:['أَهْلَ ٱلْكِتَٰبِ','أَهْلَ ٱلْمَدِينَةِ','ٱلْمُؤْمِنِينَ'],
      tr:'همانا خدا می‌خواهد پلیدی را از شما خاندان [پیامبر] بزداید و پاکتان گرداند',
      src:'قرآن ۳۳:۳۳ — آیهٔ تطهیر'},
@@ -4709,36 +4754,43 @@ const DATA = {
      src:'قرآن ۵:۵۵ — آیهٔ ولایت'},
     {surah:'مائده',  n:5,   a:67, level:'آیهٔ تبلیغ',
      before:'يَٰٓأَيُّهَا ٱلرَّسُولُ', ans:'بَلِّغْ مَآ أُنزِلَ إِلَيْكَ مِن رَّبِّكَ',
+     after:'وَإِن لَّمْ تَفْعَلْ فَمَا بَلَّغْتَ رِسَالَتَهُۥ ۚ وَٱللَّهُ يَعْصِمُكَ مِنَ ٱلنَّاسِ ۗ إِنَّ ٱللَّهَ لَا يَهْدِى ٱلْقَوْمَ ٱلْكَٰفِرِينَ',
      wrong:['قُلْ هَٰذِهِۦ سَبِيلِى أَدْعُوٓا۟ إِلَى ٱللَّهِ','قُمْ فَأَنذِرْ وَرَبَّكَ فَكَبِّرْ','ٱدْعُ إِلَىٰ سَبِيلِ رَبِّكَ بِٱلْحِكْمَةِ'],
      tr:'ای پیامبر! آنچه از پروردگارت بر تو نازل شده برسان',
      src:'قرآن ۵:۶۷ — آیهٔ تبلیغ'},
     {surah:'مائده',  n:5,   a:3,  level:'آیهٔ اکمال',
      before:'ٱلْيَوْمَ', ans:'أَكْمَلْتُ لَكُمْ دِينَكُمْ',
+     after:'وَأَتْمَمْتُ عَلَيْكُمْ نِعْمَتِى وَرَضِيتُ لَكُمُ ٱلْإِسْلَٰمَ دِينًۭا ۚ فَمَنِ ٱضْطُرَّ فِى مَخْمَصَةٍ غَيْرَ مُتَجَانِفٍۢ لِّإِثْمٍۢ ۙ فَإِنَّ ٱللَّهَ غَفُورٌۭ رَّحِيمٌۭ',
      wrong:['أَتْمَمْتُ عَلَيْكُمْ نِعْمَتِى','حُرِّمَتْ عَلَيْكُمُ ٱلْمَيْتَةُ','يَئِسَ ٱلَّذِينَ كَفَرُوا۟'],
      tr:'امروز دین شما را برایتان کامل کردم',
      src:'قرآن ۵:۳ — آیهٔ اکمال'},
     {surah:'آل عمران', n:3,   a:61, level:'آیهٔ مباهله',
      before:'فَقُلْ تَعَالَوْا۟ نَدْعُ', ans:'أَبْنَآءَنَا وَأَبْنَآءَكُمْ',
+     after:'وَنِسَآءَنَا وَنِسَآءَكُمْ وَأَنفُسَنَا وَأَنفُسَكُمْ ثُمَّ نَبْتَهِلْ فَنَجْعَل لَّعْنَتَ ٱللَّهِ عَلَى ٱلْكَٰذِبِينَ',
      wrong:['أَزْوَٰجَنَا وَأَزْوَٰجَكُمْ','إِخْوَٰنَنَا وَإِخْوَٰنَكُمْ','أَمْوَٰلَنَا وَأَمْوَٰلَكُمْ'],
      tr:'بگو بیایید پسرانمان و پسرانتان را بخوانیم…',
      src:'قرآن ۳:۶۱ — آیهٔ مباهله'},
     {surah:'نساء', n:4, a:59, level:'آیهٔ اولی‌الامر',
      before:'يَٰٓأَيُّهَا ٱلَّذِينَ آمَنُوٓا۟ أَطِيعُوا۟ ٱللَّهَ وَأَطِيعُوا۟ ٱلرَّسُولَ', ans:'وَأُو۟لِى ٱلْأَمْرِ مِنكُمْ',
+     after:'فَإِن تَنَٰزَعْتُمْ فِى شَىْءٍۢ فَرُدُّوهُ إِلَى ٱللَّهِ وَٱلرَّسُولِ إِن كُنتُمْ تُؤْمِنُونَ بِٱللَّهِ وَٱلْيَوْمِ ٱلْءَاخِرِ ۚ ذَٰلِكَ خَيْرٌۭ وَأَحْسَنُ تَأْوِيلًا',
      wrong:['وَأُو۟لِى ٱلْقُرْبَىٰ وَٱلْيَتَٰمَىٰ','وَٱلْوَٰلِدَيْنِ وَٱلْأَقْرَبِينَ','وَلَا تُطِيعُوا۟ ٱلْمُنَٰفِقِينَ'],
      tr:'ای مؤمنان! خدا را اطاعت کنید و پیامبر و صاحبان فرمان از خودتان را',
      src:'قرآن ۴:۵۹ — آیهٔ اولی‌الامر'},
     {surah:'نور',    n:24,  a:35, level:'آیهٔ نور',
      before:'ٱللَّهُ نُورُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ مَثَلُ نُورِهِۦ', ans:'كَمِشْكَوٰةٍ فِيهَا مِصْبَاحٌ',
+     after:'ٱلْمِصْبَاحُ فِى زُجَاجَةٍ ۖ ٱلزُّجَاجَةُ كَأَنَّهَا كَوْكَبٌۭ دُرِّىٌّۭ يُوقَدُ مِن شَجَرَةٍۢ مُّبَٰرَكَةٍۢ زَيْتُونَةٍۢ لَّا شَرْقِيَّةٍۢ وَلَا غَرْبِيَّةٍۢ يَكَادُ زَيْتُهَا يُضِىٓءُ وَلَوْ لَمْ تَمْسَسْهُ نَارٌۭ ۚ نُّورٌ عَلَىٰ نُورٍۢ ۗ يَهْدِى ٱللَّهُ لِنُورِهِۦ مَن يَشَآءُ ۚ وَيَضْرِبُ ٱللَّهُ ٱلْأَمْثَٰلَ لِلنَّاسِ ۗ وَٱللَّهُ بِكُلِّ شَىْءٍ عَلِيمٌۭ',
      wrong:['كَنَجْمٍ فِى ٱلسَّمَآءِ','كَشَجَرَةٍ مُّبَٰرَكَةٍ','كَبَحْرٍ لَا يُدْرَكُ قَعْرُهُ'],
      tr:'خدا نور آسمان‌ها و زمین است؛ وصف نورش مانند چراغدانی است که در آن چراغی پر فروغ است',
      src:'قرآن ۲۴:۳۵ — آیهٔ نور'},
     {surah:'بقره',   n:2,   a:255, level:'آیةالکرسی',
      before:'ٱللَّهُ لَآ إِلَٰهَ إِلَّا هُوَ', ans:'ٱلْحَىُّ ٱلْقَيُّومُ',
+     after:'لَا تَأْخُذُهُۥ سِنَةٌۭ وَلَا نَوْمٌۭ ۚ لَّهُۥ مَا فِى ٱلسَّمَٰوَٰتِ وَمَا فِى ٱلْأَرْضِ ۗ مَن ذَا ٱلَّذِى يَشْفَعُ عِندَهُۥٓ إِلَّا بِإِذْنِهِۦ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَىْءٍۢ مِّنْ عِلْمِهِۦٓ إِلَّا بِمَا شَآءَ ۚ وَسِعَ كُرْسِيُّهُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضَ ۖ وَلَا يَـُٔودُهُۥ حِفْظُهُمَا ۚ وَهُوَ ٱلْعَلِىُّ ٱلْعَظِيمُ',
      wrong:['ٱلرَّحْمَٰنُ ٱلرَّحِيمُ','ٱلْغَفُورُ ٱلرَّحِيمُ','ٱلْعَزِيزُ ٱلْحَكِيمُ'],
      tr:'خدا که جز او خدایی نیست، زندهٔ پایدار است',
      src:'قرآن ۲:۲۵۵ — آیةالکرسی'},
     {surah:'حشر',    n:59,  a:22, level:'خواتیم حشر',
      before:'هُوَ ٱللَّهُ ٱلَّذِى لَآ إِلَٰهَ إِلَّا هُوَ ۖ', ans:'عَٰلِمُ ٱلْغَيْبِ وَٱلشَّهَٰدَةِ',
+     after:'هُوَ ٱلرَّحْمَٰنُ ٱلرَّحِيمُ',
      wrong:['ٱلْمَلِكُ ٱلْقُدُّوسُ','ٱلْعَزِيزُ ٱلْحَكِيمُ','ٱلْخَٰلِقُ ٱلْبَارِئُ'],
      tr:'او خدایی است که جز او خدایی نیست، دانای نهان و آشکار',
      src:'قرآن ۵۹:۲۲ — خواتیم سورهٔ حشر'},
@@ -4749,11 +4801,13 @@ const DATA = {
      src:'قرآن ۹۶:۱–۲ — نخستین آیات نازل‌شده'},
     {surah:'آل عمران', n:3,   a:103, level:'ریسمان خدا',
      before:'وَٱعْتَصِمُوا۟', ans:'بِحَبْلِ ٱللَّهِ جَمِيعًا وَلَا تَفَرَّقُوا۟',
+     after:'وَٱذْكُرُوا۟ نِعْمَتَ ٱللَّهِ عَلَيْكُمْ إِذْ كُنتُمْ أَعْدَآءًۭ فَأَلَّفَ بَيْنَ قُلُوبِكُمْ فَأَصْبَحْتُم بِنِعْمَتِهِۦٓ إِخْوَٰنًۭا وَكُنتُمْ عَلَىٰ شَفَا حُفْرَةٍۢ مِّنَ ٱلنَّارِ فَأَنقَذَكُم مِّنْهَا ۗ كَذَٰلِكَ يُبَيِّنُ ٱللَّهُ لَكُمْ ءَايَٰتِهِۦ لَعَلَّكُمْ تَهْتَدُونَ',
      wrong:['بِٱلْعُرْوَةِ ٱلْوُثْقَىٰ لَا ٱنفِصَامَ لَهَا','بِٱلْكِتَٰبِ وَٱلْحِكْمَةِ وَٱلْمَوْعِظَةِ','بِٱلْإِيمَٰنِ وَٱلصَّبْرِ وَٱلصَّلَوٰةِ'],
      tr:'و همگی به ریسمان خدا چنگ زنید و پراکنده نشوید',
      src:'قرآن ۳:۱۰۳'},
     {surah:'بقره',    n:2,   a:152, level:'یاد و سپاس',
      before:'فَٱذْكُرُونِىٓ', ans:'أَذْكُرْكُمْ',
+     after:'وَٱشْكُرُوا۟ لِى وَلَا تَكْفُرُونِ',
      wrong:['أَغْفِرْ لَكُمْ','أَسْتَجِبْ لَكُمْ','أَرْحَمْكُمْ'],
      tr:'پس مرا یاد کنید تا شما را یاد کنم',
      src:'قرآن ۲:۱۵۲'}
@@ -6622,14 +6676,26 @@ const DATA = {
 };
 /* همان ۲۴ جای خالی «سفر سوره‌ها» به پرسش چهارگزینه‌ای تبدیل می‌شود تا
    آزمون معارف بتواند از آن هم پرسش بردارد. */
-DATA.surahPick = DATA.surah.map(l => ({
-  q: `جای خالی را کامل کن: ﴿ ${l.before} … ﴾`,
+/* سازندهٔ بانکِ «سفر سوره‌ها» — *یک* جا تعریف می‌شود و هر دو جا
+   (اینجا و `Content.apply`) از همان می‌سازند. پیش‌تر دو نسخه بود:
+   `Content.apply` هنگامِ راه‌اندازی و بعد از هر ویرایش، بانک را از
+   نسخهٔ کهنه بازمی‌ساخت و دنبالهٔ آیه را بی‌صدا می‌انداخت. */
+const surahPickBuild = () => DATA.surah.map(l => ({
+  /* دنبالهٔ آیه هم می‌آید. بی آن، پرسش «﴿ إِنَّ … ﴾» بود و کاربر نمی‌دانست
+     آیه کجاست — در حالی که خودِ آیه «إِنَّ الْإِنْسَانَ لَفِي خُسْرٍ» است. */
+  q: `جای خالی را کامل کن: ﴿ ${l.before} … ${l.after || ''} ﴾`.replace(/\s+/g, ' ').trim(),
   o: [l.ans, ...l.wrong],
   a: l.ans,
   d: (l.a % 3) + 1,
   why: `${l.tr} — ${l.surah}، آیهٔ ${l.a}`,
   src: l.src || `قرآن، سورهٔ ${l.surah}`
 }));
+DATA.surahPick = surahPickBuild();
+/* سوره‌های یکتا: «مائده» سه بار و «بقره» دو بار در بانک آمده. شمردنِ
+   ورودی‌ها به‌جای سوره‌ها، «۵ از ۲۴» می‌ساخت که با «۲۰ سورهٔ یکتا»
+   نمی‌خواند و کاربر را گمراه می‌کرد. */
+DATA.surahNames = [...new Set(DATA.surah.map(l => l.surah))];
+DATA.surahDoneCount = (done) => DATA.surahNames.filter(n => done && done[n]).length;
 const TOPICS = DATA.TOPICS_DEF.map(t => ({ ...t, bank: () => DATA[t.bank] || [] }));
 /* ─────────────────── 8. NET — لایه شبکه واقعی ───────────────────
    دو حالت، یک پروتکل:
@@ -7310,7 +7376,9 @@ const QuizEngine = {
        ${Combo.label()}
        ${s.hearts ? HeartBar.hud() : ''}
        ${s.mode === 'speed' ? `<span class="pill" id="qTime">⏱ <b>${U.fa(12)}</b></span>` : ''}`;
-    U.$('#pgProg').style.width = ((s.i / s.qs.length) * 100) + '%';
+    /* سؤالِ جاری *شروع* شده، پس باید شمرده شود. «s.i / n» در پرسشِ
+       آخر هرگز به ۱۰۰٪ نمی‌رسید و نوار ناتمام می‌ماند. */
+    U.$('#pgProg').style.width = ((s.i + 1) / s.qs.length * 100) + '%';
     const labels = ['الف','ب','پ','ت'];
     const opts = U.shuffle(q.o);
     const dTag = q.d ? `<span class="qhint d${q.d}">${['','آسان','متوسط','دشوار'][q.d]}</span>` : '';
@@ -7529,14 +7597,16 @@ const SurahEngine = {
     s.locked = false;
     U.$('#pgBar').innerHTML =
       `<span class="pill">سوره <b>${U.esc(lvl.surah)}</b></span>
-       <span class="pill">${U.fa(s.i + 1)}/${U.fa(s.list.length)}</span>
+       <span class="pill">${U.fa(s.i + 1)} از ${U.fa(s.list.length)}</span>
        <span class="pill">✅ <b>${U.fa(s.correct)}</b></span>
        ${Combo.label()}`;
-    U.$('#pgProg').style.width = (s.i / s.list.length * 100) + '%';
+    /* پیش‌تر `s.i / n` بود: در سؤالِ نهم از ۲۴، ۳۳٪ نشان می‌داد و در سؤالِ
+       آخر هرگز به ۱۰۰ نمی‌رسید. سؤالِ جاری *شروع* شده، پس باید شمرده شود. */
+    U.$('#pgProg').style.width = ((s.i + 1) / s.list.length * 100) + '%';
     U.$('#pgBody').innerHTML = `
       <div class="qbox" id="qbox">
         ${lvl.level ? `<div class="qsrc">🕌 ${U.esc(lvl.level)}</div>` : ''}
-        <div class="ar">${U.esc(lvl.before)} <span style="color:var(--gold)">______</span></div>
+        <div class="ar">${U.esc(lvl.before)} <span style="color:var(--gold)">______</span>${lvl.after ? ' ' + U.esc(lvl.after) : ''}</div>
         <div class="hint">${U.esc(lvl.tr)}</div>
         ${lvl.src ? `<div class="qhint d3" style="margin-top:8px">📚 ${U.esc(lvl.src)}</div>` : ''}
         ${lvl.n ? `<div class="row" style="gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
@@ -7593,7 +7663,7 @@ const SurahEngine = {
   finish(){
     const s = this.state;
     const pct = Math.round(s.correct / s.list.length * 100);
-    const done = Object.values(Store.get('completed')).filter(Boolean).length;
+    const done = DATA.surahDoneCount(Store.get('completed'));
     if(pct >= 80) Beat.check('surah_best', pct);
     Store.update(d => d.stats.plays++);
     if(pct >= 60) confetti();
@@ -7604,7 +7674,7 @@ const SurahEngine = {
       pct,
       stars: Math.round(pct / 33.4),
       detail: `${U.fa(s.correct)} از ${U.fa(s.list.length)} سوره درست • ${U.fa(s.pts)} امتیاز
-               <br>سوره‌های کامل‌شده: ${U.fa(done)} از ${U.fa(DATA.surah.length)}`,
+               <br>سوره‌های کامل‌شده: ${U.fa(done)} از ${U.fa(DATA.surahNames.length)}`,
       onAgain: () => SurahEngine.start()
     });
   }
@@ -10219,7 +10289,7 @@ function checkLevelUp(){
 
 function checkBadges(){
   const d = Store.data, st = d.stats;
-  const surahDone = DATA.surah.filter(q => d.completed[q.surah]).length;
+  const surahDone = DATA.surahDoneCount(d.completed);
   const checks = [
     ['first',        st.totalCorrect >= 1],
     ['perfect',      st.perfectRuns >= 1],
@@ -10239,7 +10309,9 @@ function checkBadges(){
     ['memorymaster', st.memory >= 5],
     ['fast',         st.fastestAnswer <= 2],
     ['speedster',    (st.speedWins || 0) >= 10],
-    ['surah',        surahDone >= DATA.surah.length],
+    /* آستانه باید با شمارندۀ یکتا یکی باشد، وگرنه نشان هرگز باز نمی‌شود:
+       سوره‌های یکتا ۲۰ است، ولی ورودی‌های بانک ۲۴. */
+    ['surah',        surahDone >= DATA.surahNames.length],
     ['level5',       d.level >= 5],
     ['level10',      d.level >= 10],
     ['exams',        (st.exams || 0) >= 3],
@@ -10365,7 +10437,8 @@ function updateHomeStats(){
   if(co) co.textContent = '🪙 ' + U.fa(Wallet.get());
   U.$('#lvlNum').textContent = U.fa(d.level);
   const need = xpForLevel(d.level);
-  U.$('#lvlXp').textContent = `${U.fa(d.xp)} / ${U.fa(need)}`;
+  /* «۰ / ۱۰۰» در RTL دو پهلو خوانده می‌شود؛ «۰ از ۱۰۰» یکدله است. */
+  U.$('#lvlXp').textContent = `${U.fa(d.xp)} از ${U.fa(need)}`;
   const fill = U.$('#lvlFill');
   if(fill){
     const pct = Math.min(100, (d.xp / need) * 100);
@@ -10452,7 +10525,7 @@ function renderHome(){
               const st = DailyChallenge.status();
               sub = st.done ? `✅ امروز انجام شد • زنجیره ${U.fa(st.streak)} روز` : 'امروز انجام نشده — جایزه بگیر';
             }
-            if(g === 'surah') sub = `${U.fa(DATA.surah.filter(q => d.completed[q.surah]).length)} از ${U.fa(DATA.surah.length)} سوره کامل شده`;
+            if(g === 'surah') sub = `${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)} سوره کامل شده`;
             return `<div class="tile" data-game="${g}">${tag}
               <span class="ti">${gm.icon}</span><b>${U.esc(gm.name)}</b><small>${U.esc(sub)}</small></div>`;
           }).join('')}
@@ -10879,7 +10952,7 @@ const Me = {
           <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span><b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
           <div class="kv"><span>⚔️ برد آنلاین</span><b>${U.fa(st.onlineWins || 0)}</b></div>
           <div class="kv"><span>🌐 روم‌های ساخته‌شده</span><b>${U.fa(st.rooms)}</b></div>
-          <div class="kv"><span>📖 سوره‌های کامل</span><b>${U.fa(DATA.surah.filter(q => d.completed[q.surah]).length)}/${U.fa(DATA.surah.length)}</b></div>
+          <div class="kv"><span>📖 سوره‌های کامل</span><b>${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)}</b></div>
         </div>
         <div class="card" style="margin-top:12px">
           <b style="font-size:13px">🌙 چالش روزانه</b>
@@ -11504,11 +11577,7 @@ const Content = {
   apply(){
     /* بانکِ مشتق باید *اول* از نو ساخته شود. وگرنه فیلترِ حذف روی نسخهٔ
        کهنه می‌نشیند و بعد بازسازی، حذف را بی‌اثر می‌کند. */
-    try{ DATA.surahPick = DATA.surah.map(l => ({
-      q: `جای خالی را کامل کن: ﴿ ${l.before} … ﴾`,
-      o: [l.ans, ...l.wrong], a: l.ans, d: (l.a % 3) + 1,
-      why: `${l.tr} — ${l.surah}، آیهٔ ${l.a}`, src: l.src || `قرآن، سورهٔ ${l.surah}`
-    })); }catch(e){ console.warn('surahPick', e); }
+    try{ DATA.surahPick = surahPickBuild(); }catch(e){ console.warn('surahPick', e); }
     this.BANKS.forEach(b => {
       if(!CONTENT_BASE[b]){
         CONTENT_BASE[b] = Array.isArray(DATA[b]) ? DATA[b].slice() : [];

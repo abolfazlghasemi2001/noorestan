@@ -9,6 +9,11 @@ const section = t => console.log('\n── ' + t + ' ──');
    به همان ترتیب، اجرا می‌شوند (توپ‌سطح await در این فایل مجاز نیست). */
 const __smsChecks = [];
 
+/* متنِ خامِ خودِ برنامه — برای سنجشِ چیزهایی که رفتار نیستند، بلکه
+   *متنِ کد*‌اند: قاعدهٔ CSS، الگوی فرمول، ترتیبِ ویژگی‌ها. عمداً از
+   هارنس نمی‌آید تا این فایل تنها به دیسک وابسته باشد. */
+const SRC = require('fs').readFileSync(require('path').join(__dirname, 'index.html'), 'utf8');
+
 /* 1. SHA-256 */
 section('SHA-256');
 const nodeHash = s => require('crypto').createHash('sha256').update(s).digest('hex');
@@ -3629,7 +3634,13 @@ section('محتوا — بازرسِ ساختاری، صفر ایراد');
   ok('دو نرمال‌سازیِ کشیده سرِ جایشان‌اند',
      (src2.match(/\[ً-ْٰـ\]|\[‌‏ـ\]/g) || []).length === 2);
   const wordKashida = [...src2.matchAll(/([؀-ۿ‌])ـ+([؀-ۿ‌])/g)];
-  ok('هیچ کشیده‌ای درونِ واژه نمانده', wordKashida.length === 0,
+  /* کشیده در *متنِ آیه* عیب نیست: رسمِ عثمانیِ معتبر خودش U+0640 دارد
+     («يَـُٔودُهُۥ» در ۲:۲۵۵). عیب جایی است که متنِ خودِ برنامه کشیده
+     داشته باشد — مثلاً متنِ اسکرپ‌شده که برای تراز کردن کشیده شده. */
+  const ayahText = DATA.surah.flatMap(x => [x.before, x.ans, x.after || '']).join('\n');
+  const ayahHits = [...ayahText.matchAll(/([؀-ۿ‌])ـ+([؀-ۿ‌])/g)].length;
+  ok('هیچ کشیده‌ای درونِ واژه نمانده', wordKashida.length - ayahHits === 0,
+     `${wordKashida.length} در سند، ${ayahHits} در متنِ آیه → ` +
      wordKashida.slice(0, 4).map(m => m[0]).join(' '));
   /* کشیدهٔ جامانده فقط همان ارقامِ فهرست است، نه واژه */
   const left = [...src2.matchAll(/\d\sـ\s?/g)].length;
@@ -4698,6 +4709,179 @@ section('پنل مدیریت — دفترِ کاربران و کنش‌ها');
     Admin.currentTab = keepTab;
     Store.update(d => { d.user = keepUser; d.adminToken = ''; d.adminTokenExp = 0; });
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   مأموریتِ رفعِ باگ — سنجش‌های پس‌نگر (رگرسیون)
+
+   هر سنجش این‌جا یک باگِ *واقعی* را می‌بندد که یک بار رخ داده است. اگر
+   روزی کسی خطِ مربوطه را به حالتِ قبل برگرداند، همین‌جا سرخ می‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+section('آیهٔ کامل — دنبالهٔ آیه نمایش داده می‌شود');
+{
+  ok('متنِ آیه دنبالهٔ آیه را هم می‌آورد', /lvl\.after\s*\?\s*' '\s*\+\s*U\.esc\(lvl\.after\)/.test(SRC));
+
+  const withAfter = DATA.surah.filter(x => x.after);
+  ok('دستِ‌کم شش آیه دنباله دارند (پیش‌تر چند آیه نیمه‌بریده بود)',
+     withAfter.length >= 6, String(withAfter.length));
+
+  /* دنباله نباید داخلِ خودِ پاسخ تکرار شود، وگرنه دو بار نشان داده می‌شود */
+  ok('دنباله با پاسخ هم‌پوشانی ندارد',
+     withAfter.every(x => !U.norm(x.after).startsWith(U.norm(x.ans))));
+
+  /* و پرسشِ «سفر سوره‌ها» هم باید دنباله را در متن ببرد */
+  const pick = DATA.surahPick.filter(q => q.q.includes('…'));
+  ok('پرسش چهارگزینه‌ایِ سوره هم دنباله را می‌آورد',
+     pick.length === DATA.surahPick.length,
+     `${pick.length} از ${DATA.surahPick.length}`);
+  ok('متنِ پرسشِ سوره دیگر وسطِ جمله تمام نمی‌شود', (() => {
+    const l = DATA.surah.find(x => x.after);
+    const q = DATA.surahPick.find(p => p.a === l.ans);
+    return q && q.q.includes(l.after);
+  })());
+
+  /* بانکِ مشتق یک سازنده دارد، نه دو تا. پیش‌تر `Content.apply` نسخهٔ
+     کهنهٔ خودش را می‌ساخت و در راه‌اندازی روی نسخهٔ درست می‌نشست —
+     دنبالهٔ آیه بی‌صدا می‌افتاد و هیچ تستی هم نمی‌فهمید. */
+  ok('بانکِ سوره فقط یک سازنده دارد',
+     (SRC.match(/const surahPickBuild = /g) || []).length === 1);
+  ok('قالبِ دستیِ دوم حذف شده',
+     !/DATA\.surahPick = DATA\.surah\.map/.test(SRC));
+  ok('هر دو جا (راه‌اندازی و بازسازیِ محتوا) از همان سازنده می‌سازند',
+     (SRC.match(/= surahPickBuild\(\)/g) || []).length === 2,
+     String((SRC.match(/= surahPickBuild\(\)/g) || []).length));
+}
+
+section('نوارِ پیشرفت — سؤالِ جاری شمرده می‌شود');
+{
+  /* باگِ اصلی: «i / n» در سؤالِ آخر هرگز به ۱۰۰٪ نمی‌رسید. */
+  ok('سوره: فرمولِ نوار «(i+1)/n» است',
+     /U\.\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \+ 1\) \/ s\.list\.length \* 100\)/.test(SRC));
+  ok('کوییز: فرمولِ نوار «(i+1)/n» است',
+     /U\.\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \+ 1\) \/ s\.qs\.length \* 100\)/.test(SRC));
+  ok('هیچ‌جا نوارِ پیشرفت با «i / n» پر نمی‌شود',
+     !/\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \/ s\./.test(SRC));
+
+  /* ریاضیِ خودِ فرمول: پرسشِ آخر باید دقیقاً ۱۰۰ بدهد */
+  const n = 24;
+  ok('در پرسشِ آخر نوار ۱۰۰٪ می‌شود', ((n - 1 + 1) / n * 100) === 100);
+  ok('در پرسشِ نخست نوار ۰ نیست', ((0 + 1) / n * 100) > 0);
+  ok('شمارندهٔ «۹ از ۲۴» درست است', `سوره`.length > 0 &&
+     U.fa(9) === '۹' && U.fa(24) === '۲۴');
+}
+
+section('سفرِ سوره‌ها — شمارش یکتا و نشانِ پایان');
+{
+  const names = DATA.surahNames;
+  ok('فهرستِ نام‌های یکتا ساخته شده', Array.isArray(names) && names.length > 0);
+  ok('نام‌ها یکتا هستند', new Set(names).size === names.length);
+  ok('شمارِ سوره‌ها از شمارِ آیه‌ها کمتر است (چند آیه در یک سوره)',
+     names.length < DATA.surah.length,
+     `${names.length} سوره، ${DATA.surah.length} آیه`);
+  ok('همهٔ نام‌های یکتا از خودِ آیه‌ها آمده', (() => {
+    const s = new Set(DATA.surah.map(x => x.surah));
+    return names.length === s.size && names.every(n => s.has(n));
+  })());
+  ok('سوره‌های خوانده‌نشده صفر می‌شمارد', DATA.surahDoneCount(null) === 0);
+  ok('سورهٔ خوانده‌شده را می‌شمارد',
+     DATA.surahDoneCount({ [names[0]]: 1 }) === 1);
+  ok('سوره‌ای که در فهرست نیست شمرده نمی‌شود',
+     DATA.surahDoneCount({ 'سورهٔ ساختگی': 1 }) === 0);
+  ok('همه که خوانده شوند، برابرِ شمارِ سوره‌ها می‌شود',
+     DATA.surahDoneCount(Object.fromEntries(names.map(n => [n, 1]))) === names.length);
+
+  /* نشانِ «سفر سوره‌ها» باید با *همان* شمارنده قفل شود، وگرنه هرگز
+     باز نمی‌شود (آستانهٔ آیه‌شمار با شمارندهٔ سوره‌شمار نمی‌خواند). */
+  ok('آستانهٔ نشانِ سوره با شمارندهٔ یکتا یکی است',
+     /surahDone >= DATA\.surahNames\.length/.test(SRC));
+}
+
+section('پیام‌های کوتاه (toast) — بستن، سقفِ دو، و متنِ ایمن');
+{
+  const i = SRC.indexOf('toast(msg, type');
+  const body = SRC.slice(i, i + 1200);
+  ok('مدتِ پیش‌فرض ۴۰۰۰ میلی‌ثانیه است', /toast\(msg,\s*type = '',\s*ms = 4000\)/.test(SRC));
+  ok('دکمهٔ بستن با onclick بسته می‌شود', /x\.className = 'x'/.test(body) && /x\.onclick = close/.test(body));
+  ok('دکمهٔ بستن برچسبِ دسترس‌پذیری دارد', /setAttribute\('aria-label', 'بستن پیام'\)/.test(body));
+  ok('سقفِ هم‌زمانِ پیام‌ها دو است', /while\(box\.children\.length > 2\) box\.firstChild\.remove\(\)/.test(body));
+  ok('متنِ پیام با textContent نوشته می‌شود، نه innerHTML',
+     /tx\.textContent = msg/.test(body) && !/innerHTML\s*=\s*msg/.test(body));
+  ok('بستنِ دستی تایمر را پاک می‌کند (پیام «زنده» نمی‌ماند)',
+     /clearTimeout\(t\)/.test(body));
+
+  /* ── خودِ رفتار، نه فقط متنِ کد ──
+     استابِ DOM هارنس هر بار یک عنصرِ تازهٔ بی‌اثر می‌دهد
+     (`appendChild` تهی است)، پس نمی‌شود با آن چیزی را *مشاهده* کرد.
+     این‌جا یک عنصرِ کمینهٔ واقعی می‌سازیم. */
+  const keep$ = U.$, keepCreate = document.createElement;
+  const mkEl = () => {
+    const e = {
+      children: [], className: '', textContent: '', title: '', style: {}, parent: null,
+      classList: { _s: new Set(), add(c){ e.classList._s.add(c); },
+                   remove(c){ e.classList._s.delete(c); }, toggle(){},
+                   contains(c){ return e.classList._s.has(c); } },
+      setAttribute(k, v){ e[k] = v; }, getAttribute(k){ return e[k] ?? null; },
+      appendChild(n){ e.children.push(n); n.parent = e; return n; },
+      remove(){ const p = e.parent; if(!p) return;
+                const k = p.children.indexOf(e); if(k >= 0) p.children.splice(k, 1); e.parent = null; },
+      querySelector(){ return null; }, querySelectorAll(){ return []; }
+    };
+    Object.defineProperty(e, 'firstChild', { get(){ return e.children[0] || null; } });
+    return e;
+  };
+  try{
+    const box = mkEl();
+    document.createElement = () => mkEl();
+    U.$ = (sel) => (sel === '#toasts' ? box : keep$(sel));
+
+    ok('میزبانِ پیام‌ها در صفحه هست', !!U.$('#toasts'));
+    /* شماره با ارقامِ فارسی — قاعدهٔ نمایشیِ برنامه */
+    for(let k = 0; k < 5; k++) UI.toast('پیام شمارهٔ ' + U.fa(k), '', 20);   // ۲۰ms: تایمری جا نمی‌ماند
+    ok('بیش از دو پیام هم‌زمان نمی‌ماند', box.children.length === 2, String(box.children.length));
+    ok('کهنه‌ترین پیام کنار رفته، تازه‌ترین مانده',
+       box.children[1].children[0].textContent === 'پیام شمارهٔ ۴');
+    ok('هر پیامِ ماندگار دکمهٔ بستن دارد',
+       box.children.every(t => t.children.some(c => c.className === 'x')));
+    ok('دکمهٔ بستن برچسب دارد، نه فقط شکلِ ✕',
+       box.children.every(t => t.children.find(c => c.className === 'x')['aria-label'] === 'بستن پیام'));
+
+    /* دادهٔ سرور/نام کاربر نباید به HTML بدل شود */
+    const evil = '<img src=x onerror=alert(1)>';
+    UI.toast(evil, '', 20);
+    const last = box.children[box.children.length - 1];
+    ok('متنِ پیام خام می‌ماند و تفسیر نمی‌شود', last.children[0].textContent === evil);
+
+    box.children[0].children.find(c => c.className === 'x').onclick();
+    ok('زدنِ ✕ پیام را نشانِ «رفتن» می‌دهد', box.children[0].classList.contains('out'));
+  } finally {
+    U.$ = keep$; document.createElement = keepCreate;
+  }
+}
+
+section('بزرگ‌نمایی — تصویر و نقشه از قاب بیرون نمی‌زنند');
+{
+  ok('تصویر پهنای قاب را رد نمی‌کند', /img\{max-width:100%;height:auto\}/.test(SRC.replace(/\s+/g, '')));
+  ok('نقشه (svg) هم مهار شده', /svg\{max-width:100%\}/.test(SRC.replace(/\s+/g, '')));
+  ok('ارتفاعِ سراسری مهار شده (بزرگ‌نمایی صفحه را نمی‌کشد)',
+     /html,body\{height:100%/.test(SRC.replace(/\s+/g, '')));
+  /* ارتفاعِ خودکار فقط برای تصویر است؛ اگر به *قاعدهٔ سراسریِ* svg هم
+     بخورد، آیکن‌هایی که اندازه‌شان از صفت می‌آید جابه‌جا می‌شوند.
+     قاعده‌های نشان‌دار (`‎.art-hero svg{…}`) عمدی‌اند و اشکالی ندارند. */
+  ok('قاعدهٔ سراسریِ svg ارتفاعِ خودکار نمی‌گیرد',
+     !/(^|[};])svg\{[^}]*height:auto/.test(SRC.replace(/\s+/g, '')));
+}
+
+section('مرجعِ قرآنی — هر آیهٔ پرسیده‌شده سند دارد');
+{
+  const p = require('path').join(__dirname, '_quran-ref.json');
+  ok('پروندهٔ مرجع هست', require('fs').existsSync(p));
+  const REF = JSON.parse(require('fs').readFileSync(p, 'utf8'));
+  ok('مرجع منبعش را می‌گوید', !!(REF._source && REF._fetched));
+  ok('هر آیهٔ پرسیده‌شده در مرجع هست',
+     DATA.surah.every(x => REF.ayat[`${x.n}:${x.a}`]),
+     DATA.surah.filter(x => !REF.ayat[`${x.n}:${x.a}`]).map(x => `${x.n}:${x.a}`).join(' '));
+  ok('مرجع آیه‌ای اضافه ندارد',
+     Object.keys(REF.ayat).length >= DATA.surah.length);
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
