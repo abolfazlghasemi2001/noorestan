@@ -2262,7 +2262,10 @@ const Assets = {
               : p;
     return this.BASE + '/' + kind + '/' + rel.replace(/^\.?\//, '');
   },
-  /* واریانت‌های یک نام: x.webp → [x.webp, x.jpg] */
+  /* واریانت‌های یک نام: x.webp → [x.webp, x.jpg].
+     برای وقتی است که هر دو فایل را واقعاً داری و می‌خواهی خودت
+     <picture> بسازی. توجه: در srcset بی‌توصیفگرِ درست به کار نمی‌آید —
+     هر دو ۱x یعنی «اولی را بردار» و دومی هرگز انتخاب نمی‌شود. */
   variants(p){
     const s = String(p || '');
     if(!s || /^(https?:)?\/\//.test(s) || s.startsWith('data:')) return [s];
@@ -2272,13 +2275,17 @@ const Assets = {
     else if(ext && /jpe?g|png/i.test(ext[1])) out.push(s.replace(/\.(jpe?g|png)$/i, '.webp'));
     return out;
   },
-  /* <img> تنبل با srcset و واپس‌روی */
+  /* <img> تنبل.
+     پیش‌تر این‌جا یک srcset ساختگی بود: هر دو واریانت با توصیفگر ۱x
+     می‌آمدند، یعنی «هر دو تراکم ۱» — مرورگر اولی را برمی‌دارد و دومی
+     هرگز نامزد نمی‌شود. اگر هم روزی دومی انتخاب می‌شد، به فایلی می‌رسید
+     که لزوماً وجود ندارد. واپس‌رویِ واقعی جای دیگری است: شنوندهٔ error
+     در watch() نگارهٔ SVG را جای تصویرِ بارنشده می‌گذارد. */
   img(p, { alt = '', cls = 'art-img', kind = 'images', w = null, h = null, eager = false } = {}){
-    const [a, b] = this.variants(this.path(p, kind));
-    if(!a) return '';
+    const src = this.path(p, kind);
+    if(!src) return '';
     const sz = (w ? ` width="${w}"` : '') + (h ? ` height="${h}"` : '');
-    const ss = b ? ` srcset="${U.esc(a)} 1x, ${U.esc(b)} 1x"` : '';
-    return `<img src="${U.esc(a)}"${ss} alt="${U.esc(alt)}" class="${cls}"
+    return `<img src="${U.esc(src)}" alt="${U.esc(alt)}" class="${cls}"
       loading="${eager ? 'eager' : 'lazy'}" decoding="async"${sz}>`;
   },
   /* نگارهٔ SVG درون‌خطی */
@@ -3268,7 +3275,11 @@ const QURAN = (() => {
 })();
 const QURAN_TOTAL = QURAN.reduce((a, s) => a + s.count, 0);   // ۶۲۳۶
 
-/* قاریان نامدار جهان — دو منبع آزاد و پایدار */
+/* قاریان نامدار جهان — دو منبع آزاد و پایدار.
+   `hue` رنگِ چهرهٔ گرادیانی است و `short` حرفی که رویش می‌نشیند.
+   فیلد اختیاری `img` جای چهرهٔ گرادیانی عکس می‌گذارد؛ بی آن (حالِ کنونی)
+   هیچ درخواستِ تصویری برای قاری فرستاده نمی‌شود. نمونه:
+   `img:'avatars/reciter-1.webp'` — فایل در assets/images/avatars/ بنشیند. */
 const RECITERS = [
   { id:'Alafasy_128kbps',                   ed:'ar.alafasy',            name:'مشاری راشد العفاسی',  short:'العفاسی',   hue:38,  note:'ترتیل مشهور و شفاف' },
   { id:'Abdul_Basit_Murattal_192kbps',      ed:'ar.abdulbasitmurattal', name:'عبدالباسط عبدالصمد',  short:'عبدالباسط', hue:150, note:'صدای جاودانهٔ مصری' },
@@ -7857,20 +7868,27 @@ const Focus = {
 /* ─────────────────── 10.985 گزینشگر قاری با پیش‌نمایش ۵ ثانیه ─────────────────── */
 const ReciterUI = {
   prev: null, timer: null,
-  /** همهٔ قاریان با چهرهٔ گرادیانی (یا تصویر assets/images/avatars) */
+  /** چهرهٔ قاری: گرادیانِ خودِ قاری، و اگر تصویر داشت همان.
+      پیش‌تر این‌جا برای هر ده قاری یک مسیر ساختگی `avatars/reciter-N.webp`
+      ساخته می‌شد که هیچ‌کدام وجود نداشتند: ده درخواستِ شکست‌خورده در هر
+      بار باز کردنِ پنجره، و در عمل همان نگارهٔ جانشین نشان داده می‌شد.
+      حالا تصویر فقط‌وقتی خواسته می‌شود که در دادهٔ قاری نشانی باشد
+      (`img:'avatars/reciter-1.webp'`) — افزودنِ عکس یک خط تغییر داده است،
+      نه بازنویسیِ این تابع. */
+  face(r){
+    const grad = `background:linear-gradient(140deg,hsl(${r.hue} 74% 52%),hsl(${r.hue} 62% 26%))`;
+    const fallback = `<span class="rav" style="${grad}">${U.esc(r.short.slice(0, 2))}</span>`;
+    if(!r.img) return fallback;
+    return Assets.imageOrSvg(r.img, fallback, { alt: '', cls: 'art-img' });
+  },
+  /** همهٔ قاریان، هر کدام با یک چهره */
   rows(){
     const cur = Store.get('quran').reciter || 0;
-    return RECITERS.map((r, i) => {
-      const file = 'avatars/reciter-' + (i + 1) + '.webp';
-      const face = Assets.imageOrSvg(file,
-        `<span class="rav" style="background:linear-gradient(140deg,hsl(${r.hue} 74% 52%),hsl(${r.hue} 62% 26%))">${U.esc(r.short.slice(0,2))}</span>`,
-        { alt:'', cls:'art-img' });
-      return `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
-        ${Assets.avatar(r.short)}
+    return RECITERS.map((r, i) => `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
+        ${this.face(r)}
         <span class="rn">${U.esc(r.name)}<div class="rc">${U.esc(r.note)}</div></span>
         <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">${Icon.of('play')}</button>
-      </div>`;
-    }).join('');
+      </div>`).join('');
   },
   open(){
     UI.modal(`<h3>🎙 قاری قرآن</h3>

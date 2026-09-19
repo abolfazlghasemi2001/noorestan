@@ -3184,6 +3184,72 @@ section('قلم‌های اختیاری — با swap می‌آیند، نه ب�
      /\.fpick\.miss\s*\{/.test(cssNow) && /\.fpick\.miss[^{]*::after\s*\{[^}]*بارگیری نشد/.test(cssNow));
 }
 
+section('تصاویر — هیچ درخواستی به فایلی که نیست نمی‌رود');
+{
+  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+
+  /* ── srcset ساختگی ──
+     پیش‌تر img() این را می‌ساخت: srcset="a.webp 1x, a.jpg 1x". دو نامزد با
+     تراکمِ یکسان یعنی مرورگر اولی را برمی‌دارد و دومی هرگز نامزد نمی‌شود؛
+     پس نه واپس‌روی می‌داد و نه کاری می‌کرد. حالا واپس‌روی فقط از راهِ
+     شنوندهٔ error در watch() است. */
+  const imgBody = src.slice(src.indexOf('  img(p, {'), src.indexOf('  /* نگارهٔ SVG درون‌خطی */'));
+  ok('img() دیگر srcset نمی‌سازد', !/srcset/.test(imgBody));
+  ok('img() همان <img> تنبل را می‌سازد',
+     /loading="\$\{eager \? 'eager' : 'lazy'\}"/.test(imgBody) && /decoding="async"/.test(imgBody));
+  ok('img() مسیر خالی را رشتهٔ خالی می‌کند', /if\(!src\) return '';/.test(imgBody));
+
+  /* واپس‌رویِ واقعی سرِ جایش باشد */
+  const watchBody = src.slice(src.indexOf('  watch(){'), src.indexOf('  /* پوستهٔ PWA */'));
+  ok('watch() خطای تصویر را می‌گیرد و جانشین SVG می‌گذارد',
+     /addEventListener\('error'/.test(watchBody) && /data-fallback/.test(watchBody));
+
+  /* ── هیچ مسیر تصویریِ ساختگی ──
+     هر نشانیِ assets/ که در کد رشته‌سازی می‌شود باید یا فایلش باشد یا
+     عمداً اختیاری باشد. اینجا ریشهٔ باگ نسخهٔ ۱۶ را می‌گیریم: درخواستِ
+     چیزی که هرگز وجود نداشت. */
+  /* فقط رشته‌سازی را می‌گیریم، نه توضیح‌ها — `img:'avatars/reciter-1.webp'`
+     در راهنما و در دادهٔ نمونه عمداً مانده تا معلوم باشد چطور عکس بگذاری. */
+  ok('دیگر نشانیِ ساختگیِ avatars/reciter-N در کد ساخته نمی‌شود',
+     !/['"]avatars\/reciter-['"]\s*\+/.test(src));
+  ok('چهرهٔ قاری از داده می‌آید، نه از شمارهٔ ردیف',
+     /if\(!r\.img\) return fallback;/.test(src) && /Assets\.imageOrSvg\(r\.img,/.test(src));
+
+  /* ردیفِ قاری باید *یک* چهره داشته باشد. پیش‌تر face + Assets.avatar
+     پشتِ سرِ هم می‌آمدند: دو دایرهٔ ۳۸ پیکسلی با دو حرفِ متفاوت. */
+  const rowsStart = src.indexOf('  rows(){', src.indexOf('const ReciterUI'));
+  const rowsBody = src.slice(rowsStart, src.indexOf('  open(){', rowsStart));
+  ok('ردیف قاری دو چهره ندارد',
+     !/Assets\.avatar\(/.test(rowsBody) && (rowsBody.match(/\$\{this\.face\(r\)\}/g) || []).length === 1);
+
+  /* ── sw.js و README باید با دیسک بخوانند ──
+     پیش‌ذکرِ فایلی که نیست، هر نصب چند درخواستِ محکوم‌به‌شکست می‌فرستد. */
+  const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+  const optBlock = sw.slice(sw.indexOf('const OPTIONAL = ['), sw.indexOf('];', sw.indexOf('const OPTIONAL = [')));
+  const optPaths = (optBlock.match(/'\.\/[^']+'/g) || []).map(s => s.slice(3, -1));
+  ok('فهرست اختیاری خالی نیست', optPaths.length >= 4, optPaths.length + '');
+  for(const p of optPaths)
+    ok(`پیش‌ذکرِ sw.js موجود است: ${p}`, fs.existsSync(ROOT + '/' + p), p);
+
+  /* ── README با دیسک یکی باشد ──
+     جدولِ README پیش‌تر نام‌هایی داشت (.webp/.jpg برای آیکن‌ها) که با
+     فایل‌های واقعی (.png) نمی‌خواند. سنجش، هر مسیرِ assets/ در README را
+     با دیسک مقایسه می‌کند — به‌جز آن‌هایی که در بخشِ «اختیاری» هستند. */
+  const readme = fs.readFileSync(__dirname + '/assets/README.md', 'utf8');
+  ok('README دیگر آیکنِ webp/jpg وعده نمی‌دهد',
+     !/icons\/icon-(192|512)\.(webp|jpg)/.test(readme) && !/maskable-512\.jpg/.test(readme));
+  ok('README نسخهٔ کش را ۱۷ می‌گوید', /noorestan-17/.test(readme) && !/noorestan-15/.test(readme));
+  ok('README واپس‌رویِ srcset را انکار می‌کند', /srcset\*\*? نیست|در `srcset` نیست/.test(readme) ||
+     /واپس‌رویِ خودکار بین دو\s*\n?\s*پسوند \*\*در `srcset` نیست\*\*/.test(readme));
+
+  /* ── درختِ README: هرچه ✅ خورده باید واقعاً باشد ── */
+  const yes = (readme.match(/─\s*✅\s*موجود|—\s*✅\s*موجود/g) || []).length;
+  ok('README دستِ‌کم دو پوشه را موجود می‌داند', yes >= 2, yes + '');
+  for(const d of ['assets/fonts', 'assets/images/icons'])
+    ok(`پوشهٔ ${d} وجود دارد و خالی نیست`,
+       fs.existsSync(ROOT + '/' + d) && fs.readdirSync(ROOT + '/' + d).length > 0);
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

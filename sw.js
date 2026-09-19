@@ -49,11 +49,13 @@ const OPTIONAL = [
   './assets/images/icons/icon-512.png',
   './assets/images/icons/maskable-512.png',
   './assets/images/icons/apple-touch-icon.png',
-  './assets/images/splash/splash.webp',
-  './assets/images/patterns/tile.webp',
-  './assets/images/illustrations/mushaf.webp',
-  './assets/images/illustrations/panorama.webp',
   './assets/README.md'
+  /* نسخهٔ ۱۷: چهار مسیرِ splash/tile/mushaf/panorama از این فهرست رفتند.
+     هیچ‌کدام فایل نداشتند و هر نصب چهار درخواستِ محکوم‌به‌شکست می‌فرستاد
+     (خطا گرفته می‌شد، پس نصب نمی‌شکست — ولی هر بار چهار خطای شبکه در
+     کنسول و چهار گردشِ بی‌فایده). جایشان نگارهٔ SVGِ درون‌خطیِ Art است که
+     نه فایل می‌خواهد و نه شبکه. اگر روزی عکسِ واقعی گذاشتی، همان‌جا
+     فهرستش کن. */
 ];
 
 const MAX_MEDIA = 120;      // حداکثر شمار فایل رسانه‌ای در کش
