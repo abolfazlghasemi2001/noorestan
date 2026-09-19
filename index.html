@@ -677,6 +677,10 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .fpick.on{border-color:var(--gold);background:var(--card2);box-shadow:0 0 0 1px var(--gold2) inset}
 .fpick .fname{flex:1;font-size:13px;min-width:0}
 .fpick .fname small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+/* قلمی که بارگیری نشد باید خودش را نشان دهد. وگرنه کاربر می‌بیند
+   پیش‌نمایشش با بقیه یکی است و فکر می‌کند قلم‌ها شبیه هم‌اند. */
+.fpick.miss{opacity:.62}
+.fpick.miss .fname small::after{content:' · بارگیری نشد — اینترنت را بررسی کن';color:var(--red)}
 .fpick .fdemo{font-size:25px;color:var(--gold);white-space:nowrap;line-height:1.5;
   padding:.04em .1em .14em;max-width:46%}
 .fpick .fdemo.nast{font-size:28px;line-height:1.85;padding:.08em .14em .3em}
@@ -4030,12 +4034,28 @@ function openFontPicker(role){
       </div>`;
     }).join('')}`).join('');
 
+  /* پیش‌نمایشِ هر خط با «همان» قلم نوشته شده، ولی تا خودِ آن قلم نیامده
+     مرورگر جانشین را می‌کشد: همهٔ خط‌ها یک‌شکل می‌شوند و انتخاب بی‌معنا.
+     پیش‌تر فقط قلمِ انتخاب‌شده بار می‌شد، پس پیش‌نمایشِ بقیه همیشه دروغ
+     بود. حالا با باز شدنِ گزینشگر، همهٔ قلم‌های این نقش بار می‌شوند و
+     آن‌که نیامد، خودش را «بارگیری نشد» نشان می‌دهد. */
+  const keys = Fonts.grouped(role).flatMap(g => g.keys);
+
   UI.modal(`<h3 style="margin-bottom:10px">${title}</h3>
     <div class="fpicks" id="fpList" style="max-height:56vh;overflow:auto;padding-left:2px">${rows}</div>
     <p style="font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.9">
       ${note}<br>
       فونت‌ها با تنبلی از jsDelivr بار می‌شوند؛ بار نخست به اینترنت نیاز دارد و بعد روی دستگاه می‌ماند.
       هر خط نمونه با همان فونت واقعی نوشته شده است.</p>`, box => {
+    keys.forEach(k => {
+      if(FONTS[k].css || FONTS[k].faces)
+        Fonts.load(k).then(f => {
+          if(!f){
+            const el = U.$('.fpick[data-f="' + k + '"]', box);
+            if(el) el.classList.add('miss');
+          }
+        });
+    });
     U.$$('.fpick', box).forEach(el => el.onclick = () => {
       const k = el.dataset.f;
       Store.update(d => { d.fonts[role] = k; });

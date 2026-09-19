@@ -3159,6 +3159,29 @@ section('قلم‌های اختیاری — با swap می‌آیند، نه ب�
   }
   ok('قلمی که با برنامه می‌آید (vazir) هیچ درخواستِ بیرونی ندارد',
      !FONTS.vazir.css && !FONTS.vazir.faces);
+
+  /* گزینشگر قلم باید *همهٔ* قلم‌های آن نقش را بار کند، وگرنه پیش‌نمایشِ
+     خط‌های ناانتخاب‌شده با قلمِ جانشین نوشته می‌شود و همه یک‌شکل به نظر
+     می‌رسند — یعنی گزینشگر بی‌فایده. */
+  const asked = [];
+  const realLoad = Fonts.load;
+  Fonts.load = function(k){ asked.push(k); return Promise.resolve(FONTS[k]); };
+  try{
+    for(const role of ['disp','quran']){
+      asked.length = 0;
+      UI.closeModal();
+      openFontPicker(role);
+      const needed = Fonts.list(role).filter(k => FONTS[k].css || FONTS[k].faces);
+      for(const k of needed)
+        ok(`گزینشگرِ ${role} قلمِ «${k}» را بار می‌کند`, asked.includes(k), asked.join(', '));
+      UI.closeModal();
+    }
+  }finally{ Fonts.load = realLoad; }
+
+  const cssNow = fs.readFileSync(__dirname + '/index.html', 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  ok('گزینشگر قلمی که نیامده را «بارگیری نشد» نشان می‌دهد',
+     /\.fpick\.miss\s*\{/.test(cssNow) && /\.fpick\.miss[^{]*::after\s*\{[^}]*بارگیری نشد/.test(cssNow));
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
