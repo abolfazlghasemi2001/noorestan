@@ -3346,6 +3346,39 @@ section('القاب چهارده معصوم — از منبع، بی پاسخِ 
        .map(im => im.name).join('، '));
 }
 
+section('محتوا — بازرسِ ساختاری، صفر ایراد');
+{
+  /* بازرسِ محتوا جداگانه است چون هم CLI است و هم سنجش. اجرای دوباره‌اش
+     این‌جا یعنی هر ویرایشِ محتوا واپسین دروازه را هم رد می‌کند: پاسخِ
+     بیرون از گزینه‌ها، گزینهٔ تکراری، واژهٔ کلیدی که در متن نیست،
+     واژه‌های دعا که در دعا نیستند، و ارجاعِ شکسته. */
+  const { execFileSync } = require('child_process');
+  let out = '', code = 0;
+  try{
+    out = execFileSync('node', [__dirname + '/_content-audit.js'], { encoding: 'utf8' });
+  }catch(e){
+    code = e.status == null ? -1 : e.status;
+    out = (e.stdout || '') + (e.stderr || '');
+  }
+  ok('بازرسِ محتوا بی‌ایراد تمام می‌شود', code === 0,
+     out.split('\n').filter(l => l.includes('✗') || l.includes('ایراد')).slice(0, 6).join(' ／ '));
+  ok('بازرس همهٔ بانک‌های پرسش‌محور را دیده', /quiz\s+31/.test(out) && /surahPick\s+24/.test(out));
+  ok('بازرس خطای درست‌نما نمی‌سازد',
+     /0 ایراد ساختاری/.test(out) && /0 هشدار/.test(out),
+     (out.match(/\d+ ایراد ساختاری، \d+ هشدار/) || [''])[0]);
+
+  /* کشیده نباید به کدِ نرمال‌سازی دست بزند و نباید در واژه بماند */
+  const src2 = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  ok('دو نرمال‌سازیِ کشیده سرِ جایشان‌اند',
+     (src2.match(/\[ً-ْٰـ\]|\[‌‏ـ\]/g) || []).length === 2);
+  const wordKashida = [...src2.matchAll(/([؀-ۿ‌])ـ+([؀-ۿ‌])/g)];
+  ok('هیچ کشیده‌ای درونِ واژه نمانده', wordKashida.length === 0,
+     wordKashida.slice(0, 4).map(m => m[0]).join(' '));
+  /* کشیدهٔ جامانده فقط همان ارقامِ فهرست است، نه واژه */
+  const left = [...src2.matchAll(/\d\sـ\s?/g)].length;
+  ok('کشیده‌های جامانده فقط ارقامِ فهرست‌اند', left >= 1 && left <= 12, left + '');
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
