@@ -177,7 +177,9 @@ const cleanup = () => {
   const post = (path, body, opt = {}) => fetch(API + path, {
     method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body), ...opt
   });
-  const OTP_BODY = '🌟 نورستان\n🔐 کد تأیید ثبت‌نام شما: 12345\n⏱ اعتبار: ۲ دقیقه\n⚠️ این کد را با کسی به اشتراک نگذارید.';
+  /* کد حالا روی سرور ساخته می‌شود، پس متن پیش‌بینی‌شدنی نیست؛ فقط قالبش
+     سنجیده می‌شود و اینکه کدِ داخلش پنج‌رقمی است. */
+  const OTP_SHAPE = /^🌟 نورستان\n🔐 کد تأیید ثبت‌نام شما: (\d{5})\n⏱ اعتبار: ۲ دقیقه\n⚠️ این کد را با کسی به اشتراک نگذارید\.$/;
 
   const stTxt  = await fetch(API + '/status').then(r => r.text());
   const stJson = JSON.parse(stTxt);
@@ -185,17 +187,22 @@ const cleanup = () => {
   ok('🔒 وضعیت، شناسهٔ دستگاه را ماسک می‌کند', stJson.device === '…' + SMS_DEVICE.slice(-4) && !stTxt.includes(SMS_DEVICE), stJson.device);
   ok('🔒 کلید در پاسخ وضعیت نیست', !stTxt.includes(SMS_KEY));
 
-  /* ارسال کد — قرارداد کامل درخواست */
+  /* ── ساختِ کد روی سرور ──
+     کلاینت دیگر کد نمی‌فرستد؛ فقط شماره را می‌گوید. کد اینجا ساخته می‌شود و
+     هرگز به کلاینت نمی‌رود — نه در پاسخ، نه در لاگ. */
   smsHits = [];
-  const os1 = await post('/send', { phone: '09121110001', code: '12345' });
+  const os1 = await post('/request', { phone: '09121110001' });
   const t1 = await os1.text();
-  ok('ارسال کد ⇒ ۲۰۰', os1.status === 200, os1.status + ' ' + t1);
-  /* قرارداد پاسخ عوض شده: حالا state و شناسهٔ پیام هم می‌آید. شناسه امن است؛
-     چیزی که نباید بیاید، کلید است (سنجش بعدی). */
-  ok('پاسخ فقط سه کلید دارد', JSON.stringify(Object.keys(JSON.parse(t1)).sort()) === '["id","state","success"]', t1);
-  ok('پاسخ موفق، state=sent دارد', JSON.parse(t1).state === 'sent', t1);
-  ok('شناسهٔ پیام به کاربر می‌رسد', JSON.parse(t1).id === 'abc123', t1);
-  ok('🔒 کلید در پاسخ نیست', !t1.includes(SMS_KEY));
+  ok('درخواستِ کد ⇒ ۲۰۰', os1.status === 200, os1.status + ' ' + t1);
+  const j1 = JSON.parse(t1);
+  ok('پاسخ جز کلیدهای شناخته‌شده چیزی ندارد',
+     JSON.stringify(Object.keys(j1).sort()) === '["id","len","state","success","ttl"]',
+     JSON.stringify(Object.keys(j1)));
+  ok('پاسخ موفق، state=sent دارد', j1.state === 'sent', t1);
+  ok('شناسهٔ پیام به کاربر می‌رسد', j1.id === 'abc123', t1);
+  ok('🔒 خودِ کد در پاسخ نیست', !/\d{5}/.test(t1.replace(/\d{5,}/g, '')), t1);
+  ok('طولِ کد اعلام می‌شود', j1.len === 5, t1);
+  ok('اعتبار اعلام می‌شود', j1.ttl === 120000, t1);
   ok('درخواست به بیرون رفت', smsHits.length === 1, 'hits=' + smsHits.length);
 
   const h1 = smsHits[0] || { headers:{}, body:'{}' };
@@ -207,8 +214,32 @@ const cleanup = () => {
   ok('بدنه دقیقاً سه کلید دارد', JSON.stringify(Object.keys(f1).sort()) === '["deviceId","message","recipients"]', JSON.stringify(Object.keys(f1)));
   ok('deviceId همان دستگاه ثبت‌شده است', f1.deviceId === SMS_DEVICE);
   ok('recipients آرایه است', Array.isArray(f1.recipients) && f1.recipients.length === 1 && f1.recipients[0] === '09121110001', JSON.stringify(f1.recipients));
-  ok('متن مو‌به‌مو همان قالب کلاینت است', f1.message === OTP_BODY, JSON.stringify(f1.message));
+  ok('متن، همان قالبِ ثابت است', OTP_SHAPE.test(f1.message), JSON.stringify(f1.message));
   ok('🔒 کلید در بدنه نیست', !h1.body.includes(SMS_KEY));
+
+  /* ── بررسیِ کد ── */
+  const C1 = (() => { const m = JSON.parse(smsHits[0].body).message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  ok('کدِ پنج‌رقمی در پیامک ساخته شد', /^\d{5}$/.test(C1), C1);
+
+  const vBad = await post('/verify', { phone: '09121110001', code: C1 === '00000' ? '11111' : '00000' });
+  ok('🔒 کدِ اشتباه رد می‌شود', vBad.status === 401, vBad.status);
+  const vBadJ = await vBad.json();
+  ok('و تعدادِ تلاشِ مانده گفته می‌شود', vBadJ.left === 2, JSON.stringify(vBadJ));
+
+  const vOk = await post('/verify', { phone: '09121110001', code: C1, userId: 'usr_' + 'a1b2c3d4e5'.repeat(2) });
+  const vOkJ = await vOk.json();
+  ok('کدِ درست پذیرفته می‌شود', vOk.status === 200 && vOkJ.success === true, JSON.stringify(vOkJ));
+  ok('و نشانهٔ نشستِ کاربر می‌آید', /^[0-9a-f]{64}$/.test(vOkJ.token || ''), JSON.stringify(vOkJ).slice(0,120));
+  ok('🔒 نشانه، خودِ کد نیست', vOkJ.token !== C1);
+  ok('شناسهٔ کاربر برگردانده می‌شود', vOkJ.id === 'usr_' + 'a1b2c3d4e5'.repeat(2), vOkJ.id);
+
+  /* یک‌بارمصرف: همان کد دوباره کار نمی‌کند */
+  const vAgain = await post('/verify', { phone: '09121110001', code: C1 });
+  ok('🔒 کد یک‌بارمصرف است', vAgain.status === 410, vAgain.status);
+
+  /* بی کدِ درخواست‌شده، بررسی معنا ندارد */
+  const vNone = await post('/verify', { phone: '09121117777', code: '12345' });
+  ok('🔒 بی درخواستِ کد، بررسی رد می‌شود', vNone.status === 410, vNone.status);
 
   /* تست اتصال */
   smsHits = [];
@@ -218,39 +249,49 @@ const cleanup = () => {
   ok('🧪 متن آزمایشی، کد ندارد', !/\d{5}/.test(f2.message) && f2.message.includes('آزمایش'), JSON.stringify(f2.message));
   ok('🧪 شمارهٔ آزمایشی نرمال‌سازی می‌شود', f2.recipients[0] === '09121110001');
 
-  /* 🔒 دروازهٔ باز نمی‌شود: متن دلخواه کاربر هرگز فرستاده نمی‌شود */
+  /* 🔒 دروازهٔ باز نمی‌شود: هیچ متنی از کاربر به سرویس بیرونی نمی‌رود.
+     چه در مسیر آزمایشی، چه با بدنهٔ اضافی. */
   smsHits = [];
-  const evil = await post('/send', { phone: '09121110002', code: '99999', message: 'متن دلخواه مهاجم' });
-  ok('بدنهٔ اضافی نادیده گرفته می‌شود', evil.status === 200 && smsHits.length === 1);
+  const evil = await post('/send', { phone: '09121110002', test: true, message: 'متن دلخواه مهاجم' });
+  ok('🧪 بدنهٔ اضافی نادیده گرفته می‌شود', evil.status === 200 && smsHits.length === 1, String(evil.status));
   ok('🔒 متن دلخواه هرگز ارسال نمی‌شود', !smsHits[0].body.includes('مهاجم'), smsHits[0].body.slice(0, 120));
-  ok('متن همان قالب ثابت است', JSON.parse(smsHits[0].body).message === OTP_BODY.replace('12345', '99999'));
+  ok('🧪 متن همان قالب ثابت است', JSON.parse(smsHits[0].body).message.includes('آزمایش'));
 
   /* ورودی بد */
   const bads = [
-    ['شمارهٔ نامعتبر',        { phone: '0212345678', code: '12345' }],
-    ['بدون شماره',            { code: '12345' }],
-    ['کد چهاررقمی',           { phone: '09121110003', code: '1234' }],
-    ['بدون کد',               { phone: '09121110003' }],
-    ['کد شش‌رقمی',            { phone: '09121110003', code: '123456' }]
+    ['شمارهٔ نامعتبر',        '/request', { phone: '0212345678' }],
+    ['بدون شماره',            '/request', {}],
+    ['شمارهٔ کوتاه',          '/verify',  { phone: '0912111', code: '12345' }],
+    ['کد چهاررقمی',           '/verify',  { phone: '09121110003', code: '1234' }],
+    ['کد شش‌رقمی',            '/verify',  { phone: '09121110003', code: '123456' }]
   ];
-  for(const [name, b] of bads){
-    const r = await post('/send', b);
-    ok('🔒 ' + name + ' ⇒ 400', r.status === 400, r.status);
+  for(const [name, path, b] of bads){
+    const r = await post(path, b);
+    ok('🔒 ' + name + ' ⇒ 400', r.status === 400, name + ' → ' + r.status);
   }
-  const gf = await fetch(API + '/send').then(r => r.status).catch(() => 0);
-  ok('🔒 GET روی /send ⇒ 405', gf === 405, gf);
+  const gf = await fetch(API + '/request').then(r => r.status).catch(() => 0);
+  ok('🔒 GET روی /request ⇒ 405', gf === 405, gf);
+
+  /* 🔒 مسیرِ قدیمی که کدِ *کلاینت* را می‌فرستاد بسته شده.
+     بی این، هر کسی می‌توانست هر شماره‌ای را با متنِ دلخواه — از جمله «کد
+     تأیید: …» — بمباران کند. */
+  smsHits = [];
+  const legacy = await post('/send', { phone: '09121115555', code: '12345' });
+  ok('🔒 /send دیگر کدِ کلاینت را نمی‌فرستد', legacy.status === 400, legacy.status);
+  ok('🔒 و هیچ پیامکی هم به بیرون نرفت', smsHits.length === 0, 'hits=' + smsHits.length);
 
   /* رقم فارسی در بدنه */
   smsHits = [];
-  const fa = await post('/send', { phone: '۰۹۱۲۱۱۱۰۰۰۴', code: '۵۴۳۲۱' });
+  smsHits = [];
+  const fa = await post('/request', { phone: '۰۹۱۲۱۱۱۰۰۰۴' });
   ok('رقم فارسی پذیرفته و لاتین می‌شود', fa.status === 200 && JSON.parse(smsHits[0].body).recipients[0] === '09121110004');
-  ok('کد فارسی هم درست منتقل می‌شود', JSON.parse(smsHits[0].body).message.includes('54321'));
+  ok('کدِ فارسی هم درست در متن می‌نشیند', /کد تأیید ثبت‌نام شما: \d{5}/.test(JSON.parse(smsHits[0].body).message));
 
   /* محدودیت نرخ: ۳ پیامک به یک شماره، چهارمی رد */
   const RP = '09121119999';
   const codes = [];
-  for(let i = 0; i < 3; i++) codes.push((await post('/send', { phone: RP, code: '1111' + i })).status);
-  const os4 = await post('/send', { phone: RP, code: '11113' });
+  for(let i = 0; i < 3; i++) codes.push((await post('/request', { phone: RP })).status);
+  const os4 = await post('/request', { phone: RP });
   ok('سه پیامک اول قبول شد', codes.every(s => s === 200), JSON.stringify(codes));
   ok('🔒 پیامک چهارم به همان شماره ⇒ 429', os4.status === 429, os4.status);
   const j4 = await os4.json();
@@ -272,7 +313,7 @@ const cleanup = () => {
   let phoneSeed = 400;
   for(const [name, mode, wantHttp, wantState, wantErr] of SHAPES){
     smsMode = mode; smsHits = [];
-    const r = await post('/send', { phone: '091211' + (10000 + phoneSeed++), code: '54321' });
+    const r = await post('/request', { phone: '091211' + (10000 + phoneSeed++) });
     const txt = await r.text();
     smsMode = 'ok';
     const j = JSON.parse(txt);
@@ -287,7 +328,7 @@ const cleanup = () => {
 
   /* 🔒 اگر سرویس بیرونی کلید را در متن خطا بازگو کند، نباید به کاربر برسد */
   smsMode = 'echo'; smsHits = [];
-  const re = await post('/send', { phone: '09121130001', code: '54321' });
+  const re = await post('/request', { phone: '09121130001' });
   const te = await re.text();
   smsMode = 'ok';
   ok('🔒 خطای بازگوکنندهٔ کلید، کلید را به کاربر نمی‌رساند', !te.includes(SMS_KEY), te);

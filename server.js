@@ -92,7 +92,27 @@ function loadData(){
          تنها منبع، NOOR_ADMIN_PASS است و فایل داده هیچ نقشی در ورود ندارد. */
       if(d.adminHash) log('ℹ️ هشِ رمزِ داخل فایل داده نادیده گرفته شد — رمز مدیر فقط از NOOR_ADMIN_PASS می‌آید');
       if(d.stats) stats = { ...stats, ...d.stats, startedAt: stats.startedAt };
-      log(`📂 بارگذاری شد: ${leaderboard.length} رکورد، ${Object.keys(friends).length} کاربر با دوست`);
+      /* کارنامهٔ کاربران. رکوردِ بی‌شکل دور انداخته می‌شود: یک ردیفِ خراب
+         نباید فهرستِ کاربران را خراب کند یا کلیدِ تکراری بسازد. */
+      if(Array.isArray(d.users)){
+        for(const u of d.users){
+          if(!u || typeof u !== 'object') continue;
+          const phone = String(u.phone || '');
+          const id = String(u.id || '');
+          if(!/^09\d{9}$/.test(phone) || !USER_ID_RE.test(id)) continue;
+          if(userByPhone.has(phone) || userById.has(id)) continue;
+          const rec = { id, phone, name: clampStr(u.name, LIMITS.nameLen) || 'بازیکن',
+                        joinedAt: Math.max(0, +u.joinedAt || 0),
+                        lastLogin: Math.max(0, +u.lastLogin || 0),
+                        visits: Math.max(0, +u.visits || 0), plays: Math.max(0, +u.plays || 0),
+                        score: Math.max(0, +u.score || 0), level: Math.max(1, +u.level || 1),
+                        blocked: !!u.blocked, lastIp: String(u.lastIp || '').slice(0, 45),
+                        ips: Array.isArray(u.ips) ? u.ips.slice(0, 5).map(x => String(x).slice(0, 45)) : [] };
+          userByPhone.set(phone, rec);
+          userById.set(id, phone);
+        }
+      }
+      log(`📂 بارگذاری شد: ${leaderboard.length} رکورد، ${Object.keys(friends).length} کاربر با دوست، ${userByPhone.size} کاربر ثبت‌شده`);
     }
   }catch(e){ log('⚠️ خواندن فایل داده ناموفق:', e.message); }
 }
@@ -100,6 +120,14 @@ function loadData(){
 function snapshot(){
   return {
     leaderboard, friends,
+    /* کارنامهٔ کاربران — بی هیچ نشانی از نشست‌ها و کدهای در جریان. نشانه و
+       کد، رازِ زنده‌اند و روی دیسک نمی‌نشینند. */
+    users: [...userByPhone.values()].map(u => ({
+      id: u.id, phone: u.phone, name: u.name, joinedAt: u.joinedAt,
+      lastLogin: u.lastLogin, visits: u.visits || 0, plays: u.plays || 0,
+      score: u.score || 0, level: u.level || 1, blocked: !!u.blocked,
+      lastIp: u.lastIp || '', ips: (u.ips || []).slice(0, 5)
+    })),
     stats: { totalConnections: stats.totalConnections, totalMessages: stats.totalMessages,
              totalGames: stats.totalGames, peakOnline: stats.peakOnline }
   };
@@ -411,7 +439,41 @@ function handleMessage(c, msg){
       c.level = Math.max(1, Math.min(999, +msg.level || 1));
       c.score = Math.max(0, +msg.score || 0);
       c.known = true;
-      log(`👤 ${c.name} (${c.id}) وارد شد`);
+
+      /* ── هویتِ تأییدشده ──
+         تنها راهِ اینکه سرور باور کند این اتصال مالِ فلان شماره است، نشانهٔ
+         نشستی است که خودش پس از تأییدِ پیامک داده. `userId` تنها، ادعاست:
+         هر کسی می‌تواند شناسهٔ دیگری را بنویسد. پس اگر نشانه نبود، اتصال
+         مهمان می‌ماند — همان‌طور که پیش‌تر همه بودند. */
+      const uTok = userTokenGet(msg.userToken);
+      if(uTok){
+        const rec = userOf(uTok.phone);
+        if(rec && !rec.blocked){
+          c.user = rec;
+          c.phone = rec.phone;
+          c.uid = rec.id;
+          /* نام و امتیازِ اعلامی با کارنامهٔ ثبت‌شده هم‌تراز می‌شود. */
+          c.name = rec.name || c.name;
+          rec.plays = Math.max(rec.plays || 0, 0);
+          rec.lastLogin = now();
+          saveData();
+          c.name = clampStr(c.name, LIMITS.nameLen) || 'بازیکن';
+        }else if(rec && rec.blocked){
+          /* مسدود: با خبر می‌فرستیمش بیرون. بی صدا قطع نمی‌کنیم تا کاربر
+             بداند چرا و بیهوده تلاش نکند. */
+          sendRaw(c, { t: 'notif', to: c.id, title: 'دسترسی بسته است',
+                       desc: 'این شماره مسدود شده — با مدیر تماس بگیر', icon: '🚫' });
+          log(`🚫 کاربرِ مسدود رد شد (${rec.id})`);
+          Timers_sleep_close(c);
+          return;
+        }
+      }else if(msg.userId && !USER_ID_RE.test(String(msg.userId))){
+        /* شناسهٔ بی‌شکل نادیده گرفته می‌شود؛ ولی چیزی که مهم است این است که
+           *هیچ* اختیاری به آن داده نمی‌شود. */
+        log(`ℹ️ شناسهٔ بی‌شکل از ${c.id} نادیده گرفته شد`);
+      }
+
+      log(`👤 ${c.name} (${c.id}) وارد شد${c.phone ? ' — کاربرِ ثبت‌شده' : ''}`);
       sendRaw(c, { t: 'peers', to: c.id, list: peerList(), online: clients.size });
       sendRaw(c, { t: 'rooms', to: c.id, list: roomList() });
       sendRaw(c, { t: 'lb', to: c.id, list: leaderboard.slice(0, 30) });
@@ -638,6 +700,62 @@ function handleMessage(c, msg){
       break;
     }
 
+    /* ── کارهای مدیر روی کاربران ──
+       هر کدام با نشانهٔ نشستِ مدیر سنجیده می‌شود. کاربر با `id` یا `phone`
+       شناخته می‌شود؛ پنل ادمین هر دو را نشان می‌دهد. */
+    case 'admin:user:block':
+    case 'admin:user:unblock':
+    case 'admin:user:delete':
+    case 'admin:user:sms': {
+      if(!isAdminNow(c)) return;
+      const rec = userLookup(msg);
+      if(!rec){ sendRaw(c, { t: 'admin:user:err', to: c.id, msg: 'کاربر پیدا نشد' }); return; }
+
+      if(msg.t === 'admin:user:block' || msg.t === 'admin:user:unblock'){
+        rec.blocked = msg.t === 'admin:user:block';
+        saveData();
+        log(`${rec.blocked ? '🚫' : '✅'} مدیر کاربر ${rec.id} را ${rec.blocked ? 'مسدود' : 'آزاد'} کرد`);
+        /* کاربرِ آنلاین بی‌درنگ بیرون می‌رود. مسدودکردنِ کسی که همچنان
+           بازی می‌کند، مسدودکردن نیست. */
+        if(rec.blocked){
+          for(const cl of clients.values()){
+            if(cl.phone === rec.phone){
+              sendRaw(cl, { t: 'notif', to: cl.id, title: 'دسترسی بسته شد',
+                            desc: 'این شماره از طرف مدیر مسدود شد', icon: '🚫' });
+              cl.closeClient('مسدود شد');
+            }
+          }
+        }
+        pushAdminUsers();
+        break;
+      }
+
+      if(msg.t === 'admin:user:delete'){
+        const had = users_sessions_drop(rec);
+        log(`🗑 مدیر کاربر ${rec.id} را حذف کرد (${had} نشست باطل شد)`);
+        pushAdminUsers();
+        break;
+      }
+
+      /* پیامکِ مدیریتی به کاربر.
+         `handleMessage` همگام است و عمداً همگام می‌ماند؛ اگر async می‌شد، هر
+         استثنا یک ردشدنِ بی‌گیر می‌ساخت. پس فرستادن جدا می‌شود و نتیجه‌اش
+         بعداً به مدیر می‌رسد. */
+      if(!smsConfigured()){ sendRaw(c, { t: 'admin:user:err', to: c.id, msg: 'پیامک روی سرور تنظیم نشده' }); return; }
+      const text = clampStr(msg.text, LIMITS.textLen);
+      if(!text){ sendRaw(c, { t: 'admin:user:err', to: c.id, msg: 'متن پیامک خالی است' }); return; }
+      const lim = smsAllow(rec.phone, 'admin');
+      if(!lim.ok){ sendRaw(c, { t: 'admin:user:err', to: c.id, msg: lim.why }); return; }
+      adminSmsTo(c, rec, text);
+      break;
+    }
+
+    case 'admin:users': {
+      if(!isAdminNow(c)) return;
+      sendRaw(c, { t: 'admin:users', to: c.id, list: userListView() });
+      break;
+    }
+
     case 'admin:stats': {
       if(!isAdminNow(c)) return;
       sendRaw(c, { t: 'admin:stats', to: c.id, stats: serverStats() });
@@ -840,6 +958,169 @@ function digits(s){
     const i = '۰۱۲۳۴۵۶۷۸۹'.indexOf(ch);
     return String(i >= 0 ? i : '٠١٢٣٤٥٦٧٨٩'.indexOf(ch));
   });
+}
+
+/* ─────────────── کدِ تأیید و هویتِ کاربر — روی سرور ───────────────
+   پیش‌تر کلاینت خودش کد را می‌ساخت، هشش را در localStorage می‌گذاشت و خودش
+   هم می‌سنجید. یعنی «تأییدِ شماره» سنجشی روی همان دستگاهی بود که باید
+   تأیید می‌شد: کاربرِ متین می‌توانست پلهٔ کد را رد کند. حالا کد فقط اینجا
+   ساخته می‌شود، فقط اینجا می‌ماند، و یک‌بارمصرف است. */
+const OTP_TTL_MS   = 2 * 60 * 1000;
+const OTP_MAX_TRIES = 3;
+const OTP_LEN      = 5;
+const OTP_SWEEP_MS = 60 * 1000;
+const USER_TOKEN_MS = 30 * 24 * 60 * 60 * 1000;   // نشانهٔ کاربر: ۳۰ روز
+
+const otps       = new Map();   // phone -> { hash, salt, exp, tries, at }
+const verifyByIp = new Map();   // ip -> [at, …]
+const userByPhone = new Map();  // phone -> record
+const userById    = new Map();  // id -> phone
+const userTokens  = new Map();  // token -> { id, exp, at }
+
+/* کد پنج‌رقمی از مولدِ رمزنگاری‌شده. `randomInt` بازهٔ [0, n) را یکنواخت
+   می‌دهد؛ باقی‌ماندهٔ ساده توزیع را کج می‌کرد و حدس‌زدن را آسان‌تر. */
+function otpCode(){ return String(crypto.randomInt(10000, 100000)); }
+function otpHash(code, salt){ return sha256Hex(salt + '|' + code + '|noorestan-otp'); }
+function otpSalt(){ return crypto.randomBytes(16).toString('hex'); }
+
+/* کدِ در جریانِ یک شماره، و اگر کهنه است دور ریخته می‌شود. */
+function otpGet(phone){
+  const st = otps.get(phone);
+  if(!st) return null;
+  if(now() > st.exp){ otps.delete(phone); return null; }
+  return st;
+}
+
+/* سقفِ تلاشِ بررسی — جدا از سقفِ ارسال. بی این، کدِ پنج‌رقمی را می‌شد در
+   چند دقیقه جارو کرد: ۱۰۰٬۰۰۰ حالت، و ۳ تلاش برای هر کد. */
+function verifyAllow(ip){
+  const t = now();
+  const list = (verifyByIp.get(ip) || []).filter(x => t - x < 60 * 60 * 1000);
+  verifyByIp.set(ip, list);
+  if(list.length >= 30) return { ok: false, why: 'تلاشِ زیاد برای بررسیِ کد — یک ساعت دیگر' };
+  list.push(t);
+  return { ok: true };
+}
+
+/* ── کارنامهٔ کاربر ──
+   هویتِ پایدار شماره است و `usr_…` دستهٔ آن. شناسه را کلاینت می‌سازد (چون
+   برنامه باید آفلاین هم کار کند) ولی سرور آن را بی‌چون‌وچرا قبول نمی‌کند:
+   شکلش را می‌سنجد و فقط با تأییدِ پیامک به شماره می‌بنددش. پس مرجعِ
+   «این شناسه مال کیست» اینجاست، نه در دستگاهِ کاربر. */
+const USER_ID_RE = /^usr_[0-9a-f]{20}$/;
+
+function userOf(phone){ return userByPhone.get(phone) || null; }
+
+/* کاربرِ مسدود کمی بعد قطع می‌شود تا پیامِ «چرا» به او برسد. قطعِ بی‌درنگ،
+   پیام را در همان سوکتِ مرده گم می‌کرد. */
+function Timers_sleep_close(c){ setTimeout(() => { try{ c.closeClient('مسدود'); }catch(e){} }, 900); }
+
+function userBind(phone, id, ip){
+  const t = now();
+  let rec = userByPhone.get(phone);
+  if(!rec){
+    rec = { id: USER_ID_RE.test(id) ? id : 'usr_' + crypto.randomBytes(10).toString('hex').slice(0, 20),
+            phone, name: 'بازیکن', joinedAt: t, lastLogin: 0, visits: 0,
+            plays: 0, score: 0, level: 1, blocked: false, lastIp: '', ips: [] };
+    userByPhone.set(phone, rec);
+  }else if(USER_ID_RE.test(id) && rec.id !== id){
+    /* شناسهٔ تازه از همان شماره: دستهٔ قدیمی رها و تازه ثبت می‌شود. دو
+       شناسه برای یک شماره نگه نمی‌داریم، وگرنه «حذف کاربر» یکی را جا
+       می‌گذاشت. */
+    userById.delete(rec.id);
+    rec.id = id;
+  }
+  userById.set(rec.id, phone);
+  rec.lastLogin = t;
+  rec.visits = (rec.visits || 0) + 1;
+  if(ip && rec.lastIp !== ip){
+    rec.lastIp = ip;
+    rec.ips = [ip, ...(rec.ips || []).filter(x => x !== ip)].slice(0, 5);
+  }
+  saveData();
+  return rec;
+}
+
+function userTokenNew(id, phone){
+  const token = crypto.randomBytes(32).toString('hex');
+  userTokens.set(token, { id, phone, exp: now() + USER_TOKEN_MS, at: now() });
+  /* سقفِ ساده: قدیمی‌ترین‌ها می‌روند. بی سقف، نگاشت تا ابد رشد می‌کرد. */
+  if(userTokens.size > 500){
+    const list = [...userTokens.entries()].sort((a, b) => a[1].at - b[1].at);
+    for(let i = 0; i < 100 && i < list.length; i++) userTokens.delete(list[i][0]);
+  }
+  return token;
+}
+function userTokenGet(token){
+  if(typeof token !== 'string' || token.length !== 64) return null;
+  const s = userTokens.get(token);
+  if(!s) return null;
+  if(now() > s.exp){ userTokens.delete(token); return null; }
+  return s;
+}
+/* حذفِ کاربر: هم از شماره، هم از شناسه، هم نشست‌هایش. */
+function userDrop(rec){
+  if(!rec) return false;
+  userByPhone.delete(rec.phone);
+  userById.delete(rec.id);
+  for(const [tok, s] of userTokens) if(s.phone === rec.phone) userTokens.delete(tok);
+  saveData();
+  return true;
+}
+/* دیدِ عمومی — بی نشانی از IP و بی هیچ چیزی که به کارِ سوء بیاید. */
+function userView(rec){
+  if(!rec) return null;
+  return { id: rec.id, phone: rec.phone, name: rec.name, joinedAt: rec.joinedAt,
+           lastLogin: rec.lastLogin, visits: rec.visits || 0, plays: rec.plays || 0,
+           score: rec.score || 0, level: rec.level || 1, blocked: !!rec.blocked,
+           online: [...clients.values()].some(c => c.phone === rec.phone) };
+}
+/* فهرستِ ادمین — مرتب بر تازگیِ ورود */
+function userListView(limit = 200){
+  return [...userByPhone.values()]
+    .sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0))
+    .slice(0, limit).map(userView);
+}
+
+/* پیامکِ مدیر به کاربر — ناهمگام، بی‌آنکه مسیرِ پیامِ ورودی را ناهمگام کند.
+   نتیجهٔ واقعی به مدیر می‌رسد: «sent» و «pending» و «failed» با هم یکی
+   نمی‌شوند و مدیر باید بداند کدام پیش آمده. */
+async function adminSmsTo(c, rec, text){
+  let out;
+  try{
+    out = await smsSend(rec.phone, '🌟 نورستان\n' + text);
+  }catch(e){
+    out = { state: 'failed', error: 'فرستادن پیامک شکست خورد' };
+  }
+  sendRaw(c, { t: 'admin:user:sms', to: c.id, id: rec.id, state: out.state,
+               error: out.state === 'sent' ? '' : (out.error || '') });
+  log(`${out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️'} پیامکِ مدیر → ${rec.id} · ${out.state}`);
+}
+
+/* کاربر را با شناسه یا شماره پیدا می‌کند — پنل ادمین هر دو را دارد */
+function userLookup(msg){
+  const id = String(msg.id || '');
+  if(USER_ID_RE.test(id)){
+    const ph = userById.get(id);
+    if(ph) return userByPhone.get(ph) || null;
+  }
+  const phone = digits(msg.phone || '').replace(/\D/g, '');
+  if(/^09\d{9}$/.test(phone)) return userByPhone.get(phone) || null;
+  return null;
+}
+function users_sessions_drop(rec){
+  let n = 0;
+  for(const [tok, s] of userTokens) if(s.phone === rec.phone){ userTokens.delete(tok); n++; }
+  userDrop(rec);
+  /* کاربرِ آنلاین هم قطع می‌شود. */
+  for(const cl of clients.values()) if(cl.phone === rec.phone) cl.closeClient('حساب حذف شد');
+  return n;
+}
+/* فهرستِ تازه برای همهٔ مدیرانِ آنلاین — تا دو مدیر دو چیزِ متفاوت نبینند. */
+function pushAdminUsers(){
+  const list = userListView();
+  for(const cl of clients.values())
+    if(isAdminNow(cl)) sendRaw(cl, { t: 'admin:users', to: cl.id, list });
 }
 
 /* ─────────────── نشستِ مدیر ───────────────
@@ -1100,6 +1381,110 @@ async function handleHttp(req, res){
                                     device: SMS_DEVICE ? '…' + SMS_DEVICE.slice(-4) : '' }));
   }
 
+  /* ── ساخت و فرستادنِ کد، روی سرور ──
+     کد اینجا ساخته می‌شود و هرگز به کلاینت نمی‌رود. پیش‌تر کلاینت کد را
+     می‌ساخت و با پیامک می‌فرستاد؛ یعنی خودش هم می‌دانستش و می‌توانست
+     بی‌نیاز از پیامک تأییدش کند. */
+  if(p === '/api/otp/request'){
+    const hdr = { 'Content-Type':'application/json; charset=utf-8',
+                  'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                  'Cache-Control': 'no-store' };
+    const no = (code, error) => { res.writeHead(code, hdr);
+      return res.end(JSON.stringify({ success: false, state: 'failed', error: smsRedact(error) })); };
+
+    if(req.method !== 'POST') return no(405, 'فقط POST');
+    if(!smsConfigured()) return no(503, 'کلید پیامک روی سرور تنظیم نشده (NOOR_SMS_KEY / NOOR_SMS_DEVICE)');
+
+    const body = await readJson(req, 2048);
+    if(!body) return no(400, 'بدنهٔ درخواست خوانده نشد');
+
+    const phone = digits(body.phone).replace(/\D/g, '');
+    if(!/^09\d{9}$/.test(phone)) return no(400, 'شمارهٔ موبایل معتبر نیست');
+
+    /* سد پیش از ساختِ کد: بی آن، هر درخواست یک کد و یک پیامک می‌ساخت و
+       شمارندهٔ تلاش‌ها را پر می‌کرد. */
+    const lim = smsAllow(phone, clientIp(req));
+    if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
+
+    const code = otpCode();
+    const salt = otpSalt();
+    otps.set(phone, { hash: otpHash(code, salt), salt, exp: now() + OTP_TTL_MS,
+                      tries: 0, at: now() });
+
+    const out = await smsSend(phone, smsOtpMessage(code));
+    const stamp = out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️';
+    /* شماره در لاگ می‌ماند (برای پیگیری)، ولی خودِ کد هرگز — نه اینجا، نه در
+       هیچ لاگ دیگری. */
+    log(`${stamp} کد تأیید → ${phone} · ${out.state}` +
+        (out.state === 'sent' ? (out.id ? ' · ' + out.id : '') : ' — ' + out.error));
+
+    /* ارسال نشد ⇒ کد هم نباید بماند. وگرنه کدی در حافظه می‌ماند که کاربر
+       نگرفته و کسی هم نمی‌داند. */
+    if(out.state === 'failed'){ otps.delete(phone); return no(502, out.error); }
+
+    if(out.state === 'pending'){
+      res.writeHead(202, hdr);
+      return res.end(JSON.stringify({ success: false, pending: true, state: 'pending',
+                                      error: out.error, ttl: OTP_TTL_MS }));
+    }
+    res.writeHead(200, hdr);
+    return res.end(JSON.stringify({ success: true, state: 'sent', len: OTP_LEN,
+                                    ttl: OTP_TTL_MS, id: out.id || '' }));
+  }
+
+  /* ── بررسیِ کد ──
+     یک‌بارمصرف: با موفقیت، کد پاک می‌شود. کدِ منقضی هم پاک می‌شود.
+     پاسخِ موفق، نشانهٔ نشستِ کاربر است — نه خودِ کد. */
+  if(p === '/api/otp/verify'){
+    const hdr = { 'Content-Type':'application/json; charset=utf-8',
+                  'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+                  'Cache-Control': 'no-store' };
+    const no = (code, error, extra) => { res.writeHead(code, hdr);
+      return res.end(JSON.stringify({ success: false, error, ...(extra || {}) })); };
+
+    if(req.method !== 'POST') return no(405, 'فقط POST');
+    const body = await readJson(req, 2048);
+    if(!body) return no(400, 'بدنهٔ درخواست خوانده نشد');
+
+    const phone = digits(body.phone).replace(/\D/g, '');
+    if(!/^09\d{9}$/.test(phone)) return no(400, 'شمارهٔ موبایل معتبر نیست');
+
+    const ip = clientIp(req);
+    const lim = verifyAllow(ip);
+    if(!lim.ok){ log(`🚫 بررسیِ کد رد شد (${ip}): ${lim.why}`); return no(429, lim.why); }
+
+    /* شکلِ کد پیش از نگاه به حالت سنجیده می‌شود: پرسشی که از پیش غلط است
+       نباید به ما بگوید برای این شماره کدی هست یا نه. */
+    const code = digits(body.code).replace(/\D/g, '');
+    if(code.length !== OTP_LEN) return no(400, `کد ${OTP_LEN} رقمی است`);
+
+    const st = otpGet(phone);
+    if(!st) return no(410, 'کد منقضی شد — کد تازه بگیر', { expired: true });
+
+    /* نمکِ رکورد عوض نمی‌شود تا سنجش معنادار بماند */
+    const okCode = sameHash(otpHash(code, st.salt), st.hash);
+    if(!okCode){
+      st.tries = (st.tries || 0) + 1;
+      if(st.tries >= OTP_MAX_TRIES){
+        otps.delete(phone);
+        log(`🚫 کدِ تأیید سه بار اشتباه (${phone}) — کد سوخت`);
+        return no(429, 'سه بار اشتباه — کد سوخت، کد تازه بگیر', { burned: true });
+      }
+      log(`⚠️ کدِ تأیید اشتباه (${phone}) — ${OTP_MAX_TRIES - st.tries} تلاش مانده`);
+      return no(401, `کد اشتباه است — ${OTP_MAX_TRIES - st.tries} تلاش مانده`,
+                { left: OTP_MAX_TRIES - st.tries });
+    }
+
+    /* درست بود: کد سوخت، کاربر به شماره بسته شد، نشست صادر شد. */
+    otps.delete(phone);
+    const rec = userBind(phone, String(body.userId || ''), ip);
+    const token = userTokenNew(rec.id, phone);
+    log(`✅ شماره تأیید شد → ${rec.id}`);
+    res.writeHead(200, hdr);
+    return res.end(JSON.stringify({ success: true, token, id: rec.id, name: rec.name,
+                                    exp: USER_TOKEN_MS }));
+  }
+
   if(p === '/api/otp/send'){
     const hdr = { 'Content-Type':'application/json; charset=utf-8',
                   'Access-Control-Allow-Origin': ALLOW_ORIGIN,
@@ -1121,13 +1506,12 @@ async function handleHttp(req, res){
     const phone = digits(body.phone).replace(/\D/g, '');
     if(!/^09\d{9}$/.test(phone)) return no(400, 'شمارهٔ موبایل معتبر نیست');
 
-    let message, kind;
-    if(body.test === true){ message = smsTestMessage(); kind = 'آزمایشی'; }
-    else {
-      const code = digits(body.code).replace(/\D/g, '');
-      if(code.length !== 5) return no(400, 'کد پنج‌رقمی لازم است');
-      message = smsOtpMessage(code); kind = 'کد تأیید';
-    }
+    /* فقط پیامکِ آزمایشی.
+       پیش‌تر این مسیر کدِ *کلاینت* را هم می‌پذیرفت و می‌فرستاد؛ یعنی هر کسی
+       می‌توانست هر شماره‌ای را با متنِ دلخواه — از جمله «کد تأیید» — بمباران
+       کند. کدِ تأیید حالا فقط در /api/otp/request و روی سرور ساخته می‌شود. */
+    if(body.test !== true) return no(400, 'این مسیر فقط پیامکِ آزمایشی می‌فرستد — کدِ تأیید از /api/otp/request');
+    const message = smsTestMessage(), kind = 'آزمایشی';
 
     const lim = smsAllow(phone, clientIp(req));
     if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
@@ -1209,11 +1593,15 @@ setInterval(saveData, 30000);
 /* نشست‌های منقضی هر دقیقه پاک می‌شوند. `adminAlive` خودش هم منقضی را
    دور می‌ریزد، ولی نشستی که دیگر پرسیده نمی‌شود تا ابد در حافظه می‌ماند. */
 setInterval(() => {
+  /* کدهای منقضی و بی‌مصرف پاک می‌شوند؛ نگه‌داشتنشان نه فایده‌ای دارد و نه
+     ایمن است. */
+  const t = now();
+  for(const [ph, st] of otps) if(t > st.exp) otps.delete(ph);
+  for(const [tok, st] of userTokens) if(t > st.exp) userTokens.delete(tok);
   const n = adminPruneSessions();
   if(n) log(`🔒 ${n} نشستِ منقضیِ مدیر پاک شد`);
   /* سابقهٔ تلاشِ آدرس‌هایی که دیگر نمی‌آیند هم پاک می‌شود؛ وگرنه نگاشت
      به‌ازای هر آدرسِ دیده‌شده یک ردیف نگه می‌داشت. */
-  const t = now();
   for(const [ip, list] of adminTries){
     const live = list.filter(x => t - x < ADMIN_TRY_MS);
     if(live.length) adminTries.set(ip, live); else adminTries.delete(ip);

@@ -2082,6 +2082,10 @@ const Store = {
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
          در نخستین فرصت می‌سازدش. */
       user: null,
+      /* نشانهٔ نشستِ کاربر که سرور پس از تأییدِ پیامک می‌دهد. سرور فقط با
+         همین باور می‌کند که این اتصال مالِ فلان شماره است. */
+      userToken: '',
+      userTokenExp: 0,
       phone: '',
       otp: null,
       serverUrl: '',
@@ -2221,6 +2225,13 @@ const Store = {
     d.sms.deviceId = d.sms.deviceId.trim().slice(0, 80);
     if(typeof d.phone !== 'string') d.phone = '';
     d.phone = U.unfa(d.phone).replace(/\D/g, '').slice(0, 15);
+    /* نشانهٔ نشستِ کاربر: همان قاعدهٔ نشانهٔ مدیر — ۶۴ رقم هگز و با سررسید.
+       نشانهٔ بی‌سررسید نگه داشته نمی‌شود، چون هرگز باطل نمی‌شد. */
+    if(typeof d.userToken !== 'string' || !/^[0-9a-f]{64}$/.test(d.userToken)) d.userToken = '';
+    d.userTokenExp = Math.max(0, Math.floor(+d.userTokenExp) || 0);
+    if(d.userToken && (!d.userTokenExp || U.now() > d.userTokenExp)){
+      d.userToken = ''; d.userTokenExp = 0;
+    }
     /* ── هویتِ کاربر ──
        روکشِ خراب دور انداخته می‌شود تا User.ensure از نو بسازدش. شناسهٔ
        بی‌شکل هم همین حکم را دارد: اعتبارسنجی‌اش در User.okId است و اینجا
@@ -6342,7 +6353,17 @@ const Net = {
     this.startHeartbeat();
   },
 
-  selfInfo(){ return { id: this.id, name: Store.get('playerName'), level: Store.get('level'), score: Store.get('score') }; },
+  /* آنچه هنگامِ ورود به سرور اعلام می‌شود.
+     `userToken` تنها چیزی است که سرور را متقاعد می‌کند این اتصال مالِ فلان
+     شماره است. `userId` تنها یک ادعاست و سرور بی نشانه به آن اعتنا نمی‌کند؛
+     می‌فرستیمش تا در فهرستِ مهمان‌ها شناسه‌مان معلوم باشد، نه برای اختیار. */
+  selfInfo(){
+    const u = User.get();
+    return { id: Net.id, name: Store.get('playerName'), level: Store.get('level'),
+             score: Store.get('score'), userId: u ? u.id : '',
+             userToken: (typeof Store.get('userToken') === 'string' && Store.get('userTokenExp') > U.now())
+                        ? Store.get('userToken') : '' };
+  },
 
   openWS(url){
     let ws;
@@ -12818,6 +12839,52 @@ const SMS = {
       '⚠️ این کد را با کسی به اشتراک نگذارید.');
   },
 
+  /* ── درخواستِ کد از سرور ──
+     در حالتِ سرور، کد را *سرور* می‌سازد و کد هرگز به این دستگاه نمی‌آید.
+     این تفاوتِ اصلیِ فاز ۹ است: پیش‌تر کلاینت کد را می‌ساخت و هشش را نگه
+     می‌داشت، پس می‌توانست بی‌نیاز از پیامک ردش کند. حالا تنها چیزی که
+     برمی‌گردد «فرستادم» است، نه خودِ کد. */
+  async request(phone){
+    const p = this.norm(phone);
+    this.log('server:req', { url: this.PROXY + '/request', keys: 'phone' });
+    const r = await this.req(this.PROXY + '/request', { body: { phone: p } });
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+
+    if(j && j.state){
+      this.log('server:res', { state: j.state, status: r.status });
+      return j;                                  // شامل ttl و len — بی هیچ کدی
+    }
+    const v = this.verdict(r);
+    const out = v.state === 'sent'
+      ? { success: true, state: 'sent' }
+      : v.state === 'pending'
+        ? { success: false, pending: true, state: 'pending', status: r.status, error: this.PENDING_MSG }
+        : { success: false, state: 'failed', status: r.status,
+            error: v.error || r.error || ('HTTP ' + r.status) };
+    this.log('server:res', { state: out.state, status: r.status });
+    return out;
+  },
+
+  /* ── بررسیِ کد روی سرور ──
+     پاسخِ موفق یک نشانهٔ نشستِ کاربر است. نشانه در Store می‌ماند تا پیامِ
+     بعدی به سرور بگوید «همان کاربرم» — و سرور فقط با همین باورش می‌کند. */
+  async verifyServer(phone, code){
+    const p = this.norm(phone);
+    const id = (User.get() || {}).id || '';
+    this.log('server:req', { url: this.PROXY + '/verify', keys: 'phone,code,userId' });
+    const r = await this.req(this.PROXY + '/verify', { body: { phone: p, code, userId: id } });
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+    if(!j) return { ok: false, why: r.error || 'پاسخ سرور خوانده نشد' };
+    if(j.success && typeof j.token === 'string'){
+      Store.update(d => { d.userToken = j.token; d.userTokenExp = U.now() + (+j.exp || 0); });
+      this.log('server:res', { verified: true });
+      return { ok: true, id: j.id || '', server: true };
+    }
+    this.log('server:res', { verified: false, status: r.status });
+    return { ok: false, why: j.error || 'کد پذیرفته نشد', expired: !!j.expired,
+             burned: !!j.burned, left: j.left };
+  },
+
   async sendTest(phone){
     const p = this.norm(phone);
     if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
@@ -12961,6 +13028,29 @@ const OTP = {
     if(this.waitSec() > 0)
       return { ok: false, why: `کمی صبر کن — ${U.fa(this.waitSec())} ثانیه`, wait: this.waitSec() };
 
+    /* ── روی سرور: کد را سرور می‌سازد ──
+       هیچ کدی روی این دستگاه ساخته و هیچ هشی نگه داشته نمی‌شود. اگر اینجا
+       هم کد می‌ساختیم، دو منبعِ حقیقت می‌داشتیم و آنکه روی دستگاه بود
+       می‌توانست پلهٔ پیامک را رد کند. */
+    if(SMS.mode() === 'server'){
+      const r = await SMS.request(phone);
+      const ttl = (r && r.ttl) || this.TTL_MS;
+      const st = { phone, server: true, exp: U.now() + ttl, tries: 0, lock: 0, at: U.now() };
+      if(r && r.pending){
+        this.put(st); this.lastPhone = phone;
+        return { ok: true, pending: true, phone,
+                 note: 'ارسال تأیید نشد — اگر پیامک رسید، کد را وارد کن' };
+      }
+      if(!r || r.success === false){
+        /* قطعاً نشد ⇒ هیچ حالتی نمی‌نشیند، وگرنه کاربر بی کدِ گرفته، دو دقیقه
+           انتظار و سه تلاش بی‌فایده می‌گیرد. */
+        return { ok: false, why: (r && r.error) || 'فرستادن پیامک نشد', send: r };
+      }
+      this.put(st); this.lastPhone = phone;
+      return { ok: true, server: true, phone };
+    }
+
+    /* ── بی سرور: همان مسیرِ محلی ── */
     const code = this.code();
     /* کد ساخته نشد ⇒ هیچ پیامکی هم نباید برود. اگر بی کد ادامه می‌دادیم،
        پیامکی با متن «کد تأیید: » می‌رفت و کاربر پشت در می‌ماند. */
@@ -12994,8 +13084,10 @@ const OTP = {
     return { ok: true, mock: !!res.mock, code: res.mock ? code : '', phone };
   },
 
-  /* ── گام ۲: بررسی کد ── */
-  verify(raw, input){
+  /* ── گام ۲: بررسی کد ──
+     ناهمگام است چون روی سرور یک رفت‌وبرگشت دارد. مسیرِ محلی هم داخلش
+     همان‌جا و بی‌درنگ جواب می‌دهد. */
+  async verify(raw, input){
     const phone = SMS.norm(raw || this.lastPhone);
     const st = this.st();
     const now = U.now();
@@ -13006,6 +13098,30 @@ const OTP = {
     if(now > st.exp){
       this.clear();
       return { ok: false, why: 'کد منقضی شد — کد تازه بگیر', expired: true };
+    }
+
+    /* ── روی سرور: تنها سرور می‌داند کد درست چیست ── */
+    if(st.server){
+      const code = U.unfa(input).replace(/\D/g, '');
+      if(code.length !== this.LEN)
+        return { ok: false, why: `کد ${U.fa(this.LEN)} رقمی است` };
+      const r = await SMS.verifyServer(phone, code);
+      if(!r.ok){
+        /* سرور خودش تلاش‌ها را می‌شمارد و کد را می‌سوزاند؛ ما فقط حالتی را
+           که گفته می‌نشانیم تا شمارندهٔ صفحه هم درست بماند. */
+        if(r.expired || r.burned){ this.clear(); }
+        else{
+          st.tries = (st.tries || 0) + 1;
+          if(st.tries >= this.MAX_TRIES){ st.tries = 0; st.lock = now + this.LOCK_MS; }
+          this.put(st);
+        }
+        return { ok: false, why: r.why, expired: r.expired, burned: r.burned, left: r.left };
+      }
+      this.clear();
+      const wasNew = Store.get('phone') !== phone;
+      try{ User.setPhone(phone); }
+      catch(e){ Store.update(x => { x.phone = phone; }); }
+      return { ok: true, phone, first: wasNew, server: true };
     }
 
     const code = U.unfa(input).replace(/\D/g, '');
@@ -13175,11 +13291,28 @@ const OTP = {
     this.say(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', true);
   },
 
-  check(){
+  /* ناهمگام است چون روی سرور یک رفت‌وبرگشت دارد. دکمه در همان فاصله قفل
+     می‌شود؛ وگرنه دو بار زدن، دو درخواست و دو شمارشِ تلاش می‌سازد. */
+  async check(){
     const inp = U.$('#otpCode', this.box);
     const code = inp ? inp.value : '';
-    const r = this.verify(this.lastPhone, code);
-    if(!r.ok){ this.say(r.why); Haptic.warn(); if(r.expired || r.locked || r.left != null) this.paint(); return; }
+    const btn = U.$('#otpOk', this.box);
+    if(btn && btn.dataset.busy === '1') return;
+    if(btn){ btn.dataset.busy = '1'; btn.disabled = true; }
+    let r;
+    try{
+      r = await this.verify(this.lastPhone, code);
+    }catch(e){
+      r = { ok: false, why: 'بررسی کد ممکن نشد — دوباره امتحان کن' };
+    }finally{
+      if(btn){ btn.dataset.busy = ''; btn.disabled = false; }
+    }
+    if(!r.ok){
+      this.say(r.why || 'کد پذیرفته نشد');
+      Haptic.warn();
+      if(r.expired || r.burned || r.locked || r.left != null) this.paint();
+      return;
+    }
     this.stop();
     Haptic.success();
     UI.closeModal();

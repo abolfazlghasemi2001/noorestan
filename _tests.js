@@ -2337,20 +2337,21 @@ section('چرخهٔ ورود با موبایل');
   /* ── کد اشتباه و شمارش تلاش ── */
   const wrong = String((+t1.code + 11111) % 100000).padStart(5, '0');
   ok('کد اشتباه تشخیص داده می‌شود', wrong !== t1.code);
-  const w1 = OTP.verify(PH, wrong);
+  const w1 = await OTP.verify(PH, wrong);
   ok('تلاش اول: رد شد و ۲ تلاش ماند', w1.ok === false && w1.left === 2, JSON.stringify(w1));
-  const w2 = OTP.verify(PH, wrong);
+  const w2 = await OTP.verify(PH, wrong);
   ok('تلاش دوم: ۱ تلاش ماند', w2.ok === false && w2.left === 1);
-  const w3 = OTP.verify(PH, wrong);
+  const w3 = await OTP.verify(PH, wrong);
   ok('تلاش سوم: قفل شد', w3.ok === false && w3.locked === true);
   ok('قفل ۱۰ دقیقه است', Math.abs(w3.lock - 600000) < 1000, w3.lock);
-  ok('پس از قفل، حتی کد درست هم رد می‌شود', OTP.verify(PH, t1.code).ok === false);
-  ok('و پیام قفل می‌دهد، نه «کد اشتباه»', /قفل/.test(OTP.verify(PH, t1.code).why));
+  const wLocked = await OTP.verify(PH, t1.code);
+  ok('پس از قفل، حتی کد درست هم رد می‌شود', wLocked.ok === false);
+  ok('و پیام قفل می‌دهد، نه «کد اشتباه»', /قفل/.test(wLocked.why));
   ok('تازه‌سازی کد هم در قفل رد می‌شود', (await OTP.start(PH)).locked === true);
 
   /* قفل که تمام شود، شمارنده صفر می‌شود */
   Store.update(x => { x.otp.lock = U.now() - 1; });
-  const okAfter = OTP.verify(PH, t1.code);
+  const okAfter = await OTP.verify(PH, t1.code);
   ok('پس از پایان قفل، کد درست پذیرفته می‌شود', okAfter.ok === true, JSON.stringify(okAfter));
   ok('شماره در پروفایل ثبت شد', Store.get('phone') === PH);
   ok('حالت OTP پس از موفقیت پاک می‌شود', Store.get('otp') === null);
@@ -2359,7 +2360,7 @@ section('چرخهٔ ورود با موبایل');
   reset();
   const e1 = await OTP.start(PH);
   Store.update(x => { x.otp.exp = U.now() - 1; });
-  const ev = OTP.verify(PH, e1.code);
+  const ev = await OTP.verify(PH, e1.code);
   ok('کد منقضی رد می‌شود', ev.ok === false && ev.expired === true, JSON.stringify(ev));
   ok('کد منقضی پاک می‌شود', Store.get('otp') === null);
 
@@ -2367,13 +2368,13 @@ section('چرخهٔ ورود با موبایل');
   reset();
   const p1 = await OTP.start(PH);
   const fa = U.fa(p1.code);
-  ok('رقم فارسی کد هم پذیرفته می‌شود', OTP.verify(PH, fa).ok === true, fa);
+  ok('رقم فارسی کد هم پذیرفته می‌شود', (await OTP.verify(PH, fa)).ok === true, fa);
   reset();
 
   /* ── بی گرفتن کد، تأیید معنا ندارد ── */
-  ok('بی درخواست کد، تأیید رد می‌شود', OTP.verify(PH, '12345').ok === false);
-  ok('شمارهٔ دیگری هم بی کد رد می‌شود', OTP.verify('09120000000', '12345').ok === false);
-  ok('کد ناقص رد می‌شود', (hint('12345', PH), OTP.verify(PH, '123').ok === false));
+  ok('بی درخواست کد، تأیید رد می‌شود', (await OTP.verify(PH, '12345')).ok === false);
+  ok('شمارهٔ دیگری هم بی کد رد می‌شود', (await OTP.verify('09120000000', '12345')).ok === false);
+  ok('کد ناقص رد می‌شود', (hint('12345', PH), (await OTP.verify(PH, '123')).ok === false));
 
   /* ── فاصلهٔ ارسال دوباره ── */
   reset();
@@ -2396,6 +2397,95 @@ section('چرخهٔ ورود با موبایل');
   ok('و قفلِ الکی هم نمی‌سازد', OTP.lockSec() === 0);
 
   Store.update(x => { x.phone = keepPhone; x.otp = keepOtp; });
+  smsRestore();
+}
+
+section('کدِ تأیید روی سرور — بی کدِ محلی، بی هشِ محلی');
+{
+  const keepOtp = Store.get('otp');
+  const keepTok = { t: Store.get('userToken'), e: Store.get('userTokenExp') };
+  const keepPhone = Store.get('phone');
+  const run = async () => {
+    smsState('server');
+    const seen = [];
+    const realReq = SMS.req;
+    SMS.req = async (url, opt) => {
+      seen.push({ url, body: (opt && opt.body) || {} });
+      if(/\/request$/.test(url)) return { ok: true, status: 200,
+        json: { success: true, state: 'sent', len: 5, ttl: 120000 } };
+      if(/\/verify$/.test(url)) return { ok: true, status: 200,
+        json: { success: true, token: 'a1'.repeat(32), id: 'usr_' + 'b'.repeat(20), exp: 3600000 } };
+      return { ok: false, status: 0, json: null, error: 'نباید' };
+    };
+    try{
+      Store.update(d => { d.otp = null; d.userToken = ''; d.userTokenExp = 0; });
+      const PH = '09123456789';
+
+      const r1 = await OTP.start(PH);
+      ok('روی سرور، کد از سرور خواسته می‌شود', r1.ok === true && r1.server === true,
+         JSON.stringify(r1));
+      ok('و خودِ کد ساخته نمی‌شود، پس نشان داده هم نمی‌شود',
+         !r1.code && !r1.mock, JSON.stringify(r1));
+      ok('درخواست به /request می‌رود', /\/request$/.test(seen[0].url), seen[0].url);
+      ok('و فقط شماره می‌فرستد، بی کد',
+         JSON.stringify(Object.keys(seen[0].body).sort()) === '["phone"]',
+         JSON.stringify(seen[0].body));
+
+      const st = OTP.st() || {};
+      ok('هیچ هشی روی دستگاه نمی‌نشیند', !st.hash && !st.salt, JSON.stringify(st));
+      ok('ولی حالت، «سروری» علامت می‌خورد', st.server === true);
+
+      /* کد اشتباه را سرور رد می‌کند */
+      SMS.req = async () => ({ ok: false, status: 401,
+        json: { success: false, error: 'کد اشتباه است', left: 2 } });
+      const w1 = await OTP.verify(PH, '00000');
+      ok('ردِ سرور به کاربر می‌رسد', w1.ok === false && w1.left === 2, JSON.stringify(w1));
+
+      /* کد سوخته: حالت پاک می‌شود */
+      SMS.req = async () => ({ ok: false, status: 429,
+        json: { success: false, error: 'سه بار اشتباه', burned: true } });
+      const wb = await OTP.verify(PH, '00000');
+      ok('سوختنِ کد از طرف سرور پذیرفته می‌شود', wb.burned === true);
+      ok('و حالتِ صفحه پاک می‌شود', Store.get('otp') === null);
+
+      /* کد درست — فاصلهٔ ارسال دوباره را دور می‌زنیم؛ آن قاعده جدا سنجیده می‌شود */
+      SMS.req = async (url, opt) => {
+        seen.push({ url, body: (opt && opt.body) || {} });
+        if(/\/verify$/.test(url)) return { ok: true, status: 200,
+          json: { success: true, token: 'a1'.repeat(32), id: 'usr_' + 'b'.repeat(20), exp: 3600000 } };
+        return { ok: true, status: 200, json: { success: true, state: 'sent', ttl: 120000 } };
+      };
+      Store.update(d => { d.otp = null; });
+      const okStart = await OTP.start(PH);
+      ok('درخواست تازه پذیرفته می‌شود', okStart.ok === true, JSON.stringify(okStart));
+      const okv = await OTP.verify(PH, '۵۴۳۲۱');
+      ok('کد درست پذیرفته می‌شود', okv.ok === true && okv.server === true, JSON.stringify(okv));
+      ok('نشانهٔ نشست ذخیره می‌شود', Store.get('userToken') === 'a1'.repeat(32));
+      ok('و سررسیدش هم می‌آید', Store.get('userTokenExp') > U.now());
+      ok('شماره روی هویت می‌نشیند', Store.get('phone') === PH);
+      const last = seen[seen.length - 1];
+      ok('کد به سرور می‌رود و شناسهٔ ما هم با آن',
+         last.body.code === '54321' && /^usr_[0-9a-f]{20}$/.test(last.body.userId),
+         JSON.stringify(last.body));
+      ok('رقم‌های فارسی پیش از رفتن لاتین می‌شوند', last.body.code === '54321');
+      ok('🔒 و هیچ رشتهٔ رمزمانندی جز کد و شناسه همراه نیست',
+         Object.keys(last.body).sort().join(',') === 'code,phone,userId',
+         Object.keys(last.body).join(','));
+
+      /* نشانهٔ بی‌شکل دور انداخته می‌شود */
+      Store.update(d => { d.userToken = 'x'; });
+      Store.sanitize();
+      ok('نشانهٔ کاربرِ بی‌شکل دور انداخته می‌شود', Store.get('userToken') === '');
+      Store.update(d => { d.userToken = 'c'.repeat(64); d.userTokenExp = U.now() - 1; });
+      Store.sanitize();
+      ok('نشانهٔ منقضیِ کاربر دور انداخته می‌شود', Store.get('userToken') === '');
+    }finally{
+      SMS.req = realReq;
+      Store.update(d => { d.otp = keepOtp; d.userToken = keepTok.t;
+                          d.userTokenExp = keepTok.e; d.phone = keepPhone; });
+    }
+  };
+  await run();
   smsRestore();
 }
 
@@ -3675,8 +3765,25 @@ section('هویتِ کاربر — شناسهٔ مبهم و نشست');
     const u = User.ensure();
     ok('هویت ساخته می‌شود', !!u && !!u.id);
     ok('شناسه شکل درست دارد', User.okId(u.id), u.id);
-    ok('شناسه از شماره ساخته نمی‌شود و شماره در آن نیست',
-       !u.id.includes('09') && !/\d{11}/.test(u.id));
+    /* نشانهٔ اصلی «مبهم بودن» این است که شناسه از شماره *برنیاید*، نه اینکه
+       تصادفاً رقمی در آن نباشد: ۲۰ رقم هگزِ تصادفی گاهی «09» هم در خود دارد.
+       پس دو بار با همان شمارهٔ یکسان از صفر می‌سازیم؛ اگر شناسه از شماره
+       مشتق می‌شد، هر دو یکی درمی‌آمد. */
+    ok('شناسه از شماره مشتق نمی‌شود',
+       (() => {
+         const made = [];
+         for(let i = 0; i < 2; i++){
+           Store.update(d => { d.user = null; d.phone = '09123456789'; });
+           made.push(User.ensure().id);
+         }
+         return made[0] !== made[1] && made.every(x => User.okId(x));
+       })());
+    ok('و شمارهٔ کامل در شناسه نیست', !u.id.includes('09123456789'),
+       u.id);
+    ok('شناسه فقط از الفبای هگز است', /^usr_[0-9a-f]{20}$/.test(u.id), u.id);
+    /* سنجشِ بالا هویتِ تازه ساخت؛ برمی‌گردانیم تا بقیهٔ این بخش روی همان
+       کاربرِ نخست بنشیند */
+    Store.update(d => { d.user = u; });
     ok('شناسه دو بار عوض نمی‌شود', User.ensure().id === u.id);
     ok('شناسه‌های دو کاربر یکی نیستند', User.makeId() !== User.makeId());
 
