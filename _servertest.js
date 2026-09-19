@@ -558,6 +558,120 @@ const cleanup = () => {
   ok('🔒 نشانهٔ باطل‌شده دوباره راه نمی‌دهد',
      !A.msgs.some(m => m.t === 'notif' && m.title === 'دوباره'));
 
+  /* ── دفترِ کاربران ──
+     کاربر با شماره‌اش شناخته می‌شود، و سرور تنها مرجعی است که این نگاشت را
+     دارد: شناسه از کلاینت می‌آید ولی تا وقتی پیامک تأیید نشود به شماره
+     بسته نمی‌شود. */
+  section('دفترِ کاربران — فهرست، مسدود، حذف');
+  const admin2 = await fetch(`http://127.0.0.1:${PORT}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: PASS })
+  }).then(r => r.json());
+  const token2 = admin2.token;
+
+  const U1 = new Client('U1'); await U1.connect();
+  U1.id = (await U1.wait(m => m.t === 'welcome')).id;
+  U1.clear();
+  U1.send({ t: 'hello', ns: 'noorestan', name: 'زهرا', level: 2, score: 40,
+            userId: vOkJ.id, userToken: vOkJ.token });
+  ok('کاربر با نشانهٔ تأییدشده وارد می‌شود', !!(await U1.wait(m => m.t === 'peers')));
+
+  C.clear();
+  C.send({ t: 'admin:users', token: token2 });
+  const ul = await C.wait(m => m.t === 'admin:users');
+  const row1 = (ul.list || []).find(u => u.id === vOkJ.id);
+  ok('فهرستِ کاربران به مدیر می‌رسد', !!ul && Array.isArray(ul.list), JSON.stringify(ul).slice(0, 80));
+  ok('و کاربرِ واردشده در آن هست', !!row1, JSON.stringify((ul.list || []).map(u => u.id)));
+  ok('با شماره‌اش', row1 && row1.phone === '09121110001', row1 && row1.phone);
+  ok('و آنلاین شمرده می‌شود', row1 && row1.online === true);
+  ok('🔒 و هیچ نشانه‌ای در فهرست نیست',
+     !JSON.stringify(ul).includes(vOkJ.token) && !/token/.test(JSON.stringify(ul)),
+     JSON.stringify(ul).slice(0, 160));
+
+  /* غیرمدیر فهرست را نمی‌گیرد */
+  U1.clear();
+  U1.send({ t: 'admin:users' });
+  await sleep(250);
+  ok('🔒 کاربرِ عادی فهرستِ کاربران را نمی‌گیرد',
+     !U1.msgs.some(m => m.t === 'admin:users'));
+
+  /* هش روی اتصالی که *هرگز* مدیر نشده. (C از پیش با نشانه مدیر شده و
+     پرسیدنش با هش چیزی را دربارهٔ هش ثابت نمی‌کند.) */
+  U1.clear();
+  U1.send({ t: 'admin:users', hash: HASH });
+  await sleep(250);
+  ok('🔒 هشِ درست روی اتصالِ غیرمدیر هم دروازه را باز نمی‌کند',
+     !U1.msgs.some(m => m.t === 'admin:users'));
+  U1.clear();
+  U1.send({ t: 'admin:user:delete', hash: HASH, id: vOkJ.id });
+  await sleep(250);
+  C.clear(); C.send({ t: 'admin:users', token: token2 });
+  ok('🔒 و هیچ کنشی هم با هش انجام نمی‌شود',
+     ((await C.wait(m => m.t === 'admin:users')).list || []).some(u => u.id === vOkJ.id));
+
+  /* ── مسدودکردن ── */
+  U1.clear(); C.clear();
+  C.send({ t: 'admin:user:block', token: token2, id: vOkJ.id });
+  const kick = await U1.wait(m => m.t === 'notif', 3000);
+  ok('کاربرِ آنلاین بی‌درنگ بیرون می‌رود', !!kick && /مسدود/.test(kick.desc || ''), JSON.stringify(kick));
+  const ul2 = await C.wait(m => m.t === 'admin:users');
+  const row2 = (ul2.list || []).find(u => u.id === vOkJ.id);
+  ok('و در فهرست مسدود علامت می‌خورد', row2 && row2.blocked === true);
+  ok('و آفلاین می‌شود', row2 && row2.online === false);
+
+  /* کاربرِ مسدود، با همان نشانهٔ معتبر هم راه نمی‌یابد */
+  const U2 = new Client('U2'); await U2.connect();
+  U2.id = (await U2.wait(m => m.t === 'welcome')).id;
+  U2.clear();
+  U2.send({ t: 'hello', ns: 'noorestan', name: 'زهرا', userId: vOkJ.id, userToken: vOkJ.token });
+  const kick2 = await U2.wait(m => m.t === 'notif', 3000);
+  ok('🔒 کاربرِ مسدود با نشانهٔ معتبر هم رد می‌شود', !!kick2 && /بسته/.test(kick2.title || ''),
+     JSON.stringify(kick2));
+
+  /* آزادکردن دوباره راه می‌دهد */
+  C.clear();
+  C.send({ t: 'admin:user:unblock', token: token2, id: vOkJ.id });
+  ok('آزادکردن در فهرست دیده می‌شود',
+     ((await C.wait(m => m.t === 'admin:users')).list || []).find(u => u.id === vOkJ.id)?.blocked === false);
+  const U3 = new Client('U3'); await U3.connect();
+  U3.id = (await U3.wait(m => m.t === 'welcome')).id;
+  U3.clear();
+  U3.send({ t: 'hello', ns: 'noorestan', name: 'زهرا', userId: vOkJ.id, userToken: vOkJ.token });
+  ok('پس از آزادکردن، همان نشانه دوباره راه می‌دهد',
+     !!(await U3.wait(m => m.t === 'peers')) && !U3.msgs.some(m => m.t === 'notif' && /بسته/.test(m.title)));
+
+  /* ── پیامکِ مدیریتی ── */
+  smsHits = [];
+  C.clear();
+  C.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: 'خوش آمدی' });
+  const smsRes = await C.wait(m => m.t === 'admin:user:sms', 3000);
+  ok('نتیجهٔ پیامکِ مدیریتی به مدیر می‌رسد', !!smsRes && smsRes.state === 'sent', JSON.stringify(smsRes));
+  ok('و پیامک واقعاً به همان شماره رفت', smsHits.length === 1 &&
+     JSON.parse(smsHits[0].body).recipients[0] === '09121110001');
+  ok('با متنِ مدیر در آن', JSON.parse(smsHits[0].body).message.includes('خوش آمدی'));
+  C.clear();
+  C.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: '' });
+  ok('متنِ خالی فرستاده نمی‌شود', (await C.wait(m => m.t === 'admin:user:err'))?.msg.includes('خالی'));
+  ok('و هیچ پیامکِ تازه‌ای نرفت', smsHits.length === 1, 'hits=' + smsHits.length);
+
+  /* ── حذف ── */
+  C.clear();
+  C.send({ t: 'admin:user:delete', token: token2, id: vOkJ.id });
+  const ul3 = await C.wait(m => m.t === 'admin:users');
+  ok('کاربرِ حذف‌شده از فهرست می‌رود',
+     !(ul3.list || []).some(u => u.id === vOkJ.id), JSON.stringify(ul3.list));
+  const U4 = new Client('U4'); await U4.connect();
+  U4.id = (await U4.wait(m => m.t === 'welcome')).id;
+  U4.clear();
+  U4.send({ t: 'hello', ns: 'noorestan', name: 'زهرا', userId: vOkJ.id, userToken: vOkJ.token });
+  ok('🔒 نشانهٔ کاربرِ حذف‌شده بی‌ارزش است',
+     !!(await U4.wait(m => m.t === 'peers')) && !U4.msgs.some(m => m.t === 'notif'));
+  ok('و شناسهٔ او دیگر کسی را به کاربرِ ثبت‌شده وصل نمی‌کند', (() => {
+    const src = require('fs').readFileSync(__dirname + '/server.js', 'utf8');
+    return /userTokens\.delete\(tok\)/.test(src) && /userById\.delete\(rec\.id\)/.test(src);
+  })());
+  for(const cl of [U1, U2, U3, U4]){ try{ cl.ws && cl.ws.close(); }catch(e){} }
+
   /* ── رمز مدیر: نه پیش‌فرض، نه در لاگ ──
      پیش‌تر مقدار جانشین «noor2024» بود و همان را در بنر هم چاپ می‌کرد؛ یعنی
      رمزِ مدیر در مخزن عمومی منتشر می‌شد. */

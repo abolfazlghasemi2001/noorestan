@@ -6562,6 +6562,19 @@ const Net = {
       case 'notif':
         pushNotif(msg.title || 'اعلان', msg.desc || '', msg.icon || '📢');
         break;
+      /* ── پاسخ‌های مدیریتی ──
+         همه از سرور می‌آیند و سرور پیش از فرستادن، نشانهٔ مدیر را سنجیده
+         است. کلاینت اینجا فقط نشان می‌دهد؛ تصمیمِ دسترسی جای دیگری گرفته
+         شده. */
+      case 'admin:users':
+        Admin.gotUsers(msg.list);
+        break;
+      case 'admin:user:sms':
+        Admin.smsResult(msg);
+        break;
+      case 'admin:user:err':
+        UI.toast('⚠️ ' + (msg.msg || 'انجام نشد'), 'err', 3200);
+        break;
       case 'lb':
         this.board = Array.isArray(msg.list) ? msg.list : [];
         this.emit('board', this.board);
@@ -11075,6 +11088,93 @@ const Admin = {
     return false;
   },
 
+  /* ── دفترِ کاربران ──
+     فهرست از سرور می‌آید و سرور صاحبِ آن است. اینجا فقط نگه داشته می‌شود تا
+     زبانه بی‌درنگ چیزی برای نشان‌دادن داشته باشد؛ هر تغییرِ مدیریتی با
+     pushAdminUsers سرور تازه می‌شود و دوباره می‌رسد. */
+  users: [],
+  usersAt: 0,
+  _usersBusy: false,
+  askUsers(force){
+    if(!this.onServer()) return;
+    if(this._usersBusy) return;
+    if(!force && U.now() - this.usersAt < 4000) return;   // تازه است
+    this._usersBusy = true;
+    this.usersAt = U.now();
+    Net.post({ t: 'admin:users', token: this.token() });
+    /* 'sys' وگرنه رفتن به صفحهٔ دیگر قفل را بازنشده رها می‌کند */
+    Timers.after(() => { this._usersBusy = false; }, 4000, 'sys');
+  },
+  gotUsers(list){
+    this.users = Array.isArray(list) ? list : [];
+    this.usersAt = U.now();
+    this._usersBusy = false;
+    if(this.currentTab === 'users' && Store.get('isAdmin')) this.renderTab();
+  },
+  /* یک کنشِ مدیریتی روی یک کاربر.
+     روی سرور، کار در سرور انجام و از آنجا به همهٔ مدیرها هم اعلام می‌شود.
+     بی سرور، تنها کاربرِ همین دستگاه است و کنش هم محلی می‌ماند — با همین
+     صراحت هم به مدیر گفته می‌شود. */
+  userAct(kind, u){
+    if(!this.onServer()){
+      if(kind === 'block' || kind === 'unblock'){
+        User.setBlocked(kind === 'block');
+        UI.toast(kind === 'block' ? '🚫 این دستگاه قفل شد (قفلِ محلی، نه امنیت)'
+                                  : '✅ قفلِ محلی برداشته شد', 'ok', 2600);
+        this.renderTab();
+        return;
+      }
+      if(kind === 'delete'){
+        Store.update(d => { d.user = null; d.userToken = ''; d.userTokenExp = 0; d.phone = ''; });
+        UI.toast('🗑 هویتِ این دستگاه پاک شد — با ورود تازه از نو ساخته می‌شود', '', 3200);
+        this.renderTab();
+        return;
+      }
+      return;
+    }
+    const env = { t: 'admin:user:' + kind, token: this.token() };
+    if(u.id) env.id = u.id;
+    if(u.phone) env.phone = u.phone;
+    if(kind === 'sms') env.text = String(u.text || '').slice(0, 300);
+    Net.post(env);
+  },
+  /* متنِ پیامک را می‌پرسیم. متنِ دلخواه بی بازبینی نمی‌رود؛ همین یک کادر
+     جلوی «فرستادنِ ناخواسته» را می‌گیرد. */
+  smsBox(u){
+    if(!this.onServer()){
+      UI.toast('پیامک فقط از سرور فرستاده می‌شود', 'err');
+      return;
+    }
+    UI.modal(`
+      <h3 style="margin-bottom:4px">📨 پیامک به ${U.esc(u.name || 'کاربر')}</h3>
+      <p style="color:var(--mut);font-size:12px;margin-bottom:10px" dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone || '—')}</p>
+      <textarea class="inp" id="admSmsText" rows="3" maxlength="300"
+                placeholder="متن پیامک…"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="btn dg" id="admSmsGo">📨 بفرست</button>
+        <button class="btn gh" id="admSmsNo">بی‌خیال</button>
+      </div>`, box => {
+        const ta = U.$('#admSmsText', box);
+        const go = U.$('#admSmsGo', box);
+        if(go) go.onclick = () => {
+          const text = (ta && ta.value || '').trim();
+          if(!text){ UI.toast('متن خالی است', 'err'); return; }
+          this.userAct('sms', { ...u, text });
+          UI.closeModal();
+          UI.toast('📨 فرستادن آغاز شد…', '', 2400);
+        };
+        const no = U.$('#admSmsNo', box);
+        if(no) no.onclick = () => UI.closeModal();
+      });
+  },
+  /* پاسخِ سرور دربارهٔ پیامکِ مدیریتی — «رفت» و «نمی‌دانم» و «نشد» یکی نیستند */
+  smsResult(msg){
+    const s = msg && msg.state;
+    if(s === 'sent') UI.toast('📨 پیامک رسید', 'ok', 2600);
+    else if(s === 'pending') UI.toast('⏳ تأییدِ ارسال نیامد — رسیدنش معلوم نیست', '', 3600);
+    else UI.toast('⚠️ پیامک نرفت' + (msg && msg.error ? ' — ' + msg.error : ''), 'err', 3600);
+  },
+
   /* ── دروازهٔ ورود ──
      دو حالت دارد و تفاوتشان مهم است:
        روی سرور       ⇒ رمز به سرور می‌رود و نشست برمی‌گردد. این «امنیت» است.
@@ -11176,8 +11276,11 @@ const Admin = {
     }).catch(() => {});
   },
   renderTab(){
-    const d = Store.data;
     const body = U.$('#adminBody');
+    /* پاسخِ سرور می‌تواند برسد وقتی پنل بسته است؛ رندر روی جعبهٔ ناموجود
+       استثنا می‌ساخت. */
+    if(!body) return;
+    const d = Store.data;
     U.$$('.tab[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === this.currentTab));
     const peers = Net.peerList();
     switch(this.currentTab){
@@ -11225,36 +11328,72 @@ const Admin = {
         break;
       }
       case 'users': {
+        const remote = this.onServer();
         const q = (this._userQ || '').trim().toLowerCase();
-        const me = { name: d.playerName, id: d.playerId, score: d.score, level: d.level,
-                     badges: Object.keys(d.badges).filter(k => d.badges[k]).length, me: true };
-        const all = [me, ...peers.map(p => ({ name: p.name, id: p.id, score: p.score || 0,
-                                              level: p.level || 1, online: true }))];
-        const shown = q ? all.filter(u =>
-          String(u.name || '').toLowerCase().includes(q) ||
-          String(u.id || '').toLowerCase().includes(q)) : all;
+        const myId = (User.get() || {}).id || '';
+
+        /* دو فهرست، دو حقیقتِ متفاوت.
+           روی سرور، فهرستِ راستین همان است که سرور می‌دهد: هر کاربر با
+           شماره و شناسه و تاریخ‌ها، از جمله کسانی که الان آنلاین نیستند.
+           بی سرور، تنها چیزی که داریم همین دستگاه و هم‌گپ‌های زنده است؛
+           نه شماره‌ای در کار است نه سابقه‌ای. یکی‌کردنِ این دو، توهمِ
+           «کاربرِ ثبت‌شده» برای کسی می‌ساخت که هرگز ثبت‌نام نکرده. */
+        const all = remote
+          ? (this.users || []).map(u => ({ ...u, me: !!myId && u.id === myId }))
+          : [(() => { const r = User.row(); return r ? { ...r, _local: true } : null; })(),
+             ...peers.map(p => ({ name: p.name, id: p.id, score: p.score || 0,
+                                  level: p.level || 1, online: true }))]
+             .filter(Boolean);
+
+        /* جست‌وجو روی شماره هم می‌نشیند — با رقمِ لاتین و فارسی، چون مدیر
+           شماره را از هر جا که دیده کپی می‌کند. */
+        const hay = u => [u.name, u.id, u.phone].map(x => String(x || '').toLowerCase()).join(' ');
+        const qn = q.replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
+        const shown = q ? all.filter(u => hay(u).includes(q) || hay(u).includes(qn)) : all;
+
         body.innerHTML = `
           <div class="card">
             <div class="row"><b style="font-size:13px">👥 کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
               <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
             <div class="sep"></div>
-            <input class="inp" id="admUserQ" placeholder="جست‌وجو با نام یا شناسه…"
+            <input class="inp" id="admUserQ" placeholder="${remote ? 'جست‌وجو با نام، شناسه یا شماره…' : 'جست‌وجو با نام یا شناسه…'}"
                    value="${U.esc(this._userQ || '')}" autocomplete="off">
+            ${remote ? `<button class="btn gh w" style="margin-top:10px" id="admUserRefresh">🔄 به‌روزرسانی فهرست</button>` : ''}
           </div>
           <div class="card" style="margin-top:12px">
-            ${shown.length ? shown.map(u => `
-              <div class="item">
-                <div class="av">${u.me ? '👑' : U.esc((u.name || '?').charAt(0))}</div>
-                <div class="sp"><b>${U.esc(u.name)}${u.me ? ' (شما)' : ''}</b>
-                  <small>سطح ${U.fa(u.level)} • ${U.fa(u.score)} امتیاز</small>
+            ${shown.length ? shown.map(u => {
+              const badges = [
+                u.me ? '<span class="badge">شما</span>' : '',
+                u.blocked ? '<span class="badge rd">مسدود</span>' : '',
+                u.online ? '<span class="badge g">آنلاین</span>' : ''
+              ].filter(Boolean).join(' ');
+              return `
+              <div class="item" style="align-items:flex-start">
+                <div class="av">${u.blocked ? '🚫' : (u.me ? '👑' : U.esc((u.name || '?').charAt(0)))}</div>
+                <div class="sp"><b>${U.esc(u.name || 'بازیکن')}${u.me ? ' (شما)' : ''}</b>
+                  ${u.phone ? `<small>📱 <span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span></small>` : ''}
+                  <small>سطح ${U.fa(u.level || 1)} • ${U.fa(u.score || 0)} امتیاز${u.plays != null ? ` • ${U.fa(u.plays)} بازی` : ''}</small>
+                  ${u.joinedAt ? `<small>🗓 عضو از ${U.fa(U.ago(u.joinedAt))}${u.lastLogin ? ` • آخرین ورود ${U.fa(U.ago(u.lastLogin))}` : ''}</small>` : ''}
                   <small class="adm-id" data-copy="${U.esc(u.id || '')}"
-                         title="برای کپی بزن">🆔 <span dir="ltr">${U.esc(String(u.id || '—'))}</span></small></div>
-                <span class="badge ${u.me ? '' : 'g'}">${u.me ? 'مدیر' : (u.online ? 'آنلاین' : 'کاربر')}</span>
-              </div>`).join('') : '<div class="empty">کسی با این جست‌وجو پیدا نشد</div>'}
+                         title="برای کپی بزن">🆔 <span dir="ltr">${U.esc(String(u.id || '—'))}</span></small>
+                  ${badges ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${badges}</div>` : ''}
+                  ${remote || u._local ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+                    <button class="btn gh sm" data-act="sms" data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">📨 پیامک</button>
+                    <button class="btn ${u.blocked ? 'gh' : 'dg'} sm" data-act="${u.blocked ? 'unblock' : 'block'}"
+                            data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">${u.blocked ? '✅ آزاد کن' : '🚫 مسدود کن'}</button>
+                    <button class="btn dg sm" data-act="del" data-id="${U.esc(u.id || '')}"
+                            data-phone="${U.esc(u.phone || '')}" data-name="${U.esc(u.name || '')}">🗑 حذف</button>
+                  </div>` : ''}
+                </div>
+              </div>`;
+            }).join('') : '<div class="empty">کسی با این جست‌وجو پیدا نشد</div>'}
           </div>
           <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
-            شناسهٔ هر کاربر را بزن تا کپی شود. شمارهٔ موبایل و تاریخ عضویت
-            پس از ورود با پیامک به همین فهرست اضافه می‌شوند.</p>`;
+            ${remote
+              ? 'کاربر با شماره یا شناسه شناخته می‌شود. «حذف» کاربر را از دفترِ سرور برمی‌دارد و همهٔ نشست‌هایش را می‌بندد؛ بازی‌ها و امتیازِ خودِ دستگاه پاک نمی‌شود.'
+              : 'بی سرور، تنها کاربرِ همین دستگاه این‌جاست. مسدودکردن اینجا یک قفلِ محلی است، نه امنیت — قفلِ راستین روی سرور است.'}
+            شناسه را بزن تا کپی شود.</p>`;
+
         const qi = U.$('#admUserQ');
         if(qi) qi.oninput = () => {
           this._userQ = qi.value;
@@ -11265,12 +11404,27 @@ const Admin = {
           const again = U.$('#admUserQ');
           if(again){ again.value = keep; again.focus(); }
         };
+        const rf = U.$('#admUserRefresh');
+        if(rf) rf.onclick = () => { this.askUsers(true); };
         U.$$('.adm-id').forEach(el => el.onclick = async () => {
           const t = el.dataset.copy;
           if(!t) return;
           const done = await copyText(t);
           UI.toast(done ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار', done ? 'ok' : 'err');
         });
+        U.$$('[data-act]').forEach(el => el.onclick = () => {
+          const u = { id: el.dataset.id, phone: el.dataset.phone, name: el.dataset.name };
+          const act = el.dataset.act;
+          if(act === 'del'){
+            UI.confirm(`کاربر «${u.name || u.id}» از دفترِ سرور حذف شود؟ نشست‌هایش بسته می‌شود.`,
+                       () => this.userAct('delete', u));
+            return;
+          }
+          if(act === 'sms'){ this.smsBox(u); return; }
+          this.userAct(act, u);
+        });
+        /* تازه‌سازی در پس‌زمینه؛ فهرست می‌تواند کهنه باشد */
+        if(remote) this.askUsers();
         break;
       }
       case 'rooms': {

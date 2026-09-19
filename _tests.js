@@ -4027,6 +4027,146 @@ section('پنل مدیریت — زبانه‌ها و زمانِ نسبی');
     fs.readFileSync(__dirname + '/index.html', 'utf8')));
 }
 
+section('پنل مدیریت — دفترِ کاربران و کنش‌ها');
+{
+  /* رندر را می‌گیریم تا بشود دربارهٔ آنچه به کاربر نشان داده می‌شود سنجید */
+  const draw = () => {
+    const box = { innerHTML: '', classList:{ add(){}, remove(){}, toggle(){} } };
+    const $0 = U.$;
+    U.$ = (s, p) => s === '#adminBody' ? box : $0(s, p);
+    try{ Admin.renderTab(); } finally { U.$ = $0; }
+    return box.innerHTML;
+  };
+  const netKeep = { s: Net.status, m: Net.mode, post: Net.post };
+  const seen = [];
+  const onServer = () => { Net.status = 'online'; Net.mode = 'ws'; };
+  const offServer = () => { Net.status = 'offline'; Net.mode = 'local'; };
+  const keepUsers = Admin.users, keepAt = Admin.usersAt, keepQ = Admin._userQ;
+  const keepTab = Admin.currentTab;
+  Admin.currentTab = 'users';          // renderTab روی همین زبانه سوئیچ می‌کند
+  const keepUser = Store.get('user');
+  try{
+    Net.post = env => { seen.push(env); return true; };
+
+    /* ── فهرست از سرور ── */
+    const list = [
+      { id: 'usr_' + 'a'.repeat(20), phone: '09121112233', name: 'زهرا', joinedAt: U.now() - 86400000 * 30,
+        lastLogin: U.now() - 3600000, visits: 9, plays: 12, score: 340, level: 4,
+        blocked: false, online: true },
+      { id: 'usr_' + 'b'.repeat(20), phone: '09354445566', name: 'محمد', joinedAt: U.now() - 86400000 * 3,
+        lastLogin: U.now() - 86400000 * 2, visits: 2, plays: 1, score: 20, level: 1,
+        blocked: true, online: false }
+    ];
+    Admin.gotUsers(list);
+    ok('فهرستِ سرور می‌نشیند', Admin.users.length === 2);
+    ok('و زمانِ گرفتنش ثبت می‌شود', U.now() - Admin.usersAt < 2000);
+    ok('ورودیِ بی‌شکل، فهرست را خالی می‌کند نه خراب', (() => {
+      Admin.gotUsers(null);
+      const n = Admin.users.length;
+      Admin.gotUsers(list);
+      return n === 0 && Admin.users.length === 2;
+    })());
+
+    onServer();
+    const html = draw();
+    ok('شمارهٔ کاربر در فهرست دیده می‌شود', html.includes('0912 111 2233'), 'بی شماره');
+    ok('و شناسهٔ او', html.includes('a'.repeat(20)));
+    ok('و تعداد بازی‌ها', html.includes('۱۲ بازی') || html.includes('۱۲'), 'بی بازی');
+    ok('و تاریخِ عضویت', html.includes('عضو از'), 'بی عضویت');
+    ok('مسدود بودنِ کاربر هم پیداست', html.includes('مسدود'));
+    ok('هر کاربر سه کنش دارد', (html.match(/data-act="/g) || []).length === 6,
+       String((html.match(/data-act="/g) || []).length));
+
+    /* ── جست‌وجو ── */
+    Admin._userQ = 'زهرا';
+    ok('جست‌وجو با نام کار می‌کند', draw().includes('زهرا'));
+    Admin._userQ = '09354445566';
+    const byPhone = draw();
+    ok('جست‌وجو با شماره هم کار می‌کند', byPhone.includes('محمد') && !byPhone.includes('زهرا'));
+    Admin._userQ = '۰۹۳۵۴۴۴۵۵۶۶';                 // همان شماره با رقمِ فارسی
+    ok('و با رقمِ فارسیِ همان شماره', draw().includes('محمد'));
+    Admin._userQ = 'usr_' + 'b'.repeat(20);
+    ok('و با شناسه', draw().includes('محمد'));
+    Admin._userQ = 'کسی‌که‌نیست';
+    ok('بی‌نتیجه، پیامِ خالی می‌دهد', draw().includes('پیدا نشد'));
+    Admin._userQ = '';
+
+    /* ── کنش‌ها روی سرور ── */
+    seen.length = 0;
+    Store.update(d => { d.adminToken = 'e'.repeat(64); d.adminTokenExp = U.now() + 3600000; });
+    Admin.userAct('block', { id: list[0].id, phone: list[0].phone });
+    ok('کنشِ مسدودکردن به سرور می‌رود', seen.length === 1 && seen[0].t === 'admin:user:block',
+       JSON.stringify(seen[0]));
+    ok('و نشانهٔ نشست همراه دارد', seen[0].token === 'e'.repeat(64));
+    ok('و کاربر با شناسه و شماره معرفی می‌شود',
+       seen[0].id === list[0].id && seen[0].phone === list[0].phone);
+
+    seen.length = 0;
+    Admin.userAct('delete', { id: list[1].id });
+    ok('حذف هم به سرور می‌رود', seen[0].t === 'admin:user:delete');
+
+    seen.length = 0;
+    Admin.userAct('sms', { id: list[0].id, phone: list[0].phone, text: 'سلام' });
+    ok('پیامک با متنش می‌رود', seen[0].t === 'admin:user:sms' && seen[0].text === 'سلام',
+       JSON.stringify(seen[0]));
+    seen.length = 0;
+    Admin.userAct('sms', { id: list[0].id, text: 'x'.repeat(500) });
+    ok('متنِ بلند پیش از رفتن بریده می‌شود', seen[0].text.length === 300,
+       String(seen[0].text.length));
+
+    /* ── پاسخ‌های سرور ── */
+    ok('«رسید» و «نمی‌دانم» و «نشد» یکی نیستند', (() => {
+      const said = [];
+      const t0 = UI.toast;
+      UI.toast = (m, k) => { said.push([m, k]); };
+      try{
+        Admin.smsResult({ state: 'sent' });
+        Admin.smsResult({ state: 'pending' });
+        Admin.smsResult({ state: 'failed', error: 'قطع' });
+      }finally{ UI.toast = t0; }
+      return said.length === 3 && said[0][1] === 'ok' && said[1][1] === '' && said[2][1] === 'err'
+             && said[1][0].includes('⏳');
+    })());
+
+    /* ── بی سرور: کنش محلی، و صداقت دربارهٔ آن ── */
+    offServer();
+    seen.length = 0;
+    Store.update(d => { d.user = null; d.phone = ''; });
+    User.entered = false;
+    User.ensure();
+    Admin.userAct('block', { id: User.get().id });
+    ok('بی سرور، کنش به بیرون نمی‌رود', seen.length === 0, JSON.stringify(seen));
+    ok('ولی قفلِ محلی می‌نشیند', Store.get('user').blocked === true);
+    Admin.userAct('unblock', { id: User.get().id });
+    ok('و بازکردنش هم محلی است', Store.get('user').blocked === false);
+
+    ok('بی سرور، پیامک وعده داده نمی‌شود', (() => {
+      let modal = 0, toast = '';
+      const m0 = UI.modal, t0 = UI.toast;
+      UI.modal = () => { modal++; };
+      UI.toast = m => { toast = String(m); };
+      try{ Admin.smsBox({ id: 'x', phone: '09121112233' }); }
+      finally{ UI.modal = m0; UI.toast = t0; }
+      return modal === 0 && /سرور/.test(toast);
+    })());
+
+    /* حذفِ محلی: هویت پاک می‌شود، نه داده‌های بازی */
+    const score = Store.get('score');
+    Admin.userAct('delete', { id: 'x' });
+    ok('حذفِ محلی هویت را پاک می‌کند', Store.get('user') === null && Store.get('phone') === '');
+    ok('ولی امتیاز و دستاوردِ دستگاه دست‌نخورده می‌ماند', Store.get('score') === score);
+
+    /* ── نشانه در پیام‌ها ── */
+    ok('🔒 هیچ کنشِ کاربری هش یا رمزی نمی‌فرستد', !seen.some(e => e.hash || e.pass),
+       JSON.stringify(seen));
+  }finally{
+    Object.assign(Net, { status: netKeep.s, mode: netKeep.m, post: netKeep.post });
+    Admin.users = keepUsers; Admin.usersAt = keepAt; Admin._userQ = keepQ;
+    Admin.currentTab = keepTab;
+    Store.update(d => { d.user = keepUser; d.adminToken = ''; d.adminTokenExp = 0; });
+  }
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
