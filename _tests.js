@@ -1912,7 +1912,12 @@ section('سرویس‌ورکر');
   try{ new (require('vm').Script)(src); }catch(e){ syntax = false; err = e.message; }
   ok('sw.js خطای نگارشی ندارد', syntax, err);
   ok('صفحهٔ آفلاین پیش‌ذخیره می‌شود', /const OFFLINE = '\.\/offline\.html'/.test(src) && src.includes('OFFLINE,'));
-  ok('نسخهٔ کش ۱۷ است', /noorestan-17/.test(src) && !/noorestan-16/.test(src));
+  /* نسخهٔ کش باید تک‌شماره و جاری باشد؛ هر چهار نام با هم جلو می‌روند،
+     وگرنه `activate` یکی را نگه می‌دارد و بقیه را پاک می‌کند. */
+  ok('نسخهٔ کش ۱۸ است و هر چهار نام با هم',
+     /noorestan-18/.test(src) && /noorestan-shell-18/.test(src) &&
+     /noorestan-media-18/.test(src) && /noorestan-text-18/.test(src) &&
+     !/noorestan-17/.test(src));
   ok('واپس‌رویِ ناوبری اول پوسته، بعد صفحهٔ آفلاین است', (() => {
     const i = src.indexOf('async function navFallback');
     const blk = src.slice(i, i + 400);
@@ -3500,7 +3505,7 @@ section('تصاویر — هیچ درخواستی به فایلی که نیست 
   const readme = fs.readFileSync(__dirname + '/assets/README.md', 'utf8');
   ok('README دیگر آیکنِ webp/jpg وعده نمی‌دهد',
      !/icons\/icon-(192|512)\.(webp|jpg)/.test(readme) && !/maskable-512\.jpg/.test(readme));
-  ok('README نسخهٔ کش را ۱۷ می‌گوید', /noorestan-17/.test(readme) && !/noorestan-15/.test(readme));
+  ok('README نسخهٔ کش را ۱۸ می‌گوید', /noorestan-18/.test(readme) && !/noorestan-17/.test(readme));
   ok('README واپس‌رویِ srcset را انکار می‌کند', /srcset\*\*? نیست|در `srcset` نیست/.test(readme) ||
      /واپس‌رویِ خودکار بین دو\s*\n?\s*پسوند \*\*در `srcset` نیست\*\*/.test(readme));
 
@@ -4341,8 +4346,14 @@ section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
     /* حالتِ «دستگاه هنوز رمز ندارد» را خودمان می‌گذاریم، وگرنه این آزمون به
        حالِ جاماندهٔ آزمون‌های پیشین گره می‌خورد و گاهی بی‌صدا رد می‌شود. */
     const keepAdmHash = Store.get('adminHash');
+    /* گامِ مدیر پیش از تصمیم از سرور می‌پرسد («سرور همین‌جاست؟») و تا
+       پاسخ نرسد صفحهٔ «بررسی سرور…» را نشان می‌دهد. در این آزمون سروری
+       نیست و آن پرسش هرگز راه نیفتاده، پس پاسخِ «نه» را صریح می‌نشانیم —
+       عیناً همان چیزی که یک مرورگرِ بی‌سرور می‌بیند. */
+    const keepHostAsked = Host.asked, keepHostYes = Host._yes, keepHostInfo = Host._info;
+    Host.asked = Promise.resolve(false); Host._yes = false; Host._info = null;
     Store.update(d => { d.adminHash = ''; });
-    const makeFirst = !Admin.onServer();
+    const makeFirst = !Admin.onServer() && !Host.yes();
     const admin = paint('admin');
     if(makeFirst){
       ok('🔒 گامِ مدیر اول هشدار می‌دهد، نه فرم', admin.includes('id="gtMake"'), admin.slice(0, 200));
@@ -4362,7 +4373,10 @@ section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
          /id="gtPass"[^>]*autocomplete="(current|new)-password"/.test(form));
       ok('🔒 و در حالتِ محلی صریح می‌گوید امنیتِ راستین نیست',
          Admin.onServer() || form.includes('قفلِ محلی'), form.slice(form.indexOf('gt-foot')));
-    }finally{ Gate.adminConfirm = keepConfirm; Store.update(d => { d.adminHash = keepAdmHash; }); }
+    }finally{
+      Gate.adminConfirm = keepConfirm; Store.update(d => { d.adminHash = keepAdmHash; });
+      Host.asked = keepHostAsked; Host._yes = keepHostYes; Host._info = keepHostInfo;
+    }
 
     /* ── یک در، دو جا ──
        دروازهٔ درونِ پنل و صفحهٔ ورود باید از یک جا رمز را بسنجند؛ دو نسخهٔ
@@ -4406,6 +4420,165 @@ section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
     });
   }finally{
     Store.set('gate', keep);
+  }
+}
+
+section('میزبانِ همین‌جا — تشخیصِ سرور، اتصال، و شناسه');
+{
+  /* ── چرا این سنجش‌ها هستند ──
+     کاربر برنامه را از `http://localhost:8787` باز می‌کرد — همان‌جایی که
+     `server.js` با `NOOR_ADMIN_PASS` در حالِ سرو کردن بود — ولی برنامه
+     باز هم فرمِ «ساختنِ رمزِ محلی» را نشان می‌داد و وضعیت «🟡 محلی» و
+     شناسهٔ گذرای `utrqd5g9` می‌داد. یعنی دو تا رمزِ ادمین. ریشه این بود که
+     `serverUrl` خالی بود و `Net.connect('')` بی‌صدا به حالتِ محلی می‌افتاد.
+     حالا پیش از تصمیم از `/api/health` می‌پرسیم و اگر سرور همان‌جا باشد،
+     خودمان وصل می‌شویم و رمز را از سرور می‌پرسیم، نه از دستگاه. */
+  const keepLoc = { protocol: global.location.protocol, host: global.location.host };
+
+  const withLoc = (protocol, host, fn) => {
+    global.location.protocol = protocol; global.location.host = host;
+    try{ return fn(); }finally{
+      global.location.protocol = keepLoc.protocol; global.location.host = keepLoc.host;
+    }
+  };
+
+  ok('از http، آدرسِ ws هم‌میزبان ساخته می‌شود',
+     withLoc('http:', 'localhost:8787', () => Host.wsUrl()) === 'ws://localhost:8787');
+  ok('و از https، wss',
+     withLoc('https:', 'noorestan.example', () => Host.wsUrl()) === 'wss://noorestan.example');
+  /* مسیر هم می‌آید؛ سرور پشتِ پروکسیِ زیرمسیر هم باید کار کند. */
+  ok('پورت و میزبان با هم می‌آیند',
+     withLoc('http:', '192.168.1.5:8787', () => Host.wsUrl()) === 'ws://192.168.1.5:8787');
+  /* بیرون از http/https (مثلاً فایلِ باز‌شده از دیسک) سروری نیست. */
+  ok('از file: سروری فرض نمی‌شود', withLoc('file:', '', () => Host.wsUrl()) === '');
+  ok('بی میزبان سروری فرض نمی‌شود', withLoc('http:', '', () => Host.wsUrl()) === '');
+
+  /* ── پیش از پرسیدن، هیچ تصمیمی گرفته نمی‌شود ──
+     `defaultUrl` پیش از رسیدنِ پاسخ باید خالی باشد: وصل‌شدن به آدرسِ
+     گمانی بدتر از وصل‌نشدن است. */
+  {
+    const kA = Host.asked, kY = Host._yes, kI = Host._info;
+    Host.asked = null; Host._yes = null; Host._info = null;
+    ok('پیش از پرسش، آدرسِ پیش‌فرض خالی است', Host.defaultUrl() === '');
+    ok('و «سرور هست؟» هنوز نامعلوم است', Host.yes() === false);
+    Host._yes = true;
+    ok('پس از پاسخِ بله، آدرس پرش می‌شود',
+       withLoc('http:', 'localhost:8787', () => Host.defaultUrl()) === 'ws://localhost:8787');
+    /* سرور باید *خودش* را تأیید کند، نه اینکه هر پاسخی «بله» شمرده شود.
+       پاسخِ وب‌سرورِ ثابت یا صفحهٔ خطا نباید ما را به حالتِ سرور ببرد. */
+    ok('تأییدِ سرور به شکلِ پاسخ گره خورده، نه به نبودِ خطا',
+       /j\.ok === true/.test(SRC) && /version/.test(SRC.slice(SRC.indexOf('const Host ='))));
+    Host.asked = kA; Host._yes = kY; Host._info = kI;
+  }
+
+  /* ── یک در: ادمین از سرور می‌پرسد اگر سروری هست ── */
+  {
+    const kA = Host.asked, kY = Host._yes;
+    const kMode = Net.mode, kStatus = Net.status;
+    try{
+      /* «سوکت باز است» تنها نشانهٔ سرور نیست؛ این سه حالت را جدا می‌سنجیم. */
+      Host.asked = Promise.resolve(true); Host._yes = true;
+      Net.mode = 'local'; Net.status = 'offline';
+      ok('سرورِ میزبان ⇒ ادمین از سرور می‌پرسد', Admin.remote() === true);
+      Host._yes = false;
+      ok('بی سرور ⇒ ادمین محلی می‌ماند', Admin.remote() === false);
+      Net.mode = 'ws'; Net.status = 'online'; Host._yes = false;
+      ok('اتصالِ برقرار ⇒ باز هم سرور', Admin.remote() === true);
+      /* سوکت هست ولی هنوز وصل نشده — نه سرور، نه محلیِ خاموش. */
+      Net.status = 'connecting';
+      ok('سوکتِ در راه هنوز «سرور» شمرده نمی‌شود', Admin.remote() === false);
+    }finally{ Net.mode = kMode; Net.status = kStatus; Host.asked = kA; Host._yes = kY; }
+  }
+
+  /* ── شناسهٔ نمایشی نباید گذرا باشد ──
+     `Net.id` هر بار اتصال عوض می‌شود و روی سرور معنایی ندارد؛ چیزی که
+     باید نشان داده و کپی شود شناسهٔ *حساب* است (`usr_…`). */
+  {
+    const kId = Net.id, kMode = Net.mode, kStatus = Net.status;
+    const kHostYes = Host._yes;
+    const kUser = User.get();
+    try{
+      Net.id = 'utrqd5g9'; Net.mode = 'ws';
+      Store.update(d => { d.user = Object.assign({}, kUser, { id: 'usr_' + 'a'.repeat(20) }); });
+      ok('روی سرور، شناسهٔ حساب نشان داده می‌شود',
+         netIdText() === 'usr_' + 'a'.repeat(20), netIdText());
+      ok('و شناسهٔ گذرا هم کنارش می‌آید، نه به‌جایش',
+         /usr_/.test(netIdLabel()) && /utrqd5g9/.test(netIdLabel()), netIdLabel());
+      ok('و برچسبش «محلی» نمی‌گوید',
+         /اتصال/.test(netIdLabel()) && !/محلی/.test(netIdLabel()), netIdLabel());
+
+      Net.mode = 'local';
+      ok('بی سرور، شناسهٔ محلی نشان داده می‌شود', netIdText() === 'utrqd5g9', netIdText());
+      ok('و برچسبش می‌گوید «محلی»', /محلی/.test(netIdLabel()), netIdLabel());
+
+      /* چیپِ وضعیت هم باید همان زبان را داشته باشد، وگرنه کاربر دو تا
+         روایتِ متناقض از یک وضعیت می‌بیند. */
+      Net.mode = 'ws'; Net.status = 'online';
+      ok('چیپِ وضعیت روی سرور «🟢 سرور» است، نه «🟡 محلی»',
+         netChipText() === '🟢 سرور' && /\bon\b/.test(netChipCls()),
+         netChipText() + ' | ' + netChipCls());
+      ok('و نسخهٔ کوتاهش هم «سرور» است', netChipShort() === 'سرور', netChipShort());
+      Net.mode = 'local';
+      ok('و در حالتِ محلی صریح «محلی» می‌گوید',
+         netChipText() === '🟡 محلی' && netChipShort() === 'محلی', netChipText());
+      /* سرور هست ولی سوکت بالا نیامده: «قطع» دروغ است. */
+      Host._yes = true; Net.status = 'offline';
+      ok('سرورِ حاضر ولی بی‌سوکت، «قطع» گفته نمی‌شود',
+         /سرور/.test(netChipText()) && !/^🔴 قطع$/.test(netChipText()), netChipText());
+    }finally{
+      Net.id = kId; Net.mode = kMode; Net.status = kStatus;
+      Host._yes = kHostYes; Store.update(d => { d.user = kUser; });
+    }
+  }
+
+  /* ── نگهبانِ «بررسی سرور…» ──
+     تا پاسخ نرسیده، نه فرمِ ساختنِ رمز می‌آید و نه فرمِ ورودِ رمز. */
+  {
+    const kA = Host.asked, kY = Host._yes, kI = Host._info;
+    Store.set('gate', true);
+    const keepStep = Gate.step;
+    const box = document.createElement('div');
+    const $0 = U.$;
+    U.$ = (s, p) => s === '#gateBox' ? box : $0(s, p);
+    try{
+      Host.asked = null; Host._yes = null; Host._info = null;
+      Gate.step = 'admin'; Gate.paint();
+      const html = box.innerHTML;
+      ok('تا پاسخِ سرور نرسیده، فرمِ رمز ساخته نمی‌شود',
+         !html.includes('id="gtPass"'), html.slice(0, 120));
+      ok('و فرمِ ساختنِ رمزِ محلی هم نمی‌آید',
+         !html.includes('id="gtMake"'), html.slice(0, 120));
+      ok('و صریح می‌گوید چه‌کار می‌کند', /بررسی سرور/.test(html));
+      ok('و راهِ بازگشت دارد', html.includes('id="gtBack"'));
+    }finally{
+      Gate.step = keepStep; U.$ = $0;
+      Host.asked = kA; Host._yes = kY; Host._info = kI;
+    }
+  }
+
+  /* ── دو باگی که کاربر از عکس دید ── */
+  {
+    /* دکمهٔ روم: ردیفِ فلکس نباید متنش را بشکند. */
+    ok('دکمهٔ روم کلاسِ خودش را دارد و متنش نمی‌شکند',
+       /class="btn ok room-create-btn" id="mkRoom"/.test(SRC) &&
+       /\.room-create-btn\{[^}]*white-space:nowrap/.test(SRC));
+    const userCss = SRC.match(/\.room-create-btn\{([^}]*)\}/);
+    for(const rule of ['font-size:16px', 'padding:14px 20px', 'gap:8px',
+                       'align-items:center', 'justify-content:center'])
+      ok(`دکمهٔ روم «${rule}» را دارد`, userCss && userCss[1].replace(/\s+/g, '').includes(rule.replace(/\s+/g, '')));
+    ok('و آیکنش ۲۰px است، نه اندازهٔ متن',
+       /\.room-create-btn \.ic\{[^}]*20px/.test(SRC) && /\.room-create-btn \.icon\{[^}]*20px/.test(SRC));
+    ok('و ردیفِ روم در جای تنگ می‌شکند، نه اینکه له کند',
+       /\.room-row\{[^}]*flex-wrap:wrap/.test(SRC));
+
+    /* جعبهٔ خالی کنارِ شناسه: دکمه نباید خرد شود. */
+    ok('دکمهٔ رونوشت پر است و متن دارد، نه فقط آیکن',
+       /id="copyPeer"[^>]*class="btn"|class="btn" id="copyPeer"/.test(SRC) &&
+       /class="btn" id="copyPeer"[^>]*>[\s\S]{0,80}?کپی/.test(SRC));
+    ok('و در ردیفِ شناسه، دکمه خرد نمی‌شود',
+       /\.peer-row \.btn\{[^}]*flex:none/.test(SRC));
+    ok('و ورودی کشسان است، نه دکمه‌فشردن',
+       /\.peer-row \.inp\{[^}]*flex:1/.test(SRC) && /\.peer-row \.inp\{[^}]*min-width:0/.test(SRC));
   }
 }
 

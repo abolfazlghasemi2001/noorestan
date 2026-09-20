@@ -289,6 +289,26 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .btn.w{width:100%}
 .btn.sm{padding:9px 13px;font-size:12px;border-radius:11px;min-height:44px}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+/* دکمهٔ «ساخت روم جدید».
+   پیش‌تر فقط `flex:1` داشت و در ردیفِ فلکس اجازهٔ خرد‌شدن می‌گرفت:
+   زیرِ ۳۶۰px متن می‌شکست و آیکن به لبه می‌چسبید. این کلاس همان چیزی
+   است که باید باشد — اندازهٔ ثابتِ متن، وسط‌چین، و آیکنِ ۲۰px. */
+.room-create-btn{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;font-size:16px;padding:14px 20px;
+  white-space:nowrap;min-width:0
+}
+.room-create-btn .icon{font-size:20px;line-height:1}
+.room-create-btn .ic{width:20px;height:20px}
+/* ردیفِ دکمه‌های روم: اگر جا کم بیاید می‌شکنند و زیرِ هم می‌روند،
+   به‌جای اینکه هم‌دیگر را له کنند. */
+.room-row{display:flex;flex-wrap:wrap;gap:10px}
+.room-row .btn{flex:1 1 auto;white-space:nowrap;min-width:148px}
+/* ردیفِ شناسه: ورودی کشسان است و دکمهٔ کنارش *هرگز* خرد نمی‌شود.
+   باگِ «باکس خالی» از همین‌جا بود: دکمه `flex-shrink:1` داشت و
+   ورودی با `width:100%` آن را تا عرضِ صفر می‌فشرد. */
+.peer-row .inp{flex:1;min-width:0}
+.peer-row .btn{flex:none}
 .inp{
   width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;outline:0;transition:.18s
@@ -1578,11 +1598,11 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
         <span class="chip" id="netState">—</span></div>
       <div class="sep"></div>
       <label class="lbl">شناسه شما</label>
-      <div class="row">
+      <div class="row peer-row">
         <input class="inp" id="myPeer" readonly>
-        <button class="btn gh" id="copyPeer" title="رونوشت پیوند" aria-label="رونوشت پیوند"><i data-ic="copy"></i></button>
+        <button class="btn" id="copyPeer" title="رونوشت شناسه" aria-label="رونوشت شناسه"><i data-ic="copy"></i>کپی</button>
       </div>
-      <label class="lbl">آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه</label>
+      <label class="lbl" id="netUrlLbl">آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه</label>
       <div class="row">
         <input class="inp" id="netUrl" placeholder="ws://192.168.1.5:8787" inputmode="url">
         <button class="btn" id="netConnect">اتصال</button>
@@ -1594,9 +1614,9 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     </div>
 
     <div class="sep"></div>
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn ok" id="mkRoom" style="flex:1">➕ ساخت روم جدید</button>
-      <button class="btn gh" id="joinRoom">🔑 ورود با کد</button>
+    <div class="row room-row" style="margin-bottom:14px">
+      <button class="btn ok room-create-btn" id="mkRoom"><i data-ic="plus"></i><span>ساخت روم جدید</span></button>
+      <button class="btn gh" id="joinRoom"><i data-ic="key"></i><span>ورود با کد</span></button>
     </div>
 
     <div class="cat">
@@ -2107,6 +2127,8 @@ const Icon = {
     close:  { d:'<path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"/>' },
     trash:  { d:'<path d="M5.4 7.4h13.2M9.6 7.4V5.6a1 1 0 0 1 1-1h2.8a1 1 0 0 1 1 1v1.8"/><path d="M7.4 7.4l.8 11a1.4 1.4 0 0 0 1.4 1.3h4.8a1.4 1.4 0 0 0 1.4-1.3l.8-11"/>' },
     copy:   { d:'<path d="M9.4 8.6h9.2a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H9.4a1 1 0 0 1-1-1V9.6a1 1 0 0 1 1-1z"/><path d="M15.6 6.4V5.2a1 1 0 0 0-1-1H5.4a1 1 0 0 0-1 1v9.2a1 1 0 0 0 1 1h1.2"/>' },
+    plus:   { d:'<path d="M12 5.4v13.2M5.4 12h13.2"/>' },
+    key:    { d:'<path d="M14.6 5.4a5 5 0 1 0 3.9 8.1l.1-.1h1.6v2h2v-2h1.2v-2.4h-5a5 5 0 0 0-3.8-5.6z"/><path d="M8.7 11.6h.01"/>' },
     send:   { d:'<path d="M4.6 11.6 19.4 5l-6.6 14.8-2-6.2z"/><path d="M10.8 13.6 19.4 5"/>' },
     cart:   { d:'<path d="M3.6 4.6h2.2l2.3 10.4h9.4l2.1-7.6H6.6"/><path d="M9.4 19.4h.01M16.4 19.4h.01"/>' },
     link:   { d:'<path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3"/><path d="M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3"/>' },
@@ -6706,6 +6728,66 @@ const TOPICS = DATA.TOPICS_DEF.map(t => ({ ...t, bank: () => DATA[t.bank] || [] 
    قالب پیام:  { ns:'noorestan', from, to, t, ... }
      to = '*'  |  '<peerId>'  |  'room:<code>'
    ─────────────────────────────────────────────────────────────── */
+/* ─────────────────── 7.9 میزبان — «آیا خودِ همین سرور ما را سرو کرده؟» ───
+   یک سؤالِ ساده که دو باگِ بزرگ از آن می‌آمد:
+
+   اگر صفحه را `node server.js` سرو کرده باشد، یعنی سرورِ نورستان همین‌جا
+   بالا است و سوکت هم روی *همان خاستگاه* باز می‌شود. ولی برنامه این را
+   نمی‌فهمید: `serverUrl` خالی بود، پس `Net.connect('')` به «حالت محلی»
+   می‌افتاد. نتیجه دو تا رمزِ ادمین (یکی روی سرور، یکی محلی) و شناسهٔ
+   محلی به‌جای شناسهٔ سروری.
+
+   چرا `/api/health` و نه حدس از روی نامِ میزبان: روی `localhost` یا
+   `192.168.*` می‌شود حدس زد، ولی روی دامنهٔ واقعی نه. پرسیدنِ یک نقطهٔ
+   پایانی، جوابِ درست را در هر سه حالت می‌دهد — و اگر سرور نبود، فقط
+   همان یک درخواست هدر می‌رود و حالت محلی سرِ جایش می‌ماند.
+
+   یک قولِ نگه‌داشته (`asked`) که هر کس منتظرِ جوابش بماند، چون تصمیمِ
+   «سروری یا محلی» نباید دو بار و دو جور گرفته شود. */
+const Host = {
+  asked: null,          // Promise<boolean> | null
+  _yes: null,           // boolean | null — پس از پاسخ
+  _info: null,
+
+  /* خاستگاهِ سوکت اگر صفحه از http(s) باز شده باشد. `file:` و
+     `blob:` هیچ میزبانی ندارند و باید به حالت محلی بروند. */
+  wsUrl(){
+    try{
+      if(typeof location === 'undefined') return '';
+      if(!/^https?:$/.test(location.protocol)) return '';
+      if(!location.host) return '';
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+    }catch(e){ return ''; }
+  },
+
+  /* یک بار می‌پرسد، همیشه همان جواب. */
+  ready(){
+    if(this.asked) return this.asked;
+    this.asked = (async () => {
+      const url = this.wsUrl();
+      if(!url) return false;
+      try{
+        const r = await SMS.req('/api/health', { method: 'GET', ms: 3500 });
+        const j = r && r.json;
+        /* امضای نورستان: `ok` به‌علاوهٔ چیزی که فقط این سرور می‌دهد.
+           یک `{ok:true}`ِ قالبی از هر میزبانی می‌آید و کافی نیست. */
+        const yes = !!(r && r.ok && j && j.ok === true &&
+                       (typeof j.version !== 'undefined' || typeof j.rooms === 'number'));
+        this._yes = yes; this._info = yes ? j : null;
+        return yes;
+      }catch(e){ this._yes = false; return false; }
+    })();
+    return this.asked;
+  },
+
+  /* پاسخِ همگام، برای جاهایی که نمی‌شود منتظر ماند. تا وقتی نپرسیده
+     `false` است — یعنی «نمی‌دانم»، که محافظه‌کارانه است. */
+  yes(){ return this._yes === true; },
+  info(){ return this._info; },
+  /* نشانیِ پیش‌فرضِ سوکت: اگر کاربر خودش آدرسی داده، همان مقدم است. */
+  defaultUrl(){ return this.yes() ? this.wsUrl() : ''; }
+};
+
 const Net = {
   mode: 'local', status: 'offline', id: U.uid(),
   url: '', ws: null, bc: null,
@@ -10565,18 +10647,68 @@ function renderHome(){
 function netStateChip(){
   const el = U.$('#netState');
   if(!el) return;
-  const map = {
-    online:  [Net.mode === 'ws' ? '🟢 سرور' : '🟡 محلی',  'chip on'],
-    connecting: ['⏳ در حال اتصال', 'chip'],
-    offline: ['🔴 قطع', 'chip off']
-  };
-  const [txt, cls] = map[Net.status] || map.offline;
-  el.textContent = txt; el.className = cls;
+  el.textContent = netChipText(); el.className = netChipCls();
 }
 
+/* ── متنِ وضعیت، یک جا ──
+   چهار جا وضعیت را نشان می‌دهند (نوار پایین، محفل، دو تبِ پنل). اگر هر
+   کدام خودش بسازد، دیر یا زود یکی «محلی» می‌گوید و آن یکی «قطع».
+
+   نکتهٔ مهم: اگر همین میزبان سرور است ولی سوکت بالا نیامده، «قطع» دروغ
+   است — سرور سرِ جایش هست. فرقِ «شبکه‌ات نیست» و «سرور خواب است» را
+   کاربر باید بداند. */
+function netChipText(){
+  if(Net.status === 'online')
+    return Net.mode === 'ws' ? '🟢 سرور' : '🟡 محلی';
+  if(Net.status === 'connecting')
+    return Host.yes() ? '⏳ وصل می‌شوم به سرور' : '⏳ در حال اتصال';
+  return Host.yes() ? '🔴 سرور پاسخ نداد' : '🔴 قطع';
+}
+function netChipCls(){
+  return Net.status === 'online' ? 'chip on'
+       : Net.status === 'connecting' ? 'chip' : 'chip off';
+}
+/* نسخهٔ کوتاه برای جاهایی که جا کم است (سرِ کارت‌های پنل) */
+function netChipShort(){
+  if(Net.status === 'online') return Net.mode === 'ws' ? 'سرور' : 'محلی';
+  return Net.status === 'connecting' ? 'اتصال…' : 'قطع';
+}
+
+/* ── کدام شناسه؟ ──
+   `Net.id` شناسهٔ *گذرای این اتصال* است (تب/سوکت) و با هر بار باز شدن
+   عوض می‌شود. `User.get().id` شناسهٔ *حساب* است (`usr_…`) و همان چیزی
+   است که روی سرور معنا دارد: با آن می‌شود بعداً سراغت را گرفت.
+   پس روی سرور حساب مقدم است. یک جا حساب می‌شود تا نمایش و رونوشت
+   هیچ‌وقت دو چیزِ متفاوت ندهند. */
+function netIdText(){
+  const u = (typeof User !== 'undefined' && User.get) ? User.get() : null;
+  const acct = u && u.id ? u.id : '';
+  return (Net.mode === 'ws' && acct) ? acct : Net.id;
+}
+function netIdLabel(){
+  const u = (typeof User !== 'undefined' && User.get) ? User.get() : null;
+  const acct = u && u.id ? u.id : '';
+  if(Net.mode === 'ws' && acct) return acct + ' — اتصال: ' + Net.id;
+  return Net.id + (Net.mode === 'ws' ? ' (سرور)' : ' (محلی)');
+}
 function renderOnline(){
-  U.$('#myPeer').value = Net.id + (Net.mode === 'ws' ? ' (سرور)' : ' (محلی)');
+  U.$('#myPeer').value = netIdLabel();
   netStateChip();
+  /* ── میزبانِ خودمان ──
+     وقتی همین صفحه را سرورِ نورستان سرو کرده، آدرس را از قبل پر کن و
+     برچسب را بگو، تا کاربر نفهمد «چیزی را باید دستی وارد کند». */
+  try{
+    const inp = U.$('#netUrl'), lbl = U.$('#netUrlLbl');
+    if(inp && !inp.value.trim() && Host.yes()){
+      inp.value = Host.wsUrl();
+      inp.placeholder = Host.wsUrl();
+    }
+    if(lbl){
+      lbl.textContent = Host.yes()
+        ? 'آدرس سرور — همین میزبان، خودش را سرور معرفی کرده'
+        : 'آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه';
+    }
+  }catch(e){}
   const peers = Net.peerList();
   const me = [{ name: Store.get('playerName'), me: true, score: Store.get('score'), level: Store.get('level') }];
   const all = [...me, ...peers];
@@ -11658,6 +11790,16 @@ const Admin = {
   /* سرور واقعی در دسترس است؟ */
   onServer(){ return Net.status === 'online' && Net.mode === 'ws'; },
 
+  /* ── رمز را از کجا بسنجیم؟ ──
+     «سوکت باز است» تنها نشانهٔ سرور نیست. اگر همین صفحه را سرورِ نورستان
+     سرو کرده باشد، سرور همان‌جاست حتی اگر سوکت هنوز بالا نیامده باشد.
+     بدون این، در گذرِ کوتاهِ پیش از اتصال، برنامه فرمِ «ساختن رمزِ مدیر»
+     را می‌کاشت و کاربر — بی‌آنکه بخواهد — یک رمزِ *دوم* و محلی می‌ساخت
+     که سرور هیچ‌وقت نمی‌شناسدش.
+
+     یک تصمیم، یک جا. `tryPass` و صفحهٔ ورود هر دو از همین می‌پرسند. */
+  remote(){ return this.onServer() || Host.yes(); },
+
   async loginServer(pass){
     const r = await SMS.req(this.API + '/login', { body: { pass } });
     if(r && r.status === 0) return { ok: false, why: 'سرور پاسخ نداد — اتصال را بررسی کن' };
@@ -11677,7 +11819,7 @@ const Admin = {
      این تابع فقط می‌سنجد و پرچم را می‌نشاند؛ پاک‌کردنِ ورودی و رندر به
      صداکننده می‌ماند چون هر کدام جعبهٔ خودش را دارد. */
   async tryPass(pass){
-    const remote = this.onServer();
+    const remote = this.remote();
     const first = !remote && !Store.get('adminHash');
     if(!pass) return { ok: false, why: 'رمز را بنویس', empty: true };
 
@@ -11867,8 +12009,7 @@ const Admin = {
           <div class="card">
             <div class="row"><b style="font-size:13px">📊 امروز</b>
               <div class="sp" style="flex:1"></div>
-              <span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${
-                Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
+              <span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
             <div class="sep"></div>
             <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
               <div class="stat"><b>${U.fa(Stats.todayN())}</b><span>🎮 دستِ امروز</span></div>
@@ -11927,7 +12068,7 @@ const Admin = {
         body.innerHTML = `
           <div class="card">
             <div class="row"><b style="font-size:13px">👥 کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
-              <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${Net.status === 'online' ? (Net.mode === 'ws' ? 'سرور' : 'محلی') : 'قطع'}</span></div>
+              <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
             <div class="sep"></div>
             <input class="inp" id="admUserQ" placeholder="${remote ? 'جست‌وجو با نام، شناسه یا شماره…' : 'جست‌وجو با نام یا شناسه…'}"
                    value="${U.esc(this._userQ || '')}" autocomplete="off">
@@ -13455,7 +13596,10 @@ const SMS = {
   async req(url, opt){
     opt = opt || {};
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const tid = ctrl ? Timers.after(() => { try{ ctrl.abort(); }catch(e){} }, this.TIMEOUT_MS, 'sys') : null;
+    /* `opt.ms` برای پرس‌وجوهای کوتاه است (مثلاً «سرور همین‌جاست؟» هنگامِ
+       بالا آمدن). ۳۰ ثانیه برای پیامک درست است، برای آن پرس‌وجو نه. */
+    const ms = Math.max(500, +opt.ms || this.TIMEOUT_MS);
+    const tid = ctrl ? Timers.after(() => { try{ ctrl.abort(); }catch(e){} }, ms, 'sys') : null;
     try{
       const res = await fetch(url, {
         method: opt.method || 'POST',
@@ -13470,7 +13614,7 @@ const SMS = {
       const abort = !!e && e.name === 'AbortError';
       this.log('req:err', { url, abort, name: (e && e.name) || '', msg: (e && e.message) || '' });
       return { ok: false, status: 0, json: null,
-               error: abort ? `پاسخی نیامد — وقت ${this.TIMEOUT_MS / 1000} ثانیه‌ای تمام شد`
+               error: abort ? `پاسخی نیامد — وقت ${Math.round(ms / 1000)} ثانیه‌ای تمام شد`
                             : 'اتصال برقرار نشد' };
     }finally{ if(tid) Timers.clear(tid); }
   },
@@ -13958,11 +14102,13 @@ const Gate = {
     }, 260, 'sys');
     if(why) UI.toast(why, 'ok', 2600);
   },
-  /* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور. */
+  /* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور.
+     گامِ «مدیر» هم این‌جاست: تا پاسخِ میزبان نرسد، شکلِ درستِ آن گام
+     معلوم نیست. */
   sync(){
     const el = this.el();
     if(!el || el.classList.contains('hide')) return;
-    if(this.step === 'intro' || this.step === 'phone') this.paint();
+    if(this.step === 'intro' || this.step === 'phone' || this.step === 'admin') this.paint();
   },
 
   /* ── ورود با پیامک ممکن است؟ ──
@@ -14043,7 +14189,14 @@ const Gate = {
           راهِ فرستادن: <b>${U.esc(m)}</b></p>`;
       U.$('#gtGo', box).onclick = () => { Sound.click(); this.step = 'phone'; this.paint(); };
       U.$('#gtGuest', box).onclick = () => this.guest();
-      U.$('#gtAdmin', box).onclick = () => { Sound.click(); this.step = 'admin'; this.paint(); };
+      U.$('#gtAdmin', box).onclick = () => {
+        Sound.click();
+        this.step = 'admin';
+        /* اگر پاسخِ میزبان نرسیده، همین‌جا منتظرش بمان و پس از رسیدن
+           دوباره رنگ کن — گامِ «مدیر» شکلِ درستش به آن پاسخ بند است. */
+        Host.ready().then(() => this.sync());
+        this.paint();
+      };
       return;
     }
 
@@ -14106,7 +14259,29 @@ const Gate = {
     }
 
     if(this.step === 'admin'){
-      const remote = Admin.onServer();
+      /* تا پاسخِ «سرور همین‌جاست؟» نرسیده، تصمیم نگیر. یک لحظه فرمِ
+         ساختنِ رمزِ محلی نشان‌دادن روی صفحه‌ای که سرور سرو کرده، همان
+         باگی است که کاربر دید: دو تا رمزِ ادمین.
+
+         سنجش روی `_yes` است نه `asked`: `asked` به‌محضِ *شروعِ* درخواست
+         پر می‌شود، پس اگر کاربر پیش از رسیدنِ پاسخ روی «ورود مدیر» بزند،
+         با `asked` از این نگهبان رد می‌شد و همان فرمِ خطرناک را می‌دید. */
+      if(Host._yes === null){
+        Host.ready().then(() => this.sync());
+        box.innerHTML = `
+          <div class="gt-mark" aria-hidden="true">📡</div>
+          <h2>بررسی سرور…</h2>
+          <p class="gt-sub">ببینیم رمزِ مدیر را از سرور بپرسیم یا روی همین دستگاه.</p>
+          <div class="gt-card">
+            <div class="gt-note" role="status" aria-live="polite"><span>⏳</span><span>یک لحظه…</span></div>
+            <button class="btn gh w" id="gtBack" style="margin-top:12px">‹ بازگشت</button>
+          </div>`;
+        const back = U.$('#gtBack', box);
+        if(back) back.onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
+        return;
+      }
+
+      const remote = Admin.remote();
       const first = !remote && !Store.get('adminHash');
 
       /* ── ساختنِ نخستین رمز، نه با یک ضربهٔ ناخواسته ──
@@ -14454,9 +14629,11 @@ function init(){
     Store.set('serverUrl', U.$('#netUrl').value.trim());
     UI.toast('💾 ذخیره شد', 'ok');
   };
+  /* همان چیزی کپی می‌شود که نشان داده شده — نه شناسهٔ دیگری. پیش‌تر
+     شناسهٔ گذرای اتصال کپی می‌شد که روی سرور معنایی ندارد. */
   U.$('#copyPeer').onclick = async () => {
-    const ok = await copyText(Net.id);
-    UI.toast(ok ? '📋 کپی شد' : 'کپی نشد', ok ? 'ok' : 'err');
+    const ok = await copyText(netIdText());
+    UI.toast(ok ? '📋 شناسه کپی شد' : 'کپی نشد', ok ? 'ok' : 'err');
   };
 
   U.$('#mkRoom').onclick = () => {
@@ -14584,13 +14761,9 @@ function init(){
   };
 
   /* ── رویدادهای شبکه ── */
-  Net.on('state', ({ status }) => {
+  Net.on('state', () => {
     const chip = U.$('#cNet');
-    if(chip){
-      if(status === 'online'){ chip.className = 'chip on'; chip.textContent = Net.mode === 'ws' ? '🟢 سرور' : '🟡 محلی'; }
-      else if(status === 'connecting'){ chip.className = 'chip'; chip.textContent = '⏳ در حال اتصال'; }
-      else { chip.className = 'chip off'; chip.textContent = '🔴 آفلاین'; }
-    }
+    if(chip){ chip.className = netChipCls(); chip.textContent = netChipText(); }
     netStateChip();
   });
   Net.on('peers', () => { if(Router.stack[Router.stack.length-1] === 'online') renderOnline(); });
@@ -14602,9 +14775,18 @@ function init(){
     if(Store.get('hearts') < Store.HEART_MAX) Store.regenHearts(), updateHearts();
   });
 
-  // چند ثانیه بعد از بارگذاری، اتصال خودکار
-  Timers.after(() => {
-    if(Net.status === 'offline') Net.connect(savedUrl || '');
+  /* ── اتصالِ خودکار ──
+     ترتیبِ اولویت:
+       ۱) نشانیِ خودِ کاربر — تصمیمِ او مقدم است.
+       ۲) اگر همین میزبان سرورِ نورستان است، همان خاستگاه. این همان چیزی
+          است که «از localhost:8787 باز شد ولی محلی ماند» را می‌بندد.
+       ۳) وگرنه حالت محلی. */
+  Timers.after(async () => {
+    if(Net.status !== 'offline') return;
+    if(savedUrl){ Net.connect(savedUrl); return; }
+    await Host.ready();
+    if(Net.status !== 'offline') return;      // کاربر در این فاصله دستی وصل شد
+    Net.connect(Host.defaultUrl());
   }, 600, 'sys');
 
   // اعلان خوش‌آمد

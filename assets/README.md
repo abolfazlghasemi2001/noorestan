@@ -128,7 +128,7 @@ Assets.imageOrSvg('illustrations/mushaf.webp', Art.mushaf(), { alt: 'قرآن گ
 
 ## ۵. کش و آفلاین
 
-`sw.js` (نسخهٔ کش: `noorestan-17`) این پوشه را این‌گونه مدیریت می‌کند:
+`sw.js` (نسخهٔ کش: `noorestan-18`) این پوشه را این‌گونه مدیریت می‌کند:
 
 | گروه | راهبرد |
 |---|---|
