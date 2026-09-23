@@ -3302,6 +3302,60 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
   }
 }
 
+section('پوسته — توکن‌های حرکت و کی‌فریم‌های تازه');
+{
+  /* ── چرا این سنجش‌ها ──
+     پوستهٔ تازه از یک فایلِ مرجع آمد که ۱۸ کی‌فریم و دو منحنیِ حرکت
+     داشت. سه نامِ آن (float / shine / pop) در همین پرونده از قبل وجود
+     داشتند؛ نشستنِ نامِ تازه روی نامِ کهنه بی‌هیچ خطایی انیمیشنِ جای
+     دیگری را عوض می‌کند. این‌جا همان دام را می‌سنجیم. */
+  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+
+  ok('منحنیِ نرمِ مرجع تعریف شده',
+     /--ease:\s*cubic-bezier\(\.22,\s*1,\s*\.36,\s*1\)/.test(css));
+  ok('منحنیِ کشسانِ مرجع تعریف شده',
+     /--bounce:\s*cubic-bezier\(\.34,\s*1\.56,\s*\.64,\s*1\)/.test(css));
+
+  /* ۱۸ کی‌فریمی که فایلِ مرجع دارد — با پیشوندِ sk- */
+  const WANT = ['sk-entrance', 'sk-float', 'sk-drift', 'sk-rotate', 'sk-keyPulse',
+    'sk-key-unlock', 'sk-key-reject', 'sk-shackle-open', 'sk-shackle-jam',
+    'sk-lock-clunk', 'sk-body-shake', 'sk-flash-ring', 'sk-spark-burst',
+    'sk-shine', 'sk-pop', 'sk-blink', 'sk-twinkle', 'sk-wave'];
+  const defined = new Set([...css.matchAll(/@keyframes\s+([\w-]+)/g)].map(m => m[1]));
+  for(const k of WANT) ok(`کی‌فریمِ «${k}» هست`, defined.has(k));
+  ok('هر ۱۸ کی‌فریمِ مرجع پیاده شده', WANT.length === 18 && WANT.every(k => defined.has(k)));
+
+  /* ── دامِ نامِ تکراری ──
+     اگر `sk-` برداشته شود، این سه با تعریف‌های موجود تلاقی می‌کنند.
+     سنجش می‌کند که (الف) نامِ خالی تکرار نشده، و (ب) آن سه نامِ قدیمی
+     سرِ جای خودشان مانده‌اند و پاک نشده‌اند. */
+  const counts = {};
+  for(const m of css.matchAll(/@keyframes\s+([\w-]+)/g)) counts[m[1]] = (counts[m[1]] || 0) + 1;
+  const dup = Object.entries(counts).filter(([, n]) => n > 1).map(([k]) => k);
+  ok('هیچ نامِ کی‌فریمی که خودم اضافه کردم تکرار نشده',
+     dup.every(k => k.startsWith('sk-') === false), 'تکراری: ' + dup.join(', '));
+  for(const n of ['float', 'shine', 'pop'])
+    ok(`کی‌فریمِ کهنهٔ «${n}» پاک نشده (پس با sk- تلاقی نمی‌کند)`, defined.has(n));
+
+  /* هیچ قاعده‌ای نباید به کی‌فریمِ بی‌وجود اشاره کند — خطای خاموشِ CSS */
+  const used = new Set([...css.matchAll(/animation(?:-name)?:\s*([^;{}]+)/g)]
+    .flatMap(m => m[1].split(','))
+    .map(s => s.trim().split(/\s+/)[0])
+    .filter(s => /^[a-zA-Z][\w-]*$/.test(s)));
+  const missing = [...used].filter(n => !defined.has(n) && n !== 'none' && n !== 'inherit');
+  ok('هر animation به کی‌فریمِ موجود اشاره می‌کند', missing.length === 0, missing.join(', '));
+
+  /* ── prefers-reduced-motion ──
+     قاعدهٔ سراسریِ برنامه باید کی‌فریم‌های تازه را هم بگیرد، وگرنه
+     `sk-drift`/`sk-shine` بی‌توقف می‌چرخند و برای کاربری که حرکت
+     نمی‌خواهد آزارنده‌اند. */
+  const rm = css.slice(css.indexOf('prefers-reduced-motion:reduce'));
+  ok('قاعدهٔ کاهشِ حرکت سراسری است و تازه‌ها را هم می‌گیرد',
+     /\*,?\s*\*::before\s*,\s*\*::after\s*\{[^}]*animation-duration/.test(rm.replace(/\s+/g, ' ')) ||
+     /\*,\*::before,\*::after/.test(rm.replace(/\s+/g, '')));
+}
+
 section('حلقهٔ فوکوس و حاشیهٔ ایمنِ گوشی');
 {
   /* دو چیز که فقط روی دستگاهِ واقعی خودشان را نشان می‌دهند:

@@ -94,6 +94,32 @@
   --f-quran: Amiri, "Scheherazade New", "Times New Roman", serif;  /* متن قرآن */
   --f-quran-w: 400; --f-quran-lh: 2.05;
   --read-size: 25px;
+
+  /* ═══════════════ 1.۵ سیستمِ حرکت ═══════════════
+     برگرفته از مرجعِ طراحیِ صفحهٔ ورود. پیش از این، هر قاعدهٔ CSS
+     منحنیِ خودش را درجا نوشته بود (`cubic-bezier(.22,.9,.3,1)` در
+     `.a-in`، `cubic-bezier(.36,.07,.19,.97)` در `.a-shake`، …) و نتیجه
+     این بود که دو انیمیشنِ هم‌خانواده با دو «احساس» تمام می‌شدند.
+     حالا دو منحنیِ نام‌دار داریم و چیزِ تازه فقط از این دو استفاده
+     می‌کند. قواعدِ قدیمی عمداً دست نخورده‌اند: عوض‌کردنشان هر ۱۷۹۹
+     آزمون را سبز نگه می‌دارد ولی ظاهرِ جاهای سنجیده‌شده را بی‌دلیل
+     جابه‌جا می‌کند، و آن کارِ این فاز نیست. */
+  --ease:cubic-bezier(.22,1,.36,1);      /* ورودِ نرم، توقفِ بی‌لرزش */
+  --bounce:cubic-bezier(.34,1.56,.64,1); /* برگشتِ کشسان، برای لمس */
+
+  /* ── شیشه و لبه ──
+     `--card` رنگِ *پُر* است؛ کارتِ شیشه‌ای به رنگِ نیمه‌شفافِ جدا نیاز
+     دارد، وگرنه `backdrop-filter` روی رنگِ پُر هیچ اثری ندارد و فقط
+     هزینهٔ رندر می‌دهد. `--glass-edge` لبهٔ روشنِ بالای کارت است که
+     ضخامتِ شیشه را می‌سازد. */
+  --glass:rgba(19,28,49,.72);
+  --glass-edge:rgba(255,255,255,.08);
+  --hairline:rgba(255,255,255,.06);
+  --shadow:rgba(0,0,0,.55);
+  /* برقِ روی دکمه (sheen). در تم روشن سفیدِ خالص دیده نمی‌شود. */
+  --sheen:rgba(255,255,255,.22);
+  /* گوی‌های محیطیِ پس‌زمینه — طلایی و سبز، هم‌خانوادهٔ --gold/--grn */
+  --orb1:#5a4a1e; --orb2:#1e4a3c;
 }
 /* ── تم‌ها: قبلاً فقط در تنظیمات بودند و هیچ اثری نداشتند ── */
 [data-theme="ocean"]{
@@ -849,6 +875,52 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 @keyframes curtainOut{ to{transform:translateY(-101%); opacity:.4} }
 @keyframes riseIn   { from{opacity:0; transform:translateY(8px) scale(.98)} to{opacity:1; transform:none} }
 
+/* ═══════════════ انیمیشن‌های مرجعِ طراحی ═══════════════
+   هر ۱۸ کی‌فریمِ فایلِ مرجع، با پیشوندِ `sk-`.
+
+   چرا پیشوند؟ سه نام از این‌ها در همین پرونده *از قبل* وجود داشت و
+   بازنویسی‌شان یک باگِ خاموش می‌ساخت — انیمیشنِ جای دیگری بی‌هیچ
+   خطایی عوض می‌شد:
+     float  → خطِ ۵۹۰  (شناوریِ نشان‌ها)  ← از `sk-float` استفاده کنید
+     shine  → خطِ ۶۰۰ و ۸۴۰ (دو بار تعریف شده!)
+     pop    → خطِ ۱۵۵  (ورودِ گزینه‌ها)   ← از `sk-pop` استفاده کنید
+   پس نامِ تازه هرگز روی نامِ موجود نمی‌نشیند.
+
+   توجه: مرجع ۱۷ گفته شده بود، ولی فایلِ مرجع ۱۸ تا دارد
+   (`entrance` هم شمرده شد). همه پیاده شدند. */
+@keyframes sk-entrance { from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:translateY(0)} }
+@keyframes sk-float    { 0%,100%{transform:translateY(0) rotate(-1.5deg)} 50%{transform:translateY(-7px) rotate(1.5deg)} }
+@keyframes sk-drift    { to{transform:translate(55px,60px) scale(1.18)} }
+@keyframes sk-rotate   { to{transform:rotate(360deg)} }
+@keyframes sk-keyPulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+@keyframes sk-key-unlock {
+  0%  {opacity:0; transform:rotate(-45deg) translate(0,20px)}
+  25% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  50% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  75% {opacity:1; transform:rotate(0deg)   translate(0,0)}
+  100%{opacity:1; transform:rotate(90deg)  translate(0,0)} }
+@keyframes sk-key-reject {
+  0%  {opacity:0; transform:rotate(-45deg) translate(0,20px)}
+  20% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  45% {transform:rotate(-45deg) translate(0,0)}
+  55% {transform:rotate(-30deg) translate(-4px,0)}
+  70% {transform:rotate(-45deg) translate(0,0)}
+  100%{opacity:0; transform:rotate(-45deg) translate(0,20px)} }
+@keyframes sk-shackle-open { 0%{transform:translateY(0) rotate(0)} 60%{transform:translateY(-12px) rotate(30deg)} 100%{transform:translateY(-9px) rotate(32deg)} }
+@keyframes sk-shackle-jam  { 0%,100%{transform:translateY(0)} 25%{transform:translateY(-4px) rotate(-3deg)} 75%{transform:translateY(2px) rotate(3deg)} }
+@keyframes sk-lock-clunk   { 0%,100%{transform:translateX(0)} 30%{transform:translateX(-3px)} 60%{transform:translateX(3px)} }
+@keyframes sk-body-shake   { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)}
+                             60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+@keyframes sk-flash-ring   { 0%{opacity:0; transform:scale(.7)} 50%{opacity:1; transform:scale(1.05)} 100%{opacity:0; transform:scale(1.4)} }
+@keyframes sk-spark-burst  { 0%{opacity:0; transform:translate(0,0) scale(0)}
+                             20%{opacity:1; transform:translate(calc(var(--tx) * .5),calc(var(--ty) * .5)) scale(1.4)}
+                             100%{opacity:0; transform:translate(var(--tx),var(--ty)) scale(.4)} }
+@keyframes sk-shine  { 0%,55%{transform:translateX(140%) skewX(-22deg)} 100%{transform:translateX(-180%) skewX(-22deg)} }
+@keyframes sk-pop    { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+@keyframes sk-blink  { 0%,100%{opacity:1} 50%{opacity:.45} }
+@keyframes sk-twinkle{ 0%,100%{opacity:.35; transform:scale(.85)} 50%{opacity:1; transform:scale(1.15)} }
+@keyframes sk-wave   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+
 .a-in     { animation:fadeUp .42s cubic-bezier(.22,.9,.3,1) both }
 .a-fade   { animation:fadeIn .5s both }
 .a-scale  { animation:scaleIn .34s cubic-bezier(.22,.9,.3,1) both }
@@ -1075,6 +1147,17 @@ html[data-theme="light"]{
   /* سطحِ شناور در تم روشن هم روشن است؛ وگرنه متنِ --txt (که این‌جا تیره
      است) روی زمینهٔ تیرهٔ ثابت می‌نشست و ناخوانا می‌شد. */
   --float1:rgba(255,253,248,.97); --float2:rgba(246,240,228,.97);
+  /* ── شیشه در تم روشن ──
+     اگر این‌ها از `:root` ارث می‌رسیدند، کارتِ شیشه‌ای در تم روشن با
+     رنگِ تیرهٔ تمِ تاریک پر می‌شد و متنِ --txt (که این‌جا تیره است) روی
+     آن گم می‌شد — همان اشتباهی که یک بار با --float1/--float2 رخ داد و
+     در کامنتِ بالای همان توکن‌ها نوشته شده. */
+  --glass:rgba(255,255,255,.78);
+  --glass-edge:rgba(255,255,255,.96);
+  --hairline:rgba(35,28,16,.07);
+  --shadow:rgba(44,73,129,.24);
+  --sheen:rgba(255,255,255,.5);
+  --orb1:#f0e2c2; --orb2:#dcefe4;
   color-scheme:light;
 }
 html[data-theme="light"] body{
