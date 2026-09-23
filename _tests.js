@@ -4351,15 +4351,20 @@ section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
 
     const intro = paint('intro');
     ok('صفحهٔ ورود نامِ برنامه را دارد', intro.includes('نورستان'));
+    /* فاز ۴ پوسته: ایموجیِ دکمه‌ها جای خود را به آیکنِ SVG داد، پس
+       سنجش هم به «شناسه + برچسب» بند است، نه به شکلک. */
     ok('و هر سه راه را پیش می‌گذارد',
-       intro.includes('📱 ورود با موبایل') && intro.includes('👤 ادامه به‌عنوان مهمان') &&
-       intro.includes('👑 ورود مدیر'));
+       /id="gtGo"[^>]*>[\s\S]{0,300}?ورود با موبایل/.test(intro) &&
+       /id="gtGuest"[^>]*>[\s\S]{0,300}?ادامه به‌عنوان مهمان/.test(intro) &&
+       /id="gtAdmin"[^>]*>[\s\S]{0,300}?ورود مدیر/.test(intro));
+    ok('و هر سه راه آیکنِ SVG دارد، نه شکلک',
+       !/[\u{1F000}-\u{1FAFF}]/u.test(intro), intro.match(/[\u{1F000}-\u{1FAFF}]/gu));
     ok('🔒 و می‌گوید بی ورود چه از دست می‌رود، نه اینکه تهدید کند',
        /امتیازت روی سرور\s*ثبت نمی‌شود/.test(intro));
 
     const phone = paint('phone');
     ok('گامِ شماره، ورودیِ شماره دارد', phone.includes('id="gtPhone"'));
-    ok('و دکمهٔ «دریافت کد»', phone.includes('📨 دریافت کد'));
+    ok('و دکمهٔ «دریافت کد»', /id="gtSend"[^>]*>[\s\S]{0,300}?دریافت کد/.test(phone));
     ok('🔒 بی سرور، «دریافت کد» غیرفعال است',
        /id="gtSend"[^>]*disabled/.test(phone), phone.slice(phone.indexOf('gtSend'), phone.indexOf('gtSend') + 90));
     ok('🔒 و صریح می‌گوید چرا',
@@ -5109,6 +5114,131 @@ section('مرجعِ قرآنی — هر آیهٔ پرسیده‌شده سند د
      DATA.surah.filter(x => !REF.ayat[`${x.n}:${x.a}`]).map(x => `${x.n}:${x.a}`).join(' '));
   ok('مرجع آیه‌ای اضافه ندارد',
      Object.keys(REF.ayat).length >= DATA.surah.length);
+}
+
+section('پوسته — صفحهٔ ورودِ بازطراحی‌شده (فاز ۲)');
+{
+  /* ── نشان ── */
+  ok('نشانِ قفل سه گرادیانِ حالت دارد (عادی/موفق/قفل)',
+     /id="gtBody"/.test(SRC) && /id="gtBodyOk"/.test(SRC) && /id="gtBodyNo"/.test(SRC));
+  ok('و قفل SVG است، نه شکلک', /class="gt-lock" viewBox="0 0 80 80"/.test(SRC));
+  ok('و کمان و بدنه و سوراخ و کلید جدا نام‌گذاری شده‌اند',
+     /class="g-shackle"/.test(SRC) && /class="g-body"/.test(SRC) &&
+     /class="g-hole"/.test(SRC) && /class="g-key"/.test(SRC));
+  ok('نشان در گام‌های دیگر هم می‌آید، با آیکنِ همان گام',
+     /this\.emblem\('phone'\)/.test(SRC) && /this\.emblem\('crown'\)/.test(SRC) &&
+     /this\.emblem\('sat'\)/.test(SRC));
+  ok('و قابِ قدیمیِ شکلکی (`gt-mark`) از رنگ‌آمیزی رفته',
+     !/class="gt-mark"/.test(SRC), (SRC.match(/class="gt-mark"/g) || []).length + ' مورد');
+
+  /* ── حالت‌ها ── */
+  ok('هر پنج حالتِ مرجع تعریف شده‌اند',
+     [...Gate.STATE].sort().join(',') === 'is-checking,is-failing,is-locked,is-success,is-typing',
+     Gate.STATE.join(','));
+  ok('و رنگ‌آمیزی از حالتِ پاک شروع می‌شود',
+     /this\.setState\(''\);\s*\n\s*const can = this\.canLogin/.test(SRC));
+  ok('و CSS هر پنج حالت را می‌شناسد',
+     Gate.STATE.every(k => SRC.includes('#gate.' + k + ' ')));
+
+  /* ── جعبه‌های کد ── */
+  ok(`جعبه‌ها به‌شمارِ کد است، نه عددِ ثابتِ مرجع`,
+     /this\.pinsHTML\(OTP\.LEN\)/.test(SRC) && OTP.LEN === 5);
+  ok('و ستون‌های CSS هم پنج‌تاست',
+     /#gate \.gt-pin-group\{ display:grid; grid-template-columns:repeat\(5,/.test(SRC));
+  ok('نقطه‌های پیشرفت هم به شمارِ کدند', /this\.barsHTML\(OTP\.LEN\)/.test(SRC));
+  ok('و ستونِ پنجمِ موج هم تأخیرِ خودش را دارد',
+     /#gate\.is-checking \.gt-progress span:nth-child\(5\)\{ animation-delay:\.4s \}/.test(SRC));
+
+  /* ── #gtCode یک inputِ راستین مانده ──
+     هم WebOTP و هم آزمون‌ها به این بندند؛ اگر شیشه‌ای شود، هر دو
+     بی‌صدا می‌شکنند. */
+  const paintGate = at => {
+    const node = () => ({
+      innerHTML:'', textContent:'', value:'', disabled:false, style:{}, dataset:{},
+      classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+      focus(){}, blur(){}, click(){}, setAttribute(){}, getAttribute(){ return null; },
+      appendChild(){}, remove(){}, children:[], firstChild:null, closest(){ return null; },
+      querySelector(){ return node(); }, querySelectorAll(){ return []; }
+    });
+    const box = node(), gateEl = node(), $0 = U.$;
+    U.$ = (s, p) => s === '#gate' ? gateEl : s === '#gateBox' ? box : $0(s, p);
+    const keepStep = Gate.step, keepPhone = Gate.phone, keepLock = Gate.lockShown;
+    try{ Gate.step = at; Gate.phone = '09121110001'; Gate.lockShown = false; Gate.paint(); }
+    finally { Gate.step = keepStep; Gate.phone = keepPhone; Gate.lockShown = keepLock; U.$ = $0; }
+    return box.innerHTML;
+  };
+  const code2 = paintGate('code');
+  Gate.stop();
+  ok('گامِ کد هنوز یک inputِ راستین دارد', /<input[^>]*id="gtCode"/.test(code2));
+  ok('و همان ویژگی‌های WebOTP را نگه داشته',
+     /id="gtCode"[^>]*inputmode="numeric"/.test(code2) &&
+     /id="gtCode"[^>]*maxlength="5"/.test(code2) &&
+     /id="gtCode"[^>]*autocomplete="one-time-code"/.test(code2));
+  ok('و نشانه‌گذاریِ دسترس‌پذیری دارد', /id="gtCode"[^>]*aria-label=/.test(code2));
+  ok('و کنارِ جعبه‌های دیداری نشسته، نه جایشان',
+     code2.includes('class="gt-pin-group"') && code2.includes('class="gt-code-in"'));
+  ok('و گامِ کد هم شکلک ندارد',
+     !/[\u{1F000}-\u{1FAFF}]/u.test(code2), code2.match(/[\u{1F000}-\u{1FAFF}]/gu));
+
+  /* ── WebOTP ── */
+  ok('WebOTP هست و به inputِ راستین می‌ریزد',
+     /navigator\.credentials\.get\(\{ otp:\{ transport:\['sms'\] \}/.test(SRC));
+  ok('و در گامِ کد صدا زده می‌شود', /this\.run\(\);\s*\n\s*\/\* کد را خودِ اندروید/.test(SRC));
+  ok('🔒 و اگر مرورگر نشناسد بی‌صدا رد می‌شود، نه خطا',
+     /if\(!navigator\.credentials \|\| !window\.OTPCredential\) return;/.test(SRC));
+  ok('🔒 و با رفتن از صفحه لغو می‌شود',
+     /webotpStop\(\)\{/.test(SRC) && /this\.webotpStop\(\);\s*\n\s*this\.lockShown/.test(SRC));
+
+  /* ── قفلِ موقت ── */
+  ok('سقفِ تلاش و مدتِ قفل تعریف شده‌اند', Gate.MAX_TRY === 5 && Gate.LOCK_SEC === 60);
+  ok('🔒 و در حافظه می‌ماند، نه فقط تا نوسازیِ صفحه',
+     /lockSet\(fails, until\)\{ Store\.set\('gateLock'/.test(SRC));
+  ok('و مقدارِ خرابِ حافظه را بی‌خطر می‌کند',
+     (() => { const keep = Store.get('gateLock');
+       try{ Store.set('gateLock', 'چیزِبی‌ربط');
+         const l = Gate.lockGet();
+         return l.fails === 0 && l.until === 0; }
+       finally{ Store.set('gateLock', keep); } })());
+  /* ── تلهٔ `|0` روی مُهرِ زمانی ──
+     میلی‌ثانیهٔ امروز ≈۱.۷۶e۱۲ است و از ۳۲ بیت می‌گذرد؛ اگر کسی دوباره
+     `until|0` بنویسد، قفل بی‌صدا هرگز بسته نمی‌شود. پس صریح سنجیده می‌شود. */
+  ok('🔒 مُهرِ زمانیِ قفل از ۳۲ بیت سالم می‌گذرد',
+     (() => { const keep = Store.get('gateLock');
+       try{ const t = Date.now() + 60000;
+         Gate.lockSet(0, t);
+         return Gate.lockGet().until === t && Gate.lockLeft() > 55; }
+       finally{ Store.set('gateLock', keep); } })(),
+     String(Gate.lockGet().until));
+  /* ── بازگشت به فرم پس از پایانِ شمارش ──
+     این همان جایی است که یک‌بار حلقهٔ tick→paint→run→tick ساخت و
+     پشته سرریز کرد؛ پس صریح سنجیده می‌شود. */
+  ok('🔒 پایانِ شمارش قفل را پاک می‌کند و به فرم برمی‌گردد',
+     /if\(w <= 0\)\{ this\.lockClear\(\); this\.lockShown = false; Haptic\.hit\(\); this\.paint\(\); \}/.test(SRC));
+  ok('🔒 و تصمیمِ حلقه به گرهِ DOM بند نیست',
+     /if\(this\.lockShown\)\{/.test(SRC) && /lockShown: false,/.test(SRC));
+  /* ── قفل که باز است، فرمِ کد کشیده نمی‌شود ── */
+  const keepLockVal = Store.get('gateLock');
+  try{
+    Store.set('gateLock', { fails:0, until: Date.now() + 60000 });
+    const locked = paintGate('code');
+    Gate.stop();
+    ok('🔒 در حالتِ قفل، جعبه‌های کد کشیده نمی‌شوند',
+       !locked.includes('id="gtCode"') && locked.includes('id="gtNum"'), locked.slice(0, 120));
+    ok('و راهِ مهمان باز می‌ماند تا کاربر گیر نکند', locked.includes('id="gtGuest"'));
+    ok('و جعبهٔ پیشرفت هم نیست', !locked.includes('gt-pin-group'));
+  } finally {
+    Store.set('gateLock', keepLockVal);
+    Gate.lockShown = false;
+  }
+
+  /* ── شیشه و درخشش ── */
+  ok('کارتِ ورود شیشه‌ای است', /#gate \.gt-card\{[\s\S]{0,260}?backdrop-filter:blur\(20px\)/.test(SRC));
+  ok('و پیشوندِ وبیوِ قدیمی هم دارد', /-webkit-backdrop-filter:blur\(20px\)/.test(SRC));
+  ok('و خطِ طلاییِ بالای کارت را دارد',
+     /#gate \.gt-card::before\{[\s\S]{0,220}?linear-gradient\(90deg,transparent,var\(--gold\),transparent\)/.test(SRC));
+  ok('و دکمهٔ اصلی درخششِ گذری دارد', /#gate \.btn\.w::after\{[\s\S]{0,220}?sk-shine/.test(SRC));
+  ok('و کم‌حرکتی برای این‌ها هم رعایت شده',
+     /@media\(prefers-reduced-motion:reduce\)\{[\s\S]{0,300}?#gate \.btn\.w::after/.test(SRC));
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');

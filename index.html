@@ -1532,8 +1532,10 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
           calc(20px + env(safe-area-inset-bottom,0px));
   background:var(--bg); color:var(--txt); text-align:center;
 }
+/* هالهٔ محیطی (فاز ۲) بالای این لایه می‌نشیند، پس کم‌رنگش کردیم تا
+   هر دو با هم خوانا بمانند و صفحه گل‌آلود نشود. */
 #gate::before{
-  content:''; position:fixed; inset:0; pointer-events:none; opacity:.5;
+  content:''; position:fixed; inset:0; pointer-events:none; opacity:.3;
   background:radial-gradient(120% 70% at 50% 0%, var(--float1), transparent 62%),
              radial-gradient(90% 60% at 50% 100%, var(--float2), transparent 60%);
 }
@@ -1569,6 +1571,207 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 /* دکمهٔ غیرفعال باید *دیده* شود که غیرفعال است، نه فقط کار نکند. */
 #gate .btn:disabled{ opacity:.45; cursor:not-allowed }
 @media(prefers-reduced-motion:reduce){ #gate.leaving{ animation:none; opacity:0 } }
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۲ — صفحهٔ ورودِ بازطراحی‌شده
+   ساختار از فایلِ مرجع آمد، ولی سه چیز عوض شد:
+     ۱) آبیِ مرجع (#347df2) جایش را به طلاییِ خودِ نورستان داد
+        (--gold/--gold2/--grad)؛ تمِ تاریک پیش‌فرض است.
+     ۲) جعبه‌های کد پنج‌تاست نه چهارتا — OTP.LEN = 5.
+     ۳) نشانِ قفل در مرجع با top:-73px *روی* کارت سوار می‌شد؛ اینجا
+        درونِ جریان است، وگرنه روی نمایشگرهای کوتاه بریده می‌شد.
+
+   نکتهٔ پیاده‌سازیِ مهم: #gtCode همچنان *یک* inputِ راستین است، چون
+   هم آزمون‌ها و هم WebOTP به آن بندند (autocomplete="one-time-code"
+   باید روی یک inputِ واقعی باشد). آن input شفاف روی جعبه‌ها نشسته و
+   پنج .gt-pin فقط آینهٔ اویند — پس منطقِ oninput/onkeydown/check
+   دست‌نخورده مانده و رفتار عوض نشده.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── هالهٔ محیطی: دو گویِ طلایی و سبز که آرام شنا می‌کنند ── */
+#gate .gt-amb{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden }
+#gate .gt-amb i{ position:absolute; display:block; border-radius:50%; filter:blur(72px); opacity:.55 }
+#gate .gt-amb i:nth-child(1){
+  width:64vmin; height:64vmin; left:-16vmin; top:-12vmin;
+  background:var(--orb1); animation:sk-drift 19s var(--ease) infinite;
+}
+#gate .gt-amb i:nth-child(2){
+  width:54vmin; height:54vmin; right:-14vmin; bottom:-14vmin;
+  background:var(--orb2); animation:sk-drift 24s var(--ease) infinite reverse;
+}
+#gate .gt-in{ z-index:1 }
+
+/* ── نشان ── */
+#gate .gt-emblem{ position:relative; width:126px; height:126px; margin:0 auto 12px; display:grid; place-items:center }
+#gate .gt-tile{
+  position:relative; width:96px; height:96px; border-radius:30px; display:grid; place-items:center;
+  background:var(--grad); border:1px solid var(--gold2);
+  box-shadow:var(--sh), inset 0 -3px 5px rgba(255,255,255,.16);
+  animation:sk-float 5.5s var(--ease) infinite;
+  transition:box-shadow .5s var(--ease);
+}
+#gate .gt-tile::before{ content:''; position:absolute; inset:24px; border:1px solid rgba(0,0,0,.16); border-radius:50% }
+#gate:focus-within .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--gold) }
+#gate.is-success .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--grn) }
+#gate.is-locked  .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--red) }
+
+/* مدارِ چرخان دورِ نشان */
+#gate .gt-orbit{
+  position:absolute; inset:24px; border:2px solid transparent; border-radius:50%;
+  border-top-color:var(--gold); border-bottom-color:var(--grn);
+  animation:sk-rotate 12s linear infinite; transition:border-color .5s;
+}
+#gate .gt-orbit::after{
+  content:''; position:absolute; top:11px; right:7px; width:7px; height:7px; border-radius:50%;
+  background:var(--gold); box-shadow:0 0 0 5px rgba(245,196,81,.14);
+}
+#gate.is-checking .gt-orbit{ animation-duration:1.1s; border-top-color:var(--gold); border-bottom-color:var(--gold2) }
+#gate.is-success  .gt-orbit{ border-top-color:var(--grn); border-bottom-color:#a7e8d7 }
+#gate.is-locked   .gt-orbit{ animation-duration:30s; border-top-color:#eda4b2; border-bottom-color:#f6d6dc }
+
+/* حلقهٔ نوریِ لحظهٔ گشوده‌شدن */
+#gate .gt-flash{
+  position:absolute; inset:27px; border-radius:50%;
+  border:2px solid var(--grn); opacity:0; pointer-events:none;
+}
+#gate.is-success .gt-flash{ animation:sk-flash-ring .9s var(--ease) forwards }
+
+/* جرقه‌های موفقیت */
+#gate .gt-spark{
+  position:absolute; top:50%; left:50%; width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+  border-radius:50%; opacity:0; pointer-events:none;
+}
+#gate .gt-spark:nth-of-type(1){ --tx:0;    --ty:-62px; background:var(--gold) }
+#gate .gt-spark:nth-of-type(2){ --tx:52px; --ty:-34px; background:var(--grn) }
+#gate .gt-spark:nth-of-type(3){ --tx:59px; --ty:24px;  background:var(--gold) }
+#gate .gt-spark:nth-of-type(4){ --tx:0;    --ty:62px;  background:var(--grn) }
+#gate .gt-spark:nth-of-type(5){ --tx:-56px;--ty:28px;  background:var(--gold) }
+#gate .gt-spark:nth-of-type(6){ --tx:-50px;--ty:-36px; background:var(--grn) }
+#gate.is-success .gt-spark{ animation:sk-spark-burst .85s .1s var(--ease) forwards }
+
+/* ستاره‌های چشمک‌زن */
+#gate .gt-sparkle{ position:absolute; color:var(--gold); font-size:11px; pointer-events:none; animation:sk-twinkle 2.6s var(--ease) infinite }
+#gate .gt-sparkle.s1{ top:12px; left:4px }
+#gate .gt-sparkle.s2{ bottom:16px; right:6px; animation-delay:1.3s }
+
+/* ── قفل و کلید ── */
+#gate .gt-lock{ width:62px; height:62px; overflow:visible; filter:drop-shadow(0 4px 5px rgba(0,0,0,.3)) }
+#gate .gt-lock .g-shackle,
+#gate .gt-lock .g-key,
+#gate .gt-lock .g-body,
+#gate .gt-lock .g-hole{ transform-box:view-box }
+#gate .gt-lock .g-shackle{
+  transform-origin:53px 39px; transition:transform .6s var(--bounce), stroke .5s;
+}
+#gate .gt-lock .g-body{ transform-origin:40px 52px; transition:fill .5s, stroke .5s }
+#gate .gt-lock .g-hole{ transform-origin:40px 50px; animation:sk-keyPulse 3s ease-in-out infinite; transition:opacity .4s }
+#gate .gt-lock .g-key{ transform-origin:40px 52px; opacity:0 }
+#gate.is-typing   .gt-lock .g-shackle{ transform:translateY(-2px) }
+#gate.is-checking .gt-lock .g-hole{ animation:sk-keyPulse .5s ease-in-out infinite }
+#gate.is-checking .gt-lock .g-key { animation:sk-key-unlock 1.9s var(--ease) forwards }
+#gate.is-checking .gt-lock .g-shackle{ animation:sk-shackle-open .75s 1.2s var(--bounce) forwards }
+#gate.is-checking .gt-lock .g-body{ animation:sk-lock-clunk .45s 1.2s var(--ease) }
+#gate.is-checking .gt-lock .g-hole,
+#gate.is-success  .gt-lock .g-hole{ opacity:.18; animation:none }
+#gate.is-success .gt-lock .g-key{ opacity:1; transform:rotate(90deg) }
+#gate.is-success .gt-lock .g-shackle{ transform:translateY(-9px) rotate(32deg); stroke:var(--grn) }
+#gate.is-success .gt-lock .g-body{ fill:url(#gtBodyOk); stroke:var(--grn) }
+#gate.is-failing .gt-lock .g-key{ animation:sk-key-reject 1.25s ease forwards }
+#gate.is-failing .gt-lock .g-shackle{ animation:sk-shackle-jam .5s .45s ease }
+#gate.is-failing .gt-lock .g-body{ animation:sk-body-shake .5s .45s ease }
+#gate.is-locked .gt-lock .g-shackle{ stroke:var(--red) }
+#gate.is-locked .gt-lock .g-body{ fill:url(#gtBodyNo); stroke:var(--red) }
+#gate.is-locked .gt-lock .g-hole{ animation:sk-keyPulse 2s ease-in-out infinite }
+
+/* ── جعبه‌های کد ──
+   inputِ راستین شفاف روی جعبه‌ها می‌نشیند تا لمس و تایپ و WebOTP
+   همه به همان یک گره برسند. */
+#gate .gt-pins{ position:relative; direction:ltr; margin-top:2px }
+#gate .gt-pin-group{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; direction:ltr }
+#gate .gt-pin{
+  height:64px; display:grid; place-items:center; border-radius:17px;
+  background:var(--card2); border:1.5px solid var(--line); color:var(--txt);
+  font-size:26px; font-weight:700; font-variant-numeric:tabular-nums;
+  transition:transform .25s var(--ease), border-color .25s, background .25s, box-shadow .25s;
+}
+#gate .gt-pin.on{ background:rgba(245,196,81,.13); border-color:var(--gold); color:var(--gold) }
+#gate .gt-pin.caret{ border-color:var(--gold); transform:translateY(-4px); box-shadow:0 0 0 4px rgba(245,196,81,.12) }
+#gate.is-failing .gt-pin{ border-color:var(--red); background:rgba(224,86,110,.12); color:var(--red) }
+#gate.is-success .gt-pin{ border-color:var(--grn); color:var(--grn); background:transparent }
+/* inputِ شفاف: اندازهٔ کلِ نوار تا هر لمس روی جعبه‌ها فوکوسش بدهد */
+#gate .gt-code-in{
+  position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0;
+  border:0; padding:0; background:transparent; color:transparent; caret-color:transparent;
+}
+#gate .gt-pins:focus-within .gt-pin.caret{ border-color:var(--gold); box-shadow:0 0 0 4px rgba(245,196,81,.18) }
+
+/* ── نوارِ پیشرفت (یک نقطه به‌ازای هر رقم) ── */
+#gate .gt-progress{ display:flex; direction:ltr; justify-content:center; gap:5px; margin-top:15px }
+#gate .gt-progress span{
+  height:4px; width:21px; border-radius:10px; background:var(--line);
+  transition:background .3s var(--ease), width .3s var(--ease);
+}
+#gate .gt-progress span.complete{ background:var(--gold); width:29px }
+#gate.is-checking .gt-progress span{ animation:sk-wave 1s ease-in-out infinite }
+#gate.is-checking .gt-progress span:nth-child(2){ animation-delay:.1s }
+#gate.is-checking .gt-progress span:nth-child(3){ animation-delay:.2s }
+#gate.is-checking .gt-progress span:nth-child(4){ animation-delay:.3s }
+#gate.is-checking .gt-progress span:nth-child(5){ animation-delay:.4s }
+
+/* ── قفلِ موقت پس از تلاش‌های ناموفق ── */
+#gate .gt-lockout{ padding:6px 0 2px; animation:sk-entrance .5s var(--ease) both }
+#gate .gt-ring{ position:relative; width:104px; height:104px; margin:0 auto 14px; display:grid; place-items:center }
+#gate .gt-ring svg{ position:absolute; inset:0; transform:rotate(-90deg) }
+#gate .gt-ring .track{ fill:none; stroke:var(--line); stroke-width:4 }
+#gate .gt-ring .bar{
+  fill:none; stroke:var(--red); stroke-width:4; stroke-linecap:round;
+  stroke-dasharray:289; stroke-dashoffset:289; transition:stroke-dashoffset 1s linear;
+}
+#gate .gt-ring b{ font-size:31px; font-weight:800; color:var(--red); font-variant-numeric:tabular-nums }
+#gate .gt-msg{
+  min-height:2.2em; display:grid; place-items:center; margin:8px 0 0;
+  padding:0 6px; font-size:11.5px; line-height:1.9; text-align:center;
+}
+#gate .gt-msg.error{ color:var(--red) }
+#gate .gt-msg.ok{ color:var(--grn) }
+
+/* ── ورودِ ملایمِ کارت ── */
+#gate .gt-card{ animation:sk-entrance .45s var(--ease) both }
+#gate .gt-emblem{ animation:sk-entrance .5s var(--ease) both }
+
+/* ── کارتِ شیشه‌ای با خطِ طلاییِ بالای آن ──
+   `backdrop-filter` روی کارتِ ورود می‌نشیند تا هالهٔ پشتش از پشتِ شیشه
+   دیده شود. `-webkit-` جدا نوشته شده چون وبیوِ اندرویدِ قدیمی‌تر فقط
+   همان را می‌شناسد. */
+#gate .gt-card{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--glass-edge);
+  position:relative; overflow:hidden;
+}
+#gate .gt-card::before{
+  content:''; position:absolute; inset-inline:0; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.75;
+}
+/* ── درخششِ گذرِ دکمهٔ اصلی ──
+   فقط دکمه‌های اصلیِ صفحهٔ ورود؛ پوستهٔ کلِ برنامه فاز ۳ است. */
+#gate .btn.w{ position:relative; overflow:hidden }
+#gate .btn.w::after{
+  content:''; position:absolute; top:0; bottom:0; width:38%; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--sheen),transparent);
+  animation:sk-shine 3.4s var(--ease) infinite;
+}
+/* احترام به «کم‌حرکتی»: درخشش و شنا بی‌حرکت می‌شوند. قاعدهٔ سراسریِ
+   @layer motion مدت را صفر می‌کند، ولی این‌ها را صریح خاموش می‌کنیم تا
+   در مرورگرهایی که آن لایه را نمی‌شناسند هم بی‌حرکت بمانند. */
+@media(prefers-reduced-motion:reduce){
+  #gate .btn.w::after,
+  #gate .gt-lock .g-hole,
+  #gate .gt-orbit,
+  #gate .gt-tile,
+  #gate .gt-sparkle{ animation:none !important }
+}
 </style>
 </head>
 
@@ -1960,6 +2163,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
      را به دیوارِ ورود بدل می‌کند و همان کاربری که فقط می‌خواست یک آیه
      بخواند را بیرون می‌گذارد. پرچمش در Store می‌ماند. -->
 <div id="gate" class="hide" role="dialog" aria-modal="true" aria-label="ورود به نورستان">
+  <div class="gt-amb" aria-hidden="true"><i></i><i></i></div>
   <div class="gt-in" id="gateBox"></div>
 </div>
 
@@ -2222,7 +2426,18 @@ const Icon = {
     mic:    { d:'<path d="M12 3.6a2.6 2.6 0 0 1 2.6 2.6v5.3a2.6 2.6 0 0 1-5.2 0V6.2A2.6 2.6 0 0 1 12 3.6z"/><path d="M5.8 11.1v.4a6.2 6.2 0 0 0 12.4 0v-.4M12 17.7v2.7M9 20.4h6"/>' },
     pause:  { f:1, d:'<path d="M8.2 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7H8.2a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/><path d="M13.1 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7h-2.7a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/>' },
     prev:   { f:1, d:'<path d="M6.1 5.2h2.2v13.6H6.1z"/><path d="M19.4 5.7v12.6a.8.8 0 0 1-1.23.68l-9.3-6.3a.8.8 0 0 1 0-1.36l9.3-6.3A.8.8 0 0 1 19.4 5.7z"/>' },
-    next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' }
+    next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' },
+
+    /* — فاز ۲: آیکن‌های صفحهٔ ورود — */
+    phone:  { d:'<path d="M7.6 3.9h2.1l1.5 3.7-1.9 1.3a11.4 11.4 0 0 0 5.4 5.4l1.3-1.9 3.7 1.5v2.1a2.3 2.3 0 0 1-2.5 2.3A15.5 15.5 0 0 1 5.3 6.4a2.3 2.3 0 0 1 2.3-2.5z"/>' },
+    crown:  { d:'<path d="M4.2 8.3 7 12.1l3.6-5.6 1.4 3 1.4-3 3.6 5.6 2.8-3.8v9.1a1 1 0 0 1-1 1H5.2a1 1 0 0 1-1-1z"/><path d="M4.3 19.4h15.4"/>' },
+    sat:    { d:'<path d="M4.4 13.3a6.3 6.3 0 0 1 6.3-6.3M4.4 8.6a11 11 0 0 1 11 11"/><path d="M4.4 19.6h.01M11.4 12.6l8.2-8.2"/><path d="M15.4 4.4h4.2v4.2"/>' },
+    check:  { d:'<path d="M5 12.6 9.7 17.3 19 5.9"/>' },
+    edit:   { d:'<path d="M4.4 19.6h4.2L19.3 8.9a2.1 2.1 0 0 0-3-3L5.6 16.7z"/><path d="M14.9 4.8l3 3"/>' },
+    clock:  { d:'<path d="M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8z"/><path d="M12 7.4V12l3 1.8"/>' },
+    warn:   { d:'<path d="M12 4.4 21 19.6H3z"/><path d="M12 10v3.6M12 16.6h.01"/>' },
+    lock:   { d:'<path d="M6.6 10.4h10.8a1.4 1.4 0 0 1 1.4 1.4v7.2a1.4 1.4 0 0 1-1.4 1.4H6.6a1.4 1.4 0 0 1-1.4-1.4v-7.2a1.4 1.4 0 0 1 1.4-1.4z"/><path d="M8.5 10.4V7.9a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14.4v2.2"/>' },
+    shield: { d:'<path d="M12 3.6 19.4 6.4v5.2c0 4-3.1 7.4-7.4 8.8-4.3-1.4-7.4-4.8-7.4-8.8V6.4z"/><path d="M9.2 12.2 11.3 14.3 15 10"/>' }
   },
   of(name){
     const r = this.REG[name];
@@ -14136,6 +14351,14 @@ const Gate = {
   /* الان باز است؟ (نامش `open` نمی‌تواند باشد — همنامِ همان متد می‌شد و
      متد را بازنویسی می‌کرد؛ یک اشتباهِ یک‌حرفی که تا مدت‌ها دیده نمی‌شود.) */
   shown: false,
+  /* حالتِ بصریِ جاریِ صفحه (`is-typing`، `is-checking`، …) — فاز ۲. */
+  state: '',
+  /* دستهٔ لغوِ WebOTP؛ با رفتن از گامِ کد باید بسته شود، وگرنه
+     درخواستِ نیمه‌باز در پس‌زمینه می‌ماند. */
+  otpAC: null,
+  /* الان صفحهٔ «قفلِ موقت» بالا است؟ تصمیمِ `tick` به این بند است، نه
+     به بودنِ گره در DOM — استابِ آزمون هرگز null برنمی‌گرداند. */
+  lockShown: false,
 
   el(){ return U.$('#gate'); },
   /* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
@@ -14151,6 +14374,7 @@ const Gate = {
     this.step = (at === 'phone' || at === 'admin' || at === 'code') ? at : 'intro';
     this.busy = false;
     this.devCode = '';
+    this.lockShown = false;
     if(this.step === 'phone') this.phone = this.phone || Store.get('phone') || '';
     el.classList.remove('hide', 'leaving');
     /* فوکوس به داخلِ صفحه می‌رود، وگرنه صفحه‌خوان همچنان پشتِ آن را
@@ -14178,10 +14402,14 @@ const Gate = {
     if(!el) return;
     this.shown = false;
     this.stop();
+    /* درخواستِ WebOTP باید بسته شود، وگرنه نیمه‌باز در پس‌زمینه می‌ماند. */
+    this.webotpStop();
+    this.lockShown = false;
     el.classList.add('leaving');
     Timers.after(() => {
       if(el) el.classList.add('hide');
       el && el.classList.remove('leaving');
+      if(el) this.setState('');
     }, 260, 'sys');
     if(why) UI.toast(why, 'ok', 2600);
   },
@@ -14217,7 +14445,18 @@ const Gate = {
     if(!el) return;
     if(!text){ el.textContent = ''; return; }
     const c = tone === 'ok' ? 'var(--grn)' : tone === 'wait' ? 'var(--gold)' : 'var(--red)';
+    el.classList.toggle('error', !tone || tone === 'err');
+    el.classList.toggle('ok', tone === 'ok');
     el.innerHTML = `<span style="color:${c}">${U.esc(text)}</span>`;
+  },
+  /* ── برچسبِ دکمهٔ آیکن‌دار ──
+     دکمه‌ها حالا `<svg>` + `<span>` دارند؛ `textContent` آیکن را پاک
+     می‌کند، پس فقط متنِ span را عوض می‌کنیم. */
+  label(btn, text){
+    if(!btn) return;
+    const s = btn.querySelector && btn.querySelector('span');
+    if(s) s.textContent = text;
+    else btn.textContent = text;
   },
 
   /* ── شمارندهٔ زنده ──
@@ -14226,7 +14465,25 @@ const Gate = {
      بیرون رفته) خودش را می‌خواباند. */
   stop(){ if(this.tid){ Timers.clear(this.tid); this.tid = null; } },
   tick(){
-    const el = U.$('#gtLeft', this.el() || document), again = U.$('#gtAgain', this.el() || document);
+    const root = this.el() || document;
+    const el = U.$('#gtLeft', root), again = U.$('#gtAgain', root);
+    /* ── حلقهٔ قفلِ موقت (فاز ۲) ──
+       تصمیم روی `lockShown` است، نه روی *بودنِ* گره: در برخی محیط‌ها
+       (از جمله استابِ آزمون) `querySelector` هرگز null برنمی‌گرداند،
+       پس «گره هست؟» به «قفل باز است؟» ترجمه نمی‌شود و حلقهٔ
+       tick→paint→run→tick تا سرریزِ پشته می‌چرخد. */
+    if(this.lockShown){
+      const w = this.lockLeft();
+      const num = U.$('#gtNum', root), bar = U.$('#gtBar', root);
+      if(num) num.textContent = U.fa(w);
+      /* محیطِ دایره ≈ ۲۸۹؛ هرچه زمان بیشتر گذشته، کمان کوتاه‌تر. */
+      if(bar && bar.style) bar.style.strokeDashoffset = String(Math.round(289 * (w / this.LOCK_SEC)));
+      /* شمارش تمام شد: خودش به فرمِ کد برگردد، بی آنکه کاربر کاری کند.
+         `lockShown` را *پیش از* رنگ‌آمیزی صفر می‌کنیم، وگرنه paint
+         دوباره run می‌زند و حلقه از نو شروع می‌شود. */
+      if(w <= 0){ this.lockClear(); this.lockShown = false; Haptic.hit(); this.paint(); }
+      return;
+    }
     if(!el && !again){ this.stop(); return; }
     if(el){
       const s = OTP.leftSec();
@@ -14236,7 +14493,7 @@ const Gate = {
     if(again){
       const w = OTP.waitSec();
       again.disabled = w > 0;
-      again.textContent = w > 0 ? `🔁 ارسال دوباره (${U.fa(w)})` : '🔁 ارسال دوباره';
+      this.label(again, w > 0 ? `ارسال دوباره (${U.fa(w)})` : 'ارسال دوباره');
     }
   },
   run(){
@@ -14245,26 +14502,183 @@ const Gate = {
     this.tick();
   },
 
+  /* ═══════════ فاز ۲ — حالت‌ها، نشان، جعبه‌ها، WebOTP ═══════════
+     نامِ حالت‌ها همان‌های فایلِ مرجع است. روی خودِ #gate می‌نشینند تا
+     قفل، مدار، جرقه‌ها و جعبه‌ها یک‌صدا عوض شوند — نه هر کدام جدا. */
+  STATE: ['is-typing','is-checking','is-success','is-failing','is-locked'],
+  setState(s){
+    const el = this.el();
+    this.state = s || '';
+    if(!el) return;
+    this.STATE.forEach(k => el.classList.toggle(k, k === this.state));
+  },
+
+  /* ── قفلِ موقت ──
+     مرجع پنج تلاش و ۶۰ ثانیه داشت و در حافظهٔ صفحه نگه می‌داشت؛ اینجا
+     در Store می‌ماند، وگرنه کاربر با یک نوسازیِ صفحه قفل را دور می‌زد
+     و محافظ بی‌معنی می‌شد. */
+  MAX_TRY: 5,
+  LOCK_SEC: 60,
+  lockGet(){
+    const l = Store.get('gateLock');
+    if(!l || typeof l !== 'object') return { fails:0, until:0 };
+    /* ── چرا `|0` روی `until` نمی‌گذاریم ──
+       مُهرِ زمانیِ میلی‌ثانیه (≈۱.۷۶e۱۲) از ۳۲ بیت می‌گذرد و `|0`
+       دورش می‌اندازد به عددی بی‌ربط — و آن‌وقت قفل هرگز درست بسته
+       نمی‌شد. `fails` کوچک است و `|0` برایش بی‌خطر. */
+    return {
+      fails: Math.max(0, Math.floor(Number(l.fails) || 0)) | 0,
+      until: Math.max(0, Math.floor(Number(l.until) || 0))
+    };
+  },
+  lockSet(fails, until){ Store.set('gateLock', { fails: fails|0, until: Math.floor(until) || 0 }); },
+  lockLeft(){ return Math.max(0, Math.ceil((this.lockGet().until - Date.now()) / 1000)); },
+  lockClear(){ Store.set('gateLock', null); },
+  /* یک تلاشِ ناموفق. به سقف که رسید، در باز می‌شود. */
+  bumpFail(){
+    const l = this.lockGet();
+    const fails = l.fails + 1;
+    if(fails >= this.MAX_TRY){
+      this.lockSet(0, Date.now() + this.LOCK_SEC * 1000);
+      this.step = 'code';
+      Haptic.warn(); Sound.click();
+      this.paint();
+      return true;
+    }
+    this.lockSet(fails, 0);
+    this.setState('is-failing');
+    Timers.after(() => { if(this.state === 'is-failing') this.setState(''); }, 1400, 'sys');
+    return false;
+  },
+
+  /* ── نشانِ قفل ──
+     گرادیان‌ها این‌جا تعریف می‌شوند چون رنگِ بدنه در حالت‌های موفق و
+     قفل عوض می‌شود و CSS بی آن‌ها نمی‌تواند fill را بشکند. */
+  lockSVG(){
+    return `
+      <svg class="gt-lock" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="gtBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f7d27a"/><stop offset="100%" stop-color="#c98a12"/>
+          </linearGradient>
+          <linearGradient id="gtBodyOk" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#46d5a5"/><stop offset="100%" stop-color="#0e8c68"/>
+          </linearGradient>
+          <linearGradient id="gtBodyNo" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ff8ea3"/><stop offset="100%" stop-color="#c93a55"/>
+          </linearGradient>
+          <linearGradient id="gtKey" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fff0c4"/><stop offset="100%" stop-color="#d98d12"/>
+          </linearGradient>
+        </defs>
+        <path class="g-shackle" d="M28 36V22a12 12 0 0 1 24 0v14"
+              fill="none" stroke="#c98a12" stroke-width="5" stroke-linecap="round"/>
+        <rect class="g-body" x="16" y="36" width="48" height="34" rx="10"
+              fill="url(#gtBody)" stroke="#c98a12" stroke-width="1.5"/>
+        <g class="g-hole">
+          <circle cx="40" cy="50" r="4.5" fill="#2a1f06" opacity=".78"/>
+          <rect x="38" y="53" width="4" height="9" rx="2" fill="#2a1f06" opacity=".78"/>
+        </g>
+        <g class="g-key">
+          <circle cx="40" cy="52" r="4" fill="url(#gtKey)"/>
+          <rect x="38.5" y="54" width="3" height="14" rx="1.5" fill="url(#gtKey)"/>
+          <rect x="41" y="62" width="5" height="2.5" rx="1" fill="url(#gtKey)"/>
+          <rect x="41" y="65" width="3.5" height="2.5" rx="1" fill="url(#gtKey)"/>
+        </g>
+      </svg>`;
+  },
+  /* `kind` اگر `lock` باشد قفلِ جان‌دار می‌آید؛ وگرنه آیکنِ ساده در
+     همان قاب، تا هر چهار گام یک زبانِ بصری داشته باشند. */
+  emblem(kind){
+    const inner = (!kind || kind === 'lock')
+      ? `<div class="gt-orbit"></div><div class="gt-flash"></div>
+         <span class="gt-spark"></span><span class="gt-spark"></span><span class="gt-spark"></span>
+         <span class="gt-spark"></span><span class="gt-spark"></span><span class="gt-spark"></span>
+         <span class="gt-sparkle s1">✦</span><span class="gt-sparkle s2">✦</span>
+         ${this.lockSVG()}`
+      : `<div class="gt-orbit"></div>${Icon.of(kind)}`;
+    return `<div class="gt-emblem" aria-hidden="true"><div class="gt-tile">${inner}</div></div>`;
+  },
+
+  /* ── جعبه‌های کد ──
+     پنج جعبه (OTP.LEN) که فقط *آینه*‌اند. inputِ راستین شفاف رویشان
+     نشسته و همه‌چیز — تایپ، لمس، WebOTP — به همان یک گره می‌رسد. */
+  pinsHTML(n){
+    let h = '';
+    for(let i = 0; i < n; i++) h += '<span class="gt-pin"></span>';
+    return h;
+  },
+  barsHTML(n){ return '<span></span>'.repeat(n); },
+  /* آینه را از روی input پر کن. */
+  paintPins(){
+    const el = this.el();
+    if(!el) return;
+    const inp = U.$('#gtCode', el);
+    if(!inp) return;
+    const v = U.unfa(inp.value || '').replace(/\D/g, '');
+    const busy = el.classList.contains('is-checking');
+    el.querySelectorAll('.gt-pin').forEach((p, i) => {
+      const ch = v[i] || '';
+      if(p.textContent !== ch) p.textContent = ch ? U.fa(ch) : '';
+      p.classList.toggle('on', !!ch);
+      p.classList.toggle('caret', i === v.length && !busy);
+    });
+    el.querySelectorAll('.gt-progress span').forEach((s, i) => {
+      s.classList.toggle('complete', i < v.length);
+    });
+  },
+
+  /* ── WebOTP ──
+     اندرویدِ کروم می‌تواند کد را خودش از پیامک بردارد و بی هیچ تایپی
+     پرش کند. سه شرط دارد که هر سه رعایت شده: پیامکِ قالب‌بندی‌شده با
+     «@دامنه #کد»، اتصالِ امن (https یا localhost)، و autocomplete
+     روی یک inputِ واقعی. اگر نبود، بی‌صدا رد می‌شویم — نه خطا، نه وعده. */
+  otpAC: null,
+  webotp(){
+    this.webotpStop();
+    try{
+      if(!navigator.credentials || !window.OTPCredential) return;
+      const ac = new AbortController();
+      this.otpAC = ac;
+      navigator.credentials.get({ otp:{ transport:['sms'] }, signal: ac.signal })
+        .then(c => {
+          if(!c || !c.code) return;
+          const inp = U.$('#gtCode', this.el());
+          if(!inp) return;
+          inp.value = U.unfa(c.code).replace(/\D/g, '').slice(0, OTP.LEN);
+          Sound.click(); Haptic.hit();
+          this.paintPins();
+          if(inp.value.length === OTP.LEN) this.check();
+        })
+        .catch(() => {});   // رد شدن = کاربر دستی می‌زند
+    }catch(e){ /* مرورگرِ قدیمی: بی‌صدا رد شو */ }
+  },
+  webotpStop(){
+    if(this.otpAC){ try{ this.otpAC.abort(); }catch(e){} this.otpAC = null; }
+  },
+
   paint(){
     const el = this.el();
     if(!el) return;
     const box = U.$('#gateBox', el);
     if(!box) return;
+    /* هر رنگ‌آمیزی از حالتِ پاک شروع می‌شود؛ وگرنه `is-failing` گامِ
+       پیشین روی گامِ تازه می‌ماند و جعبه‌ها بی‌دلیل سرخ می‌مانند. */
+    this.setState('');
     const can = this.canLogin();
     const m = SMS.modeName();
 
     if(this.step === 'intro'){
       box.innerHTML = `
-        <div class="gt-mark" aria-hidden="true">🌙</div>
+        ${this.emblem('lock')}
         <h2>نورستان</h2>
         <p class="gt-sub">بازی، حفظ و اُنس با قرآن<br>۱۱۴ سوره • ۱۵ بازی • بی هزینه</p>
         <div class="gt-card">
-          <button class="btn w" id="gtGo" ${can ? '' : 'disabled'}>📱 ورود با موبایل</button>
-          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
-          <button class="btn gh w" id="gtGuest" style="margin-top:10px">👤 ادامه به‌عنوان مهمان</button>
-          <button class="btn gh w" id="gtAdmin" style="margin-top:10px">👑 ورود مدیر</button>
-          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
-               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+          <button class="btn w" id="gtGo" ${can ? '' : 'disabled'}>${Icon.of('phone')}<span>ورود با موبایل</span></button>
+          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px">${Icon.of('warn')}<span>${U.esc(this.whyNot())}</span></div>`}
+          <button class="btn gh w" id="gtGuest" style="margin-top:10px">${Icon.of('user')}<span>ادامه به‌عنوان مهمان</span></button>
+          <button class="btn gh w" id="gtAdmin" style="margin-top:10px">${Icon.of('crown')}<span>ورود مدیر</span></button>
+          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
         </div>
         <p class="gt-foot">
           بی ورود، همهٔ قرآن و بازی‌ها در دسترس است — فقط امتیازت روی سرور
@@ -14285,7 +14699,7 @@ const Gate = {
 
     if(this.step === 'phone'){
       box.innerHTML = `
-        <div class="gt-mark" aria-hidden="true">📱</div>
+        ${this.emblem('phone')}
         <h2>ورود با موبایل</h2>
         <p class="gt-sub">یک کد ${U.fa(OTP.LEN)} رقمی پیامک می‌شود. کد ۲ دقیقه اعتبار دارد
           و شماره به کسی نشان داده نمی‌شود.</p>
@@ -14293,11 +14707,10 @@ const Gate = {
           <label class="lbl" for="gtPhone">شمارهٔ موبایل</label>
           <input class="inp" id="gtPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
                  placeholder="09123456789" value="${U.esc(this.phone)}">
-          <button class="btn w" id="gtSend" style="margin-top:14px" ${can ? '' : 'disabled'}>📨 دریافت کد</button>
-          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px"><span>⚠️</span><span>${U.esc(this.whyNot())}</span></div>`}
-          <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
-          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
-               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+          <button class="btn w" id="gtSend" style="margin-top:14px" ${can ? '' : 'disabled'}>${Icon.of('send')}<span>دریافت کد</span></button>
+          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px">${Icon.of('warn')}<span>${U.esc(this.whyNot())}</span></div>`}
+          <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
+          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
         </div>`;
       const inp = U.$('#gtPhone', box);
       inp.onkeydown = e => { if(e.key === 'Enter') this.send(); };
@@ -14308,36 +14721,83 @@ const Gate = {
     }
 
     if(this.step === 'code'){
+      /* ── قفلِ موقت ──
+         پیش از هر چیز: اگر در باز است، فرمِ کد را نکش. کشیدنش یعنی
+         کاربر پنج بار دیگر هم می‌تواند امتحان کند و قفل بی‌معنی شود. */
+      const wait = this.lockLeft();
+      if(wait > 0){
+        this.lockShown = true;
+        this.setState('is-locked');
+        box.innerHTML = `
+          ${this.emblem('lock')}
+          <h2>کمی صبر کن</h2>
+          <div class="gt-card">
+            <div class="gt-lockout">
+              <div class="gt-ring">
+                <svg viewBox="0 0 104 104" aria-hidden="true">
+                  <circle class="track" cx="52" cy="52" r="46"/>
+                  <circle class="bar" id="gtBar" cx="52" cy="52" r="46"/>
+                </svg>
+                <b id="gtNum">${U.fa(wait)}</b>
+              </div>
+              <div class="lockout-title">تلاش‌های پشت‌سرهم زیاد شد</div>
+              <p class="gt-sub" style="margin:0">برای جلوگیری از حدس‌زدنِ کد، ورود
+                <b>${U.fa(this.MAX_TRY)}</b> تلاشِ ناموفق را دید. تا پایانِ شمارش
+                می‌توانی قرآن بخوانی — این صفحه خودش باز می‌شود.</p>
+            </div>
+            <button class="btn gh w" id="gtGuest" style="margin-top:14px">${Icon.of('user')}<span>ادامه به‌عنوان مهمان</span></button>
+          </div>`;
+        const g = U.$('#gtGuest', box);
+        if(g) g.onclick = () => this.guest();
+        this.run();
+        return;
+      }
+      /* در باز شد؛ اگر قفلی مانده بود پاکش کن. */
+      if(this.lockGet().until) this.lockClear();
+      this.lockShown = false;
       box.innerHTML = `
-        <div class="gt-mark" aria-hidden="true">🔐</div>
+        ${this.emblem('lock')}
         <h2>کد تأیید</h2>
         <p class="gt-sub">کد ${U.fa(OTP.LEN)} رقمی به
           <b dir="ltr">${U.esc(SMS.faPhone(this.phone))}</b> پیامک شد.</p>
         <div class="gt-card">
-          <label class="lbl" for="gtCode">کد ${U.fa(OTP.LEN)} رقمی</label>
-          <input class="inp otp-in" id="gtCode" dir="ltr" inputmode="numeric" maxlength="${OTP.LEN}"
-                 autocomplete="one-time-code" placeholder="— — — — —">
-          <div class="tiny" id="gtLeft" style="margin-top:8px;min-height:1.2em;text-align:center"></div>
-          <button class="btn w" id="gtOk" style="margin-top:12px">✅ تأیید و ورود</button>
-          <button class="btn gh w" id="gtAgain" style="margin-top:8px">🔁 ارسال دوباره</button>
-          <button class="btn gh w" id="gtEdit" style="margin-top:8px">✏️ تغییر شماره</button>
-          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
-               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+          <div class="gt-pins">
+            <div class="gt-pin-group" aria-hidden="true">${this.pinsHTML(OTP.LEN)}</div>
+            <input class="gt-code-in" id="gtCode" dir="ltr" inputmode="numeric"
+                   maxlength="${OTP.LEN}" autocomplete="one-time-code"
+                   aria-label="کد ${U.fa(OTP.LEN)} رقمی">
+          </div>
+          <div class="gt-progress" aria-hidden="true">${this.barsHTML(OTP.LEN)}</div>
+          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
+          <div class="tiny" id="gtLeft" style="margin-top:4px;min-height:1.2em;text-align:center"></div>
+          <button class="btn w" id="gtOk" style="margin-top:12px">${Icon.of('check')}<span>تأیید و ورود</span></button>
+          <button class="btn gh w" id="gtAgain" style="margin-top:8px">${Icon.of('retry')}<span>ارسال دوباره</span></button>
+          <button class="btn gh w" id="gtEdit" style="margin-top:8px">${Icon.of('edit')}<span>تغییر شماره</span></button>
         </div>`;
       const inp = U.$('#gtCode', box);
       inp.onkeydown = e => { if(e.key === 'Enter') this.check(); };
       inp.oninput = () => {
         inp.value = U.unfa(inp.value).replace(/\D/g, '').slice(0, OTP.LEN);
+        this.setState(inp.value ? 'is-typing' : '');
+        this.paintPins();
         if(inp.value.length === OTP.LEN) this.check();      // پنج رقم که کامل شد، خودش می‌رود
       };
+      /* لمسِ هر جعبه = فوکوسِ inputِ شفاف؛ بی این، لمسِ جعبه‌ها کاری نمی‌کرد
+         چون کاربر جعبه را می‌بیند، نه input را. */
+      box.querySelectorAll('.gt-pin').forEach(p => {
+        p.onclick = () => { if(inp.focus) inp.focus(); };
+      });
       U.$('#gtOk', box).onclick = () => this.check();
       U.$('#gtAgain', box).onclick = () => this.again();
       U.$('#gtEdit', box).onclick = () => { this.step = 'phone'; this.paint(); };
       Timers.after(() => inp.focus(), 60, 'sys');
+      this.paintPins();
       this.run();
+      /* کد را خودِ اندروید از پیامک بردارد — کاربر بی تایپ وارد شود. */
+      this.webotp();
       /* در حالت آزمایشی کد همان‌جا نشان داده می‌شود، وگرنه کاربر بی کد
          گیر می‌افتد و فکر می‌کند برنامه خراب است. */
-      if(this.devCode) Timers.after(() => this.msg(`🧪 حالت آزمایشی — کد: ${U.fa(this.devCode)}`, 'ok'), 40, 'sys');
+      if(this.devCode) Timers.after(() => this.msg(`حالت آزمایشی — کد: ${U.fa(this.devCode)}`, 'ok'), 40, 'sys');
       return;
     }
 
@@ -14352,12 +14812,12 @@ const Gate = {
       if(Host._yes === null){
         Host.ready().then(() => this.sync());
         box.innerHTML = `
-          <div class="gt-mark" aria-hidden="true">📡</div>
+          ${this.emblem('sat')}
           <h2>بررسی سرور…</h2>
           <p class="gt-sub">ببینیم رمزِ مدیر را از سرور بپرسیم یا روی همین دستگاه.</p>
           <div class="gt-card">
-            <div class="gt-note" role="status" aria-live="polite"><span>⏳</span><span>یک لحظه…</span></div>
-            <button class="btn gh w" id="gtBack" style="margin-top:12px">‹ بازگشت</button>
+            <div class="gt-note" role="status" aria-live="polite">${Icon.of('clock')}<span>یک لحظه…</span></div>
+            <button class="btn gh w" id="gtBack" style="margin-top:12px">${Icon.of('back')}<span>بازگشت</span></button>
           </div>`;
         const back = U.$('#gtBack', box);
         if(back) back.onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
@@ -14374,16 +14834,16 @@ const Gate = {
          مدیرِ دستگاه می‌شد. */
       if(first && !this.adminConfirm){
         box.innerHTML = `
-          <div class="gt-mark" aria-hidden="true">👑</div>
+          ${this.emblem('crown')}
           <h2>مدیرِ این دستگاه کیست؟</h2>
           <p class="gt-sub">این دستگاه هنوز رمزِ مدیر ندارد.</p>
           <div class="gt-card">
-            <div class="gt-note warn" style="margin-top:0"><span>⚠️</span><span>
+            <div class="gt-note warn" style="margin-top:0">${Icon.of('warn')}<span>
               هر کسی این رمز را بسازد، مدیرِ همین دستگاه می‌شود: می‌تواند
               کاربران را ببیند، پیامک بفرستد و داده‌ها را پاک کند.
               این کار فقط <b>یک بار</b> ممکن است.</span></div>
-            <button class="btn w" id="gtMake" style="margin-top:12px">🔐 می‌دانم — رمزِ مدیر را می‌سازم</button>
-            <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
+            <button class="btn w" id="gtMake" style="margin-top:12px">${Icon.of('lock')}<span>می‌دانم — رمزِ مدیر را می‌سازم</span></button>
+            <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
           </div>
           <p class="gt-foot">اگر تو صاحبِ این دستگاه نیستی، همین‌جا بایست و بازگرد.</p>`;
         U.$('#gtMake', box).onclick = () => {
@@ -14396,7 +14856,7 @@ const Gate = {
       }
 
       box.innerHTML = `
-        <div class="gt-mark" aria-hidden="true">👑</div>
+        ${this.emblem('crown')}
         <h2>${first ? 'ساختن رمز مدیر' : 'ورود مدیر'}</h2>
         <p class="gt-sub">${first
             ? 'یک رمز بگذار. همین رمز، قفلِ پنلِ مدیریتِ این دستگاه می‌شود.'
@@ -14410,10 +14870,9 @@ const Gate = {
           ${first ? `<input class="inp" id="gtPass2" type="password" dir="ltr" spellcheck="false"
                  autocomplete="new-password" placeholder="تکرار رمز تازه…" style="margin-top:8px">` : ''}
           <button class="btn w" id="gtLogin" style="margin-top:12px">
-            ${remote ? '📡 ورود به پنل سرور' : (first ? '🔐 ساختن رمز و ورود' : '🔓 ورود')}</button>
-          <button class="btn gh w" id="gtBack" style="margin-top:10px">‹ بازگشت</button>
-          <div class="tiny" id="gtMsg" role="status" aria-live="polite"
-               style="margin-top:10px;min-height:1.2em;text-align:center"></div>
+            ${Icon.of(remote ? 'sat' : 'lock')}<span>${remote ? 'ورود به پنل سرور' : (first ? 'ساختن رمز و ورود' : 'ورود')}</span></button>
+          <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
+          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
         </div>
         <p class="gt-foot">${remote
           ? `رمز فقط یک بار به سرور می‌رود؛ بازگشتی نشانهٔ نشستی ${U.fa(12)} ساعته است.`
@@ -14500,22 +14959,34 @@ const Gate = {
     const code = inp ? inp.value : '';
     this.busy = true;
     if(btn) btn.disabled = true;
+    this.setState('is-checking');
     let r;
     try{ r = await OTP.verify(this.phone, code); }
     catch(e){ r = { ok: false, why: 'بررسی کد ممکن نشد — دوباره امتحان کن' }; }
     finally{ this.busy = false; if(btn) btn.disabled = false; }
 
     if(!r.ok){
+      this.setState('');
       this.msg(r.why || 'کد پذیرفته نشد');
-      Haptic.warn(); return;
+      Haptic.warn();
+      /* ── قفلِ موقت ──
+         `bumpFail` خودش تصمیم می‌گیرد: یا لرزشِ سرخ نشان بده، یا اگر
+         به سقف رسیدیم صفحه را به گامِ قفل ببر. */
+      if(this.bumpFail()) return;
+      if(inp){ inp.value = ''; this.paintPins(); if(inp.focus) inp.focus(); }
+      return;
     }
+    this.lockClear();
+    this.setState('is-success');
     Haptic.success();
     Store.set('gate', 'user');
     /* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
     UI.toast(r.first ? `✅ خوش آمدی! حسابت با ${SMS.faPhone(r.phone)} ساخته شد`
                      : `✅ شماره به ${SMS.faPhone(r.phone)} به‌روز شد`, 'ok', 3200);
     try{ Me.render(); }catch(e){}
-    this.close();
+    /* بستن را کمی عقب می‌اندازیم تا قفل واقعاً *باز شود* و کاربر ببیند
+       کد پذیرفته شد؛ بستنِ فوری، همهٔ انیمیشنِ موفقیت را خفه می‌کرد. */
+    Timers.after(() => this.close(), 640, 'sys');
   },
 
   async adminLogin(first, remote){
@@ -14526,15 +14997,19 @@ const Gate = {
     if(!v){ this.msg('رمز را بنویس'); return; }
     if(again && again.value !== v){ this.msg('دو رمز یکی نیستند'); return; }
     this.busy = true;
-    if(btn){ btn.disabled = true; if(remote) btn.textContent = '⏳ در حال بررسی…'; }
+    if(btn){ btn.disabled = true; if(remote) this.label(btn, 'در حال بررسی…'); }
     let r;
     try{ r = await Admin.tryPass(v); }
     catch(e){ r = { ok: false, why: 'بررسی رمز ممکن نشد' }; }
     finally{
       this.busy = false;
-      if(btn){ btn.disabled = false; if(remote) btn.textContent = '📡 ورود به پنل سرور'; }
+      if(btn){ btn.disabled = false; if(remote) this.label(btn, 'ورود به پنل سرور'); }
     }
-    if(!r.ok){ this.msg(r.why); Haptic.warn(); return; }
+    if(!r.ok){
+      this.setState('is-failing');
+      Timers.after(() => { if(this.state === 'is-failing') this.setState(''); }, 1400, 'sys');
+      this.msg(r.why); Haptic.warn(); return;
+    }
     Haptic.success();
     if(pass) pass.value = '';
     if(again) again.value = '';
