@@ -3286,8 +3286,21 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
   for(const n of named)
     ok(`آیکنِ «${n}» در دفتر هست`, !!Icon.REG[n], 'نامی که وجود ندارد یعنی جای خالی');
 
-  const viaOf = [...new Set([...doc.matchAll(/Icon\.of\('([a-z]+)'\)/g)].map(m => m[1]))];
+  /* الگو عمداً نامِ خط‌دار (`book-open`) و آرگومانِ اندازه را هم می‌گیرد.
+     نسخهٔ پیشین فقط `[a-z]+` و بدونِ آرگومان بود، پس آیکن‌های تازهٔ
+     خط‌دار از زیرِ این تور بیرون می‌زدند و نامِ غلط بی‌صدا جای خالی
+     می‌داد. */
+  const viaOf = [...new Set([...doc.matchAll(/Icon\.of\('([a-z][a-z0-9-]*)'(?:\s*,\s*\d+\s*)?\)/g)].map(m => m[1]))];
   for(const n of viaOf) ok(`Icon.of('${n}') به آیکنِ موجود می‌رسد`, !!Icon.REG[n]);
+  ok('آیکن‌های نام‌دار (با خط تیره) هم پوشش داده می‌شوند',
+     viaOf.some(n => n.includes('-')), viaOf.join(' '));
+  ok('آرگومانِ اندازهٔ Icon.of اندازه را واقعاً می‌نشاند', (() => {
+    const a = Icon.of('home'), b = Icon.of('home', 18);
+    return !/style=/.test(a) && /style="width:18px;height:18px"/.test(b) &&
+           /viewBox="0 0 24 24"/.test(b);
+  })());
+  ok('اندازهٔ بی‌معنا (۰/منفی/چیزِ دیگر) نادیده گرفته می‌شود',
+     !/style=/.test(Icon.of('home', 0)) && !/style=/.test(Icon.of('home', 'x')));
 
   const svg = Icon.of('home');
   ok('آیکن SVG است با viewBoxِ درست', /^<svg /.test(svg) && /viewBox="0 0 24 24"/.test(svg));
@@ -3311,6 +3324,73 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
     ok('دکمهٔ آیکنیِ ثابت ایموجی ندارد',
        !emoji.test(inner) && /data-ic|[؀-ۿ]/.test(inner), inner.trim().slice(0, 60));
   }
+}
+
+section('باگِ آیهٔ امروز — دکمه‌های خواندن/کپی');
+{
+  /* ── چه چیزی خراب بود ──
+     فاز ۳ برای «درخششِ گذری» یک نوار از بیرونِ دکمه می‌لغزاند و برای
+     بُریدنش `overflow:hidden` روی `.btn` گذاشت. ولی هر `overflow` غیرِ
+     `visible` کمینهٔ خودکارِ آیتمِ فلکس را صفر می‌کند، پس دو دکمهٔ
+     کارتِ آیه در ردیفِ فلکس از عرضِ متنشان کوچک‌تر شدند و متنشان برید.
+     این سنجش‌ها هم علت را می‌گیرند و هم درمان را. */
+  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const raw = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  ok('ریشه: دیگر `overflow:hidden` روی پایهٔ `.btn` نیست',
+     !/\.btn\{[^}]*overflow\s*:\s*hidden/.test(css),
+     '.btn{…overflow:hidden…} کمینهٔ فلکس را صفر می‌کند و متن را می‌بُرد');
+  ok('درخشش با background-position حرکت می‌کند، نه با لغزاندنِ جعبه',
+     /@keyframes sk-sheen\s*\{[^}]*background-position/.test(css));
+  ok('درخششِ کهنه (`sk-shine`) دیگر به `.btn` وصل نیست',
+     !/\.btn(?![\w-])[^{,]*\{[^}]*sk-shine/.test(css.replace(/#gate[^{]*\{[^}]*\}/g, '')),
+     'sk-shine فقط در گروهِ ورود مانده');
+
+  /* ── کارتِ آیهٔ روز ── */
+  const daily = doc.slice(doc.indexOf('const Daily = {'), doc.indexOf('گزینش سوره و فونت'));
+  ok('کارتِ آیه از گریدِ کنش‌ها استفاده می‌کند', /class="ayah-actions"/.test(daily));
+  ok('هر دو دکمه کلاسِ `.ayah-action` دارند',
+     (daily.match(/class="ayah-action"/g) || []).length === 2);
+  ok('دکمه‌ها آیکنِ SVG دارند، نه ایموجی',
+     /Icon\.of\('book-open',\s*\d+\)[\s\S]{0,60}?<span>خواندن سوره<\/span>/.test(daily) &&
+     /Icon\.of\('copy',\s*\d+\)[\s\S]{0,60}?<span>کپی آیه<\/span>/.test(daily),
+     (daily.match(/[\u{1F000}-\u{1FAFF}]/gu) || []).join(' '));
+  ok('متنِ دکمه داخلِ span است تا آیکن پاکش نکند',
+     /<button class="ayah-action" id="dayRead">[\s\S]{0,80}?<span>/.test(daily));
+  ok('برچسبِ کارت هم آیکن گرفت، نه ماهِ ایموجی',
+     /Icon\.of\('moon'\)/.test(daily) && !/🌙/.test(daily));
+  ok('شناسه‌های dayRead/dayCopy سرِ جایشان ماندند (JS به آن‌ها وصل است)',
+     /id="dayRead"/.test(daily) && /id="dayCopy"/.test(daily));
+
+  /* ── CSSِ خودِ کنش‌ها ── */
+  const act = css.match(/\.ayah-actions\{[^}]*\}/)[0];
+  const btn = css.match(/\.ayah-action\{[^}]*\}/)[0];
+  ok('گریدِ دوستونی است', /grid-template-columns:\s*1fr 1fr/.test(act));
+  ok('خطِ جداکنندهٔ بالای ردیف هست', /border-top:\s*1px solid var\(--line\)/.test(act));
+  ok('ارتفاعِ لمسی کم‌دست‌از ۴۴ پیکسل است',
+     /min-height:\s*(\d+)px/.test(btn) && +btn.match(/min-height:\s*(\d+)px/)[1] >= 44,
+     btn.match(/min-height:\s*(\d+)px/)[1]);
+  ok('متن در یک خط می‌ماند', /white-space:\s*nowrap/.test(btn));
+  ok('`min-width:0` هست وگرنه ستونِ گرید از متن باریک‌تر می‌شد',
+     /min-width:\s*0/.test(btn));
+  ok('پسِ‌زمینه و رنگ از توکن‌های خودِ تم می‌آید، نه رنگِ ثابت',
+     /background:\s*var\(--card2\)/.test(btn) && /color:\s*var\(--txt\)/.test(btn));
+  ok('فونت را از والد می‌گیرد (مرورگر پیش‌فرضِ دکمه را نمی‌پوشاند)',
+     /font-family:\s*inherit/.test(btn));
+  ok('آیکنِ داخلِ دکمه کوچک نمی‌شود',
+     /\.ayah-action \.ic\{[^}]*width:18px/.test(css));
+  ok('متنِ سرریز «…» می‌گیرد، نه بریدنِ خام',
+     /\.ayah-action span\{[^}]*text-overflow:\s*ellipsis/.test(css));
+  ok('زیرِ ۴۰۰ پیکسل تک‌ستونی می‌شود',
+     /@media\s*\(max-width:\s*400px\)\{\s*\.ayah-actions\{[^}]*grid-template-columns:\s*1fr\s*\}/.test(css));
+  ok('حالتِ فوکوس هم مثلِ hover دیده می‌شود (دسترس‌پذیری)',
+     /\.ayah-action:hover,\s*\.ayah-action:focus-visible/.test(css));
+
+  /* ── درختِ فِلکسِ کهنه دیگر روی این دکمه‌ها نیست ── */
+  ok('دیگر `btn gh sm` روی دکمه‌های آیه نمانده',
+     !/id="dayRead"[^>]*class="[^"]*btn/.test(daily) &&
+     !/class="[^"]*btn[^"]*"[^>]*id="dayRead"/.test(daily));
 }
 
 section('پوسته — توکن‌های حرکت و کی‌فریم‌های تازه');
@@ -5348,11 +5428,20 @@ section('پوسته — پوستهٔ کلِ برنامه (فاز ۳)');
   ok('🔒 و will-change روی کاشی‌ها ننشست (۴۰ لایهٔ بی‌دلیل)',
      wcTile.every(v => v === 'auto'), wcTile.join(' / '));
 
-  /* ── دکمه‌ها ── */
-  ok('دکمه درخششِ گذری گرفت', /\.btn::after\{[\s\S]{0,220}?animation:sk-shine/.test(css2));
-  ok('و دکمهٔ ثانویه بی‌درخشش می‌ماند', /\.btn\.gh::after, \.btn:disabled::after/.test(css2));
-  ok('و درخشش دکمه را از فوکوس‌پذیری نمی‌اندازد',
-     /\.btn\{ position:relative; overflow:hidden \}/.test(css2));
+  /* ── دکمه‌ها ──
+     بازنویسی‌شده پس از باگِ «آیهٔ امروز»: درخشش دیگر از راهِ
+     لغزاندنِ یک نوارِ بیرون‌زده با `overflow:hidden` نمی‌آید، چون آن
+     `overflow` کمینهٔ خودکارِ آیتمِ فلکس را صفر می‌کرد و متنِ دکمه‌های
+     یک ردیف را می‌بُرید. حالا `background-position` تکان می‌خورد. */
+  ok('دکمه درخششِ گذری گرفت',
+     /\.btn:not\(\.gh\):not\(:disabled\)::after\{[\s\S]{0,260}?animation:sk-sheen/.test(css2));
+  ok('و دکمهٔ ثانویه و غیرفعال بی‌درخشش می‌مانند',
+     /\.btn:not\(\.gh\):not\(:disabled\)::after/.test(css2));
+  ok('و درخشش دکمه را از فوکوس‌پذیری نمی‌اندازد (pointer-events:none)',
+     /\.btn:not\(\.gh\):not\(:disabled\)::after\{[^}]*pointer-events:none/.test(css2));
+  ok('🔒 و دیگر `overflow` روی `.btn` نیست که متن را ببُرد',
+     /\.btn\{ position:relative \}/.test(css2) &&
+     !/\.btn\{[^}]*overflow/.test(css2));
 
   /* ── توست ── */
   ok('توست از راست می‌آید', /\.toast\{[\s\S]{0,260}?animation:sk-toast /.test(css2));
