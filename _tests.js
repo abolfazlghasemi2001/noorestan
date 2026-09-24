@@ -5106,12 +5106,12 @@ section('آیهٔ کامل — دنبالهٔ آیه نمایش داده می‌
 section('نوارِ پیشرفت — سؤالِ جاری شمرده می‌شود');
 {
   /* باگِ اصلی: «i / n» در سؤالِ آخر هرگز به ۱۰۰٪ نمی‌رسید. */
-  ok('سوره: فرمولِ نوار «(i+1)/n» است',
-     /U\.\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \+ 1\) \/ s\.list\.length \* 100\)/.test(SRC));
-  ok('کوییز: فرمولِ نوار «(i+1)/n» است',
-     /U\.\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \+ 1\) \/ s\.qs\.length \* 100\)/.test(SRC));
-  ok('هیچ‌جا نوارِ پیشرفت با «i / n» پر نمی‌شود',
-     !/\$\('#pgProg'\)\.style\.width\s*=\s*\(\(s\.i \/ s\./.test(SRC));
+  ok('سوره: فرمولِ پیشرفت «(i+1)/n» است',
+     /U\.prog\(\(s\.i \+ 1\) \/ s\.list\.length \* 100/.test(SRC));
+  ok('کوییز: فرمولِ پیشرفت «(i+1)/n» است',
+     /U\.prog\(\(s\.i \+ 1\) \/ s\.qs\.length \* 100/.test(SRC));
+  ok('هیچ‌جا پیشرفت با «i / n» پر نمی‌شود',
+     !/U\.prog\(\(s\.i \/ s\./.test(SRC));
 
   /* ریاضیِ خودِ فرمول: پرسشِ آخر باید دقیقاً ۱۰۰ بدهد */
   const n = 24;
@@ -5119,6 +5119,76 @@ section('نوارِ پیشرفت — سؤالِ جاری شمرده می‌شو�
   ok('در پرسشِ نخست نوار ۰ نیست', ((0 + 1) / n * 100) > 0);
   ok('شمارندهٔ «۹ از ۲۴» درست است', `سوره`.length > 0 &&
      U.fa(9) === '۹' && U.fa(24) === '۲۴');
+}
+
+section('حلقهٔ پیشرفتِ #s-play — SVG جای نوارِ خطی');
+{
+  /* ۱) نشانه‌گذاری */
+  ok('حلقه در صفحه هست', SRC.includes('class="progress-ring"') &&
+     SRC.includes('viewBox="0 0 100 100"'));
+  ok('دو دایره: ریل و پیشرفت', SRC.includes('class="ring-track"') &&
+     SRC.includes('class="ring-progress"'));
+  ok('شعاع و ضخامتِ خط همان ۴۶ و ۴ است',
+     /class="ring-track" cx="50" cy="50" r="46"/.test(SRC) &&
+     /class="ring-progress" cx="50" cy="50" r="46"/.test(SRC) &&
+     /\.progress-ring circle\{[^}]*stroke-width:4/.test(SRC));
+  ok('متنِ وسط شمارنده و واحد دارد',
+     SRC.includes('class="progress-text"') &&
+     /class="progress-text"><b>[^<]*<\/b><small>/.test(SRC));
+
+  /* ۲) نوارِ خطی هنوز سرِ جایش است — پشتوانه، و `FX.levelBurst` */
+  ok('نوارِ خطی حذف نشد', SRC.includes('<i id="pgProg"></i>'));
+  ok('ولی دیده نمی‌شود', /\.game-progress \.prog\{[^}]*opacity:0/.test(SRC));
+
+  /* ۳) هیچ‌جا مستقیم روی `.style.width`ی نوار نوشته نمی‌شود */
+  ok('🔒 هیچ نوشتنِ مستقیمی روی نوارِ خطی نمانده',
+     !/pgProg'\)\.style\.width/.test(SRC));
+  /* ۱۷ محلِ نوشتنِ مستقیم + تیکِ تایمرِ حالتِ سرعت + جفتِ حافظه */
+  ok('و دستِ‌کم ۱۹ محل از `U.prog` می‌گذرد',
+     (SRC.match(/U\.prog\(/g) || []).length >= 19,
+     String((SRC.match(/U\.prog\(/g) || []).length));
+  ok('تیکِ تایمرِ حالتِ سرعت هم حلقه را می‌چرخاند',
+     /U\.prog\(\(s\.i \+ \(1 - s\.timeLeft \/ 12\)\) \/ s\.qs\.length \* 100/.test(SRC));
+  ok('حافظه پس از هر جفت حلقه را جلو می‌برد',
+     /U\.prog\(s\.matched \/ \(s\.cards\.length \/ 2\) \* 100/.test(SRC));
+
+  /* ۴) ریاضیِ حلقه: محیط از خودِ SVG خوانده می‌شود، با پشتوانهٔ ۲πr */
+  ok('محیط از `getTotalLength` خوانده می‌شود',
+     /C = ring\.getTotalLength\(\)/.test(SRC));
+  ok('پشتوانهٔ ۲πr با r=۴۶ هست', /C = 289\.03/.test(SRC));
+  ok('`dasharray` و `dashoffset` از یک متغیر می‌آیند',
+     /ring\.style\.strokeDasharray = C;/.test(SRC) &&
+     /ring\.style\.strokeDashoffset = \(C \* \(1 - p \/ 100\)\)/.test(SRC));
+
+  /* ۵) ریاضیِ خودِ نگاشت: صفر ⇒ خالی، صد ⇒ پر */
+  const C = 2 * Math.PI * 46;
+  ok('۲πr با r=۴۶ همان ۲۸۹ است', Math.abs(C - 289.03) < 0.05, C.toFixed(2));
+  ok('در ۰٪ حلقه تهی است', Math.abs(C * (1 - 0) - C) < 1e-9);
+  ok('در ۱۰۰٪ حلقه پر است', Math.abs(C * (1 - 1)) < 1e-9);
+
+  /* ۶) سه حالتِ رنگ */
+  ok('درست ⇒ سبز', /\.game-progress\.is-correct \.ring-progress\{stroke:var\(--grn\)\}/.test(SRC));
+  ok('نادرست ⇒ سرخ', /\.game-progress\.is-wrong\s+\.ring-progress\{stroke:var\(--red\)\}/.test(SRC));
+  ok('کامل ⇒ طلایی', /\.game-progress\.is-complete \.ring-progress\{stroke:var\(--gold\)\}/.test(SRC));
+  ok('مهرِ گذرا با تایمر پاک می‌شود',
+     /clearTimeout\(this\._pgMark\)/.test(SRC) &&
+     /_pgMark = setTimeout\(/.test(SRC));
+  ok('هر به‌روزرسانی، مهرِ پاسخِ پیشین را پاک می‌کند',
+     /wrap\.classList\.remove\('is-correct', 'is-wrong'\);\s*\n\s*wrap\.classList\.toggle\('is-complete'/.test(SRC));
+
+  /* ۷) مهرِ درست/نادرست به مسیرِ پاسخِ همهٔ بازی‌ها وصل است */
+  ok('`Progress.award` مهر می‌زند', /if\(!silent\) U\.progState\(ok\);/.test(SRC));
+  ok('حدیث‌یاب، معصومان و نجوا هم مهر می‌زنند',
+     (SRC.match(/U\.progState\(ok\);/g) || []).length === 4,
+     String((SRC.match(/U\.progState\(ok\);/g) || []).length));
+
+  /* ۸) اندازه‌ها */
+  ok('۱۰۰ پیکسل روی میزکار', /\.game-progress\{[^}]*width:100px;height:100px/.test(SRC));
+  ok('۸۰ پیکسل روی موبایل', /@media\(max-width:400px\)\{\s*\.game-progress\{width:80px;height:80px/.test(SRC));
+
+  /* ۹) تم دست‌نخورده: هیچ نشانهٔ تازه‌ای از دفترِ مرجع نیامده */
+  ok('🔒 نشانه‌های مرجع وارد نشدند',
+     !/--primary\b|--sp-4\b|--dur-slow\b|--fs-title\b|--fs-caption\b/.test(SRC));
 }
 
 section('سفرِ سوره‌ها — شمارش یکتا و نشانِ پایان');

@@ -383,6 +383,40 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .prog{height:7px;background:var(--card);border-radius:9px;overflow:hidden;margin-bottom:18px}
 .prog i{display:block;height:100%;background:var(--fill);width:0;transition:.35s linear}
 .prog.timer i{background:linear-gradient(90deg,var(--grn),var(--gold),var(--red));transition:width 1s linear}
+/* ── حلقهٔ پیشرفتِ #s-play ──
+   جای نوارِ خطی، حلقهٔ SVG می‌آید. خودِ نوار سرِ جایش می‌ماند ولی دیده
+   نمی‌شود: ۱۷ محلِ فراخوانی، `FX.levelBurst` و سنجش‌های کهنه همه به
+   همان `#pgProg` تکیه دارند. رنگ‌ها از نشانه‌های خودِ نورستان‌اند
+   (`--gold`/`--grn`/`--red`) نه از دفترِ نشانهٔ مرجع. */
+.game-progress{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  width:100px;height:100px;margin:0 auto 18px
+}
+.game-progress .prog{position:absolute;inset:0;margin:0;opacity:0;pointer-events:none}
+.progress-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.progress-ring circle{fill:none;stroke-width:4;stroke-linecap:round}
+.ring-track{stroke:var(--line)}
+.ring-progress{
+  stroke:var(--gold);stroke-dasharray:289.03;stroke-dashoffset:289.03;
+  transition:stroke-dashoffset .45s var(--ease),stroke .3s linear
+}
+.progress-text{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;line-height:1.15;pointer-events:none
+}
+.progress-text b{font-size:18px;color:var(--txt);font-variant-numeric:tabular-nums}
+.progress-text small{font-size:11px;color:var(--mut)}
+/* رنگِ زمینهٔ حالتِ سرعت، و بعد مهرِ پاسخ رویش — ترتیب مهم است:
+   هر سه یک وزنِ انتخابی دارند، پس آن که پایین‌تر است برنده می‌شود و
+   مهرِ درست/نادرست باید بر زمینهٔ تایمر غالب باشد. */
+.game-progress.timer .ring-progress{stroke:var(--red)}
+.game-progress.is-correct .ring-progress{stroke:var(--grn)}
+.game-progress.is-wrong   .ring-progress{stroke:var(--red)}
+.game-progress.is-complete .ring-progress{stroke:var(--gold)}
+@media(max-width:400px){
+  .game-progress{width:80px;height:80px;margin-bottom:14px}
+  .progress-text b{font-size:16px}
+}
 .qbox{
   background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
   border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:16px
@@ -2220,7 +2254,14 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
       <div><h2 id="pgTitle">بازی</h2><p id="pgSub">—</p></div>
     </div>
     <div class="gbar" id="pgBar"></div>
-    <div class="prog" id="pgProgWrap"><i id="pgProg"></i></div>
+    <div class="game-progress" id="pgProgWrap">
+      <div class="prog" aria-hidden="true"><i id="pgProg"></i></div>
+      <svg class="progress-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <circle class="ring-track" cx="50" cy="50" r="46"></circle>
+        <circle class="ring-progress" cx="50" cy="50" r="46"></circle>
+      </svg>
+      <div class="progress-text"><b>۰٪</b><small>سؤال</small></div>
+    </div>
     <div id="pgBody"></div>
   </section>
 
@@ -2498,6 +2539,64 @@ const U = {
     }
     this._labelNode(el).textContent = text;
   },
+
+  /* ── حلقهٔ پیشرفتِ #s-play ──
+     تنها منبعِ حقیقت همان نوارِ خطیِ `#pgProg` است؛ این تابع همان درصد
+     را روی حلقهٔ SVG هم می‌نشاند و متنِ وسط را پر می‌کند. نوار دیده
+     نمی‌شود (CSS) ولی سرِ جایش می‌ماند تا ۱۷ محلِ فراخوانی،
+     `FX.levelBurst` و سنجش‌های کهنه بی‌شکسته بمانند.
+
+     `opt.cur`/`opt.total` شمارندهٔ وسط را می‌سازند («۳/۱۰»)؛ اگر نباشند
+     درصد نشان داده می‌شود. `opt.cap` واحدِ زیرِ شمارنده است. */
+  prog(pct, opt){
+    const wrap = this.$('#pgProgWrap');
+    if(!wrap) return;
+    const o = opt || {};
+    const p = this.clamp(+pct || 0, 0, 100);
+
+    const bar = this.$('#pgProg');
+    if(bar) bar.style.width = p + '%';
+
+    const ring = wrap.querySelector('.ring-progress');
+    if(ring){
+      /* محیطِ حلقه از خودِ SVG خوانده می‌شود تا `dasharray` و
+         `dashoffset` هرگز از هم جدا نیفتند. اگر خواندن نشد (SVGِ
+         دیده‌نشده در برخی موتورها)، همان ۲πr با r=۴۶ می‌نشیند. */
+      let C = 0;
+      try{ C = ring.getTotalLength(); }catch(e){}
+      if(!C || !isFinite(C)) C = 289.03;
+      ring.style.strokeDasharray = C;
+      ring.style.strokeDashoffset = (C * (1 - p / 100)).toFixed(2);
+    }
+
+    const tx = wrap.querySelector('.progress-text');
+    if(tx){
+      const b = tx.querySelector('b'), sm = tx.querySelector('small');
+      if(b) b.textContent = (o.cur != null && o.total != null)
+        ? this.fa(o.cur) + '/' + this.fa(o.total)
+        : this.fa(Math.round(p)) + '٪';
+      /* واحد فقط وقتی نوشته می‌شود که فراخوان گفته باشد؛ وگرنه واحدِ
+         همان بازی (که وقتِ آغاز نشسته) دست‌نخورده می‌ماند. */
+      if(sm && o.cap) sm.textContent = o.cap;
+    }
+
+    /* مهرِ پاسخ با هر به‌روزرسانی پاک می‌شود، وگرنه رنگِ سبزِ پاسخِ
+       پیشین روی پرسشِ بعدی می‌ماند. */
+    wrap.classList.remove('is-correct', 'is-wrong');
+    wrap.classList.toggle('is-complete', p >= 100);
+    return p;
+  },
+
+  /* مهرِ گذرا روی حلقه: سبز برای پاسخِ درست، سرخ برای نادرست. */
+  progState(ok){
+    const wrap = this.$('#pgProgWrap');
+    if(!wrap) return;
+    wrap.classList.remove('is-correct', 'is-wrong');
+    wrap.classList.add(ok ? 'is-correct' : 'is-wrong');
+    clearTimeout(this._pgMark);
+    this._pgMark = setTimeout(() => wrap.classList.remove('is-correct', 'is-wrong'), 900);
+  },
+
   esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
   shuffle(a){ const b = [...a]; for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; },
   rand: a => a[Math.floor(Math.random()*a.length)],
@@ -3890,7 +3989,7 @@ const UI = {
       Wallet.earn(6 + Math.round(p / 10) + (p >= 100 ? Wallet.RATE.perfect : 0), 'پایان بازی');
     }catch(e){ console.warn('coins', e); }
     U.$('#pgBar').innerHTML = '';
-    U.$('#pgProg').style.width = '100%';
+    U.prog(100, { cap: 'پایان' });
     U.$('#pgBody').innerHTML = `
       <div class="res card">
         <div class="big">${Glyph.of(icon)}</div>
@@ -8133,6 +8232,9 @@ const Combo = {
 const Progress = {
   award({ game, pts = 0, ok = true, ms = null, silent = false, topic = null }){
     const d = Store.data;
+    /* مهرِ سبز/سرخ روی حلقهٔ پیشرفت — تنها جایی که «درست/نادرست»ِ بازی‌ها
+       یک‌جا از آن می‌گذرد. `silent` (پاداشِ هفتگی) بازی نیست. */
+    if(!silent) U.progState(ok);
     if(ok){
       d.score += pts; d.xp += pts;
       d.stats.totalCorrect++;
@@ -8233,7 +8335,7 @@ const QuizEngine = {
        ${s.mode === 'speed' ? `<span class="pill" id="qTime">⏱ <b>${U.fa(12)}</b></span>` : ''}`;
     /* سؤالِ جاری *شروع* شده، پس باید شمرده شود. «s.i / n» در پرسشِ
        آخر هرگز به ۱۰۰٪ نمی‌رسید و نوار ناتمام می‌ماند. */
-    U.$('#pgProg').style.width = ((s.i + 1) / s.qs.length * 100) + '%';
+    U.prog((s.i + 1) / s.qs.length * 100, { cur: s.i + 1, total: s.qs.length, cap: 'سؤال' });
     const labels = ['الف','ب','پ','ت'];
     const opts = U.shuffle(q.o);
     const dTag = q.d ? `<span class="qhint d${q.d}">${['','آسان','متوسط','دشوار'][q.d]}</span>` : '';
@@ -8292,12 +8394,12 @@ const QuizEngine = {
   startTimer(){
     const s = this.state;
     s.timeLeft = 12;
-    const bar = U.$('#pgProg');
     s.timer = Timers.every(() => {
       s.timeLeft--;
       const el = U.$('#qTime');
       if(el) el.innerHTML = `⏱ <b>${U.fa(s.timeLeft)}</b>`;
-      bar.style.width = ((s.i + (1 - s.timeLeft / 12)) / s.qs.length) * 100 + '%';
+      U.prog((s.i + (1 - s.timeLeft / 12)) / s.qs.length * 100,
+             { cur: s.i + 1, total: s.qs.length, cap: 'سؤال' });
       if(s.timeLeft <= 3 && s.timeLeft > 0) Sound.tick();
       if(s.timeLeft <= 0){ Timers.clear(s.timer); s.timer = null; this.timeout(); }
     }, 1000);
@@ -8457,7 +8559,7 @@ const SurahEngine = {
        ${Combo.label()}`;
     /* پیش‌تر `s.i / n` بود: در سؤالِ نهم از ۲۴، ۳۳٪ نشان می‌داد و در سؤالِ
        آخر هرگز به ۱۰۰ نمی‌رسید. سؤالِ جاری *شروع* شده، پس باید شمرده شود. */
-    U.$('#pgProg').style.width = ((s.i + 1) / s.list.length * 100) + '%';
+    U.prog((s.i + 1) / s.list.length * 100, { cur: s.i + 1, total: s.list.length, cap: 'آیه' });
     U.$('#pgBody').innerHTML = `
       <div class="qbox" id="qbox">
         ${lvl.level ? `<div class="qsrc">🕌 ${U.esc(lvl.level)}</div>` : ''}
@@ -8547,7 +8649,8 @@ const ScrambleEngine = {
     U.icLabel(U.$('#pgTitle'), 'plus', 'پازل حروف');
     U.$('#pgSub').textContent = 'حروف را بچین و کلمه را بساز';
     U.$('#pgProgWrap').classList.remove('timer');
-    U.$('#pgProg').style.width = '30%';
+    /* پازلِ حروف پرسش‌شمار نیست؛ نوارِ آغازینش همان ۳۰٪ می‌ماند. */
+    U.prog(30, { cap: 'پازل' });
     this.render();
   },
   render(){
@@ -8641,7 +8744,10 @@ const MemoryEngine = {
     U.$('#pgTitle').innerHTML = Glyph.inline('🧠 حافظه');
     U.$('#pgSub').textContent = 'جفت‌های همسان را پیدا کن';
     U.$('#pgProgWrap').classList.remove('timer');
-    U.$('#pgProg').style.width = '0%';
+    /* تختهٔ نیمه‌کاره ممکن است چند جفتِ رفته داشته باشد؛ حلقه باید از
+       همان‌جا شروع کند، نه از صفر. */
+    U.prog(this.state.matched / (cards.length / 2) * 100,
+           { cur: this.state.matched, total: cards.length / 2, cap: 'جفت' });
     this.render();
     /* اگر تختهٔ بازگردانده‌شده پیش‌تر تمام شده بود، همان‌جا ببندش */
     if(this.state.matched === this.state.cards.length / 2) this.finish();
@@ -8682,12 +8788,18 @@ const MemoryEngine = {
         s.cards[a].matched = s.cards[b].matched = true;
         s.matched++; s.flipped = []; s.busy = false;
         Sound.play(true); Haptic.hit(15);
+        /* حافظه `Progress.award`ِ هر جفت را ندارد (جریمه‌ای هم ندارد)، پس
+           حلقه را همین‌جا جلو می‌بریم و مهرِ سبز می‌زنیم. */
+        U.prog(s.matched / (s.cards.length / 2) * 100,
+               { cur: s.matched, total: s.cards.length / 2, cap: 'جفت' });
+        U.progState(true);
         this.render();
         if(s.matched === s.cards.length / 2) this.finish();
       }, 420);
     } else {
       s.busy = true;
       Sound.play(false);
+      U.progState(false);
       Timers.after(() => {
         U.$(`.mcard[data-i="${a}"]`)?.classList.remove('flip');
         U.$(`.mcard[data-i="${b}"]`)?.classList.remove('flip');
@@ -8730,7 +8842,7 @@ const MatchEngine = {
     U.icLabel(U.$('#pgTitle'), 'link', 'تطبیق');
     U.$('#pgSub').textContent = 'کلمه و معنی را جفت کن';
     U.$('#pgProgWrap').classList.remove('timer');
-    U.$('#pgProg').style.width = '0%';
+    U.prog(0, { cur: this.state.matched, total: this.state.left.length, cap: 'جفت' });
     this.render();
   },
   render(){
@@ -8760,7 +8872,8 @@ const MatchEngine = {
       Sound.play(true); Haptic.hit(15);
       s.matched++;
       U.$('#mtMatched').textContent = U.fa(s.matched);
-      U.$('#pgProg').style.width = (s.matched / s.left.length * 100) + '%';
+      U.prog(s.matched / s.left.length * 100,
+             { cur: s.matched, total: s.left.length, cap: 'جفت' });
       Progress.award({ game: 'match', pts: 12, ok: true });
       if(s.matched === s.left.length) this.finish();
     } else {
@@ -8815,7 +8928,8 @@ const DoozEngine = {
     U.$('#pgTitle').innerHTML = Glyph.inline('❌⭕ دوز');
     U.$('#pgSub').textContent = online ? `آنلاین — روم ${room?.code || ''}` : 'بازی با کامپیوتر';
     U.$('#pgProgWrap').classList.remove('timer');
-    U.$('#pgProg').style.width = '0%';
+    /* دوز پرسش‌شمار نیست — حلقه فقط خالی می‌مانَد. */
+    U.prog(0, { cap: 'بازی' });
     if(online){
       U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} در انتظار شروع از طرف میزبان…</span>`;
       U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
@@ -9096,7 +9210,7 @@ const EsmFamilEngine = {
        صفر می‌رسید همان‌جا می‌مرد و صفحه تا ابد روی «دور ۲/۳» می‌ماند. */
     s.submitted = false;
     s.time = this.ROUND_TIME;
-    U.$('#pgProg').style.width = ((s.round - 1) / s.total * 100) + '%';
+    U.prog((s.round - 1) / s.total * 100, { cur: s.round, total: s.total, cap: 'دور' });
     U.$('#pgBar').innerHTML =
       `<span class="pill">⏱ <b id="efTime">${U.fa(s.time)}</b></span>
        <span class="pill">دور <b id="efRound">${U.fa(s.round)}</b>/${U.fa(s.total)}</span>`;
@@ -9198,7 +9312,7 @@ const EsmFamilEngine = {
 
   renderResults(results){
     const s = this.state;
-    U.$('#pgProg').style.width = (s.round / s.total * 100) + '%';
+    U.prog(s.round / s.total * 100, { cur: s.round, total: s.total, cap: 'دور' });
     U.$('#pgBar').innerHTML = `<span class="pill">نتایج دور <b>${U.fa(s.round)}</b> — حرف «${U.esc(s.letter)}»</span>`;
     const mine = results.find(r => r.id === Net.id);
     U.$('#pgBody').innerHTML = `
@@ -10316,7 +10430,7 @@ const HadithEngine = {
     U.$('#pgTitle').innerHTML = Glyph.inline('📜 حدیث‌یاب');
     U.$('#pgSub').textContent = 'واژه‌ای که جا افتاده را پیدا کن';
     U.$('#pgBar').innerHTML = '';
-    U.$('#pgProg').style.width = '0%';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'حدیث' });
     U.$('#pgBody').innerHTML = `${Beat.label('hadith')}
       <div class="card" id="hadCard"></div>
       ${Adaptive.note()}`;
@@ -10362,7 +10476,8 @@ const HadithEngine = {
          برای همیشه روی «۱/۱۰» می‌ماند. */
       U.$('#hadNext').onclick = () => this.next();
     }
-    U.$('#pgProg').style.width = Math.round(100 * (this.i + 1) / this.qs.length) + '%';
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
   },
   next(){
     this.i++;
@@ -10382,6 +10497,7 @@ const HadithEngine = {
     this.locked = true;
     const q = this.qs[this.i];
     const ok = U.norm(word) === U.norm(q.key);
+    U.progState(ok);
     this.filled = word;
     const el = U.$('#hadSlot');
     if(el){ el.textContent = word; el.classList.remove('empty'); }
@@ -10512,7 +10628,7 @@ const ImamEngine = {
     U.$('#pgTitle').innerHTML = Glyph.inline('🕌 چهارده معصوم');
     U.$('#pgSub').textContent = 'نام‌ها، لقب‌ها و جایگاه‌ها';
     U.$('#pgBar').innerHTML = '';
-    U.$('#pgProg').style.width = '0%';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'پرسش' });
     U.$('#pgBody').innerHTML = `${Beat.label('imams')}<div class="card" id="imCard"></div>${Adaptive.note()}`;
     this.paint();
   },
@@ -10538,6 +10654,7 @@ const ImamEngine = {
     this.locked = true;
     const q = this.qs[this.i];
     const ok = word === q.a;
+    U.progState(ok);
     U.$$('#imCard .imam-card').forEach(b => { if(b.dataset.o === q.a) b.classList.add('done'); });
     if(ok){
       this.right++; this.score += 12;
@@ -10557,7 +10674,8 @@ const ImamEngine = {
       ${q.who.laqabSrc ? `<br><span class="tiny">📚 ${U.esc(q.who.laqabSrc)}</span>` : ''}</div>
       <button class="btn sm mt10" id="imNext">سؤال بعدی ⏭</button>`;
     U.$('#imNext').onclick = () => { this.locked = false; this.i++; this.paint(); };
-    U.$('#pgProg').style.width = Math.round(100 * (this.i + 1) / this.qs.length) + '%';
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
   },
   finish(){
     const ms = U.now() - this.t0, total = this.qs.length;
@@ -10601,7 +10719,7 @@ const DuaEngine = {
     U.$('#pgTitle').innerHTML = Glyph.inline('🤲 نجوا');
     U.$('#pgSub').textContent = 'واژه‌های دعا را به ترتیب بچین';
     U.$('#pgBar').innerHTML = '';
-    U.$('#pgProg').style.width = '0%';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'دعا' });
     U.$('#pgBody').innerHTML = `${Beat.label('dua')}<div class="card" id="duaCard"></div>`;
     this.paint();
   },
@@ -10655,6 +10773,7 @@ const DuaEngine = {
     const q = this.qs[this.i];
     const mine = this.placed.map(p => p.w).join(' ');
     const ok = U.norm(mine) === U.norm(q.ar);
+    U.progState(ok);
     if(ok){
       this.locked = true; this.right++; this.score += 18;
       Sound.fanfare(); Haptic.success();
@@ -10684,7 +10803,8 @@ const DuaEngine = {
     }
     const n = U.$('#duaNext');
     if(n) n.onclick = () => { this.i++; this.locked = false; this.paint(); };
-    U.$('#pgProg').style.width = Math.round(100 * (this.i + 1) / this.qs.length) + '%';
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
   },
   finish(){
     const ms = U.now() - this.t0, total = this.qs.length;
@@ -11083,7 +11203,8 @@ const Launcher = {
     U.$('#pgTitle').innerHTML = Glyph.inline('🎮 همه بازی‌ها');
     U.$('#pgSub').textContent = 'یکی را انتخاب کن';
     U.$('#pgBar').innerHTML = '';
-    U.$('#pgProg').style.width = '0%';
+    /* فهرستِ بازی‌ها پیشرفتی ندارد؛ حلقه فقط خالی می‌مانَد. */
+    U.prog(0, { cap: 'بازی' });
     const ids = Object.keys(DATA.GAMES).filter(g => !['stats','badges','leaderboard','settings'].includes(g));
     U.$('#pgBody').innerHTML = `
       ${Autosave.bar()}
