@@ -450,6 +450,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 /* Result */
 .res{text-align:center;padding:26px 18px}
 .res .big{font-size:56px;margin-bottom:8px}
+/* آیکنِ نتیجه اندازه‌اش را از همان ۵۶px می‌گیرد، نه از ۲۰pxِ پیش‌فرضِ
+   `.ic` — وگرنه نتیجهٔ بازی با یک آیکنِ کوچک نشان داده می‌شد. */
+.res .big .ic{width:56px;height:56px;margin:0 auto}
 .res h3{font-size:20px;margin-bottom:6px}
 .res .stars{font-size:32px;letter-spacing:6px;margin:12px 0}
 
@@ -809,7 +812,13 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
    از همان عددِ پیشین می‌گیریم تا چیدمان تکان نخورد. */
 .gi19 .ic{ display:inline-block; width:19px; height:19px; vertical-align:-3px }
 .gi26 .ic{ display:block; width:26px; height:26px; margin:0 auto }
-.tl .ic, .mi .ic, .si .ic{ display:inline-block; width:16px; height:16px; vertical-align:-3px }
+/* اندازه‌ها از همان `font-size`های پیشین گرفته شده‌اند تا چیدمان تکان
+   نخورد: `.miss .mi` ۲۰px بود، `.shop-item .si` ۲۴px، و `.tree-row .tl`
+   متنِ ۱۱٫۵px بود پس آیکنش کوچک‌تر می‌نشیند. */
+.tl .ic, .mi .ic, .si .ic{ display:inline-block; vertical-align:-3px }
+.miss .mi .ic{ width:20px; height:20px }
+.shop-item .si .ic{ width:24px; height:24px; margin:0 auto }
+.tree-row .tl .ic{ width:14px; height:14px; vertical-align:-3px }
 .daily-ayah-ar{font-size:23px;color:var(--gold);text-align:center;margin-bottom:8px}
 .daily-ayah-ar.long{font-size:17px;line-height:2.15}
 .daily-fa{font-size:13px;color:var(--txt);text-align:center;line-height:2}
