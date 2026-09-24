@@ -548,6 +548,13 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   background:transparent;color:var(--mut);font-size:14px;line-height:1;
   border-radius:8px;cursor:pointer;display:grid;place-items:center}
 .toast.live .x:hover,.toast.live .x:focus-visible{background:rgba(128,128,128,.16);color:var(--txt)}
+.toast.live .x .ic{width:14px;height:14px}
+/* آیکنِ پیشوندیِ پیام. با `align-items:flex-start` باید کمی پایین‌تر
+   بنشیند تا با خطِ اولِ متن جور شود، نه با لبهٔ بالای جعبه. */
+.toast.live .ic-w{flex:none;display:flex;color:var(--gold);margin-top:1px}
+.toast.live .ic-w .ic{width:15px;height:15px}
+.toast.live.ok .ic-w{color:var(--grn)}
+.toast.live.err .ic-w{color:var(--red)}
 #modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.75);backdrop-filter:blur(6px);
   display:none;place-items:center;padding:18px}
 #modal.on{display:grid}
@@ -798,6 +805,11 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 /* `.ic` پیش‌فرض `display:block` است و در یک divِ متنیِ وسط‌چین، آیکن را
    به سطرِ جدا می‌برد. این‌جا باید هم‌خطِ «آیهٔ امروز» بنشیند. */
 .daily .daily-tag .ic{ display:inline-block; width:13px; height:13px; vertical-align:-2px; margin-inline-end:4px }
+/* جاهایی که ایموجی با `font-size` بزرگ‌تر بود و حالا SVG نشسته: اندازه را
+   از همان عددِ پیشین می‌گیریم تا چیدمان تکان نخورد. */
+.gi19 .ic{ display:inline-block; width:19px; height:19px; vertical-align:-3px }
+.gi26 .ic{ display:block; width:26px; height:26px; margin:0 auto }
+.tl .ic, .mi .ic, .si .ic{ display:inline-block; width:16px; height:16px; vertical-align:-3px }
 .daily-ayah-ar{font-size:23px;color:var(--gold);text-align:center;margin-bottom:8px}
 .daily-ayah-ar.long{font-size:17px;line-height:2.15}
 .daily-fa{font-size:13px;color:var(--txt);text-align:center;line-height:2}
@@ -2303,30 +2315,30 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
         <button class="btn gh sm" id="qRepeat"><i data-ic="repeat"></i><span>تکرار آیه: خاموش</span></button>
         <button class="btn gh sm" id="qSpeed">⏱ سرعت: ۱×</button>
       </div>
-      <label class="lbl" style="margin-top:12px">🔊 بلندی صدا</label>
+      <label class="lbl" style="margin-top:12px"><i data-ic="volume"></i> بلندی صدا</label>
       <input type="range" id="qVol" min="0" max="100" value="90" style="width:100%">
     </div>
 
     <div class="card" style="margin-top:12px">
-      <div class="lbl2" style="margin-bottom:8px"><span>📚 تلاوت‌های برگزیده</span></div>
+      <div class="lbl2" style="margin-bottom:8px"><span><i data-ic="book"></i> تلاوت‌های برگزیده</span></div>
       <div id="qPicks"></div>
     </div>
 
-    <button class="btn w" id="qOpenReader2" style="margin-top:14px">📖 خواندن این سوره در مصحف‌نما</button>
+    <button class="btn w" id="qOpenReader2" style="margin-top:14px"><i data-ic="book-open"></i><span>خواندن این سوره در مصحف‌نما</span></button>
   </section>
 
   <!-- ═══════ مصحف‌نما — خواندن آیه‌به‌آیه با ترجمه ═══════ -->
   <section class="screen" id="s-read">
     <div class="phead">
       <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
-      <div><h2 id="readTitle">📖 مصحف‌نما</h2><p id="readSub">خواندن، شنیدن و اندیشیدن</p></div>
+      <div><h2 id="readTitle"><i data-ic="book-open"></i> مصحف‌نما</h2><p id="readSub">خواندن، شنیدن و اندیشیدن</p></div>
       <button class="iconbtn" id="readMarks" title="نشانه‌گذاری"><i data-ic="mark"></i></button>
     </div>
 
     <div class="card read-tools">
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn gh sm" id="readPrevS">⏮ سورهٔ قبل</button>
-        <button class="btn gh sm" id="readPickS">📖 گزینش سوره</button>
+        <button class="btn gh sm" id="readPickS"><i data-ic="book-open"></i><span>گزینش سوره</span></button>
         <button class="btn gh sm" id="readNextS">سورهٔ بعد ⏭</button>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
@@ -2335,7 +2347,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
         <button class="btn gh sm" id="readSizeUp">ا+</button>
         <button class="btn gh sm" id="readToggleFa">🇮🇷 ترجمه: روشن</button>
         <button class="btn gh sm" id="readPlay">▶️ پخش سوره</button>
-        <button class="btn gh sm" id="readFont">✒️ فونت قرآن</button>
+        <button class="btn gh sm" id="readFont"><i data-ic="pen"></i><span>فونت قرآن</span></button>
       </div>
       <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
         روی هر آیه بزن تا خوانده شود. متن هر سوره یک بار از اینترنت گرفته و روی دستگاه ذخیره می‌شود.</p>
@@ -2343,7 +2355,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 
     <div id="readBody"></div>
     <div class="card" style="margin-top:12px;text-align:center">
-      <button class="btn gh" id="readToQuran">🎧 رفتن به بخش تلاوت</button>
+      <button class="btn gh" id="readToQuran"><i data-ic="headphones"></i><span>رفتن به بخش تلاوت</span></button>
     </div>
   </section>
 
@@ -2358,7 +2370,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 </div>
 
 <!-- دکمهٔ خروج از حالت تمرکز — فقط وقتی تمرکز روشن است دیده می‌شود -->
-<button class="btn ghost hide" id="focusExit" title="خروج از حالت تمرکز (Alt+F)">🧘 خروج از تمرکز</button>
+<button class="btn ghost hide" id="focusExit" title="خروج از حالت تمرکز (Alt+F)"><i data-ic="target"></i><span>خروج از تمرکز</span></button>
 
 <!-- نوار پخش قرآن (همیشه همراه) -->
 <div id="miniQ">
@@ -2432,11 +2444,50 @@ const U = {
      حالا دکمه‌ها `<svg>` + `<span>` دارند و `textContent` کلِ محتوا را
      پاک می‌کند — از جمله آیکن را. این کمک‌تابع فقط متنِ `span` را عوض
      می‌کند و اگر دکمه span نداشت، مثل قبل روی خودِ دکمه می‌نویسد. */
+  /* ── گرهٔ برچسب ──
+     دکمه‌های آیکن‌دار سه ریخت دارند و هر سه باید کار کنند:
+
+       `<i data-ic="user"></i> کاربر`   ← متنِ لخت، بی `<span>`
+       `<i data-ic="mark"></i><span>نشان کن</span>`
+       `<span class="ic-w">…</span><span>…</span>`
+
+     نسخهٔ پیشین فقط `<span>` را می‌دید؛ در ریختِ اول چیزی پیدا نمی‌کرد و
+     به `textContent` روی خودِ دکمه می‌افتاد — که آیکن را هم پاک می‌کرد.
+     `:not(.ic-w)` هم لازم است، وگرنه نگه‌دارندهٔ آیکن جای برچسب گرفته
+     می‌شد و آیکن می‌سوخت. */
+  _labelNode(el){
+    const sp = el.querySelector('span:not(.ic-w)');
+    if(sp) return sp;
+    for(const n of el.childNodes)
+      if(n.nodeType === 3 && n.textContent.trim()) return n;
+    const s = document.createElement('span');
+    el.appendChild(s);
+    return s;
+  },
   label(btn, text){
-    if(!btn) return;
-    const s = btn.querySelector && btn.querySelector('span');
-    if(s) s.textContent = text;
-    else btn.textContent = text;
+    if(btn) this._labelNode(btn).textContent = text;
+  },
+  /* ── هم آیکن، هم برچسب ──
+     بعضی دکمه‌ها آیکنشان با وضعیت می‌چرخد (صدا 🔊/🔇، لرزش 📳/📴).
+     `label` تنها کافی نیست، چون آیکن را دست نمی‌زند. */
+  icLabel(el, ic, text){
+    if(!el) return;
+    const w = el.querySelector('.ic-w') || el.querySelector('i[data-ic]');
+    if(w && w.tagName === 'I'){
+      /* نشانِ ثابتی که در HTML نشسته: همان را عوض می‌کنیم و از نو
+         می‌نشانیم. اگر نگه‌دارندهٔ تازه بسازیم، دکمه دو آیکن می‌گیرد. */
+      if(ic){ w.setAttribute('data-ic', ic); Icon.hydrate(el); }
+      else w.remove();
+    } else {
+      const box = w || (() => {
+        const s = document.createElement('span');
+        s.className = 'ic-w';
+        el.insertBefore(s, el.firstChild);
+        return s;
+      })();
+      box.innerHTML = ic ? Icon.of(ic) : '';
+    }
+    this._labelNode(el).textContent = text;
   },
   esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
   shuffle(a){ const b = [...a]; for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; },
@@ -2725,7 +2776,29 @@ const Icon = {
     grid:         { d:'<path d="M4.4 4.4h15.2v15.2H4.4z"/><path d="M12 4.4v15.2M4.4 12h15.2"/>' },
     car:          { d:'<path d="M4.4 16.4v-3.2l1.8-4.4a1.4 1.4 0 0 1 1.3-.8h9a1.4 1.4 0 0 1 1.3.8l1.8 4.4v3.2"/><path d="M3.4 16.4h17.2v2.2H3.4z"/><path d="M7.4 12.6h9.2"/><path d="M6.8 18.6h.01M17.2 18.6h.01"/>' },
     text:         { d:'<path d="M4.4 6.4h9.2"/><path d="M9 6.4v11.2"/><path d="M15.4 11.4h4.2M17.5 11.4v6.2"/>' },
-    flag:         { d:'<path d="M6.4 3.6v16.8"/><path d="M6.4 5.2h11.2l-2.4 4 2.4 4H6.4z"/>' }
+    flag:         { d:'<path d="M6.4 3.6v16.8"/><path d="M6.4 5.2h11.2l-2.4 4 2.4 4H6.4z"/>' },
+    /* ── دستهٔ دوم: آیکن‌هایی که پوستهٔ ساخته‌شده با JS لازم داشت ── */
+    share:        { d:'<path d="M12 3.6v10.8"/><path d="M8.4 7.2 12 3.6l3.6 3.6"/><path d="M6.4 11.4H5.4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h13.2a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/>' },
+    party:        { d:'<path d="M3.6 20.4 8.2 8.4l7.4 7.4z"/><path d="M14.4 3.4h.01M18.4 6.4h.01M20.4 3.4h.01M15.4 7.4h.01M20.4 10.4h.01"/>' },
+    clap:         { d:'<path d="M7.4 12.4 5.6 10.6a1.4 1.4 0 0 1 2-2l3.6 3.6"/><path d="M9.6 9.4 7.8 7.6a1.4 1.4 0 0 1 2-2l4.6 4.6"/><path d="M12.4 8.4 11 7a1.4 1.4 0 0 1 2-2l5.2 5.2a5.6 5.6 0 0 1 1.6 4.6l-.4 3.6a5 5 0 0 1-5 4.4h-3a5 5 0 0 1-5-5v-4"/>' },
+    broom:        { d:'<path d="M16.4 3.6 8.6 11.4"/><path d="M11 8.8 4.4 15.4a1.6 1.6 0 0 0-.3 1.9l1.4 2.4c.3.5.9.7 1.4.4l4.9-2.6a1.6 1.6 0 0 0 .6-.5l3.4-3.4z"/>' },
+    unlock:       { d:'<path d="M5.4 10.4h13.2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><path d="M8.4 10.4V7.6a3.6 3.6 0 0 1 6.9-1.4"/><path d="M12 14.4v2.4"/>' },
+    'mic-off':    { d:'<path d="M4.4 4.4 19.6 19.6"/><path d="M9.4 5.6a2.6 2.6 0 0 1 5.2 0v4.6"/><path d="M14.6 13.2a2.6 2.6 0 0 1-5.2-2.2"/><path d="M6.6 11.4v1a5.4 5.4 0 0 0 8.2 4.7"/><path d="M17.4 11.4v1a5.4 5.4 0 0 1-.7 2.6"/><path d="M12 17.8v2.6M9 20.4h6"/>' },
+    'volume-off': { d:'<path d="M4.6 9.4h3.2L12 5.8v12.4l-4.2-3.6H4.6a1 1 0 0 1-1-1v-3.2a1 1 0 0 1 1-1z"/><path d="M15.6 9.8 20 14.2M20 9.8l-4.4 4.4"/>' },
+    rocket:       { d:'<path d="M12 3.4c3.2 2.4 4.6 5.6 4.6 9.2l-2.4 3.4h-4.4L7.4 12.6c0-3.6 1.4-6.8 4.6-9.2z"/><path d="M9.8 16v3.6l2.2-1.6 2.2 1.6V16"/><path d="M12 8.4h.01"/>' },
+    help:         { d:'<path d="M12 3.8a8.2 8.2 0 1 0 0 16.4 8.2 8.2 0 0 0 0-16.4z"/><path d="M9.6 9.6a2.5 2.5 0 0 1 4.9.6c0 1.7-2.5 2.5-2.5 2.5"/><path d="M12 16.6h.01"/>' },
+    download:     { d:'<path d="M12 3.6v10.4"/><path d="M7.8 10 12 14.2 16.2 10"/><path d="M4.6 16.4v2.4a1 1 0 0 0 1 1h12.8a1 1 0 0 0 1-1v-2.4"/>' },
+    cloud:        { d:'<path d="M7.4 18.4h9.8a4.2 4.2 0 0 0 .3-8.4 6 6 0 0 0-11.5 1.3 3.6 3.6 0 0 0 1.4 7.1z"/>' },
+    ban:          { d:'<path d="M12 3.8a8.2 8.2 0 1 0 0 16.4 8.2 8.2 0 0 0 0-16.4z"/><path d="M6.2 6.2 17.8 17.8"/>' },
+    'id-card':    { d:'<path d="M4.4 5.4h15.2a1 1 0 0 1 1 1v11.2a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M7.4 9h3.2v3.2H7.4z"/><path d="M7.4 14.4h3.2M13.4 9h3.2M13.4 12h3.2M13.4 15h2"/>' },
+    archive:      { d:'<path d="M3.6 5.4h16.8v3.2H3.6z"/><path d="M5.4 8.6h13.2v10.4a1 1 0 0 1-1 1H6.4a1 1 0 0 1-1-1z"/><path d="M10 12.4h4"/>' },
+    package:      { d:'<path d="M12 3.4 20.4 8v8L12 20.6 3.6 16V8z"/><path d="M3.6 8 12 12.6 20.4 8"/><path d="M12 12.6v8"/>' },
+    handshake:    { d:'<path d="M2.6 12.4 6.4 8.6l3.2 3.2"/><path d="M21.4 12.4 17.6 8.6l-3.2 3.2"/><path d="M6.4 8.6h4.6l1 1 1-1h4.6"/><path d="M12 9.6l2.4 2.4 2.4-2.4"/>' },
+    bulb:         { d:'<path d="M9.4 17.4a6 6 0 1 1 5.2 0v1.8a1 1 0 0 1-1 1h-3.2a1 1 0 0 1-1-1z"/><path d="M10 20.4h4"/>' },
+    undo:         { d:'<path d="M4.4 9.4h9.2a5.4 5.4 0 0 1 0 10.8H8"/><path d="M8 5.4 4 9.4l4 4"/>' },
+    sliders:      { d:'<path d="M5.4 4.4v5M5.4 14.6v5M12 4.4v9M12 18.6v1M18.6 4.4v3M18.6 12.6v7"/><path d="M3.4 9.4h4M10 13.4h4M16.6 7.4h4"/>' },
+    vibrate:      { d:'<path d="M8.4 4.4h7.2a1 1 0 0 1 1 1v13.2a1 1 0 0 1-1 1H8.4a1 1 0 0 1-1-1V5.4a1 1 0 0 1 1-1z"/><path d="M4.4 9.4v5.2M2.4 11v2M19.6 9.4v5.2M21.6 11v2"/>' },
+    dot:          { f:1, d:'<circle cx="12" cy="12" r="4.6"/>' }
   },
   /* `size` اختیاری است. اگر بیاید، به‌صورتِ styleِ درون‌خطی می‌نشیند نه
      صفتِ width/height: صفتِ ارائه‌ای را CSS می‌بَرد و آن‌وقت اندازهٔ
@@ -2770,7 +2843,72 @@ const Glyph = {
     '👥':'users',     '👤':'user',  '👑':'crown',  '🛒':'cart',  '🔖':'mark',
     '❤️':'heart',     '💖':'heart', '💔':'heart-break', '✅':'check', '❌':'close',
     '❌⭕':'grid',    '⚙️':'gear',  '⚖️':'scales', '⚔️':'swords', '🏎️':'car',
-    '🔤':'text',      '🇮🇷':'flag', '🙂':'smile'
+    '🔤':'text',      '🇮🇷':'flag', '🙂':'smile',
+    /* ── دستهٔ دوم: ایموجی‌هایی که پوستهٔ ساخته‌شده با JS به‌کار می‌برد ── */
+    '⚠️':'warn',      '🔄':'refresh', '📤':'share',  '📥':'download',
+    '📲':'download',  '⬇️':'download', '🏠':'home',  '🏁':'flag',
+    '🎉':'party',     '👏':'clap',    '🧹':'broom',  '🔓':'unlock',
+    '🔒':'lock',      '🔐':'lock',    '📵':'mic-off', '🔇':'volume-off',
+    '📴':'volume-off','🚀':'rocket',  '❓':'help',   '☁️':'cloud',
+    '🚫':'ban',       '🪪':'id-card', '📇':'id-card','🗄️':'archive',
+    '📦':'package',   '🤝':'handshake','💡':'bulb',  '↩️':'undo',
+    '↩':'undo',       '🎚':'sliders', '📳':'vibrate','🟢':'dot',
+    '🟡':'dot',       '🔴':'dot',     '💰':'coin',   '🪙':'coin',
+    '🔑':'key',       '🔔':'bell',    '📱':'phone',  '📡':'sat',
+    '🎨':'palette',   '🌸':'sparkle', '🧊':'snow',   '🛒':'cart',
+    '📊':'chart',     '📈':'trend',   '🧮':'chart',  '🎬':'image',
+    '🖼':'image',     '📖':'book-open','📚':'book',  '🕒':'clock',
+    '✏️':'edit',      '✒️':'pen',     '🖋':'pen',    '🗑️':'trash',
+    '🗑':'trash',     '🛠️':'tools',   '🛠':'tools',  '🛡':'shield',
+    '👁':'eye',       '🔀':'shuffle', '🚪':'logout', '💾':'save',
+    '➕':'plus',      '✖️':'close',   '✕':'close',   '✓':'check'
+  },
+  /* ── جدا کردنِ ایموجیِ صدرِ رشته ──
+     پیام‌های توست و برچسبِ دکمه‌ها با ایموجیِ کارکردی شروع می‌شوند
+     (`⚠️ تلاوت بارگذاری نشد`). این تابع آن ایموجی را از متن جدا می‌کند تا
+     بشود SVG نشاند و متن را با `textContent` نوشت.
+
+     تطبیق عمداً «دقیق» است، نه با `\p{Extended_Pictographic}`: الگوی
+     یونیکدی هر ایموجی‌ای را می‌گیرد — از جمله چهرکِ انتخابیِ کاربر و
+     ایموجیِ داخلِ متنِ حدیث — و آن‌وقت محتوای کاربر به آیکن بدل می‌شد.
+     فقط ایموجی‌هایی که در همین نقشه‌اند جدا می‌شوند.
+
+     کلیدها بلندبه‌کوتاه امتحان می‌شوند: وگرنه `❌⭕` اول با `❌` تطبیق
+     می‌خورد و `⭕` در متن جا می‌ماند. */
+  _lead: null,
+  lead(s){
+    if(!this._lead) this._lead = Object.keys(this.MAP).sort((a, b) => b.length - a.length);
+    for(const k of this._lead){
+      if(!s.startsWith(k)) continue;
+      const rest = s.slice(k.length).replace(/^[\s‎‏]+/, '');
+      return rest ? { emoji: k, rest } : null;
+    }
+    return null;
+  },
+  /* عنصرِ نگه‌دارندهٔ آیکن. `of` اگر ایموجی را نشناسد خودش را برمی‌گرداند،
+     پس اینجا هم چیزی نمی‌شکند. */
+  /* ── متنِ ایمن با آیکنِ آغازین ──
+     جاهایی که متن از داده می‌آید و باید امن بماند، ولی با ایموجیِ کارکردی
+     شروع می‌شود (`📖 سفر سوره‌ها`). ایموجیِ صدر SVG می‌شود و باقیِ متن
+     `escape` — پس خروجی برای `innerHTML` امن است. */
+  inline(s){
+    const t = String(s == null ? '' : s);
+    const g = this.lead(t);
+    if(!g) return U.esc(t);
+    const h = this.of(g.emoji);
+    return (h.startsWith('<svg') ? h : U.esc(h)) + U.esc(g.rest);
+  },
+  el(e){
+    const s = document.createElement('span');
+    s.className = 'ic-w';
+    const h = this.of(e);
+    /* فقط خروجیِ `<svg>` به‌عنوان markup می‌نشیند. اگر `of` ایموجی را
+       نشناخت و خودِ ورودی را برگرداند، آن‌وقت ورودی ممکن است متنِ دلخواه
+       باشد — و `innerHTML` راهِ تزریق می‌شد. پس در آن حالت با
+       `textContent` می‌نویسیم. */
+    if(h.startsWith('<svg')) s.innerHTML = h;
+    else s.textContent = h;
+    return s;
   },
   of(e){
     const n = this.MAP[e];
@@ -3581,14 +3719,20 @@ const UI = {
     if(!box) return;
     const el = document.createElement('div');
     el.className = 'toast live ' + type;
+    /* ایموجیِ صدرِ پیام به آیکنِ SVG بدل می‌شود؛ ولی خودِ متن همچنان با
+       `textContent` نوشته می‌شود، چون پیام‌ها از دادهٔ سرور و نام کاربر
+       می‌آیند و `innerHTML` راهِ تزریق می‌شد. */
+    let body = String(msg == null ? '' : msg);
+    const g = Glyph.lead(body);
+    if(g){ el.appendChild(Glyph.el(g.emoji)); body = g.rest; }
     const tx = document.createElement('span');
     tx.className = 'tx';
-    tx.textContent = msg;
+    tx.textContent = body;
     const x = document.createElement('button');
     x.className = 'x'; x.type = 'button';
     x.setAttribute('aria-label', 'بستن پیام');
     x.title = 'بستن';
-    x.textContent = '✕';
+    x.innerHTML = Icon.of('close');
     el.appendChild(tx); el.appendChild(x);
     box.appendChild(el);
     while(box.children.length > 2) box.firstChild.remove();
@@ -3740,15 +3884,15 @@ const UI = {
     U.$('#pgProg').style.width = '100%';
     U.$('#pgBody').innerHTML = `
       <div class="res card">
-        <div class="big">${icon}</div>
-        <h3>${U.esc(title)}</h3>
+        <div class="big">${Glyph.of(icon)}</div>
+        <h3>${Glyph.inline(title)}</h3>
         <p style="color:var(--mut);font-size:13px;margin-top:6px">${detail || ''}</p>
         ${stars != null ? `<div class="stars">${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0,3-stars))}</div>` : ''}
         ${extraHtml}
         <div class="row" style="gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap">
-          ${onAgain ? '<button class="btn" id="pgAgain">🔄 دوباره</button>' : ''}
-          <button class="btn gh" id="pgHome">🏠 خانه</button>
-          <button class="btn gh" id="pgShare">📤 اشتراک نتیجه</button>
+          ${onAgain ? `<button class="btn" id="pgAgain">${Icon.of('refresh')}<span>دوباره</span></button>` : ''}
+          <button class="btn gh" id="pgHome">${Icon.of('home')}<span>خانه</span></button>
+          <button class="btn gh" id="pgShare">${Icon.of('share')}<span>اشتراک نتیجه</span></button>
         </div>
       </div>`;
     if(onAgain) U.$('#pgAgain').onclick = onAgain;
@@ -4675,10 +4819,10 @@ const QuranUI = {
     const q = Store.get('quran');
     const cur = Recite.cur || { s: q.surah || 1, a: q.ayah || 1 };
     const f = U.$('#qFocus');
-    if(f){ f.textContent = Focus.on() ? '🧘 تمرکز: روشن' : '🧘 تمرکز'; f.classList.toggle('ok', Focus.on());
+    if(f){ U.icLabel(f, 'target', Focus.on() ? 'تمرکز: روشن' : 'تمرکز'); f.classList.toggle('ok', Focus.on());
       f.onclick = () => Focus.toggle(); }
     const n = U.$('#qNight');
-    if(n){ n.textContent = NightRepeat.on() ? '🌙 شبانه: روشن' : '🌙 شبانه';
+    if(n){ U.icLabel(n, 'moon', NightRepeat.on() ? 'شبانه: روشن' : 'شبانه');
       n.classList.toggle('ok', NightRepeat.on());
       n.onclick = () => NightRepeat.modal(); }
     const sh = U.$('#qShare');
@@ -4686,7 +4830,7 @@ const QuranUI = {
     const bm = U.$('#qBm');
     if(bm){
       const on = Bookmarks.has(cur.s, cur.a);
-      bm.textContent = on ? '🔖 نشانه برداشته شود' : '🔖 نشان کن';
+      U.icLabel(bm, 'mark', on ? 'نشانه برداشته شود' : 'نشان کن');
       bm.classList.toggle('ok', on);
       bm.onclick = () => Bookmarks.toggle(cur.s, cur.a);
     }
@@ -4754,7 +4898,7 @@ const QuranUI = {
       </div>`).join('');
     UI.sheet(`
       <div class="sheet-grab"></div>
-      <h3 style="margin-bottom:4px">🎙 انتخاب قاری</h3>
+      <h3 style="margin-bottom:4px">${Icon.of('mic')} انتخاب قاری</h3>
       <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
         ${playing ? 'پخش از همین لحظه با صدای تازه ادامه می‌یابد — چیزی از دست نمی‌رود.'
                   : 'با زدن روی هر قاری، پخش با او آغاز می‌شود.'}</p>
@@ -4855,7 +4999,7 @@ const QuranUI = {
     const key = `${s}:${a}:${q.reciter}`;
     if(this._nowKey === key && U.$('#qToggle')){
       U.$('#qToggle').innerHTML = Icon.of(st === 'playing' ? 'pause' : 'play');
-      U.$('#qNowSt').textContent = st === 'playing' ? '🔊' : st === 'loading' ? '⏳' : st === 'error' ? '⚠️' : '🎧';
+      U.$('#qNowSt').innerHTML = Icon.of(st === 'playing' ? 'volume' : st === 'loading' ? 'clock' : st === 'error' ? 'warn' : 'headphones');
       U.$('.qwave')?.classList.toggle('pause', st !== 'playing');
       U.$('#qRetry')?.classList.toggle('on', st === 'error');
       return;
@@ -4991,7 +5135,7 @@ const ReaderUI = {
     this.paint();
     const s = this.s, meta = QURAN[s - 1];
     const t = U.$('#readTitle'), sub = U.$('#readSub');
-    if(t) t.textContent = `📖 سورهٔ ${meta.name}`;
+    if(t) U.icLabel(t, 'book-open', `سورهٔ ${meta.name}`);
     if(sub) sub.textContent = `سورهٔ ${U.fa(s)} • ${U.fa(meta.count)} آیه • ترجمهٔ ${this.trName()}`;
 
     if(this.data && this.data.n === s && !force){ this.paintRow(); return; }
@@ -5006,7 +5150,7 @@ const ReaderUI = {
         <p style="color:var(--mut);font-size:13px;line-height:2">
           متن این سوره نیامد. برای بار نخست به اینترنت نیاز است — ولی صوت قاریان از بخش
           «🎧 تلاوت» پخش می‌شود.</p>
-        <button class="btn gh sm" id="readRetry" style="margin-top:10px">🔄 تلاش دوباره</button></div>`;
+        <button class="btn gh sm" id="readRetry" style="margin-top:10px">${Icon.of('refresh')} تلاش دوباره</button></div>`;
       const r = U.$('#readRetry'); if(r) r.onclick = () => this.render(true);
       return;
     }
@@ -5152,7 +5296,7 @@ function pickSurah(onPick){
       <div style="flex:1;min-width:0"><b>${U.esc(s.name)}</b>
         <small style="display:block">${U.fa(s.count)} آیه</small></div>
     </div>`).join('');
-  UI.modal(`<h3 style="margin-bottom:10px">📖 گزینش سوره</h3>
+  UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('book-open')} گزینش سوره</h3>
     <input class="inp" id="psSearch" placeholder="نام یا شمارهٔ سوره…" style="margin-bottom:10px">
     <div class="qgrid" id="psList" style="max-height:52vh;overflow:auto">${rows}</div>`, box => {
     const list = U.$('#psList', box);
@@ -7974,7 +8118,7 @@ const Combo = {
   n: 0, best: 0,
   hit(){ this.n++; this.best = Math.max(this.best, this.n); return this.n; },
   reset(){ this.n = 0; },
-  label(){ return this.n >= 2 ? `<span class="pill">🔥 کمبو <b>${U.fa(this.n)}</b></span>` : ''; }
+  label(){ return this.n >= 2 ? `<span class="pill">${Icon.of('flame')} کمبو <b>${U.fa(this.n)}</b></span>` : ''; }
 };
 
 const Progress = {
@@ -8061,7 +8205,7 @@ const QuizEngine = {
       this.state.times   = Array.isArray(resume.times) ? resume.times.slice(0, 200).filter(t => typeof t === 'number') : [];
     }
     Router.go('play');
-    U.$('#pgTitle').textContent = title;
+    U.$('#pgTitle').innerHTML = Glyph.inline(title);
     U.$('#pgSub').textContent = sub;
     U.$('#pgProgWrap').classList.toggle('timer', mode === 'speed');
     this.render();
@@ -8074,7 +8218,7 @@ const QuizEngine = {
     s.locked = false;
     U.$('#pgBar').innerHTML =
       `<span class="pill">سوال <b>${U.fa(s.i + 1)}</b> از <b>${U.fa(s.qs.length)}</b></span>
-       <span class="pill">✅ <b>${U.fa(s.correct)}</b></span>
+       <span class="pill">${Icon.of('check')} <b>${U.fa(s.correct)}</b></span>
        ${Combo.label()}
        ${s.hearts ? HeartBar.hud() : ''}
        ${s.mode === 'speed' ? `<span class="pill" id="qTime">⏱ <b>${U.fa(12)}</b></span>` : ''}`;
@@ -8094,7 +8238,7 @@ const QuizEngine = {
         ${q.src ? `<div class="qsrc">📚 ${U.esc(q.src)}</div>` : ''}
         <div class="qq">${U.esc(q.q)}</div>
         ${dTag}
-        ${q.hint ? `<div class="tiny" style="margin-top:6px">💡 ${U.esc(q.hint)}</div>` : ''}
+        ${q.hint ? `<div class="tiny" style="margin-top:6px">${Icon.of('bulb')} ${U.esc(q.hint)}</div>` : ''}
       </div>
       <div class="opts" id="opts">
         ${opts.map((o, i) => `<button class="opt" data-v="${U.esc(o)}" style="--i:${i}">
@@ -8286,7 +8430,7 @@ const SurahEngine = {
     const list = U.shuffle(DATA.surah);
     this.state = { list, i: 0, correct: 0, pts: 0, stars: {}, timer: null, t0: 0, locked: false };
     Router.go('play');
-    U.$('#pgTitle').textContent = '📖 سفر سوره‌ها';
+    U.$('#pgTitle').innerHTML = Glyph.inline('📖 سفر سوره‌ها');
     U.$('#pgSub').textContent = `${U.fa(list.length)} سوره — کلمه گمشده هر آیه را پیدا کن`;
     U.$('#pgProgWrap').classList.remove('timer');
     this.render();
@@ -8300,7 +8444,7 @@ const SurahEngine = {
     U.$('#pgBar').innerHTML =
       `<span class="pill">سوره <b>${U.esc(lvl.surah)}</b></span>
        <span class="pill">${U.fa(s.i + 1)} از ${U.fa(s.list.length)}</span>
-       <span class="pill">✅ <b>${U.fa(s.correct)}</b></span>
+       <span class="pill">${Icon.of('check')} <b>${U.fa(s.correct)}</b></span>
        ${Combo.label()}`;
     /* پیش‌تر `s.i / n` بود: در سؤالِ نهم از ۲۴، ۳۳٪ نشان می‌داد و در سؤالِ
        آخر هرگز به ۱۰۰ نمی‌رسید. سؤالِ جاری *شروع* شده، پس باید شمرده شود. */
@@ -8312,8 +8456,8 @@ const SurahEngine = {
         <div class="hint">${U.esc(lvl.tr)}</div>
         ${lvl.src ? `<div class="qhint d3" style="margin-top:8px">📚 ${U.esc(lvl.src)}</div>` : ''}
         ${lvl.n ? `<div class="row" style="gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
-          <button class="btn gh sm" id="surahListen">🎧 شنیدن این آیه</button>
-          <button class="btn gh sm" id="surahOpen">📖 خواندن سوره در مصحف‌نما</button>
+          <button class="btn gh sm" id="surahListen">${Icon.of('headphones')} شنیدن این آیه</button>
+          <button class="btn gh sm" id="surahOpen">${Icon.of('book-open')} خواندن سوره در مصحف‌نما</button>
         </div>` : ''}
       </div>
       <div class="opts" id="opts">
@@ -8348,7 +8492,7 @@ const SurahEngine = {
       Sound.play(true); confetti(24); Haptic.success();
       Progress.award({ game: 'surah', pts: 30, ok: true, ms });
       Store.update(d => { d.stars[lvl.surah] = 3; d.completed[lvl.surah] = true; });
-      U.$('#surahRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">✅ آفرین! +۳۰ امتیاز</div>`;
+      U.$('#surahRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('check')} آفرین! +۳۰ امتیاز</div>`;
     } else {
       btn.classList.add('wrong');
       U.$('#qbox')?.classList.add('flash-no');
@@ -8357,7 +8501,7 @@ const SurahEngine = {
       s.stars[lvl.surah] = 1;
       Progress.award({ game: 'surah', ok: false });
       Store.update(d => { if(!d.stars[lvl.surah]) d.stars[lvl.surah] = 1; d.completed[lvl.surah] = true; });
-      U.$('#surahRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">❌ پاسخ درست: ${U.esc(lvl.ans)}<br><small>${U.esc(lvl.tr)}</small></div>`;
+      U.$('#surahRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">${Icon.of('close')} پاسخ درست: ${U.esc(lvl.ans)}<br><small>${U.esc(lvl.tr)}</small></div>`;
     }
     checkBadges();
     Timers.after(() => { s.i++; this.render(); }, ok ? 900 : 1800);
@@ -8391,7 +8535,7 @@ const ScrambleEngine = {
     this.state = { word: w.word, hint: w.hint, pool: U.shuffle(w.word.split('')).map(ch => ({ ch, used: false })),
                    chosen: [], solved: false, t0: U.now() };
     Router.go('play');
-    U.$('#pgTitle').textContent = '🧩 پازل حروف';
+    U.icLabel(U.$('#pgTitle'), 'plus', 'پازل حروف');
     U.$('#pgSub').textContent = 'حروف را بچین و کلمه را بساز';
     U.$('#pgProgWrap').classList.remove('timer');
     U.$('#pgProg').style.width = '30%';
@@ -8399,7 +8543,7 @@ const ScrambleEngine = {
   },
   render(){
     const s = this.state;
-    U.$('#pgBar').innerHTML = `<span class="pill">🧩 <b>${U.fa(s.word.length)}</b> حرف</span>${Combo.label()}`;
+    U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('plus')} <b>${U.fa(s.word.length)}</b> حرف</span>${Combo.label()}`;
     U.$('#pgBody').innerHTML = `
       <div class="qbox"><div class="qq">${U.esc(s.hint)}</div>
         <div class="hint">${U.fa(s.word.length)} حرفی</div></div>
@@ -8408,8 +8552,8 @@ const ScrambleEngine = {
       <div class="chipsrow" id="pool">${s.pool.map((p, i) =>
         `<button class="lchip ${p.used ? 'used' : ''}" data-i="${i}">${U.esc(p.ch)}</button>`).join('')}</div>
       <div class="row" style="justify-content:center">
-        <button class="btn gh" id="scClear">🧹 پاک</button>
-        <button class="btn" id="scCheck">✅ بررسی</button>
+        <button class="btn gh" id="scClear">${Icon.of('broom')} پاک</button>
+        <button class="btn" id="scCheck">${Icon.of('check')} بررسی</button>
       </div>
       <div id="scRes"></div>`;
     U.$$('#pool .lchip').forEach(b => b.onclick = () => {
@@ -8447,12 +8591,12 @@ const ScrambleEngine = {
       const pts = Math.max(15, 30 - Math.floor(ms / 3000) * 3);
       Progress.award({ game: 'scramble', pts, ok: true, ms });
       Store.update(d => d.stats.puzzles++);
-      U.$('#scRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 درست! +${U.fa(pts)} امتیاز</div>`;
+      U.$('#scRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('party')} درست! +${U.fa(pts)} امتیاز</div>`;
       Timers.after(() => this.start(), 1500);
     } else {
       Sound.play(false); Haptic.hit(40);
       Progress.award({ game: 'scramble', ok: false });
-      U.$('#scRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">❌ اشتباه بود — دوباره تلاش کن</div>`;
+      U.$('#scRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">${Icon.of('close')} اشتباه بود — دوباره تلاش کن</div>`;
     }
   }
 };
@@ -8485,7 +8629,7 @@ const MemoryEngine = {
       this.state.moves   = Math.max(0, Math.floor(+saved.moves) || 0);
     }
     Router.go('play');
-    U.$('#pgTitle').textContent = '🧠 حافظه';
+    U.$('#pgTitle').innerHTML = Glyph.inline('🧠 حافظه');
     U.$('#pgSub').textContent = 'جفت‌های همسان را پیدا کن';
     U.$('#pgProgWrap').classList.remove('timer');
     U.$('#pgProg').style.width = '0%';
@@ -8502,8 +8646,8 @@ const MemoryEngine = {
   render(){
     const s = this.state;
     U.$('#pgBar').innerHTML =
-      `<span class="pill">🎯 <b id="mgMove">${U.fa(s.moves)}</b> حرکت</span>
-       <span class="pill">🧩 <b>${U.fa(s.matched)}</b>/${U.fa(s.cards.length / 2)}</span>`;
+      `<span class="pill">${Icon.of('target')} <b id="mgMove">${U.fa(s.moves)}</b> حرکت</span>
+       <span class="pill">${Icon.of('plus')} <b>${U.fa(s.matched)}</b>/${U.fa(s.cards.length / 2)}</span>`;
     U.$('#pgBody').innerHTML = `
       <div class="mgrid">${s.cards.map((c, i) => `
         <div class="mcard ${c.matched ? 'done flip' : ''}" data-i="${i}">
@@ -8574,7 +8718,7 @@ const MatchEngine = {
       sel: null, matched: 0, wrong: 0, t0: U.now()
     };
     Router.go('play');
-    U.$('#pgTitle').textContent = '🔗 تطبیق';
+    U.icLabel(U.$('#pgTitle'), 'link', 'تطبیق');
     U.$('#pgSub').textContent = 'کلمه و معنی را جفت کن';
     U.$('#pgProgWrap').classList.remove('timer');
     U.$('#pgProg').style.width = '0%';
@@ -8583,8 +8727,8 @@ const MatchEngine = {
   render(){
     const s = this.state;
     U.$('#pgBar').innerHTML =
-      `<span class="pill">🎯 <b id="mtMatched">${U.fa(s.matched)}</b>/${U.fa(s.left.length)}</span>
-       <span class="pill">❌ <b id="mtWrong">${U.fa(s.wrong)}</b></span>`;
+      `<span class="pill">${Icon.of('target')} <b id="mtMatched">${U.fa(s.matched)}</b>/${U.fa(s.left.length)}</span>
+       <span class="pill">${Icon.of('close')} <b id="mtWrong">${U.fa(s.wrong)}</b></span>`;
     U.$('#pgBody').innerHTML = `
       <div class="mcols">
         <div>${s.left.map((it, i) => `<div class="mitem" data-side="L" data-i="${i}">${U.esc(it.text)}</div>`).join('')}</div>
@@ -8659,19 +8803,19 @@ const DoozEngine = {
                    online: !!online, mySide: 'X', waiting: !!online, thinking: false };
     if(ok){ this.state.last = Number.isInteger(saved.last) ? saved.last : -1; }
     Router.go('play');
-    U.$('#pgTitle').textContent = '❌⭕ دوز';
+    U.$('#pgTitle').innerHTML = Glyph.inline('❌⭕ دوز');
     U.$('#pgSub').textContent = online ? `آنلاین — روم ${room?.code || ''}` : 'بازی با کامپیوتر';
     U.$('#pgProgWrap').classList.remove('timer');
     U.$('#pgProg').style.width = '0%';
     if(online){
-      U.$('#pgBar').innerHTML = `<span class="pill">⏳ در انتظار شروع از طرف میزبان…</span>`;
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} در انتظار شروع از طرف میزبان…</span>`;
       U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
         <div style="font-size:40px;margin-bottom:10px">⏳</div>
         <b>منتظر شروع بازی</b>
         <p style="color:var(--mut);font-size:12.5px;margin-top:8px">
           ${Net.room?.isHost ? 'تو میزبانی — دکمه «شروع بازی» را در صفحه روم بزن.'
                              : 'میزبان باید بازی را شروع کند.'}</p>
-        <button class="btn gh w" style="margin-top:14px" id="dzBackRoom">🏠 رفتن به روم</button>
+        <button class="btn gh w" style="margin-top:14px" id="dzBackRoom">${Icon.of('home')} رفتن به روم</button>
       </div>`;
       U.$('#dzBackRoom').onclick = () => Router.go('room');
       return;
@@ -8729,7 +8873,7 @@ const DoozEngine = {
       `<span class="pill ${myTurn && !s.over ? '' : 'danger'}">نوبت: <b>${s.turn === 'X' ? '❌' : '⭕'}</b>
         ${s.online ? (myTurn ? ' (تو)' : ' (حریف)') : ''}</span>
        ${s.online ? `<span class="pill">تو: <b>${s.mySide === 'X' ? '❌' : '⭕'}</b></span>` : ''}
-       <span class="pill">🏆 <b>${U.fa(Store.get('stats').tttWins)}</b></span>`;
+       <span class="pill">${Icon.of('trophy')} <b>${U.fa(Store.get('stats').tttWins)}</b></span>`;
     U.$('#pgBody').innerHTML = `
       <div class="dooz" id="dzBoard">
         ${s.board.map((c, i) => `<div class="dcell ${i === s.last ? 'last' : ''} ${s.winner && this.winLine().includes(i) ? 'win' : ''}"
@@ -8824,17 +8968,17 @@ const DoozEngine = {
     const el = U.$('#dzRes');
     if(!el) return;
     if(s.winner === 'D'){
-      el.innerHTML = `<div class="toast" style="text-align:center">🤝 مساوی شد</div>
-        <button class="btn w" style="margin-top:12px" id="dzAgain">🔄 بازی جدید</button>`;
+      el.innerHTML = `<div class="toast" style="text-align:center">${Icon.of('handshake')} مساوی شد</div>
+        <button class="btn w" style="margin-top:12px" id="dzAgain">${Icon.of('refresh')} بازی جدید</button>`;
     } else if(s.online){
       const won = s.winner === s.mySide;
       el.innerHTML = `<div class="toast ${won ? 'ok' : 'err'}" style="text-align:center">${won ? '🎉 بردی! +۶۰ امتیاز' : '😔 باختی'}</div>
-        <button class="btn gh w" style="margin-top:12px" id="dzAgain">🏠 برگشت به روم</button>`;
+        <button class="btn gh w" style="margin-top:12px" id="dzAgain">${Icon.of('home')} برگشت به روم</button>`;
       U.$('#dzAgain').onclick = () => Router.go('room');
       return;
     } else {
       el.innerHTML = `<div class="toast ${s.winner === 'X' ? 'ok' : 'err'}" style="text-align:center">${s.winner === 'X' ? '🎉 بردی! +۵۰ امتیاز' : '😔 کامپیوتر برد'}</div>
-        <button class="btn w" style="margin-top:12px" id="dzAgain">🔄 بازی جدید</button>`;
+        <button class="btn w" style="margin-top:12px" id="dzAgain">${Icon.of('refresh')} بازی جدید</button>`;
     }
     U.$('#dzAgain').onclick = () => this.start(s.online);
   },
@@ -8897,16 +9041,16 @@ const EsmFamilEngine = {
                 answers: {}, submitted: false };
     this.state = s;
     Router.go('play');
-    U.$('#pgTitle').textContent = '📝 اسم فامیل';
+    U.$('#pgTitle').innerHTML = Glyph.inline('📝 اسم فامیل');
     U.$('#pgSub').textContent = online ? `آنلاین — روم ${Net.room?.code || ''}` : 'با حرف داده‌شده کلمه بنویس';
     U.$('#pgProgWrap').classList.remove('timer');
     if(online){
       s.phase = 'waiting';
-      U.$('#pgBar').innerHTML = `<span class="pill">⏳ منتظر شروع از طرف میزبان</span>`;
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر شروع از طرف میزبان</span>`;
       U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
         <div style="font-size:40px;margin-bottom:10px">⏳</div><b>منتظر شروع</b>
         <p style="color:var(--mut);font-size:12.5px;margin-top:8px">میزبان بازی را شروع می‌کند.</p>
-        <button class="btn gh w" style="margin-top:14px" id="efBackRoom">🏠 رفتن به روم</button></div>`;
+        <button class="btn gh w" style="margin-top:14px" id="efBackRoom">${Icon.of('home')} رفتن به روم</button></div>`;
       U.$('#efBackRoom').onclick = () => Router.go('room');
       return;
     }
@@ -8922,7 +9066,7 @@ const EsmFamilEngine = {
       this.render();
     } else if(msg.phase === 'waiting'){
       UI.toast(`⏳ ${U.fa(msg.got)} از ${U.fa(msg.total)} پاسخ دادند`, '');
-      U.$('#pgBar').innerHTML = `<span class="pill">⏳ منتظر بقیه بازیکنان…</span>`;
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر بقیه بازیکنان…</span>`;
     } else if(msg.phase === 'results'){
       s.phase = 'results'; s.results = msg.results;
       this.renderResults(msg.results);
@@ -8960,7 +9104,7 @@ const EsmFamilEngine = {
             <input class="inp" data-cat="${c.id}" autocomplete="off" placeholder="با «${U.esc(s.letter)}»">
           </div>`).join('')}
       </div>
-      <button class="btn ok w" id="efSubmit" style="margin-top:14px">✅ ثبت پاسخ‌ها</button>
+      <button class="btn ok w" id="efSubmit" style="margin-top:14px">${Icon.of('check')} ثبت پاسخ‌ها</button>
       <div id="efRes"></div>`;
     U.$('#efSubmit').onclick = () => this.submit();
     s.timer = Timers.every(() => {
@@ -9018,12 +9162,12 @@ const EsmFamilEngine = {
     }
     Sound.play(good);
     U.$('#efRes').innerHTML = good
-      ? `<div class="toast ok" style="text-align:center;margin-top:14px">🎉 ${U.fa(validCount)} پاسخ معتبر!${s.online ? ' — امتیاز در پایان دور' : ` +${U.fa(score)} امتیاز`}</div>`
-      : `<div class="toast" style="text-align:center;margin-top:14px">📝 ${U.fa(validCount)} از ${U.fa(inputs.length)} معتبر — امتیاز ${U.fa(score)}</div>`;
+      ? `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('party')} ${U.fa(validCount)} پاسخ معتبر!${s.online ? ' — امتیاز در پایان دور' : ` +${U.fa(score)} امتیاز`}</div>`
+      : `<div class="toast" style="text-align:center;margin-top:14px">${Icon.of('pen')} ${U.fa(validCount)} از ${U.fa(inputs.length)} معتبر — امتیاز ${U.fa(score)}</div>`;
     checkBadges(); Sync.push();
 
     if(s.online){
-      U.$('#pgBar').innerHTML = `<span class="pill">⏳ منتظر بقیه بازیکنان…</span>`;
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر بقیه بازیکنان…</span>`;
       Net.post({ t: 'room:game', game: 'esmfamil', answers, score, code: Net.room?.code, phase: 'submit' });
       if(Net.room?.isHost) {
         U.$('#efRes').innerHTML += `<button class="btn gh w" style="margin-top:10px" id="efNext">▶️ دور بعد</button>`;
@@ -9108,32 +9252,32 @@ const QuizPick = {
       { d: 2, name: 'متوسط',  icon: '🌿' },
       { d: 3, name: 'دشوار',  icon: '🔥' }
     ];
-    UI.modal(`<h3 style="margin-bottom:4px">🏅 آزمون معارف</h3>
+    UI.modal(`<h3 style="margin-bottom:4px">${Icon.of('medal')} آزمون معارف</h3>
       <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
         موضوع‌ها و سطح را خودت بچین — هر پاسخ توضیح و منبع دارد.</p>
 
       <div class="fgroup">سطح دشواری</div>
       <div class="row" style="gap:6px;flex-wrap:wrap">
         ${rooms.map(r => `<button class="btn ${this.diff === r.d ? '' : 'gh'} sm" data-d="${r.d}"
-          style="flex:1;min-width:64px">${r.icon} ${r.name}</button>`).join('')}
+          style="flex:1;min-width:64px">${Glyph.of(r.icon)} ${r.name}</button>`).join('')}
       </div>
 
       <div class="fgroup">موضوع‌ها</div>
       <div id="tpList">${TOPICS.map(t => {
         const c = t.bank().length;
         return `<div class="fpick ${this.on.includes(t.id) ? 'on' : ''}" data-t="${t.id}">
-          <span style="font-size:19px">${t.icon}</span>
+          <span class="gi19">${Glyph.of(t.icon)}</span>
           <div class="fname"><b>${U.esc(t.name)}</b><small>${U.esc(t.desc)} • ${U.fa(c)} سوال</small></div>
           <span class="tick">✓</span>
         </div>`;
       }).join('')}</div>
 
       <div class="row" style="gap:6px;margin-top:12px">
-        <button class="btn gh sm" id="tpAll">✅ همه</button>
-        <button class="btn gh sm" id="tpNone">✖️ هیچ‌کدام</button>
+        <button class="btn gh sm" id="tpAll">${Icon.of('check')} همه</button>
+        <button class="btn gh sm" id="tpNone">${Icon.of('close')} هیچ‌کدام</button>
       </div>
       <p style="font-size:11.5px;color:var(--mut);margin-top:10px" id="tpCount"></p>
-      <button class="btn w" id="tpGo" style="margin-top:12px">🏁 شروع آزمون</button>`, box => {
+      <button class="btn w" id="tpGo" style="margin-top:12px">${Icon.of('flag')} شروع آزمون</button>`, box => {
       const paint = () => {
         U.$$('.fpick', box).forEach(el => el.classList.toggle('on', this.on.includes(el.dataset.t)));
         const n2 = this.summary(this.on);
@@ -9180,7 +9324,7 @@ const QuizPick = {
 const NahjUI = {
   open(){
     const n = DATA.nahj.length;
-    UI.modal(`<h3 style="margin-bottom:4px">📜 گنجینهٔ نهج‌البلاغه</h3>
+    UI.modal(`<h3 style="margin-bottom:4px">${Icon.of('scroll')} گنجینهٔ نهج‌البلاغه</h3>
       <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
         ${U.fa(n)} سخن از امام علی (ع) — متن عربی و ترجمهٔ فارسی، با شمارهٔ صبحی صالح.</p>
       <div class="nahj-list">
@@ -9191,7 +9335,7 @@ const NahjUI = {
           <div class="nahj-src">📚 ${U.esc(h.src)}</div>
         </div>`).join('')}
       </div>
-      <button class="btn w" id="nqGo" style="margin-top:14px">🏅 آزمون معنی حکمت‌ها</button>`, box => {
+      <button class="btn w" id="nqGo" style="margin-top:14px">${Icon.of('medal')} آزمون معنی حکمت‌ها</button>`, box => {
       U.$('#nqGo', box).onclick = () => {
         UI.closeModal();
         Sound.chime();
@@ -9250,7 +9394,7 @@ const Bookmarks = {
   },
   open(){
     const l = this.list;
-    UI.modal(`<h3>🔖 نشانه‌های من <span class="chip wr">${U.fa(l.length)}</span></h3>
+    UI.modal(`<h3>${Icon.of('mark')} نشانه‌های من <span class="chip wr">${U.fa(l.length)}</span></h3>
       ${l.length ? `<div style="max-height:56vh;overflow-y:auto;margin-top:10px">${l.map(b => `
         <div class="bm-row" data-s="${b.s}" data-a="${b.a}">
           <span class="bi">📖</span>
@@ -9321,7 +9465,7 @@ const ReciterUI = {
       </div>`).join('');
   },
   open(){
-    UI.modal(`<h3>🎙 قاری قرآن</h3>
+    UI.modal(`<h3>${Icon.of('mic')} قاری قرآن</h3>
       <div class="tiny" style="margin:8px 0 12px">روی ▶ بزن تا ۵ ثانیه بشنوی، روی نام بزن تا انتخاب شود.</div>
       <div class="rec-grid" style="max-height:58vh;overflow-y:auto">${this.rows()}</div>`);
     U.$$('#modal .rec').forEach(el => {
@@ -9343,7 +9487,7 @@ const ReciterUI = {
     const r = RECITERS[i];
     if(this.prev && this.prev.dataset.prev === String(i)){ this.stopPreview(); return; }
     this.stopPreview();
-    this.prev = btn; btn.classList.add('on'); btn.textContent = '❚❚';
+    this.prev = btn; btn.classList.add('on'); btn.innerHTML = Icon.of('pause');
     Sound.tick();
     /* نمونهٔ کوتاه: آیةالکرسی — سراسری ۲۶۲ است، پس از هر منبعی که هست می‌خوانیم */
     const s = 2, a = 255;
@@ -9443,7 +9587,7 @@ const ShareCard = {
     const t = await QText.get(s, a);
     const ar = (t && t.ar) || '';
     const tr = (t && t.fa) || '';
-    UI.modal(`<h3>🖼 ساخت تصویر آیه</h3>
+    UI.modal(`<h3>${Icon.of('image')} ساخت تصویر آیه</h3>
       <div id="shareWrap">
         <div class="tiny" id="shareMsg">در حال ساختن تصویر…</div>
       </div>`);
@@ -9453,15 +9597,15 @@ const ShareCard = {
       if(wrap) wrap.innerHTML = `<div class="empty">مرورگر تو Canvas نمی‌سازد.<br>متن آیه را رونوشت کن:</div>
         <div class="dua-done" style="text-align:right">${U.esc(ar)}</div>
         <div class="tiny">${U.esc(tr)}</div>
-        <button class="btn" id="scCopy">📋 رونوشت</button>`;
+        <button class="btn" id="scCopy">${Icon.of('copy')} رونوشت</button>`;
       if(U.$('#scCopy')) U.$('#scCopy').onclick = () => Share.copy(ar + '\n\n' + tr);
       return;
     }
     wrap.innerHTML = `<canvas id="shareCv" width="${this.W}" height="${this.H}"></canvas>
       <div class="row wrap" style="justify-content:center">
-        <button class="btn" id="scDl">⬇️ بارگیری PNG</button>
-        <button class="btn" id="scShare">📤 اشتراک‌گذاری</button>
-        <button class="btn" id="scCopy">📋 رونوشت متن</button>
+        <button class="btn" id="scDl">${Icon.of('download')} بارگیری PNG</button>
+        <button class="btn" id="scShare">${Icon.of('share')} اشتراک‌گذاری</button>
+        <button class="btn" id="scCopy">${Icon.of('copy')} رونوشت متن</button>
       </div>`;
     U.$('#shareCv').getContext('2d').drawImage(cv, 0, 0);
     const name = `noorestan-${s}-${a}.png`;
@@ -9553,7 +9697,7 @@ const NightRepeat = {
   modal(){
     const c = this.conf();
     const hr = v => `<option value="${v}" ${Math.abs((c[v] ?? 0) - v) < .01 ? 'selected' : ''}>${U.fa(v)}</option>`;
-    UI.modal(`<h3>🌙 تکرار شبانه</h3>
+    UI.modal(`<h3>${Icon.of('moon')} تکرار شبانه</h3>
       <div class="tiny" style="margin:9px 0 13px">قرآن آرام پخش می‌شود و صدایش در دقیقه‌های آخر خودبه‌خود کم می‌شود تا خوابت نبرد.</div>
       <div class="night-row">
         <label>از ساعت <select id="nFrom">${[20,21,22,23,0].map(hr).join('')}</select></label>
@@ -9665,7 +9809,7 @@ const Missions = {
       const n = Math.min(m.n, m.goal);
       const pct = Math.round(100 * n / m.goal);
       return `<div class="miss ${m.done ? 'done' : ''}">
-        <span class="mi">${m.icon}</span>
+        <span class="mi">${Glyph.of(m.icon)}</span>
         <span class="mb"><div class="mt">${U.esc(m.t)} ${m.done ? '✅' : ''}</div>
           <div class="md">${U.esc(m.d)} — جایزهٔ ${U.fa(m.pts)} امتیاز</div>
           <div class="mp"><i style="width:${pct}%"></i></div></span>
@@ -9679,13 +9823,13 @@ const Missions = {
     const w = Weekly.ensure(), wall = w.week.every(m => m.done);
     const left = Weekly.left();
     const leftTxt = left === 0 ? 'امشب هفته نو می‌شود.' : (U.fa(left) + ' روز تا پایان هفته');
-    UI.modal(`<h3>🎯 مأموریت‌ها</h3>
+    UI.modal(`<h3>${Icon.of('target')} مأموریت‌ها</h3>
       <div class="tiny" style="margin:8px 0 12px">هر روز سه کار تازه — نیمه‌شب خودش نو می‌شود.</div>
       <div class="miss-list">${this.rows()}</div>
       ${all ? '<div class="prize mt14">🎉 <span>هر سه مأموریت امروز انجام شد. فردا سه کار تازه می‌آید.</span></div>' : ''}
 
       <div class="sep" style="margin:16px 0 12px"></div>
-      <b style="font-size:13px">🏆 مأموریت‌های هفته</b>
+      <b style="font-size:13px">${Icon.of('trophy')} مأموریت‌های هفته</b>
       <div class="tiny" style="margin:6px 0 10px">${leftTxt}</div>
       <div class="miss-list">${Weekly.rows()}</div>
       ${wall ? '<div class="prize mt14">🏆 <span>هر سه مأموریت هفته انجام شد.</span></div>' : ''}`);
@@ -9698,7 +9842,7 @@ const Collection = {
     const got = Store.get('badges') || {};
     const n = Object.keys(got).length, tot = DATA.badges.length;
     const pct = tot ? Math.round(100 * n / tot) : 0;
-    UI.modal(`<h3>🎖️ کلکسیون نشان‌ها</h3>
+    UI.modal(`<h3>${Icon.of('medal')} کلکسیون نشان‌ها</h3>
       <div class="row" style="margin:9px 0 13px">
         <span class="tiny">${U.fa(n)} از ${U.fa(tot)} نشان — ${U.fa(pct)}٪</span>
         <span class="grow"></span>
@@ -9749,18 +9893,18 @@ const Tree = {
     const best = rows[0];
     return `<div class="tree-wrap">
       ${rows.map(r => `<div class="tree-row">
-        <span class="tl">${r.icon} ${U.esc(r.name)}</span>
+        <span class="tl">${Glyph.of(r.icon)} ${U.esc(r.name)}</span>
         <span class="tb"><i style="width:${r.pct}%"></i></span>
         <span class="tn">${r.k} ${U.fa(r.n)}</span>
       </div>`).join('')}
-      <div class="tiny mt10">${best && best.n ? `بلندترین شاخه: ${best.icon} ${U.esc(best.name)} با ${U.fa(best.n)} پاسخ درست` : 'هنوز هیچ شاخه‌ای سبز نشده — با «آزمون معارف» شروع کن.'}</div>
+      <div class="tiny mt10">${best && best.n ? `بلندترین شاخه: ${Glyph.of(best.icon)} ${U.esc(best.name)} با ${U.fa(best.n)} پاسخ درست` : 'هنوز هیچ شاخه‌ای سبز نشده — با «آزمون معارف» شروع کن.'}</div>
     </div>`;
   },
   open(){
-    UI.modal(`<h3>🌳 درخت دانش</h3>
+    UI.modal(`<h3>${Icon.of('tree')} درخت دانش</h3>
       <div class="tiny" style="margin:8px 0 12px">هر موضوع یک شاخه است؛ هر پاسخ درست، شاخه را بلند می‌کند.</div>
       <div style="max-height:58vh;overflow-y:auto">${this.rowsHtml()}</div>
-      <button class="btn mt14" id="trGo">🏅 رفتن به آزمون معارف</button>`);
+      <button class="btn mt14" id="trGo">${Icon.of('medal')} رفتن به آزمون معارف</button>`);
     U.$('#trGo').onclick = () => { UI.closeModal(); QuizPick.open(); };
   }
 };
@@ -9849,7 +9993,7 @@ const Friends = {
   },
   incoming(msg){
     const name = U.esc(msg.name || 'یک بازیکن');
-    UI.modal(`<h3>🤝 پیشنهاد دوستی</h3>
+    UI.modal(`<h3>${Icon.of('handshake')} پیشنهاد دوستی</h3>
       <p style="font-size:13.5px;color:var(--mut);line-height:2;margin-top:10px">
         <b style="color:var(--txt)">${name}</b> می‌خواهد به دوستانت اضافه شود.</p>
       <div style="display:flex;gap:8px;margin-top:16px">
@@ -9872,7 +10016,7 @@ const Friends = {
     return l.map(f => `<div class="fr-row" data-f="${U.esc(f.id)}">
       ${Assets.avatar(f.name)}
       <span class="fb"><b>${U.esc(f.name)}</b><div class="fd">آخرین بازی: ${U.esc(new Date(f.lastSeen || f.at).toLocaleDateString('fa-IR'))}</div></span>
-      <button class="btn sm" data-invite="1">📨 دعوت</button>
+      <button class="btn sm" data-invite="1">${Icon.of('send')}<span>دعوت</span></button>
       <button class="wbx" data-del="1" title="برداشتن">${Icon.of('close')}</button></div>`).join('');
   },
   /* بازیکنان آنلاینی که هنوز در فهرست دوستان نیستند */
@@ -9888,11 +10032,11 @@ const Friends = {
     return `<div class="lbl mt12">آنلاین‌ها</div>` + s.map(p => `<div class="fr-row" data-p="${U.esc(p.id)}">
       ${Assets.avatar(p.name)}
       <span class="fb"><b>${U.esc(p.name)}</b><div class="fd">سطح ${U.fa(p.level || 1)} • امتیاز ${U.fa(p.score || 0)}</div></span>
-      <button class="btn sm" data-add="1">🤝 دوستی</button></div>`).join('');
+      <button class="btn sm" data-add="1">${Icon.of('handshake')} دوستی</button></div>`).join('');
   },
   open(){
     const code = (Net.room && Net.room.code) || '';
-    UI.modal(`<h3>👥 دوستان</h3>
+    UI.modal(`<h3>${Icon.of('users')} دوستان</h3>
       <div style="max-height:46vh;overflow-y:auto;margin-top:10px">${this.rows()}${this.onlineRows()}</div>
       <div class="invite-box">
         <input id="frLink" readonly value="${U.esc(this.invite(code))}">
@@ -10051,7 +10195,7 @@ const Adaptive = {
     const lv = this.level();
     if(!lv) return '';
     const names = { 1:'آسان', 2:'متوسط', 3:'دشوار' };
-    return `<div class="adapt-note">🎚 سطح سازگار: پرسش‌ها با توان تو هم‌گام شده‌اند — ${names[lv]}</div>`;
+    return `<div class="adapt-note">${Icon.of('sliders')} سطح سازگار: پرسش‌ها با توان تو هم‌گام شده‌اند — ${names[lv]}</div>`;
   }
 };
 
@@ -10160,7 +10304,7 @@ const HadithEngine = {
     this.i = this.score = this.right = this.wrong = 0;
     this.locked = false; this.filled = null; this.t0 = U.now();
     Router.go('play');
-    U.$('#pgTitle').textContent = '📜 حدیث‌یاب';
+    U.$('#pgTitle').innerHTML = Glyph.inline('📜 حدیث‌یاب');
     U.$('#pgSub').textContent = 'واژه‌ای که جا افتاده را پیدا کن';
     U.$('#pgBar').innerHTML = '';
     U.$('#pgProg').style.width = '0%';
@@ -10220,7 +10364,7 @@ const HadithEngine = {
   whyHtml(q){
     return `<div class="qwhy on">
       <div class="qw-t">${U.esc(q.fa || '')}</div>
-      <div class="qw-s">📚 ${U.esc(q.src || '')}</div>
+      <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
       <button class="btn sm mt10" id="hadNext">سؤال بعدی ⏭</button>
     </div>`;
   },
@@ -10266,8 +10410,8 @@ const HadithEngine = {
         <div class="tiny mt6">${U.fa(this.score)} امتیاز در ${U.esc(U.fmtTime(ms / 1000))}</div>
         <div class="sep"></div>
         <div class="row" style="justify-content:center">
-          <button class="btn" id="hdAgain">🔁 دوباره</button>
-          <button class="btn ghost" id="hdHome">🏠 خانه</button>
+          <button class="btn" id="hdAgain">${Icon.of('repeat')} دوباره</button>
+          <button class="btn ghost" id="hdHome">${Icon.of('home')} خانه</button>
         </div>
       </div>`;
     U.$('#hdAgain').onclick = () => this.start();
@@ -10356,7 +10500,7 @@ const ImamEngine = {
     this.qs = U.shuffle(qs).slice(0, 10);
     this.i = this.score = this.right = 0; this.locked = false; this.t0 = U.now();
     Router.go('play');
-    U.$('#pgTitle').textContent = '🕌 چهارده معصوم';
+    U.$('#pgTitle').innerHTML = Glyph.inline('🕌 چهارده معصوم');
     U.$('#pgSub').textContent = 'نام‌ها، لقب‌ها و جایگاه‌ها';
     U.$('#pgBar').innerHTML = '';
     U.$('#pgProg').style.width = '0%';
@@ -10417,8 +10561,8 @@ const ImamEngine = {
       <div class="tiny mt6">${U.fa(this.score)} امتیاز</div>
       <div class="sep"></div>
       <div class="row" style="justify-content:center">
-        <button class="btn" id="imAgain">🔁 دوباره</button>
-        <button class="btn ghost" id="imColl">🎖️ کلکسیون</button>
+        <button class="btn" id="imAgain">${Icon.of('repeat')} دوباره</button>
+        <button class="btn ghost" id="imColl">${Icon.of('medal')} کلکسیون</button>
       </div></div>`;
     U.$('#imAgain').onclick = () => this.start();
     U.$('#imColl').onclick = () => Collection.open();
@@ -10445,7 +10589,7 @@ const DuaEngine = {
     this.locked = false;
     this.i = this.score = this.right = 0; this.t0 = U.now();
     Router.go('play');
-    U.$('#pgTitle').textContent = '🤲 نجوا';
+    U.$('#pgTitle').innerHTML = Glyph.inline('🤲 نجوا');
     U.$('#pgSub').textContent = 'واژه‌های دعا را به ترتیب بچین';
     U.$('#pgBar').innerHTML = '';
     U.$('#pgProg').style.width = '0%';
@@ -10469,7 +10613,7 @@ const DuaEngine = {
         <button class="btn ghost sm" id="duaUndo">↩ یکی عقب</button>
         <button class="btn ghost sm" id="duaClear">✖ از نو</button>
         <span class="grow"></span>
-        <button class="btn sm" id="duaCheck">✅ بررسی</button>
+        <button class="btn sm" id="duaCheck">${Icon.of('check')} بررسی</button>
       </div>
       <div class="dua-src">📚 ${U.esc(q.src || '')}</div>
       <div id="duaWhy"></div>`;
@@ -10509,14 +10653,14 @@ const DuaEngine = {
       U.$('#duaDone').classList.add('ok');
       Store.update(d => { d.stats.dua = (d.stats.dua || 0) + 1; });
       U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">✅ درست چیدی!</div>
-        <div class="qw-s">📚 ${U.esc(q.src || '')}</div>
+        <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
         <button class="btn sm mt10" id="duaNext">سؤال بعدی ⏭</button></div>`;
     } else {
       Sound.noise(); Haptic.hit(30);
       FX.shake(U.$('#duaDone'));
       U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">❌ هنوز نه — دوباره بچین</div>
         <div class="qw-s">راهنما: 💡 ترجمهٔ فارسی بالا را بخوان</div>
-        <button class="btn sm mt10" id="duaReveal">👁 نشانم بده</button></div>`;
+        <button class="btn sm mt10" id="duaReveal">${Icon.of('eye')} نشانم بده</button></div>`;
       const r = U.$('#duaReveal');
       if(r) r.onclick = () => {
         this.locked = true;
@@ -10524,7 +10668,7 @@ const DuaEngine = {
         this.paintTray();
         U.$('#duaDone').innerHTML = U.esc(q.ar);
         U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">${U.esc(q.ar)}</div>
-          <div class="qw-s">📚 ${U.esc(q.src || '')}</div>
+          <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
           <button class="btn sm mt10" id="duaNext">سؤال بعدی ⏭</button></div>`;
         U.$('#duaNext').onclick = () => { this.i++; this.locked = false; this.paint(); };
       };
@@ -10544,8 +10688,8 @@ const DuaEngine = {
       <div class="tiny mt6">${U.fa(this.score)} امتیاز</div>
       <div class="sep"></div>
       <div class="row" style="justify-content:center">
-        <button class="btn" id="duAgain">🔁 دوباره</button>
-        <button class="btn ghost" id="duHome">🏠 خانه</button>
+        <button class="btn" id="duAgain">${Icon.of('repeat')} دوباره</button>
+        <button class="btn ghost" id="duHome">${Icon.of('home')} خانه</button>
       </div></div>`;
     U.$('#duAgain').onclick = () => this.start();
     U.$('#duHome').onclick = () => Router.go('home');
@@ -10927,7 +11071,7 @@ const Launcher = {
     this.paint();
   },
   paint(){
-    U.$('#pgTitle').textContent = '🎮 همه بازی‌ها';
+    U.$('#pgTitle').innerHTML = Glyph.inline('🎮 همه بازی‌ها');
     U.$('#pgSub').textContent = 'یکی را انتخاب کن';
     U.$('#pgBar').innerHTML = '';
     U.$('#pgProg').style.width = '0%';
@@ -10936,7 +11080,7 @@ const Launcher = {
       ${Autosave.bar()}
       ${Streak.warn()}
       <div class="card" style="margin-bottom:14px">
-        <div class="row"><b style="font-size:13px">🔥 وضعیت تو</b><div class="sp" style="flex:1"></div>
+        <div class="row"><b style="font-size:13px">${Icon.of('flame')} وضعیت تو</b><div class="sp" style="flex:1"></div>
           <span class="chip wr">سطح ${U.fa(Store.get('level'))}</span>
           <span class="chip wr">${U.fa(Store.get('score'))} امتیاز</span>
           ${Wallet.chip()}
@@ -11134,9 +11278,9 @@ function updateHomeStats(){
     FX.countUp(el, val, 800);
   };
   set('#stStar', star); set('#stScore', d.score); set('#stDone', done); set('#stBadge', badge);
-  U.$('#cRole').textContent = d.isAdmin ? '👑 مدیر' : '👤 کاربر';
+  U.icLabel(U.$('#cRole'), d.isAdmin ? 'crown' : 'user', d.isAdmin ? 'مدیر' : 'کاربر');
   const co = U.$('#cCoins');
-  if(co) co.textContent = '🪙 ' + U.fa(Wallet.get());
+  if(co) U.icLabel(co, 'coin', U.fa(Wallet.get()));
   U.$('#lvlNum').textContent = U.fa(d.level);
   const need = xpForLevel(d.level);
   /* «۰ / ۱۰۰» در RTL دو پهلو خوانده می‌شود؛ «۰ از ۱۰۰» یکدله است. */
@@ -11476,10 +11620,10 @@ function updateNotifDot(){
 function renderNotif(){
   const list = Store.get('notifications');
   U.$('#notifSub').textContent = U.fa(list.length) + ' پیام';
-  if(!list.length){ U.$('#notifList').innerHTML = '<div class="empty">اعلانی نیست 🔔</div>'; return; }
+  if(!list.length){ U.$('#notifList').innerHTML = '<div class="empty">اعلانی نیست</div>'; return; }
   U.$('#notifList').innerHTML = list.map(n => `
     <div class="item">
-      <div class="av">${n.icon}</div>
+      <div class="av">${Glyph.of(n.icon)}</div>
       <div class="sp"><b>${U.esc(n.title)}</b><small>${U.esc(n.desc)}</small></div>
     </div>`).join('');
   Store.update(d => d.notifications.forEach(n => n.read = true));
@@ -11524,34 +11668,34 @@ const Me = {
         </div>
 
         ${!d.phone ? `<div class="card mt14">
-          <b style="font-size:13px">📱 اتصال به حساب</b>
+          <b style="font-size:13px">${Icon.of('phone')} اتصال به حساب</b>
           <div class="sep"></div>
           <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
             الان مهمانی: امتیاز و نشان‌هایت فقط روی همین دستگاه می‌ماند.
             با یک شماره وصل شو تا سرور بشناسدت، امتیازت به نام خودت ثبت شود و
             روی دستگاه دیگر هم ادامه‌اش را ببینی.</p>
           ${SMS.ready()
-            ? `<button class="btn w" id="pfConnect">📱 اتصال به حساب</button>`
-            : `<button class="btn gh w" id="pfConnect" disabled>📱 اتصال به حساب</button>
+            ? `<button class="btn w" id="pfConnect">${Icon.of('phone')} اتصال به حساب</button>`
+            : `<button class="btn gh w" id="pfConnect" disabled>${Icon.of('phone')} اتصال به حساب</button>
                <div class="note warn"><span>⚠️</span><span>${U.esc(Gate.whyNot())}</span></div>`}
         </div>` : ''}
 
         <div class="card mt14">
-          <b style="font-size:13px">✏️ ویرایش پروفایل</b>
+          <b style="font-size:13px">${Icon.of('edit')} ویرایش پروفایل</b>
           <div class="sep"></div>
           <label class="lbl">نام</label>
           <input class="inp" id="pfName" maxlength="20" value="${U.esc(d.playerName)}">
           <label class="lbl">شعار کوتاه</label>
           <input class="inp" id="pfMotto" maxlength="60" placeholder="مثلاً: هر روز یک آیه" value="${U.esc(p.motto || '')}">
           <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn" id="pfAvaBtn">🙂 چهرک</button>
-            <button class="btn gh" id="pfShop">🛒 فروشگاه</button>
-            <button class="btn gh" id="pfOnb">🎬 راهنمای آغاز</button>
+            <button class="btn" id="pfAvaBtn">${Icon.of('smile')}<span>چهرک</span></button>
+            <button class="btn gh" id="pfShop">${Icon.of('cart')}<span>فروشگاه</span></button>
+            <button class="btn gh" id="pfOnb">${Icon.of('image')}<span>راهنمای آغاز</span></button>
           </div>
         </div>
 
         <div class="card mt14">
-          <b style="font-size:13px">🪪 حساب کاربری</b>
+          <b style="font-size:13px">${Icon.of('id-card')} حساب کاربری</b>
           <div class="sep"></div>
           ${(() => {
             const u = User.row();
@@ -11586,11 +11730,11 @@ const Me = {
               <div class="kv"><span>وضعیت</span>
                 <b>${verified ? '✅ تأییدشده با پیامک' : '👤 مهمانِ همین دستگاه'}</b></div>
               <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
-              <div class="kv"><span>📅 عضویت</span>
+              <div class="kv"><span>${Icon.of('calendar')} عضویت</span>
                 <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
               <div class="kv"><span>آخرین ورود</span>
                 <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
-              ${verified ? `<div class="kv"><span>📨 خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>` : ''}
+              ${verified ? `<div class="kv"><span>${Icon.of('send')} خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>` : ''}
               <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
                 ${verified
                   ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
@@ -11599,17 +11743,17 @@ const Me = {
         </div>
 
         <div class="card mt14">
-          <b style="font-size:13px">👑 مدیریت</b>
+          <b style="font-size:13px">${Icon.of('crown')} مدیریت</b>
           <div class="sep"></div>
           <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
             ${d.isAdmin
               ? 'تو مدیر این دستگاه هستی — پنل باز است.'
               : 'پنل مدیریت با رمز باز می‌شود. اگر این دستگاه هنوز رمزی ندارد، در صفحهٔ ورودِ مدیر اول یک هشدار می‌بینی و بعد رمز می‌سازی — بی آن هشدار، رمز ساخته نمی‌شود.'}</p>
-          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">${d.isAdmin ? '👑 پنل مدیریت' : '🔐 ورود مدیر'}</button>
+          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">${d.isAdmin ? '👑 پنل مدیریت' : '🔒 ورود مدیر'}</button>
         </div>
 
         <div class="card mt14">
-          <b style="font-size:13px">📇 شناسنامه</b>
+          <b style="font-size:13px">${Icon.of('id-card')} شناسنامه</b>
           <div class="sep"></div>
           ${Streak.rows()}
           <div class="kv"><span>بازی‌های انجام‌شده</span><b>${U.fa(d.stats.plays || 0)}</b></div>
@@ -11625,9 +11769,9 @@ const Me = {
           <b style="font-size:13px">⚙️ میان‌برها</b>
           <div class="sep"></div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
-            <button class="btn gh sm" id="pfMissions">🎯 مأموریت‌ها</button>
-            <button class="btn gh sm" id="pfBadges">🎖️ نشان‌ها</button>
-            <button class="btn gh sm" id="pfRecords">🏅 رکوردها</button>
+            <button class="btn gh sm" id="pfMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <button class="btn gh sm" id="pfBadges">${Icon.of('medal')} نشان‌ها</button>
+            <button class="btn gh sm" id="pfRecords">${Icon.of('medal')} رکوردها</button>
             <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
             <button class="btn gh sm" id="pfPhone">${User.phone() ? '📱 تغییر شماره' : '📱 ورود با موبایل'}</button>
           </div>
@@ -11685,7 +11829,7 @@ const Me = {
     else if(this.tab === 'stats'){
       body.innerHTML = `
         <div class="card">
-          <b style="font-size:13px">📊 آمار کلی</b>
+          <b style="font-size:13px">${Icon.of('chart')} آمار کلی</b>
           <div class="sep"></div>
           <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
             <div class="stat"><b>${U.fa(st.totalCorrect)}</b><span>✅ درست</span></div>
@@ -11696,23 +11840,23 @@ const Me = {
           </div>
         </div>
         <div class="card" style="margin-top:12px">
-          <b style="font-size:13px">🎮 تفکیک بازی‌ها</b>
+          <b style="font-size:13px">${Icon.of('gamepad')} تفکیک بازی‌ها</b>
           <div class="sep"></div>
-          <div class="kv"><span>📚 آزمون‌های تمام‌شده</span><b>${U.fa(st.quizzes)}</b></div>
-          <div class="kv"><span>⚡ بازی سرعت نور</span><b>${U.fa(st.speed)}</b></div>
-          <div class="kv"><span>🧩 پازل حروف</span><b>${U.fa(st.puzzles)}</b></div>
-          <div class="kv"><span>🧠 حافظه</span><b>${U.fa(st.memory)}</b></div>
-          <div class="kv"><span>🔗 تطبیق</span><b>${U.fa(st.match)}</b></div>
+          <div class="kv"><span>${Icon.of('book')} آزمون‌های تمام‌شده</span><b>${U.fa(st.quizzes)}</b></div>
+          <div class="kv"><span>${Icon.of('bolt')} بازی سرعت نور</span><b>${U.fa(st.speed)}</b></div>
+          <div class="kv"><span>${Icon.of('plus')} پازل حروف</span><b>${U.fa(st.puzzles)}</b></div>
+          <div class="kv"><span>${Icon.of('target')} حافظه</span><b>${U.fa(st.memory)}</b></div>
+          <div class="kv"><span>${Icon.of('link')} تطبیق</span><b>${U.fa(st.match)}</b></div>
           <div class="kv"><span>🇮🇷 سوال ایران</span><b>${U.fa(st.iran)}</b></div>
           <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span><b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
           <div class="kv"><span>⚔️ برد آنلاین</span><b>${U.fa(st.onlineWins || 0)}</b></div>
-          <div class="kv"><span>🌐 روم‌های ساخته‌شده</span><b>${U.fa(st.rooms)}</b></div>
-          <div class="kv"><span>📖 سوره‌های کامل</span><b>${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)}</b></div>
+          <div class="kv"><span>${Icon.of('globe')} روم‌های ساخته‌شده</span><b>${U.fa(st.rooms)}</b></div>
+          <div class="kv"><span>${Icon.of('book-open')} سوره‌های کامل</span><b>${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)}</b></div>
         </div>
         <div class="card" style="margin-top:12px">
-          <b style="font-size:13px">🌙 چالش روزانه</b>
+          <b style="font-size:13px">${Icon.of('moon')} چالش روزانه</b>
           <div class="sep"></div>
-          <div class="kv"><span>وضعیت امروز</span><b>${DailyChallenge.status().done ? '✅ انجام شد' : '⏳ انجام نشده'}</b></div>
+          <div class="kv"><span>وضعیت امروز</span><b>${DailyChallenge.status().done ? '✓ انجام شد' : '🕒 انجام نشده'}</b></div>
           <div class="kv"><span>زنجیره</span><b>${U.fa(d.dailyChallenge.streak || 0)} روز</b></div>
           <div class="kv"><span>آخرین جایزه</span><b>${U.fa(d.dailyChallenge.reward || 0)}</b></div>
         </div>`;
@@ -11725,7 +11869,7 @@ const Me = {
         esmfamil_best: '📝 بهترین اسم فامیل' };
       body.innerHTML = `
         <div class="card">
-          <b style="font-size:13px">🏅 رکوردهای شخصی</b>
+          <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
           <div class="sep"></div>
           ${Object.entries(recLabels).map(([k, label]) => {
             const v = d.best[k];
@@ -11734,7 +11878,7 @@ const Me = {
           }).join('')}
         </div>
         <div class="card" style="margin-top:12px">
-          <b style="font-size:13px">🏆 لیدربورد ${Net.board.length ? 'سرور' : 'محلی'}</b>
+          <b style="font-size:13px">${Icon.of('trophy')} لیدربورد ${Net.board.length ? 'سرور' : 'محلی'}</b>
           <div class="sep"></div>
           <div class="list">
             ${(Net.board.length ? Net.board : localBoard).slice(0, 15).map((b, i) => `
@@ -11744,7 +11888,7 @@ const Me = {
                 <b style="color:var(--gold)">${U.fa(b.score)}</b>
               </div>`).join('') || '<div class="empty">هنوز رکوردی ثبت نشده</div>'}
           </div>
-          <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">🔄 به‌روزرسانی</button>
+          <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
         </div>`;
       U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
     }
@@ -11753,14 +11897,14 @@ const Me = {
       const got = DATA.badges.filter(b => d.badges[b.id]).length;
       body.innerHTML = `
         <div class="card">
-          <div class="row"><b style="font-size:13px">🎖️ نشان‌های من</b><div class="sp" style="flex:1"></div>
+          <div class="row"><b style="font-size:13px">${Icon.of('medal')} نشان‌های من</b><div class="sp" style="flex:1"></div>
             <span class="chip wr">${U.fa(got)} از ${U.fa(DATA.badges.length)}</span></div>
           <div class="sep"></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px">
             ${DATA.badges.map(b => {
               const ok = d.badges[b.id];
               return `<div class="stat" style="opacity:${ok ? 1 : .38};padding:12px 6px" title="${U.esc(b.desc)}">
-                <b style="font-size:26px">${b.icon}</b>
+                <b class="gi26">${Glyph.of(b.icon)}</b>
                 <span style="font-size:11px">${U.esc(b.name)}</span>
                 <span style="font-size:11px;opacity:.8;margin-top:3px;display:block">${U.esc(b.desc)}</span>
               </div>`;
@@ -11788,55 +11932,55 @@ const Me = {
           <label class="lbl">صدا و لرزش</label>
           <div class="row" style="flex-wrap:wrap;gap:8px">
             <button class="btn ${s.sound ? '' : 'gh'}" id="setSound" style="flex:1">${s.sound ? '🔊 صدا روشن' : '🔇 صدا خاموش'}</button>
-            <button class="btn ${s.haptics ? '' : 'gh'}" id="setHaptic" style="flex:1">${s.haptics ? '📳 لرزش روشن' : '📴 لرزش خاموش'}</button>
+            <button class="btn ${s.haptics ? '' : 'gh'}" id="setHaptic" style="flex:1">${s.haptics ? '📳 لرزش روشن' : '🔇 لرزش خاموش'}</button>
           </div>
           <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
             <button class="btn ${s.ambient ? '' : 'gh'}" id="setAmbient" style="flex:1">${s.ambient ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'}</button>
-            <button class="btn gh" id="setMotion" style="flex:1">🎬 حرکت: ${FX.reduced ? 'کم' : 'کامل'}</button>
+            <button class="btn gh" id="setMotion" style="flex:1">${Icon.of('image')} حرکت: ${FX.reduced ? 'کم' : 'کامل'}</button>
           </div>
 
-          <label class="lbl">🎯 رفتن به</label>
+          <label class="lbl">${Icon.of('target')} رفتن به</label>
           <div class="row" style="flex-wrap:wrap;gap:8px">
-            <button class="btn gh sm" id="setMissions">🎯 مأموریت‌ها</button>
-            <button class="btn gh sm" id="setCollection">🎖️ کلکسیون</button>
-            <button class="btn gh sm" id="setTree">🌳 درخت دانش</button>
-            <button class="btn gh sm" id="setBookmarks">🔖 نشانه‌ها</button>
-            <button class="btn gh sm" id="setFriends">👥 دوستان</button>
-            <button class="btn gh sm" id="setReciters">🎙 قاریان</button>
-            <button class="btn gh sm" id="setFocus">🧘 تمرکز</button>
-            <button class="btn gh sm" id="setNight">🌙 تکرار شبانه</button>
+            <button class="btn gh sm" id="setMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <button class="btn gh sm" id="setCollection">${Icon.of('medal')} کلکسیون</button>
+            <button class="btn gh sm" id="setTree">${Icon.of('tree')} درخت دانش</button>
+            <button class="btn gh sm" id="setBookmarks">${Icon.of('mark')} نشانه‌ها</button>
+            <button class="btn gh sm" id="setFriends">${Icon.of('users')}<span>دوستان</span></button>
+            <button class="btn gh sm" id="setReciters">${Icon.of('mic')} قاریان</button>
+            <button class="btn gh sm" id="setFocus">${Icon.of('target')} تمرکز</button>
+            <button class="btn gh sm" id="setNight">${Icon.of('moon')} تکرار شبانه</button>
             <button class="btn gh sm" id="setSelfTest">🧪 selfTest</button>
           </div>
-          <label class="lbl">🛡 مدیریت</label>
-          <button class="btn gh w" id="setAdmin">👑 پنل مدیریت</button>
+          <label class="lbl">${Icon.of('shield')} مدیریت</label>
+          <button class="btn gh w" id="setAdmin">${Icon.of('crown')} پنل مدیریت</button>
           <p style="font-size:11.5px;color:var(--mut);margin:8px 0 0">
             این کلید عمداً پنهان نیست: پنهان‌کردنِ نشانی، امنیت نیست.
             سدِ واقعی همان رمز است، نه پیدا نبودنِ دکمه.</p>
-          <label class="lbl">🎧 تلاوت قرآن</label>
+          <label class="lbl">${Icon.of('headphones')} تلاوت قرآن</label>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <button class="btn gh" id="setQuran" style="flex:1">${U.esc(RECITERS[U.clamp(q.reciter, 0, RECITERS.length - 1)].name)}</button>
-            <button class="btn gh" id="setQnext" style="flex:0 0 auto">🔄 قاری بعدی</button>
+            <button class="btn gh" id="setQnext" style="flex:0 0 auto">${Icon.of('refresh')} قاری بعدی</button>
           </div>
           <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button class="btn gh sm" id="setQvol">🔊 بلندی: ${U.fa(Math.round((q.vol ?? .9) * 100))}٪</button>
-            <button class="btn gh sm" id="setQsrc">📡 منبع: ${QSOURCES[q.source]?.name || '—'}</button>
+            <button class="btn gh sm" id="setQvol">${Icon.of('volume')} بلندی: ${U.fa(Math.round((q.vol ?? .9) * 100))}٪</button>
+            <button class="btn gh sm" id="setQsrc">${Icon.of('sat')} منبع: ${QSOURCES[q.source]?.name || '—'}</button>
             <button class="btn gh sm" id="setQtest">▶️ آزمایش تلاوت</button>
           </div>
           <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
             صوت قاریان از منبع‌های آزاد (EveryAyah / Islamic Network) پخش می‌شود؛ برای شنیدن به اینترنت نیاز است.
             متن و ترجمهٔ هر سوره یک بار گرفته و روی دستگاه ذخیره می‌شود.</p>
 
-          <label class="lbl">🖋 فونت نمایشی (تیترها و نام نورستان)</label>
+          <label class="lbl">${Icon.of('pen')} فونت نمایشی (تیترها و نام نورستان)</label>
           <button class="btn gh w" id="setFontDisp">${U.esc((FONTS[fo.display] || FONTS.vazir).name)} — ${U.esc((FONTS[fo.display] || FONTS.vazir).note || '')}</button>
           <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button class="btn gh sm" id="setFontQuran">✒️ فونت قرآن: ${U.esc((FONTS[fo.quran] || FONTS.amiri).name)}</button>
-            <button class="btn gh sm" id="setNastaliq">${Fonts.isNastaliq(fo.display) ? '✅ نستعلیق روشن' : '🌿 نستعلیق'}</button>
+            <button class="btn gh sm" id="setFontQuran">${Icon.of('pen')} فونت قرآن: ${U.esc((FONTS[fo.quran] || FONTS.amiri).name)}</button>
+            <button class="btn gh sm" id="setNastaliq">${Fonts.isNastaliq(fo.display) ? '✓ نستعلیق روشن' : '🌿 نستعلیق'}</button>
           </div>
 
-          <label class="lbl">📚 ترجمهٔ فارسی</label>
+          <label class="lbl">${Icon.of('book')} ترجمهٔ فارسی</label>
           <button class="btn gh w" id="setTrans">${U.esc((TRANSLATIONS.find(t => t.id === q.translation) || { name: q.translation }).name)}</button>
 
-          <label class="lbl">🔤 اندازهٔ متن قرآن</label>
+          <label class="lbl">${Icon.of('text')} اندازهٔ متن قرآن</label>
           <div class="row" style="gap:8px;align-items:center">
             <button class="btn gh sm" id="setReadDown">ا−</button>
             <span style="font-size:12px;color:var(--mut);min-width:46px;text-align:center">${U.fa(q.readSize || 25)}px</span>
@@ -11845,8 +11989,8 @@ const Me = {
           </div>
 
           <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
-            <button class="btn gh sm" id="setPickSurah">📖 رفتن به سورهٔ…</button>
-            <button class="btn gh sm" id="setClearText">🧹 پاک کردن متن ذخیره‌شده</button>
+            <button class="btn gh sm" id="setPickSurah">${Icon.of('book-open')} رفتن به سورهٔ…</button>
+            <button class="btn gh sm" id="setClearText">${Icon.of('broom')} پاک کردن متن ذخیره‌شده</button>
           </div>
           <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
             متن ${U.fa(QText.cached())} سوره روی این دستگاه ذخیره شده است. پاک کردنش جا آزاد می‌کند
@@ -11858,16 +12002,16 @@ const Me = {
 
           <label class="lbl">آدرس سرور محفل</label>
           <input class="inp" id="setServer" dir="ltr" placeholder="ws://192.168.1.5:8787" value="${U.esc(d.serverUrl || '')}">
-          <button class="btn w" id="setSave" style="margin-top:16px">💾 ذخیره</button>
+          <button class="btn w" id="setSave" style="margin-top:16px">${Icon.of('save')} ذخیره</button>
         </div>
         <div class="card" style="margin-top:12px">
-          <b style="font-size:13px">🗄️ داده‌های من</b>
+          <b style="font-size:13px">${Icon.of('archive')} داده‌های من</b>
           <div class="sep"></div>
           <div class="row" style="flex-wrap:wrap;gap:8px">
-            <button class="btn gh" id="meExport">📥 خروجی JSON</button>
-            <button class="btn gh" id="meImport">📤 ورود از فایل</button>
-            <button class="btn gh" id="meSync">☁️ ارسال رکورد به سرور</button>
-            <button class="btn dg" id="meReset">🗑️ ریست کامل</button>
+            <button class="btn gh" id="meExport">${Icon.of('download')} خروجی JSON</button>
+            <button class="btn gh" id="meImport">${Icon.of('share')} ورود از فایل</button>
+            <button class="btn gh" id="meSync">${Icon.of('cloud')} ارسال رکورد به سرور</button>
+            <button class="btn dg" id="meReset">${Icon.of('trash')} ریست کامل</button>
           </div>
           <input type="file" id="meFile" accept="application/json" class="hide">
         </div>`;
@@ -11919,14 +12063,14 @@ const Me = {
       U.$('#setSound').onclick = function(){
         const v = !Store.get('settings').sound;
         Store.update(x => x.settings.sound = v);
-        this.textContent = v ? '🔊 صدا روشن' : '🔇 صدا خاموش';
+        U.icLabel(this, v ? 'volume' : 'volume-off', v ? 'صدا روشن' : 'صدا خاموش');
         this.classList.toggle('gh', !v);
         if(v) Sound.play(true);
       };
       U.$('#setHaptic').onclick = function(){
         const v = !Store.get('settings').haptics;
         Store.update(x => x.settings.haptics = v);
-        this.textContent = v ? '📳 لرزش روشن' : '📴 لرزش خاموش';
+        U.icLabel(this, 'vibrate', v ? 'لرزش روشن' : 'لرزش خاموش');
         this.classList.toggle('gh', !v);
         if(v) Haptic.success();
       };
@@ -11943,12 +12087,12 @@ const Me = {
         const i = (steps.indexOf(Store.get('quran').vol) + 1) % steps.length;
         Store.update(x => x.quran.vol = steps[i]);
         Recite.applyPrefs();
-        this.textContent = `🔊 بلندی: ${U.fa(Math.round(steps[i] * 100))}٪`;
+        U.icLabel(this, 'volume', `بلندی: ${U.fa(Math.round(steps[i] * 100))}٪`);
       };
       U.$('#setQsrc').onclick = function(){
         const i = ((Store.get('quran').source || 0) + 1) % QSOURCES.length;
         Recite.switchSource(i);        // مثلِ قاری: از همین لحظه، نه از صفر
-        this.textContent = `📡 منبع: ${QSOURCES[i].name}`;
+        U.icLabel(this, 'sat', `منبع: ${QSOURCES[i].name}`);
       };
       U.$('#setQtest').onclick = () => {
         Recite.play(1, 1);
@@ -11967,7 +12111,7 @@ const Me = {
         repaintSettings();
       };
       U.$('#setTrans').onclick = () => {
-        UI.modal(`<h3 style="margin-bottom:10px">📚 ترجمهٔ فارسی</h3>
+        UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('book')} ترجمهٔ فارسی</h3>
           <div class="fpicks">${TRANSLATIONS.map(t => `
             <div class="fpick ${t.id === Store.get('quran').translation ? 'on' : ''}" data-t="${U.esc(t.id)}">
               <div class="fname"><b>${U.esc(t.name)}</b><small>${U.esc(t.note)}</small></div>
@@ -12538,12 +12682,12 @@ const Admin = {
       return;
     }
     UI.modal(`
-      <h3 style="margin-bottom:4px">📨 پیامک به ${U.esc(u.name || 'کاربر')}</h3>
+      <h3 style="margin-bottom:4px">${Icon.of('send')} پیامک به ${U.esc(u.name || 'کاربر')}</h3>
       <p style="color:var(--mut);font-size:12px;margin-bottom:10px" dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone || '—')}</p>
       <textarea class="inp" id="admSmsText" rows="3" maxlength="300"
                 placeholder="متن پیامک…"></textarea>
       <div class="row" style="margin-top:12px">
-        <button class="btn dg" id="admSmsGo">📨 بفرست</button>
+        <button class="btn dg" id="admSmsGo">${Icon.of('send')} بفرست</button>
         <button class="btn gh" id="admSmsNo">بی‌خیال</button>
       </div>`, box => {
         const ta = U.$('#admSmsText', box);
@@ -12589,12 +12733,12 @@ const Admin = {
       const remote = this.onServer();
       U.$('#adminGate').innerHTML = `
         <div class="card">
-          <b>🔐 پنل مدیریت</b>
+          <b>${Icon.of('lock')} پنل مدیریت</b>
           <p style="color:var(--mut);font-size:12px;margin-top:6px">
             برای دیدنِ پنل باید رمزِ مدیر را بزنی.
             ${remote ? 'رمز روی سرور سنجیده می‌شود.' : ''}</p>
           <div class="sep"></div>
-          <button class="btn w" id="admGoGate">👑 ورود مدیر</button>
+          <button class="btn w" id="admGoGate">${Icon.of('crown')} ورود مدیر</button>
           <button class="btn gh w" id="admGoHome" style="margin-top:10px">‹ بازگشت</button>
         </div>`;
       U.$('#adminMain').classList.add('hide');
@@ -12630,7 +12774,7 @@ const Admin = {
         const recent = (d.leaderboard || []).slice(0, 5);
         body.innerHTML = `
           <div class="card">
-            <div class="row"><b style="font-size:13px">📊 امروز</b>
+            <div class="row"><b style="font-size:13px">${Icon.of('chart')} امروز</b>
               <div class="sp" style="flex:1"></div>
               <span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
             <div class="sep"></div>
@@ -12647,14 +12791,14 @@ const Admin = {
             </p>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">📈 پرکارترین بازی‌ها</b>
+            <b style="font-size:13px">${Icon.of('trend')} پرکارترین بازی‌ها</b>
             <div class="sep"></div>
             ${g.length ? g.slice(0, 6).map(r => `
               <div class="kv"><span>${Stats.iconOf(r.id)} ${U.esc(Stats.nameOf(r.id))}</span>
                 <b>${U.fa(r.n)}</b></div>`).join('') : '<div class="empty">هنوز چیزی شمرده نشده</div>'}
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🕒 رکوردهای تازه</b>
+            <b style="font-size:13px">${Icon.of('clock')} رکوردهای تازه</b>
             <div class="sep"></div>
             <div class="list">${recent.length ? recent.map(b => `
               <div class="item"><div class="av">🏆</div>
@@ -12690,12 +12834,12 @@ const Admin = {
 
         body.innerHTML = `
           <div class="card">
-            <div class="row"><b style="font-size:13px">👥 کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
+            <div class="row"><b style="font-size:13px">${Icon.of('users')} کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
               <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
             <div class="sep"></div>
             <input class="inp" id="admUserQ" placeholder="${remote ? 'جست‌وجو با نام، شناسه یا شماره…' : 'جست‌وجو با نام یا شناسه…'}"
                    value="${U.esc(this._userQ || '')}" autocomplete="off">
-            ${remote ? `<button class="btn gh w" style="margin-top:10px" id="admUserRefresh">🔄 به‌روزرسانی فهرست</button>` : ''}
+            ${remote ? `<button class="btn gh w" style="margin-top:10px" id="admUserRefresh">${Icon.of('refresh')} به‌روزرسانی فهرست</button>` : ''}
           </div>
           <div class="card" style="margin-top:12px">
             ${shown.length ? shown.map(u => {
@@ -12708,14 +12852,14 @@ const Admin = {
               <div class="item" style="align-items:flex-start">
                 <div class="av">${u.blocked ? '🚫' : (u.me ? '👑' : U.esc((u.name || '?').charAt(0)))}</div>
                 <div class="sp"><b>${U.esc(u.name || 'بازیکن')}${u.me ? ' (شما)' : ''}</b>
-                  ${u.phone ? `<small>📱 <span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span></small>` : ''}
+                  ${u.phone ? `<small>${Icon.of('phone')} <span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span></small>` : ''}
                   <small>سطح ${U.fa(u.level || 1)} • ${U.fa(u.score || 0)} امتیاز${u.plays != null ? ` • ${U.fa(u.plays)} بازی` : ''}</small>
                   ${u.joinedAt ? `<small>🗓 عضو از ${U.fa(U.ago(u.joinedAt))}${u.lastLogin ? ` • آخرین ورود ${U.fa(U.ago(u.lastLogin))}` : ''}</small>` : ''}
                   <small class="adm-id" data-copy="${U.esc(u.id || '')}"
                          title="برای کپی بزن">🆔 <span dir="ltr">${U.esc(String(u.id || '—'))}</span></small>
                   ${badges ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${badges}</div>` : ''}
                   ${remote || u._local ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
-                    <button class="btn gh sm" data-act="sms" data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">📨 پیامک</button>
+                    <button class="btn gh sm" data-act="sms" data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">${Icon.of('send')} پیامک</button>
                     <button class="btn ${u.blocked ? 'gh' : 'dg'} sm" data-act="${u.blocked ? 'unblock' : 'block'}"
                             data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">${u.blocked ? '✅ آزاد کن' : '🚫 مسدود کن'}</button>
                     <button class="btn dg sm" data-act="del" data-id="${U.esc(u.id || '')}"
@@ -12768,14 +12912,14 @@ const Admin = {
         const rooms = Net.rooms();
         body.innerHTML = `
           <div class="card">
-            <b style="font-size:13px">🏠 روم‌های فعال (${U.fa(rooms.length)})</b>
+            <b style="font-size:13px">${Icon.of('home')} روم‌های فعال (${U.fa(rooms.length)})</b>
             <div class="sep"></div>
             ${rooms.length ? rooms.map(r => `
               <div class="item"><div class="av">${r.game === 'esmfamil' ? '📝' : '❌⭕'}</div>
                 <div class="sp"><b>${U.esc(r.name)}</b><small>کد ${U.esc(r.code)} • ${U.fa(r.count)}/${U.fa(r.max || 2)}</small></div>
                 <button class="btn dg sm" data-kill="${U.esc(r.code)}">بستن</button></div>`).join('')
               : '<div class="empty">رومی فعال نیست</div>'}
-            <button class="btn gh w" style="margin-top:12px" id="admRoomsRefresh">🔄 به‌روزرسانی</button>
+            <button class="btn gh w" style="margin-top:12px" id="admRoomsRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
           </div>`;
         U.$('#admRoomsRefresh').onclick = () => { Net.requestRooms(); Timers.after(() => this.renderTab(), 700); };
         U.$$('[data-kill]').forEach(b => b.onclick = () => {
@@ -12791,7 +12935,7 @@ const Admin = {
         const st = d.stats;
         body.innerHTML = `
           <div class="card">
-            <b style="font-size:13px">🎮 آمار بازی‌ها</b>
+            <b style="font-size:13px">${Icon.of('gamepad')} آمار بازی‌ها</b>
             <div class="sep"></div>
             <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
               <div class="stat"><b>${U.fa(st.totalCorrect)}</b><span>✅ درست</span></div>
@@ -12801,7 +12945,7 @@ const Admin = {
             </div>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">📊 کدام بازی بیشتر بازی می‌شود</b>
+            <b style="font-size:13px">${Icon.of('chart')} کدام بازی بیشتر بازی می‌شود</b>
             <div class="sep"></div>
             ${g.length ? g.map(r => {
               const pct = Math.round(100 * r.n / total);
@@ -12814,21 +12958,21 @@ const Admin = {
             }).join('') : '<div class="empty">هنوز بازی‌ای شمرده نشده — یکی بازی کن و برگرد</div>'}
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🏁 نتیجه‌ها</b>
+            <b style="font-size:13px">${Icon.of('flag')} نتیجه‌ها</b>
             <div class="sep"></div>
             <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span>
               <b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
-            <div class="kv"><span>🧩 پازل حل‌شده</span><b>${U.fa(st.puzzles)}</b></div>
-            <div class="kv"><span>🧠 حافظه</span><b>${U.fa(st.memory)}</b></div>
-            <div class="kv"><span>🔗 تطبیق</span><b>${U.fa(st.match)}</b></div>
-            <div class="kv"><span>📜 حدیث‌یاب</span><b>${U.fa(st.hadith || 0)}</b></div>
-            <div class="kv"><span>🕌 چهارده معصوم</span><b>${U.fa(st.imams || 0)}</b></div>
-            <div class="kv"><span>🤲 نجوا</span><b>${U.fa(st.dua || 0)}</b></div>
-            <div class="kv"><span>🏅 آزمون معارف</span><b>${U.fa(st.exams || 0)}</b></div>
-            <div class="kv"><span>✅ بازی تمام‌شده</span><b>${U.fa(st.plays)}</b></div>
+            <div class="kv"><span>${Icon.of('plus')} پازل حل‌شده</span><b>${U.fa(st.puzzles)}</b></div>
+            <div class="kv"><span>${Icon.of('target')} حافظه</span><b>${U.fa(st.memory)}</b></div>
+            <div class="kv"><span>${Icon.of('link')} تطبیق</span><b>${U.fa(st.match)}</b></div>
+            <div class="kv"><span>${Icon.of('scroll')} حدیث‌یاب</span><b>${U.fa(st.hadith || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('mosque')} چهارده معصوم</span><b>${U.fa(st.imams || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('smile')} نجوا</span><b>${U.fa(st.dua || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('medal')} آزمون معارف</span><b>${U.fa(st.exams || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('check')} بازی تمام‌شده</span><b>${U.fa(st.plays)}</b></div>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🏆 ۱۰ رکورد برتر روم/سرور</b>
+            <b style="font-size:13px">${Icon.of('trophy')} ۱۰ رکورد برتر روم/سرور</b>
             <div class="sep"></div>
             <div class="list">${(Net.board.length ? Net.board : d.leaderboard).slice(0, 10).map((b, i) => `
               <div class="item"><div class="av">${U.fa(i + 1)}</div>
@@ -12845,9 +12989,9 @@ const Admin = {
             <input class="inp" id="bcTitle" placeholder="عنوان" maxlength="60">
             <textarea class="inp" id="bcMsg" placeholder="متن پیام..." maxlength="300" style="margin-top:8px;min-height:80px"></textarea>
             <div class="row" style="margin-top:10px">
-              <button class="btn w" id="bcSendAll">📤 ارسال به همه (سراسری)</button>
+              <button class="btn w" id="bcSendAll">${Icon.of('share')} ارسال به همه (سراسری)</button>
             </div>
-            <button class="btn gh w" id="bcSendSelf" style="margin-top:8px">👤 فقط برای خودم</button>
+            <button class="btn gh w" id="bcSendSelf" style="margin-top:8px">${Icon.of('user')} فقط برای خودم</button>
             <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
               ارسال سراسری روی حالت «محلی» به همه تب‌های این دستگاه و روی حالت «سرور» به همه دستگاه‌های متصل می‌رسد.</p>
           </div>`;
@@ -12881,7 +13025,7 @@ const Admin = {
         const added = Object.values(edits.add).reduce((n, a) => n + a.length, 0);
         body.innerHTML = `
           <div class="card">
-            <b style="font-size:13px">📚 محتوای برنامه</b>
+            <b style="font-size:13px">${Icon.of('book')} محتوای برنامه</b>
             <div class="sep"></div>
             <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
               <div class="stat"><b>${U.fa(DATA.surah.length)}</b><span><i data-ic="book-open"></i> سوره</span></div>
@@ -12891,10 +13035,10 @@ const Admin = {
             </div>
             ${(removed || added) ? `<p style="font-size:11.5px;color:var(--mut);margin-top:10px">
               ویرایش‌های تو روی همین دستگاه: ${U.fa(added)} پرسشِ افزوده، ${U.fa(removed)} پرسشِ برداشته.
-              <button class="btn gh sm" id="cRestoreAll" style="margin-top:8px">↩️ بازگرداندنِ همه</button></p>` : ''}
+              <button class="btn gh sm" id="cRestoreAll" style="margin-top:8px">${Icon.of('undo')} بازگرداندنِ همه</button></p>` : ''}
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">✏️ ویرایشِ پرسش‌ها</b>
+            <b style="font-size:13px">${Icon.of('edit')} ویرایشِ پرسش‌ها</b>
             <div class="sep"></div>
             <div class="row" style="flex-wrap:wrap;gap:6px">
               ${Content.BANKS.map(b => `<button class="tab ${b === bank ? 'on' : ''}" data-cb="${b}">
@@ -12913,20 +13057,20 @@ const Admin = {
             </div>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">➕ افزودنِ پرسش به «${Content.LABEL[bank]}»</b>
+            <b style="font-size:13px">${Icon.of('plus')} افزودنِ پرسش به «${Content.LABEL[bank]}»</b>
             <div class="sep"></div>
             <input class="inp" id="cQ" placeholder="متن پرسش">
             <input class="inp" id="cO" style="margin-top:8px" placeholder="گزینه‌ها، با «|» جدا کن">
             <input class="inp" id="cA" style="margin-top:8px" placeholder="پاسخ درست (عیناً یکی از گزینه‌ها)">
             <input class="inp" id="cSrc" style="margin-top:8px" placeholder="منبع">
             <textarea class="inp" id="cWhy" style="margin-top:8px;min-height:60px" placeholder="توضیحِ پاسخ"></textarea>
-            <button class="btn ok w" id="cAdd" style="margin-top:10px">➕ افزودن</button>
+            <button class="btn ok w" id="cAdd" style="margin-top:10px">${Icon.of('plus')} افزودن</button>
             <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
               پرسشِ تازه فقط روی همین دستگاه می‌ماند و با «📥 خروجی JSON» قابل
               پشتیبان‌گیری است. هیچ متنِ دینی‌ای این‌جا خودکار ساخته نمی‌شود.</p>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">📖 وضعیت سوره‌ها</b>
+            <b style="font-size:13px">${Icon.of('book-open')} وضعیت سوره‌ها</b>
             <div class="sep"></div>
             ${DATA.surah.map(x => {
               const s = Store.get('stars')[x.surah] || 0;
@@ -12985,13 +13129,13 @@ const Admin = {
         const g = Stats.ranking();
         body.innerHTML = `
           <div class="card">
-            <b style="font-size:13px">📈 گزارش‌ها</b>
+            <b style="font-size:13px">${Icon.of('trend')} گزارش‌ها</b>
             <div class="sep"></div>
             <div class="row" style="flex-wrap:wrap;gap:8px">
-              <button class="btn gh" id="rpUsers">👥 کاربران (CSV)</button>
-              <button class="btn gh" id="rpGames">🎮 بازی‌ها (CSV)</button>
-              <button class="btn gh" id="rpStats">📊 آمار من (CSV)</button>
-              <button class="btn gh" id="rpBackup">📥 پشتیبانِ کامل (JSON)</button>
+              <button class="btn gh" id="rpUsers">${Icon.of('users')} کاربران (CSV)</button>
+              <button class="btn gh" id="rpGames">${Icon.of('gamepad')} بازی‌ها (CSV)</button>
+              <button class="btn gh" id="rpStats">${Icon.of('chart')} آمار من (CSV)</button>
+              <button class="btn gh" id="rpBackup">${Icon.of('download')} پشتیبانِ کامل (JSON)</button>
             </div>
             <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
               CSV با سرصفحه و جداکنندهٔ کاما و BOM ساخته می‌شود تا اکسل فارسی
@@ -12999,14 +13143,14 @@ const Admin = {
               «↩️ بازگرداندن» پایین برمی‌گردد.</p>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">↩️ بازگرداندن از پشتیبان</b>
+            <b style="font-size:13px">${Icon.of('undo')} بازگرداندن از پشتیبان</b>
             <div class="sep"></div>
             <input class="inp" id="rpFile" type="file" accept="application/json,.json">
             <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
               ⚠️ بازگرداندن، دادهٔ فعلیِ این دستگاه را با فایل جایگزین می‌کند.</p>
           </div>
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🧮 خلاصه</b>
+            <b style="font-size:13px">${Icon.of('chart')} خلاصه</b>
             <div class="sep"></div>
             <div class="kv"><span>بازی‌های امروز</span><b>${U.fa(Stats.todayN())}</b></div>
             <div class="kv"><span>مجموع بازی‌ها</span><b>${U.fa(g.reduce((n, r) => n + r.n, 0))}</b></div>
@@ -13070,16 +13214,16 @@ const Admin = {
             <b style="font-size:13px">⚙️ عملیات</b>
             <div class="sep"></div>
             <div class="row" style="flex-wrap:wrap;gap:8px">
-              <button class="btn gh" id="opScore">💰 +۱۰۰ امتیاز</button>
-              <button class="btn gh" id="opHearts">❤️ پر کردن جان</button>
-              <button class="btn gh" id="opUnlock">🔓 باز کردن همه نشان‌ها</button>
-              <button class="btn gh" id="opExport">📥 خروجی JSON</button>
-              <button class="btn dg" id="opReset">🗑️ ریست کامل</button>
+              <button class="btn gh" id="opScore">${Icon.of('coin')} +۱۰۰ امتیاز</button>
+              <button class="btn gh" id="opHearts">${Icon.of('heart')} پر کردن جان</button>
+              <button class="btn gh" id="opUnlock">${Icon.of('unlock')} باز کردن همه نشان‌ها</button>
+              <button class="btn gh" id="opExport">${Icon.of('download')} خروجی JSON</button>
+              <button class="btn dg" id="opReset">${Icon.of('trash')} ریست کامل</button>
             </div>
           </div>
           ${this.onServer() ? `
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🔑 امنیتِ نشست</b>
+            <b style="font-size:13px">${Icon.of('key')} امنیتِ نشست</b>
             <div class="sep"></div>
             <p style="font-size:12px;color:var(--mut)">
               این نشست از طرف سرور صادر شده و
@@ -13088,10 +13232,10 @@ const Admin = {
                 : 'همین حالا'} تمام می‌شود.
               رمزِ مدیر روی این دستگاه ذخیره نشده و اینجا عوض نمی‌شود —
               تنها منبعش متغیر محیطی <span dir="ltr">NOOR_ADMIN_PASS</span> روی سرور است.</p>
-            <button class="btn w" id="opPassSave">🔒 باطل کردنِ نشست و گرفتنِ نشستِ تازه</button>
+            <button class="btn w" id="opPassSave">${Icon.of('lock')} باطل کردنِ نشست و گرفتنِ نشستِ تازه</button>
           </div>` : `
           <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">🔑 امنیت (محلی)</b>
+            <b style="font-size:13px">${Icon.of('key')} امنیت (محلی)</b>
             <div class="sep"></div>
             <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
               سرور در دسترس نیست، پس این رمز فقط «قفلِ محلی» است: کسی را که
@@ -13104,13 +13248,13 @@ const Admin = {
             <input class="inp" id="opPass2" type="password" dir="ltr" spellcheck="false"
                    placeholder="تکرار رمز جدید…" autocomplete="new-password" style="margin-top:8px">
             <div class="row" style="margin-top:10px">
-              <button class="btn w" id="opPassSave">💾 تغییر رمز</button>
+              <button class="btn w" id="opPassSave">${Icon.of('save')} تغییر رمز</button>
             </div>
             <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
               رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود و جایی
               فرستاده نمی‌شود.</p>
           </div>`}
-          <button class="btn dg w" id="opLogout" style="margin-top:12px">🚪 خروج از پنل</button>`;
+          <button class="btn dg w" id="opLogout" style="margin-top:12px">${Icon.of('logout')} خروج از پنل</button>`;
         U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
         U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateHearts(); UI.toast('❤️ پر شد', 'ok'); };
         U.$('#opUnlock').onclick = () => { Store.update(x => DATA.badges.forEach(b => x.badges[b.id] = true)); updateHomeStats(); checkBadges(); UI.toast('🔓 همه نشان‌ها باز شد', 'ok'); };
@@ -13267,7 +13411,7 @@ const Theme = {
       <div class="tile ${on ? 'on' : ''}" data-th="${t}" style="cursor:pointer;${has ? '' : 'opacity:.55'}">
         <span class="ti">${has ? (this.LABEL[t] || '').split(' ')[0] : Icon.of('lock')}</span>
         <b>${U.esc((this.LABEL[t] || t).replace(/^\S+\s/, ''))}</b>
-        <small>${on ? '✅ انتخاب‌شده' : (has ? 'برای انتخاب بزن' : 'در فروشگاه — ۲۵۰ سکه')}</small>
+        <small>${on ? '✓ انتخاب‌شده' : (has ? 'برای انتخاب بزن' : 'در فروشگاه — ۲۵۰ سکه')}</small>
       </div>`; }).join('')}</div>
       <div class="row mt14">
         <button class="btn gh sm" id="thAmb">${amb ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'}</button>
@@ -13336,14 +13480,14 @@ const Avatar = {
   auto(){ Store.update(d => { d.profile.color = -1; d.profile.emoji = ''; }); UI.toast('🎲 چهرک تصادفی شد', '', 1600); },
   pick(){
     const cur = this.emoji(), ci = this.idx();
-    UI.modal(`<h3>🙂 چهرک خودت را بساز</h3>
+    UI.modal(`<h3>${Icon.of('smile')} چهرک خودت را بساز</h3>
       <div class="tiny" style="margin:8px 0 12px">رنگ از شناسهٔ تو می‌آید و همیشه یکی می‌ماند.</div>
       <div class="ava-grid" id="avGrid">${this.pool().map(e =>
         `<div class="ava-pick ${e === cur ? 'on' : ''}" data-av="${e}">${e}</div>`).join('')}</div>
       <div class="ava-grid mt14" id="avCol">${this.COLORS.map((c, i) =>
         `<div class="ava-pick ${i === ci ? 'on' : ''}" data-ac="${i}" style="background:linear-gradient(150deg,${c}55,var(--card2))">🎨</div>`).join('')}</div>
       <div class="row mt14" style="justify-content:flex-end">
-        <button class="btn gh sm" id="avAuto">🎲 تصادفی</button>
+        <button class="btn gh sm" id="avAuto">${Icon.of('dice')} تصادفی</button>
         <button class="btn sm" id="avDone">تمام</button>
       </div>`, box => {
       U.$$('[data-av]', box).forEach(el => el.onclick = () => { this.set(el.dataset.av); UI.closeModal(); this.pick(); });
@@ -13465,7 +13609,7 @@ const Shop = {
       const st = this.worn(it), n = Wallet.items()[it.id] || 0;
       const label = { owned:'دارید', poor:'کم است', full:'پُر است', frozen:'یخ‌زده', ok:'بخر' }[st];
       return `<div class="shop-item ${st === 'owned' ? 'owned' : ''}">
-        <span class="si">${it.icon}</span>
+        <span class="si">${Glyph.of(it.icon)}</span>
         <span class="sb"><b>${U.esc(it.name)}${n > 1 ? ` ×${U.fa(n)}` : ''}</b>
           <small>${U.esc(it.desc)}</small></span>
         <span class="sp">
@@ -13476,7 +13620,7 @@ const Shop = {
     }).join('');
   },
   open(){
-    UI.modal(`<h3>🛒 فروشگاه نورستان</h3>
+    UI.modal(`<h3>${Icon.of('cart')} فروشگاه نورستان</h3>
       <div class="row" style="justify-content:space-between;margin:10px 0 14px">
         <span class="tiny">سکه از بازی، نشان، مأموریت و زنجیره به‌دست می‌آید.</span>
         ${Wallet.chip(true)}
@@ -13522,7 +13666,7 @@ const Streak = {
   rows(){
     const n = this.count();
     return `<div class="kv"><span>زنجیره</span><b>${U.fa(n)} روز</b></div>
-      <div class="kv"><span>امروز</span><b>${this.doneToday() ? '✅ انجام شد' : (this.frozenToday() ? '🧊 یخ‌زده' : '⏳ باقی مانده')}</b></div>`;
+      <div class="kv"><span>امروز</span><b>${this.doneToday() ? '✓ انجام شد' : (this.frozenToday() ? '🧊 یخ‌زده' : '🕒 باقی مانده')}</b></div>`;
   },
   warn(){
     if(!this.atRisk()) return '';
@@ -13727,7 +13871,7 @@ const Weekly = {
     return m.week.map(x => {
       const n = Math.min(x.n, x.goal), pct = Math.round(100 * n / x.goal);
       return `<div class="miss ${x.done ? 'done' : ''}">
-        <span class="mi">${x.icon}</span>
+        <span class="mi">${Glyph.of(x.icon)}</span>
         <span class="mb"><div class="mt">${U.esc(x.t)} ${x.done ? '✅' : ''}</div>
           <div class="md">${U.esc(x.d)} — جایزهٔ ${U.fa(x.pts)} امتیاز و ${U.fa(x.coins || 0)} سکه</div>
           <div class="mp"><i style="width:${pct}%"></i></div></span>
@@ -13996,9 +14140,9 @@ const Install = {
   /* کارت تنظیمات — وضعیت را می‌گوید و تنها یک دکمهٔ درست نشان می‌دهد. */
   card(){
     const st = this.state(), os = this.os();
-    const head = `<div class="card mt14"><b style="font-size:13px">📲 نصب اپلیکیشن</b><div class="sep"></div>`;
+    const head = `<div class="card mt14"><b style="font-size:13px">${Icon.of('download')} نصب اپلیکیشن</b><div class="sep"></div>`;
     if(st === 'installed')
-      return head + `<div class="kv"><span>وضعیت</span><b>✅ نصب شده — در حالت برنامه اجرا می‌شوی</b></div></div>`;
+      return head + `<div class="kv"><span>وضعیت</span><b>${Icon.of('check')} نصب شده — در حالت برنامه اجرا می‌شوی</b></div></div>`;
     const hint = st === 'ready'
       ? 'مرورگر آمادهٔ نصب است — یک ضربه کافی است.'
       : os === 'ios'
@@ -14009,7 +14153,7 @@ const Install = {
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <button class="btn ${st === 'ready' ? '' : 'gh'}" id="setInstall" style="flex:1">
           📲 نصب روی ${U.esc(this.OS_LABEL[os])}</button>
-        <button class="btn gh" id="setInstallGuide">❓ راهنمای نصب</button>
+        <button class="btn gh" id="setInstallGuide">${Icon.of('help')} راهنمای نصب</button>
       </div>
       <div class="tiny" id="setInstallMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>
     </div>`;
@@ -14023,7 +14167,7 @@ const Install = {
         برنامه‌های دیگر باز می‌شود — بدون نوار آدرس و با پردهٔ آغازین کامل.</p>
       <div class="steps">${s.rows.map(r =>
         `<div class="step"><b>${r[0]}</b><span>${U.esc(r[1])}</span></div>`).join('')}</div>
-      ${this.armed() ? '<button class="btn w mt14" id="gInstall">📲 همین حالا نصب کن</button>' : ''}
+      ${this.armed() ? `<button class="btn w mt14" id="gInstall">${Icon.of('download')} همین حالا نصب کن</button>` : ''}
       <p style="font-size:11px;color:var(--mut);margin-top:12px">
         نصب از مسیر <span dir="ltr">file://</span> کار نمی‌کند؛ صفحه باید از
         <span dir="ltr">http</span> یا <span dir="ltr">https</span> باز شده باشد.</p>`,
@@ -14397,7 +14541,7 @@ const SMS = {
         ? '🔑 کلید در همین دستگاه ذخیره شده و مرورگر خودش به textbee می‌زند. اگر برنامه را جایی میزبانی می‌کنی که دیگران هم بازش می‌کنند، کلید را به‌جای این‌جا روی سرور بگذار (NOOR_SMS_KEY) تا از سورس صفحه بیرون بماند.'
         : '🧪 حالت آزمایشی — بی کلید. کد ساخته می‌شود و فقط روی همین صفحه نشان داده می‌شود؛ هیچ پیامکی نمی‌رود.';
 
-    return `<div class="card mt14"><b style="font-size:13px">📱 پیامک (ورود با موبایل)</b><div class="sep"></div>
+    return `<div class="card mt14"><b style="font-size:13px">${Icon.of('phone')} پیامک (ورود با موبایل)</b><div class="sep"></div>
       <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">${U.esc(hint)}</p>
       ${m === 'server' ? '' : `
       <label class="lbl">کلید API — <span dir="ltr">x-api-key</span></label>
@@ -14411,8 +14555,8 @@ const SMS = {
              placeholder="09123456789" value="${U.esc(this.config.testPhone || '')}">
       <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn gh" id="smsTest">🧪 تست ارسال</button>
-        <button class="btn gh" id="smsLogin">📱 ورود با موبایل</button>
-        ${m === 'server' ? '' : '<button class="btn" id="smsSave" style="flex:1">💾 ذخیره</button>'}
+        <button class="btn gh" id="smsLogin">${Icon.of('phone')} ورود با موبایل</button>
+        ${m === 'server' ? '' : `<button class="btn" id="smsSave" style="flex:1">${Icon.of('save')} ذخیره</button>`}
       </div>
       <div class="tiny" id="smsMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em">
         حالت جاری: <b>${U.esc(this.modeName())}</b>${this.server.on ? ' — سرور پاسخ داد' : ''}</div>
@@ -15470,11 +15614,11 @@ function init(){
   U.$('#readMarks').onclick = () => {
     const q = Store.get('quran');
     const at = q.readAt;
-    UI.modal(`<h3 style="margin-bottom:10px">🔖 نشانهٔ من</h3>
+    UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('mark')} نشانهٔ من</h3>
       <p style="font-size:13px;color:var(--mut);line-height:2">
         آخرین جای خوانده‌شده: <b>سورهٔ ${U.esc(QURAN[(q.surah || 1) - 1].name)}</b>، آیهٔ ${U.fa(q.ayah || 1)}
         ${at ? '<br>زمان: ' + U.esc(new Date(at).toLocaleString('fa-IR')) : ''}</p>
-      <button class="btn w" id="mkGo" style="margin-top:14px">📖 رفتن به همان آیه</button>`, box => {
+      <button class="btn w" id="mkGo" style="margin-top:14px">${Icon.of('book-open')} رفتن به همان آیه</button>`, box => {
       U.$('#mkGo', box).onclick = () => { UI.closeModal(); ReaderUI.open(q.surah || 1, q.ayah || 1); };
     });
   };
@@ -15517,17 +15661,17 @@ function init(){
 
   U.$('#mkRoom').onclick = () => {
     UI.modal(`
-      <h3 style="margin-bottom:14px">➕ ساخت روم جدید</h3>
+      <h3 style="margin-bottom:14px">${Icon.of('plus')} ساخت روم جدید</h3>
       <label class="lbl">نام روم</label>
       <input class="inp" id="rmName" maxlength="24" value="${U.esc('روم ' + Store.get('playerName'))}">
       <label class="lbl">نوع بازی</label>
       <div class="row" style="gap:8px">
         <button class="btn" data-g="dooz" style="flex:1">❌⭕ دوز</button>
-        <button class="btn gh" data-g="esmfamil" style="flex:1">📝 اسم فامیل</button>
+        <button class="btn gh" data-g="esmfamil" style="flex:1">${Icon.of('pen')} اسم فامیل</button>
       </div>
       <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
         روم یک کد ۶ رقمی می‌گیرد؛ دوستت با همان کد وارد می‌شود.</p>
-      <button class="btn w" id="rmCreate" style="margin-top:14px">🏠 ایجاد روم</button>`, box => {
+      <button class="btn w" id="rmCreate" style="margin-top:14px">${Icon.of('home')} ایجاد روم</button>`, box => {
       let game = 'dooz';
       U.$$('[data-g]', box).forEach(b => b.onclick = () => {
         game = b.dataset.g;
@@ -15544,7 +15688,7 @@ function init(){
 
   U.$('#joinRoom').onclick = () => {
     UI.modal(`
-      <h3 style="margin-bottom:14px">🔑 ورود با کد روم</h3>
+      <h3 style="margin-bottom:14px">${Icon.of('key')} ورود با کد روم</h3>
       <label class="lbl">کد ۶ رقمی روم</label>
       <input class="inp code" id="rmCodeIn" inputmode="numeric" maxlength="6" placeholder="------"
              style="text-align:center;letter-spacing:8px;font-size:22px">
