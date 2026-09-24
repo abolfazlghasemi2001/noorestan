@@ -1821,8 +1821,19 @@ section('بنر نصب خودکار (Install.bar)');
   })());
   ok('مودالِ باز → پیشنهاد نمی‌شود',
      withDom(() => armed(() => Install.canOffer()), { modal: true }) === false);
-  ok('پردهٔ آغازینِ نرفته → پیشنهاد نمی‌شود',
-     withDom(() => armed(() => Install.canOffer()), { splash: false }) === false);
+  /* ── چرا `T0` را اینجا دستی می‌گذاریم ──
+     `canOffer` سه راه برای «پرده نرفته» دارد: نبودِ عنصر، کلاس `out`، یا
+     نگذشتنِ `SPLASH_GRACE_MS` از `T0`. این آزمون عمداً `out` را ندارد، پس
+     تصمیم به ساعتِ دیوار می‌افتد — و `T0` لحظهٔ ارزیابیِ اسکریپت است. تا
+     وقتی کلِ مجموعه زیر ۴ ثانیه تمام می‌شد اتفاقی نمی‌افتاد؛ حالا که از
+     ۴ ثانیه گذشته، پیش از رسیدن به این خط، بیمهٔ زمانی خودش پرده را
+     «رفته» حساب می‌کند و آزمون بی‌آنکه چیزی خراب شده باشد سرخ می‌شود.
+     پس پیش‌شرط را صریح می‌کنیم: همین حالا، پنجره باز است. */
+  ok('پردهٔ آغازینِ نرفته → پیشنهاد نمی‌شود', (() => {
+    const t0 = Install.T0; Install.T0 = Date.now();
+    const v = withDom(() => armed(() => Install.canOffer()), { splash: false });
+    Install.T0 = t0; return v === false;
+  })());
   ok('بیمهٔ زمانی: بعد از ۴ ثانیه پرده دیگر مانع نیست', (() => {
     const t0 = Install.T0; Install.T0 = Date.now() - Install.SPLASH_GRACE_MS - 1;
     const v = withDom(() => armed(() => Install.canOffer()), { splash: false });
@@ -5239,6 +5250,141 @@ section('پوسته — صفحهٔ ورودِ بازطراحی‌شده (فاز 
   ok('و دکمهٔ اصلی درخششِ گذری دارد', /#gate \.btn\.w::after\{[\s\S]{0,220}?sk-shine/.test(SRC));
   ok('و کم‌حرکتی برای این‌ها هم رعایت شده',
      /@media\(prefers-reduced-motion:reduce\)\{[\s\S]{0,300}?#gate \.btn\.w::after/.test(SRC));
+}
+
+section('پوسته — پوستهٔ کلِ برنامه (فاز ۳)');
+{
+  /* ── هالهٔ محیطی ── */
+  ok('لایهٔ هاله در سند هست و تزئینی است',
+     /<div id="amb" aria-hidden="true"><i><\/i><i><\/i><\/div>/.test(SRC));
+  ok('و دو گوی دارد، طلایی و سبز',
+     /#amb i:nth-child\(1\)\{[\s\S]{0,200}?var\(--orb1\)/.test(SRC) &&
+     /#amb i:nth-child\(2\)\{[\s\S]{0,200}?var\(--orb2\)/.test(SRC));
+  ok('و کلیک را نمی‌گیرد', /#amb\{ position:fixed; inset:0; z-index:0; pointer-events:none/.test(SRC));
+  ok('و پشتِ برنامه می‌ماند، نه رویش', /#app, #bgArt\{ z-index:1 \}/.test(SRC));
+
+  /* ── توکن‌های شیشه در هر شش تم ──
+     اگر `--glass` فقط در `:root` باشد، تمِ کویر کارتِ آبی می‌گیرد و تم
+     معنایش را از دست می‌دهد. */
+  const css2 = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const tk = sel => {
+    const re = new RegExp(sel.replace(/[[\]"]/g, m => '\\' + m) + '\\s*\\{([\\s\\S]*?)\\}', 'g');
+    const out = {}; let m;
+    while((m = re.exec(css2)))
+      for(const t of m[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[t[1]] = t[2].trim();
+    return out;
+  };
+  const baseT = tk(':root');
+  const THEMES = { dark: baseT };
+  for(const t of Theme.ALL.filter(x => x !== 'dark'))
+    THEMES[t] = Object.assign({}, baseT, tk(`[data-theme="${t}"]`));
+  for(const t of Object.keys(THEMES)){
+    ok(`تم «${t}» رنگِ شیشهٔ خودش را دارد`, /^rgba\(/.test(THEMES[t]['--glass'] || ''), THEMES[t]['--glass']);
+    ok(`تم «${t}» گوی‌های محیطیِ خودش را دارد`,
+       !!THEMES[t]['--orb1'] && !!THEMES[t]['--orb2']);
+  }
+
+  /* ── خواناییِ کارتِ شیشه‌ای ──
+     `--glass` نیمه‌شفاف است؛ رنگِ راستینش از آمیختن با `--bg` درمی‌آید،
+     نه از خودِ rgba. سنجشِ خامِ rgba اینجا بی‌معناست، پس اول می‌خوابانیم.
+     این همان‌جایی است که شیشه می‌تواند متن را ناخوانا کند و کسی نفهمد. */
+  const lum = h => {
+    const c = [1,3,5].map(i => parseInt(h.slice(i, i+2), 16)/255)
+      .map(v => v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4));
+    return .2126*c[0] + .7152*c[1] + .0722*c[2];
+  };
+  const ratio = (a, b) => {
+    const x = lum(a), y = lum(b);
+    return (Math.max(x,y) + .05) / (Math.min(x,y) + .05);
+  };
+  const over = (c, bg) => {
+    const m = String(c).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/i);
+    if(!m) return c;
+    const a = m[4] === undefined ? 1 : parseFloat(m[4]);
+    const b = [1,3,5].map(i => parseInt(bg.slice(i, i+2), 16));
+    return '#' + [0,1,2].map(i => Math.round(parseFloat(m[i+1]) * a + b[i] * (1 - a))
+      .toString(16).padStart(2, '0')).join('');
+  };
+  for(const [name, t] of Object.entries(THEMES)){
+    const g = over(t['--glass'], t['--bg']);
+    for(const f of ['txt','mut']){
+      const r = ratio(t['--'+f], g);
+      ok(`تم ${name}: --${f} روی کارتِ شیشه‌ای از حد AA می‌گذرد (${r.toFixed(2)})`, r >= 4.5,
+         `${t['--'+f]} روی ${g}`);
+    }
+  }
+
+  /* ── کارتِ شیشه‌ای ── */
+  ok('کارت رنگِ شیشه گرفت', /^\.card\{[\s\S]{0,120}?background:var\(--glass\)/m.test(css2));
+  ok('و خطِ طلاییِ بالا دارد',
+     /\.card::before\{[\s\S]{0,240}?linear-gradient\(90deg,transparent,var\(--gold\),transparent\)/.test(css2));
+  ok('و خط با inset-inline نوشته شده، نه چپ/راست',
+     /\.card::before\{[^}]*inset-inline:14px/.test(css2));
+  /* ── بلور فقط روی کارتِ سطحِ اول ──
+     روی هر ۶۴ کارت، اندرویدِ میان‌رده ده‌ها لایهٔ بلور را هم‌زمان رندر
+     می‌کند. این سنجش نگهبانِ همان تصمیم است. */
+  ok('بلور فقط روی کارتِ سطحِ اولِ صفحهٔ فعال است',
+     /\.screen\.active > \.card,/.test(css2));
+  ok('🔒 و روی خودِ `.card` بی‌قید بلور نمی‌نشیند',
+     !/^\.card\{[^}]*backdrop-filter/m.test(css2),
+     (css2.match(/^\.card\{[^}]*backdrop-filter[^}]*\}/m) || [''])[0].slice(0, 90));
+
+  /* ── کاشی‌ها ── */
+  ok('کاشی هالهٔ شعاعی گرفت', /\.tile::after, \.stat::after\{[\s\S]{0,200}?radial-gradient\(circle/.test(css2));
+  ok('و هاله در حالتِ عادی پنهان است', /\.tile::after, \.stat::after\{[\s\S]{0,260}?opacity:0/.test(css2));
+  ok('و با هاور و فوکوسِ کلید بالا می‌آید',
+     /\.tile:hover::after, \.tile:focus-visible::after,/.test(css2) &&
+     /\.stat:hover::after, \.stat:focus-visible::after\{ opacity:1 \}/.test(css2));
+  ok('کاشی با هاور بالا می‌آید', /\.tile:hover, \.stat:hover\{[\s\S]{0,120}?translateY\(-5px\)/.test(css2));
+  /* ── تلهٔ جدِّ موقعیت‌دار ──
+     `.stat` پیش‌تر `position` نداشت؛ هاله‌اش به نزدیک‌ترین جدِّ موقعیت‌دار
+     می‌چسبید و کجای صفحه درمی‌آمد بی‌آنکه خطایی داده شود. */
+  ok('🔒 `.stat` جدِّ موقعیت‌دار گرفت تا هاله‌اش گم نشود',
+     /\.stat\{ position:relative; overflow:hidden \}/.test(css2));
+  /* فقط `will-change:auto` (خاموش‌کردنِ صریح در کم‌حرکتی) مجاز است؛
+     هر مقدارِ دیگر روی ۴۰ کاشی، ۴۰ لایهٔ گرافیکی می‌سازد. */
+  const wcTile = [...css2.matchAll(/\.(?:tile|stat)[^{]*\{[^}]*will-change:\s*([a-z, -]+)/g)]
+    .map(m => m[1].trim());
+  ok('🔒 و will-change روی کاشی‌ها ننشست (۴۰ لایهٔ بی‌دلیل)',
+     wcTile.every(v => v === 'auto'), wcTile.join(' / '));
+
+  /* ── دکمه‌ها ── */
+  ok('دکمه درخششِ گذری گرفت', /\.btn::after\{[\s\S]{0,220}?animation:sk-shine/.test(css2));
+  ok('و دکمهٔ ثانویه بی‌درخشش می‌ماند', /\.btn\.gh::after, \.btn:disabled::after/.test(css2));
+  ok('و درخشش دکمه را از فوکوس‌پذیری نمی‌اندازد',
+     /\.btn\{ position:relative; overflow:hidden \}/.test(css2));
+
+  /* ── توست ── */
+  ok('توست از راست می‌آید', /\.toast\{[\s\S]{0,260}?animation:sk-toast /.test(css2));
+  ok('و شیشه‌ای شد', /\.toast\{[\s\S]{0,120}?background:var\(--glass\)/.test(css2));
+  ok('و خروجش هم به همان سمت است', /\.toast\.out\{ animation:sk-toastOut/.test(css2));
+  /* سمتِ نوار عمداً دست‌نخورده ماند؛ `border-inline-end` در RTL آن را به
+     چپ می‌برد و ظاهرِ جاافتاده را بی‌دلیل عوض می‌کرد. */
+  ok('🔒 و نوارِ رنگیِ توست جای خودش ماند', /\.toast\.ok\{border-right-color:var\(--grn\)\}/.test(css2));
+
+  /* ── مودال ── */
+  ok('جعبهٔ مودال شیشه‌ای شد', /#modal \.box\{[\s\S]{0,200}?background:var\(--glass\)/.test(css2));
+  ok('و خطِ طلاییِ بالا دارد', /#modal \.box::before\{[\s\S]{0,240}?var\(--gold\)/.test(css2));
+  ok('و برگهٔ پایین‌کش حرکتش را نگه داشت', /#modal\.sheet \.box\{ animation:sheetUp/.test(css2));
+
+  /* ── ورودِ صفحه‌ها ── */
+  ok('صفحه‌ها با منحنیِ نام‌دار وارد می‌شوند', /\.screen\{ animation:sk-entrance \.34s var\(--ease\)/.test(css2));
+
+  /* ── کی‌فریم‌های تازه ── */
+  ok('کی‌فریمِ ورودِ توست هست', /@keyframes sk-toast\s*\{/.test(css2));
+  ok('و کی‌فریمِ خروجش هم', /@keyframes sk-toastOut\{/.test(css2));
+  /* هر `sk-*` که جایی صدا زده می‌شود باید تعریف شده باشد؛ بی این،
+     انیمیشن بی‌صدا هیچ کاری نمی‌کند و کسی نمی‌فهمد. */
+  const used = new Set([...css2.matchAll(/animation:\s*(sk-[A-Za-z-]+)/g)].map(m => m[1]));
+  const defined = new Set([...css2.matchAll(/@keyframes\s+(sk-[A-Za-z-]+)/g)].map(m => m[1]));
+  const missing = [...used].filter(k => !defined.has(k));
+  ok('هر کی‌فریمِ sk- که صدا زده می‌شود تعریف شده', missing.length === 0,
+     missing.join(' ') + ` (${used.size} صدا‌زده، ${defined.size} تعریف‌شده)`);
+
+  /* ── کم‌حرکتی ── */
+  ok('کم‌حرکتی هاله را می‌خواباند',
+     /@media\(prefers-reduced-motion:reduce\)\{[\s\S]{0,120}?#amb i, \.btn::after\{ animation:none/.test(css2));
+  ok('و درخشش را هم برمی‌دارد', /@media\(prefers-reduced-motion:reduce\)\{[\s\S]{0,300}?\.btn::after\{ display:none \}/.test(css2));
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');

@@ -121,13 +121,17 @@
   /* گوی‌های محیطیِ پس‌زمینه — طلایی و سبز، هم‌خانوادهٔ --gold/--grn */
   --orb1:#5a4a1e; --orb2:#1e4a3c;
 }
-/* ── تم‌ها: قبلاً فقط در تنظیمات بودند و هیچ اثری نداشتند ── */
+/* ── تم‌ها: قبلاً فقط در تنظیمات بودند و هیچ اثری نداشتند ──
+   هر تمِ تازه `--glass` و دو گویِ محیطیِ خودش را می‌آورد. `--glass` عمداً
+   *هم‌خانوادهٔ* `--card` همان تم است، نه یک مقدارِ ثابت: وگرنه کارتِ
+   شیشه‌ای در تمِ کویر آبی می‌شد و تم معنایش را از دست می‌داد. */
 [data-theme="ocean"]{
   --bg:#03101a; --bg2:#062230; --card:#0a2c3f; --card2:#0e374d;
   --line:#1a4d68; --txt:#e2f6ff; --mut:#88b6cc;
   --gold:#4ad8ff; --gold2:#0fa5d6; --grn:#2fd3c0; --red:#ff6b8a; --prp:#af87ff;
   --glow1:#0a3550; --glow2:#0b3b3a; --ink:#04202b;
   --grad:linear-gradient(135deg,#4ad8ff,#0fa5d6);
+  --glass:rgba(10,44,63,.72); --orb1:#123a52; --orb2:#0e3a44;
 }
 [data-theme="forest"]{
   --bg:#05100b; --bg2:#0a1f14; --card:#0e2a1c; --card2:#123726;
@@ -135,6 +139,7 @@
   --gold:#6fe08a; --gold2:#33b35c; --grn:#2fd39b; --red:#ff7a6b; --prp:#ab82ff;
   --glow1:#0d3324; --glow2:#123b26; --ink:#04200f;
   --grad:linear-gradient(135deg,#6fe08a,#33b35c);
+  --glass:rgba(14,42,28,.72); --orb1:#1e4a2a; --orb2:#14403c;
 }
 [data-theme="royal"]{
   --bg:#0d0716; --bg2:#180d29; --card:#211138; --card2:#2b1849;
@@ -142,6 +147,7 @@
   --gold:#d9a6ff; --gold2:#a259ff; --grn:#3fd9b0; --red:#ff5f8f;
   --glow1:#2a1550; --glow2:#3a1440; --ink:#1b0530;
   --grad:linear-gradient(135deg,#d9a6ff,#a259ff);
+  --glass:rgba(33,17,56,.72); --orb1:#3a2a5e; --orb2:#26305e;
 }
 /* تم ششم — کویر. در فروشگاه با سکه باز می‌شود و پیش از خرید قفل است. */
 [data-theme="desert"]{
@@ -150,6 +156,7 @@
   --gold:#ffc46b; --gold2:#e08b2c; --grn:#8fd36f; --red:#ff7a5c;
   --glow1:#3a2408; --glow2:#43260a; --ink:#241505;
   --grad:linear-gradient(135deg,#ffc46b,#e08b2c);
+  --glass:rgba(46,30,13,.72); --orb1:#5a4a1e; --orb2:#40481a;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* در زوم، تصویر و شکلِ پهن ستون را می‌شکست و اسکرولِ افقی می‌ساخت.
@@ -920,6 +927,10 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 @keyframes sk-blink  { 0%,100%{opacity:1} 50%{opacity:.45} }
 @keyframes sk-twinkle{ 0%,100%{opacity:.35; transform:scale(.85)} 50%{opacity:1; transform:scale(1.15)} }
 @keyframes sk-wave   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+/* فاز ۳: توست از راست می‌آید، نه از بالا. در چیدمانِ RTL «از راست آمدن»
+   یعنی از همان سمتی که چشمِ کاربر انتظارِ خبر دارد. */
+@keyframes sk-toast  { from{opacity:0; transform:translateX(30px) scale(.97)} to{opacity:1; transform:none} }
+@keyframes sk-toastOut{ from{opacity:1; transform:none} to{opacity:0; transform:translateX(30px) scale(.97)} }
 
 .a-in     { animation:fadeUp .42s cubic-bezier(.22,.9,.3,1) both }
 .a-fade   { animation:fadeIn .5s both }
@@ -1772,6 +1783,138 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   #gate .gt-tile,
   #gate .gt-sparkle{ animation:none !important }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۳ — پوستهٔ کلِ برنامه
+   همان زبانِ بصریِ صفحهٔ ورود، این بار روی همهٔ صفحه‌ها:
+     • کارتِ شیشه‌ای با خطِ طلاییِ بالا
+     • درخششِ گذری روی دکمه‌های اصلی
+     • بالاآمدنِ کاشی‌ها با هالهٔ شعاعی
+     • توست از راست، مودال با مقیاس
+     • هالهٔ محیطیِ دو گوی
+   همه از `--ease`/`--bounce` و کی‌فریم‌های `sk-` استفاده می‌کنند.
+
+   دو تصمیمِ آگاهانه دربارهٔ کارایی و تم:
+     ۱) `backdrop-filter` فقط روی کارت‌های *سطحِ اول* می‌نشیند. اگر روی
+        هر ۶۴ کارت بگذاریم، اندرویدِ میان‌رده ده‌ها لایهٔ بلور را هم‌زمان
+        رندر می‌کند و اسکرول می‌لنگد. کارت‌های تودرتو رنگِ شیشه می‌گیرند
+        ولی بلور نمی‌گیرند — چشم تفاوت را روی زمینهٔ پُر نمی‌بیند.
+     ۲) `--glass` در هر شش تم جدا تعریف شده، پس کارتِ کویر طلایی-خاکی
+        می‌ماند و آبی نمی‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── هالهٔ محیطی ── */
+#amb{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden }
+#amb i{ position:absolute; display:block; border-radius:50%; filter:blur(80px); opacity:.4 }
+#amb i:nth-child(1){
+  width:70vmin; height:70vmin; left:-20vmin; top:-16vmin;
+  background:var(--orb1); animation:sk-drift 26s var(--ease) infinite;
+}
+#amb i:nth-child(2){
+  width:60vmin; height:60vmin; right:-18vmin; bottom:-18vmin;
+  background:var(--orb2); animation:sk-drift 32s var(--ease) infinite reverse;
+}
+/* #app و #bgArt هر دو بالای هاله می‌مانند. */
+#app, #bgArt{ z-index:1 }
+
+/* ── کارتِ شیشه‌ای ── */
+.card{
+  background:var(--glass);
+  border:1px solid var(--glass-edge);
+  position:relative;
+}
+/* خطِ طلاییِ بالای کارت. `inset-inline` است تا در RTL و LTR یکسان بماند. */
+.card::before{
+  content:''; position:absolute; inset-inline:14px; top:0; height:1px;
+  pointer-events:none; border-radius:0 0 2px 2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:.55;
+}
+/* بلور فقط جایی که واقعاً لایه‌ای پشتش هست: کارتِ سطحِ اولِ صفحهٔ فعال. */
+.screen.active > .card,
+.screen.active > .grid > .card{
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+}
+/* درخششِ لبهٔ بالای کارت وقتی کاربر با آن کار می‌کند. */
+.card:focus-within::before{ opacity:.95 }
+
+/* ── کاشی‌ها: بالا آمدن + هالهٔ شعاعی ── */
+/* `position:relative` روی `.stat` لازم است وگرنه هاله به نزدیک‌ترین
+   جدِّ موقعیت‌دار می‌چسبد و کجای صفحه درمی‌آید. `.tile` از قبل دارد.
+   `will-change` عمداً نیست: روی ۴۰ کاشیِ هم‌زمان، خودش ۴۰ لایه می‌سازد
+   و بیشتر از خودِ انیمیشن هزینه دارد. */
+.stat{ position:relative; overflow:hidden }
+.tile::after, .stat::after{
+  content:''; position:absolute; top:-30%; inset-inline-end:-25%;
+  width:68%; aspect-ratio:1; border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, rgba(245,196,81,.20), transparent 68%);
+  opacity:0; transition:opacity .35s var(--ease);
+}
+.tile:hover::after, .tile:focus-visible::after,
+.stat:hover::after, .stat:focus-visible::after{ opacity:1 }
+.tile, .stat{ transition:transform .25s var(--ease), border-color .25s, box-shadow .25s }
+.tile:hover, .stat:hover{
+  transform:translateY(-5px);
+  border-color:var(--gold);
+  box-shadow:0 14px 30px -10px var(--shadow), 0 0 0 1px var(--gold2) inset;
+}
+.tile:active, .stat:active{ transform:translateY(-1px) scale(.995) }
+
+/* ── دکمه‌ها: درخششِ گذری ──
+   فقط دکمهٔ اصلی (نه `gh`، نه غیرفعال): درخششِ ۵۰ دکمهٔ همزمان هم
+   پرت است، هم بی‌دلیل هزینهٔ رندر دارد. */
+.btn{ position:relative; overflow:hidden }
+.btn::after{
+  content:''; position:absolute; top:0; bottom:0; width:38%; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--sheen),transparent);
+  animation:sk-shine 3.6s var(--ease) infinite;
+}
+.btn.gh::after, .btn:disabled::after, #gate .btn.gh::after{ display:none }
+/* دکمه‌های یک‌ردیفی کمی دیرتر می‌درخشند تا هم‌زمان برق نزنند. */
+.btn:nth-of-type(2)::after{ animation-delay:.9s }
+.btn:nth-of-type(3)::after{ animation-delay:1.8s }
+.btn:disabled{ transform:none }
+
+/* ── توست: از راست می‌آید ──
+   سمتِ نوار (`border-right`) عمداً دست‌نخورده ماند: در RTL همان لبهٔ
+   راست است که کاربر انتظارش را دارد، و `border-inline-end` آن را به چپ
+   می‌برد. فقط شیشه و حرکتِ ورود تازه است. */
+#toasts{ z-index:200 }
+.toast{
+  background:var(--glass); border:1px solid var(--glass-edge);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  backdrop-filter:blur(16px) saturate(140%);
+  animation:sk-toast .34s var(--bounce) both;
+}
+.toast.out{ animation:sk-toastOut .24s var(--ease) both }
+
+/* ── مودال: مقیاس + شیشه ── */
+#modal .box{
+  background:var(--glass); border:1px solid var(--glass-edge);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+  position:relative;
+}
+#modal .box::before{
+  content:''; position:absolute; inset-inline:16px; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.7;
+}
+#modal.sheet .box{ animation:sheetUp .3s var(--ease) both }
+
+/* ── ورودِ صفحه‌ها ── */
+.screen{ animation:sk-entrance .34s var(--ease) both }
+
+/* ── کم‌حرکتی ──
+   قاعدهٔ سراسریِ @layer motion مدت را صفر می‌کند؛ این‌ها را صریح خاموش
+   می‌کنیم تا در مرورگرهایی که آن لایه را نمی‌شناسند هم بی‌حرکت بمانند
+   و ذره‌ای هزینهٔ رندر ندهند. */
+@media(prefers-reduced-motion:reduce){
+  #amb i, .btn::after{ animation:none !important }
+  #amb i{ opacity:.28 }
+  .btn::after{ display:none }
+  .tile, .stat{ will-change:auto }
+}
 </style>
 </head>
 
@@ -1807,6 +1950,11 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 </div>
 
 <div id="bgArt" aria-hidden="true"></div>
+
+<!-- ═══ هالهٔ محیطی (فاز ۳) ═══
+     دو گویِ طلایی و سبز که آرام شنا می‌کنند و پشتِ کلِ برنامه می‌نشینند.
+     `aria-hidden` است چون تزئینی است؛ در «کم‌حرکتی» می‌ایستد. -->
+<div id="amb" aria-hidden="true"><i></i><i></i></div>
 
 <div id="toasts"></div>
 <!-- بنر نصب خودکار. خالی شروع می‌کند و Install.show() پرش می‌کند؛
