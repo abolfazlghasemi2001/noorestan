@@ -3281,7 +3281,9 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
   const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
   const body = doc.slice(0, doc.indexOf('<script>'));
 
-  const named = [...new Set([...body.matchAll(/data-ic="([a-z]+)"/g)].map(m => m[1]))];
+  /* نامِ خط‌دار (`users-plus`) هم باید گرفته شود، وگرنه نامِ غلط بی‌صدا
+     جای خالی می‌دهد. */
+  const named = [...new Set([...body.matchAll(/data-ic="([a-z][a-z0-9-]*)"/g)].map(m => m[1]))];
   ok('در سند آیکنِ نشانه‌گذاری‌شده هست', named.length >= 10, String(named.length));
   for(const n of named)
     ok(`آیکنِ «${n}» در دفتر هست`, !!Icon.REG[n], 'نامی که وجود ندارد یعنی جای خالی');
