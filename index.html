@@ -2178,21 +2178,21 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     </div>
 
     <div class="cat">
-      <div class="cat-head"><div class="cat-ico">${Glyph.of('👥')}</div>
+      <div class="cat-head"><div class="cat-ico"><i data-ic="users"></i></div>
         <div><h2>بازیکنان آنلاین</h2><p>کاربران فعال در محفل</p></div>
         <span class="cat-cnt" id="plCnt">۰</span></div>
       <div class="list" id="players"><div class="empty">در حال جستجو…</div></div>
     </div>
 
     <div class="cat">
-      <div class="cat-head"><div class="cat-ico">${Glyph.of('🏠')}</div>
+      <div class="cat-head"><div class="cat-ico"><i data-ic="home"></i></div>
         <div><h2>روم‌های فعال</h2><p>برای ورود، روی روم بزن</p></div>
         <span class="cat-cnt" id="rmCnt">۰</span></div>
       <div class="list" id="rooms"><div class="empty">هنوز رومی ساخته نشده</div></div>
     </div>
 
     <div class="cat">
-      <div class="cat-head"><div class="cat-ico">${Glyph.of('🏆')}</div>
+      <div class="cat-head"><div class="cat-ico"><i data-ic="trophy"></i></div>
         <div><h2>لیدربورد محفل</h2><p>رکورد بازیکنان روی سرور</p></div>
         <span class="cat-cnt" id="lbCnt">۰</span></div>
       <div class="list" id="gboard"><div class="empty">برای دیدن رکوردهای سرور وصل شو</div></div>
@@ -2465,6 +2465,9 @@ window.addEventListener('error', () => {
 
 const APP_VERSION = 17;
 const SERVER_KEY  = 'noorestan';
+/* پورتِ پیش‌فرضِ `server.js` (همان `process.env.PORT || 8787` سمتِ سرور).
+   فقط وقتی به کار می‌آید که کاربر نشانی‌ای بی‌پورت داده باشد. */
+const SERVER_PORT = 8787;
 
 /* ── گرفتن زودهنگام رویداد نصب ──
    کروم `beforeinstallprompt` را یک بار می‌فرستد و ممکن است این کار پیش از
@@ -2869,7 +2872,10 @@ const Icon = {
     scales:     { d:'<path d="M12 3.6v16.8M8.4 20.4h7.2"/><path d="M4.6 7.4h14.8M6.8 7.4 3.6 13.2a3.2 3.2 0 0 0 6.4 0z"/><path d="M17.2 7.4l3.2 5.8a3.2 3.2 0 0 1-6.4 0z"/>' },
     swords:     { d:'<path d="M4.4 4.4h4.2l9.6 9.6-2.1 2.1L4.4 4.6z"/><path d="M19.6 4.4h-4.2l-9.6 9.6 2.1 2.1 11.7-11.5z"/><path d="M6.4 16.4l1.6 1.6M17.6 16.4l-1.6 1.6"/>' },
     tree:       { d:'<path d="M12 3.4 6.4 10.4h2.8L5.2 16h13.6l-4-5.6h2.8z"/><path d="M12 16v4.6M8.6 20.6h6.8"/>' },
-    coin:       { d:'<path d="M12 3.8a8.2 8.2 0 1 0 0 16.4 8.2 8.2 0 0 0 0-16.4z"/><path d="M12 7.6v8.8"/><path d="M14.6 9.4a2.6 2.6 0 0 0-2.6-1.4c-1.4 0-2.6.7-2.6 1.9s1.2 1.8 2.6 1.9 2.6.7 2.6 1.9-1.2 1.9-2.6 1.9a2.6 2.6 0 0 1-2.6-1.4"/>' },
+    /* پیش‌تر این آیکن یک دایره با خطِ عمودی و منحنیِ S بود — یعنی علامتِ
+       دلار. کاربر در چیپِ سکه‌ها «۰ $» می‌دید که در برنامهٔ ایرانی غلط
+       است. حالا سکهٔ ستاره‌دار است: بی‌ابهام و بی‌ارز. */
+    coin:       { d:'<circle cx="12" cy="12" r="8.4"/><path d="M12 6.8l1.6 3.3 3.6.5-2.6 2.6.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.6 3.6-.5z"/>' },
     chat:       { d:'<path d="M4.6 5.4h14.8a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H9.4l-4.8 3.8v-3.8a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M8.4 9.4h7.2M8.4 12.6h4.6"/>' },
     volume:     { d:'<path d="M4.6 9.4h3.2L12 5.8v12.4l-4.2-3.6H4.6a1 1 0 0 1-1-1v-3.2a1 1 0 0 1 1-1z"/><path d="M15.4 9.4a3.6 3.6 0 0 1 0 5.2M18 7a7 7 0 0 1 0 10"/>' },
     trend:      { d:'<path d="M4.4 16.8 9.6 11l3.4 3.4 6.6-7.2"/><path d="M15.4 7.2h4.2v4.2"/>' },
@@ -7628,7 +7634,7 @@ const Host = {
       if(typeof location === 'undefined') return '';
       if(!/^https?:$/.test(location.protocol)) return '';
       if(!location.host) return '';
-      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
     }catch(e){ return ''; }
   },
 
@@ -7706,8 +7712,35 @@ const Net = {
   },
 
   /* ── اتصال ── */
+  /* ── یکدست‌کردنِ نشانیِ سوکت ──
+     باگی که این را آورد: کاربر `ws://91.247.171.117` را ذخیره کرده بود —
+     بی پورت. `savedUrl` بر همهٔ مسیرها مقدم است، پس سوکت هرگز وصل نمی‌شد
+     و «سرور پاسخ نداد» می‌ماند؛ سرورِ نورستان روی ۸۷۸۷ گوش می‌دهد.
+
+     قاعده، به ترتیب:
+       ۱) پورت اگر نوشته شده، دست‌نخورده می‌ماند.
+       ۲) وگرنه از خاستگاهِ خودِ صفحه قرض گرفته می‌شود (`:8787` روی صفحهٔ
+          `http://1.2.3.4:8787` همان است که کاربر می‌خواهد).
+       ۳) وگرنه فقط برای میزبانِ IP یا localhost پورتِ پیش‌فرض می‌نشیند.
+          دامنهٔ واقعی دست‌نخورده می‌ماند تا پشتِ پروکسیِ ۴۴۳ نشکند. */
+  normUrl(url){
+    const raw = String(url || '').trim();
+    if(!/^wss?:\/\//i.test(raw)) return raw;
+    const m = raw.match(/^(wss?):\/\/(\[[^\]]+\]|[^\/:]+)(?::(\d+))?(\/.*)?$/i);
+    if(!m) return raw;
+    const scheme = m[1], host = m[2], rest = m[4] || '';
+    let port = m[3];
+    if(!port){
+      const o = (typeof location !== 'undefined' && location.port) ? location.port : '';
+      if(o) port = o;
+      else if(/^\[/.test(host) || /^localhost$/i.test(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host))
+        port = String(SERVER_PORT);
+    }
+    return scheme + '://' + host + (port ? ':' + port : '') + rest;
+  },
+
   connect(url){
-    const clean = String(url || '').trim();
+    const clean = this.normUrl(url);
     this.wantOnline = true;
     this.teardown();
     this.roomMap.clear(); this.peers.clear(); this.board = [];
@@ -12131,7 +12164,7 @@ const Me = {
           ${SMS.card()}
 
           <label class="lbl">آدرس سرور محفل</label>
-          <input class="inp" id="setServer" dir="ltr" placeholder="ws://192.168.1.5:8787" value="${U.esc(d.serverUrl || '')}">
+          <input class="inp" id="setServer" dir="ltr" placeholder="ws://192.168.1.5:8787" value="${U.esc(Net.normUrl(d.serverUrl) || '')}">
           <button class="btn w" id="setSave" style="margin-top:16px">${Icon.of('save')} ذخیره</button>
         </div>
         <div class="card" style="margin-top:12px">
@@ -12288,7 +12321,9 @@ const Me = {
       };
       U.$('#setSave').onclick = () => {
         const name = U.$('#setName').value.trim().slice(0, 20);
-        const srv = U.$('#setServer').value.trim();
+        /* یکدست‌شده ذخیره می‌شود تا نشانیِ بی‌پورت در localStorage نماند
+           و بارِ بعد هم وصل نشود. */
+        const srv = Net.normUrl(U.$('#setServer').value);
         Store.update(x => { if(name) x.playerName = name; x.serverUrl = srv; });
         Net.announce();
         updateHomeStats();
@@ -15769,17 +15804,23 @@ function init(){
   U.$$('.tab[data-tab]').forEach(t => t.onclick = () => { Admin.currentTab = t.dataset.tab; Admin.renderTab(); });
 
   /* ── شبکه ── */
-  const savedUrl = Store.get('serverUrl');
+  /* همان نشانیِ یکدست‌شده نشان داده می‌شود که ذخیره می‌شود — وگرنه کاربر
+     `ws://1.2.3.4` می‌بیند، برنامه `ws://1.2.3.4:8787` وصل می‌شود، و
+     این دوگانگی خودش باگِ بعدی است. */
+  const savedUrl = Net.normUrl(Store.get('serverUrl'));
   U.$('#netUrl').value = savedUrl || '';
   U.$('#netConnect').onclick = () => {
-    const url = U.$('#netUrl').value.trim();
+    const url = Net.normUrl(U.$('#netUrl').value);
+    U.$('#netUrl').value = url;
     Store.set('serverUrl', url);
     Net.connect(url);
     Timers.after(() => { netStateChip(); renderOnline(); }, 1200);
   };
   U.$('#netReconnect').onclick = () => Net.connect(Store.get('serverUrl') || U.$('#netUrl').value.trim());
   U.$('#netSave').onclick = () => {
-    Store.set('serverUrl', U.$('#netUrl').value.trim());
+    const url = Net.normUrl(U.$('#netUrl').value);
+    U.$('#netUrl').value = url;
+    Store.set('serverUrl', url);
     UI.toast('💾 ذخیره شد', 'ok');
   };
   /* همان چیزی کپی می‌شود که نشان داده شده — نه شناسهٔ دیگری. پیش‌تر
