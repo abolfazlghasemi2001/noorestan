@@ -29,6 +29,8 @@
       href="assets/fonts/vazirmatn-regular.woff2">
 <link rel="preload" as="font" type="font/woff2" crossorigin
       href="assets/fonts/vazirmatn-bold.woff2">
+<!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.css">
 <style>
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
@@ -2039,6 +2041,37 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   .btn::after{ display:none }
   .tile, .stat{ will-change:auto }
 }
+/* ═══════════════ بنر چرخشی خانه (Swiper) ═══════════════ */
+.home-slider{position:relative;margin:0 0 18px;overflow:hidden;border-radius:24px;isolation:isolate}
+.home-slider .swiper-wrapper{display:flex}.home-slider .swiper-slide{flex:0 0 100%;min-width:0;height:auto}
+.promo-slide{min-height:214px;padding:24px 24px 48px;display:flex;align-items:center;gap:20px;border:1px solid var(--line);border-radius:24px;overflow:hidden;position:relative;cursor:pointer;background:linear-gradient(125deg,#182849,#101829);box-shadow:var(--sh)}
+.promo-slide::before{content:"";position:absolute;inset:-40%;opacity:.22;background:radial-gradient(circle at 30% 30%,var(--gold),transparent 28%),repeating-conic-gradient(from 22.5deg,transparent 0 12deg,rgba(255,255,255,.13) 13deg 14deg)}
+.promo-slide.green{background:linear-gradient(125deg,#0e3a32,#101d28)}.promo-slide.purple{background:linear-gradient(125deg,#362052,#15162a)}
+.promo-copy{position:relative;z-index:2;flex:1}.promo-kicker{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;background:rgba(0,0,0,.22);color:#fff4c4;font-size:11px;margin-bottom:10px}
+.promo-copy h2{font-size:clamp(21px,5vw,29px);line-height:1.45;margin-bottom:5px;color:#fff}.promo-copy p{font-size:13px;line-height:1.9;color:rgba(255,255,255,.76);max-width:520px}.promo-go{display:inline-flex;margin-top:13px;padding:9px 15px;border-radius:12px;background:var(--grad);color:var(--ink);font-weight:800;font-size:12px}
+.promo-art{position:relative;z-index:2;width:118px;height:118px;flex:none;display:grid;place-items:center;border-radius:36px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);font-size:59px;box-shadow:inset 0 0 30px rgba(255,255,255,.06),0 18px 40px rgba(0,0,0,.25)}
+.home-slider .swiper-pagination{bottom:15px!important;direction:ltr}.home-slider .swiper-pagination-bullet{width:7px;height:7px;background:#fff;opacity:.38;transition:.25s}.home-slider .swiper-pagination-bullet-active{width:23px;border-radius:10px;opacity:1;background:var(--gold)}
+.home-slider .swiper-button-next,.home-slider .swiper-button-prev{width:36px;height:36px;border-radius:12px;background:rgba(0,0,0,.28);color:#fff;backdrop-filter:blur(6px)}.home-slider .swiper-button-next::after,.home-slider .swiper-button-prev::after{font-size:13px;font-weight:900}
+.home-slider.fallback .swiper-wrapper{direction:ltr;transform:translateX(calc(var(--slide,0) * -100%));transition:transform .55s var(--ease)}.home-slider.fallback .swiper-slide{direction:rtl}
+.slider-fallback-dots{position:absolute;z-index:5;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:6px;direction:ltr}.slider-fallback-dots button{width:7px;height:7px;border:0;border-radius:10px;background:#fff;opacity:.38;padding:0;cursor:pointer}.slider-fallback-dots button.on{width:23px;opacity:1;background:var(--gold)}
+@media(max-width:540px){.promo-slide{min-height:232px;padding:20px 18px 47px}.promo-art{width:82px;height:82px;font-size:42px;border-radius:25px}.promo-copy p{font-size:12px}.home-slider .swiper-button-next,.home-slider .swiper-button-prev{display:none}}@media(max-width:370px){.promo-art{display:none}}
+
+/* ═══════════════ بازی «نور آیه‌ها» ═══════════════ */
+.ayah-stage{position:relative;overflow:hidden;border:1px solid rgba(245,196,81,.28);border-radius:26px;min-height:470px;padding:22px;background:linear-gradient(#071323 0 42%,#102433 43% 64%,#14231e 65%);box-shadow:0 24px 55px rgba(0,0,0,.34);isolation:isolate}
+.ayah-stage::before{content:"";position:absolute;left:50%;top:60px;width:250px;height:190px;transform:translateX(-50%);border-radius:130px 130px 15px 15px;background:radial-gradient(circle at 50% 20%,rgba(245,196,81,.28),transparent 57%),linear-gradient(90deg,transparent 7%,rgba(245,196,81,.14) 8% 10%,transparent 11% 89%,rgba(245,196,81,.14) 90% 92%,transparent 93%);border-top:2px solid rgba(245,196,81,.28);opacity:.75;z-index:-1}
+.ayah-stage::after{content:"";position:absolute;inset:auto -10% -28% -10%;height:58%;z-index:-2;transform:perspective(400px) rotateX(60deg);background:repeating-linear-gradient(90deg,rgba(245,196,81,.08) 0 1px,transparent 1px 48px),repeating-linear-gradient(0deg,rgba(245,196,81,.07) 0 1px,transparent 1px 48px)}
+.ayah-lanterns{position:absolute;inset:16px 18px auto;display:flex;justify-content:space-between;color:var(--gold);opacity:.7;font-size:25px;pointer-events:none}.ayah-lanterns i{font-style:normal;filter:drop-shadow(0 0 10px var(--gold));animation:lantern 3s ease-in-out infinite alternate}@keyframes lantern{to{transform:translateY(7px) rotate(3deg);opacity:1}}
+.ayah-setup{text-align:center;position:relative;z-index:1}.ayah-mark{font-size:64px;filter:drop-shadow(0 0 20px rgba(245,196,81,.25));margin:10px}.ayah-setup h2{font-size:25px;margin-bottom:6px}.ayah-setup>p{color:var(--mut);font-size:13px;line-height:1.9}
+.ayah-options{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:22px 0 12px}.ayah-opt{padding:13px 8px;border:1px solid var(--line);background:rgba(8,13,24,.76);border-radius:15px;cursor:pointer;text-align:center;transition:.2s}.ayah-opt:hover,.ayah-opt.on{border-color:var(--gold);background:rgba(245,196,81,.12);transform:translateY(-2px)}.ayah-opt b{display:block;font-size:13px;margin-top:4px}.ayah-opt small{color:var(--mut);font-size:11px}
+.ayah-speed{display:flex;justify-content:center;gap:8px;margin:12px 0 18px;flex-wrap:wrap}.ayah-speed button{border:1px solid var(--line);background:rgba(8,13,24,.75);padding:7px 12px;border-radius:99px;cursor:pointer;font-size:11px}.ayah-speed button.on{border-color:var(--grn);color:var(--grn);background:rgba(47,211,155,.1)}
+.ayah-head{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-bottom:22px}.ayah-head .sp{flex:1}.ayah-time{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(8,13,24,.8);border:2px solid var(--gold);font-weight:800}.ayah-time.danger{border-color:var(--red);color:var(--red);animation:ayahPulse .7s infinite alternate}
+.ayah-board{position:relative;z-index:1;text-align:center}.ayah-board .question{font-size:12px;color:var(--gold);margin-bottom:12px}.ayah-text{font-family:var(--f-quran);font-size:clamp(24px,6vw,35px);line-height:2.1;margin:8px auto 16px;max-width:720px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.ayah-answer{min-height:74px;border:1px dashed rgba(245,196,81,.45);border-radius:18px;padding:12px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(8,13,24,.48);margin-bottom:13px}.word-chip,.ayah-choice{border:1px solid rgba(245,196,81,.35);background:rgba(18,35,52,.92);color:var(--txt);border-radius:13px;padding:10px 13px;cursor:pointer;line-height:1.6;transition:.18s;font-family:var(--f-quran);font-size:17px}.word-chip:hover,.ayah-choice:hover{transform:translateY(-2px);border-color:var(--gold)}.word-chip.used{opacity:.23;pointer-events:none}.word-chip.picked{background:rgba(245,196,81,.15)}
+.ayah-pool,.ayah-choices{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0}.ayah-choice{font-family:var(--f-ui);font-size:13px;min-width:120px}.ayah-choice.good{background:rgba(47,211,155,.2);border-color:var(--grn)}.ayah-choice.bad{background:rgba(255,95,109,.18);border-color:var(--red)}
+.ayah-feedback{min-height:58px;margin-top:13px;padding:10px 14px;border-radius:14px;background:rgba(8,13,24,.58);font-size:12px;line-height:1.8;color:var(--mut)}.ayah-feedback.ok{color:var(--grn);border:1px solid rgba(47,211,155,.3)}.ayah-feedback.err{color:#ff9da5;border:1px solid rgba(255,95,109,.3)}.ayah-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}.ayah-result{text-align:center;position:relative;z-index:1;padding-top:35px}.ayah-score{font-size:56px;color:var(--gold);font-weight:800;margin:14px}.ayah-stars{font-size:33px;letter-spacing:6px}
+@keyframes ayahPulse{to{transform:scale(1.07);box-shadow:0 0 18px rgba(255,95,109,.38)}}
+@media(max-width:520px){.ayah-stage{padding:17px;min-height:500px}.ayah-options{grid-template-columns:1fr}.ayah-opt{display:grid;grid-template-columns:35px 1fr;align-items:center;text-align:right;padding:9px 12px}.ayah-opt b{margin:0}.ayah-opt small{grid-column:2}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
+
 </style>
 </head>
 
@@ -2116,6 +2149,23 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
         <div class="lbl2"><span>سطح <b id="lvlNum">۱</b></span><span id="lvlXp">۰ / ۱۰۰</span></div>
         <div class="lvlbar bar-shine"><i id="lvlFill"></i></div>
       </div>
+    </div>
+
+    <!-- بنر چرخشی Swiper: پیشنهادهای مهم و دسترسی مستقیم -->
+    <div class="swiper home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان">
+      <div class="swiper-wrapper">
+        <div class="swiper-slide"><article class="promo-slide" data-slide-action="ayahlight" tabindex="0" role="button" aria-label="اجرای بازی نور آیه‌ها">
+          <div class="promo-copy"><span class="promo-kicker">✨ بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p><span class="promo-go">شروع بازی ←</span></div><div class="promo-art" aria-hidden="true">🕌</div>
+        </article></div>
+        <div class="swiper-slide"><article class="promo-slide green" data-slide-action="quran" tabindex="0" role="button" aria-label="رفتن به تلاوت قرآن">
+          <div class="promo-copy"><span class="promo-kicker">🎧 آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی، تکرار و ادامهٔ خودکار گوش کن.</p><span class="promo-go">رفتن به تلاوت ←</span></div><div class="promo-art" aria-hidden="true">📖</div>
+        </article></div>
+        <div class="swiper-slide"><article class="promo-slide purple" data-slide-action="daily" tabindex="0" role="button" aria-label="اجرای چالش روزانه">
+          <div class="promo-copy"><span class="promo-kicker">🌙 هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و رکورد روزهای پیوسته‌ات را بیشتر کن.</p><span class="promo-go">چالش امروز ←</span></div><div class="promo-art" aria-hidden="true">🏆</div>
+        </article></div>
+      </div>
+      <div class="swiper-pagination" aria-hidden="true"></div>
+      <div class="swiper-button-prev" aria-label="بنر قبلی"></div><div class="swiper-button-next" aria-label="بنر بعدی"></div>
     </div>
 
     <!-- نوار «ادامهٔ خواندن» و مأموریت‌های امروز -->
@@ -2446,6 +2496,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <div class="gt-in" id="gateBox"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.js" defer></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
@@ -6118,7 +6169,7 @@ const DATA = {
   ],
   categories: [
     { id:'quran',   icon:'📖', title:'آموزش قرآن کریم', desc:'سوره‌ها، ترجمه و معنی',
-      games:['recite','surah','scramble','quiz','meaning','exam','nahj','hadith','imams','dua','bookmarks','reciters'] },
+      games:['ayahlight','recite','surah','scramble','quiz','meaning','exam','nahj','hadith','imams','dua','bookmarks','reciters'] },
     { id:'brain',   icon:'🧠', title:'بازی‌های فکری',    desc:'حافظه، تطبیق و سرعت',
       games:['memory','match','speed','iran','tree'] },
     { id:'online',  icon:'🌐', title:'چندنفره آنلاین',   desc:'با دوستانت بازی کن',
@@ -6129,6 +6180,7 @@ const DATA = {
       games:['stats','badges','leaderboard','settings'] }
   ],
   GAMES: {
+    ayahlight: { name:'نورِ آیه‌ها', icon:'🕌', desc:'ترتیب آیه، واژهٔ گمشده و شناخت سوره', tag:'new' },
     recite:    { name:'تلاوت قرآن',   icon:'🎧', desc:'۱۰ قاری نامدار جهان، آیه‌به‌آیه', tag:'new' },
     surah:     { name:'سفر سوره‌ها', icon:'📖', desc:'کلمه گمشده هر سوره را پیدا کن', tag:'hot' },
     scramble:  { name:'پازل حروف',   icon:'🧩', desc:'حروف را بچین و کلمه بساز',       tag:'new' },
@@ -7634,7 +7686,10 @@ const Host = {
       if(typeof location === 'undefined') return '';
       if(!/^https?:$/.test(location.protocol)) return '';
       if(!location.host) return '';
-      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+      /* سرور روی خودِ خاستگاه upgrade را می‌پذیرد. افزودنِ بی‌دلیل `/ws`
+         پشت بعضی reverse proxyها 404 می‌داد و با قرارداد عمومیِ نشانیِ
+         برنامه هم نمی‌خواند؛ مسیر ریشه در اجرای مستقیم و پروکسی کار می‌کند. */
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
     }catch(e){ return ''; }
   },
 
@@ -11181,8 +11236,168 @@ function selfTest(){
 }
 try{ window.selfTest = selfTest; }catch(e){}
 
+/* ─────────────────── 10.99 بنر Swiper خانه ───────────────────
+   کتابخانهٔ اصلی از CDN می‌آید. اگر شبکه یا CDN بسته باشد، یک fallback
+   لمسی/خودکار همان مارک‌آپ را زنده نگه می‌دارد؛ خانه هرگز به بنر شکسته
+   تبدیل نمی‌شود. */
+const HomeCarousel = {
+  ready: false, timer: null, index: 0,
+  init(){
+    const root = U.$('#homeSlider');
+    if(!root || this.ready) return;
+    this.ready = true;
+    const open = a => {
+      Sound.click();
+      if(a === 'ayahlight') AyahLight.open();
+      else if(a === 'quran') Router.go('quran');
+      else if(a === 'daily') DailyChallenge.open();
+    };
+    U.$$('[data-slide-action]', root).forEach(el => {
+      el.onclick = () => open(el.dataset.slideAction);
+      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(el.dataset.slideAction); } };
+    });
+    if(typeof window !== 'undefined' && typeof window.Swiper === 'function'){
+      try{
+        this.swiper = new window.Swiper(root, {
+          loop:true, speed:650, slidesPerView:1, spaceBetween:12,
+          autoplay:{ delay:5200, disableOnInteraction:false, pauseOnMouseEnter:true },
+          pagination:{ el:root.querySelector('.swiper-pagination'), clickable:true },
+          navigation:{ nextEl:root.querySelector('.swiper-button-next'), prevEl:root.querySelector('.swiper-button-prev') },
+          keyboard:{ enabled:true }, a11y:{ enabled:true }
+        });
+        return;
+      }catch(e){ console.warn('swiper fallback', e); }
+    }
+    this.fallback(root);
+  },
+  fallback(root){
+    root.classList.add('fallback');
+    const slides = U.$$('.swiper-slide', root), wrap = root.querySelector('.swiper-wrapper');
+    if(!slides.length || !wrap) return;
+    /* خود wrapper چپ‌به‌راست است تا اسلاید بعدی با translateX منفی دیده شود؛
+       محتوای هر اسلاید جداگانه RTL می‌ماند. */
+    const dots = document.createElement('div'); dots.className = 'slider-fallback-dots';
+    dots.innerHTML = slides.map((_, i) => `<button aria-label="بنر ${U.fa(i + 1)}" data-dot="${i}"></button>`).join('');
+    root.appendChild(dots);
+    const show = i => {
+      this.index = (i + slides.length) % slides.length;
+      root.style.setProperty('--slide', this.index);
+      U.$$('[data-dot]', dots).forEach((d, k) => d.classList.toggle('on', k === this.index));
+    };
+    U.$$('[data-dot]', dots).forEach(d => d.onclick = e => { e.stopPropagation(); show(+d.dataset.dot); this.restart(show); });
+    let x = null;
+    root.addEventListener('pointerdown', e => { x = e.clientX; });
+    root.addEventListener('pointerup', e => { if(x == null) return; const dx=e.clientX-x; x=null; if(Math.abs(dx)>45){ show(this.index + (dx > 0 ? 1 : -1)); this.restart(show); } });
+    show(0); this.restart(show);
+  },
+  restart(show){ if(this.timer) Timers.clear(this.timer); this.timer = Timers.every(() => show(this.index + 1), 5200, 'sys'); }
+};
+
+/* ─────────────────── 10.991 بازی نورِ آیه‌ها ─────────────────── */
+const AyahLight = {
+  BANK: [
+    {s:'فاتحه',a:1,t:'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',tr:'به نام خداوند بخشندهٔ مهربان'},
+    {s:'فاتحه',a:2,t:'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ',tr:'ستایش مخصوص خداوند، پروردگار جهانیان است'},
+    {s:'فاتحه',a:4,t:'مَالِكِ يَوْمِ الدِّينِ',tr:'مالک روز جزاست'},
+    {s:'فاتحه',a:5,t:'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ',tr:'تنها تو را می‌پرستیم و تنها از تو یاری می‌جوییم'},
+    {s:'اخلاص',a:1,t:'قُلْ هُوَ اللَّهُ أَحَدٌ',tr:'بگو اوست خدای یگانه'},
+    {s:'اخلاص',a:2,t:'اللَّهُ الصَّمَدُ',tr:'خداوند بی‌نیاز است'},
+    {s:'فلق',a:1,t:'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ',tr:'بگو به پروردگار سپیده‌دم پناه می‌برم'},
+    {s:'ناس',a:1,t:'قُلْ أَعُوذُ بِرَبِّ النَّاسِ',tr:'بگو به پروردگار مردم پناه می‌برم'},
+    {s:'عصر',a:1,t:'وَالْعَصْرِ',tr:'سوگند به عصر'},
+    {s:'عصر',a:2,t:'إِنَّ الْإِنْسَانَ لَفِي خُسْرٍ',tr:'همانا انسان در زیان است'},
+    {s:'کوثر',a:1,t:'إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ',tr:'ما به تو خیر فراوان عطا کردیم'},
+    {s:'نصر',a:1,t:'إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ',tr:'هنگامی که یاری خدا و پیروزی فرا رسد'},
+    {s:'قدر',a:1,t:'إِنَّا أَنْزَلْنَاهُ فِي لَيْلَةِ الْقَدْرِ',tr:'ما قرآن را در شب قدر نازل کردیم'},
+    {s:'تین',a:1,t:'وَالتِّينِ وَالزَّيْتُونِ',tr:'سوگند به انجیر و زیتون'},
+    {s:'شرح',a:5,t:'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا',tr:'پس به‌راستی با هر دشواری آسانی است'}
+  ],
+  mode:'order', seconds:30, qs:[], i:0, right:0, score:0, left:0, timer:null, locked:false, picked:[],
+  lanterns(){ return '<div class="ayah-lanterns" aria-hidden="true"><i>✦</i><i>✦</i></div>'; },
+  open(){
+    Timers.clearPage(); Router.go('play');
+    U.$('#pgTitle').textContent = '🕌 نورِ آیه‌ها';
+    U.$('#pgSub').textContent = 'بازی و تمرین با آیات قرآن';
+    U.$('#pgBar').innerHTML = ''; U.prog(0, {cap:'آیه'});
+    U.$('#pgBody').innerHTML = `<div class="ayah-stage">${this.lanterns()}<div class="ayah-setup">
+      <div class="ayah-mark">﷽</div><h2>با آیات قرآن بازی کن</h2>
+      <p>حالت تمرین و زمان هر پرسش را انتخاب کن. ترجمه پس از هر پاسخ نمایش داده می‌شود.</p>
+      <div class="ayah-options" role="radiogroup" aria-label="حالت بازی">
+        <button class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" data-am="order"><span>🧩</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
+        <button class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" data-am="missing"><span>🔎</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
+        <button class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" data-am="surah"><span>📖</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
+      </div>
+      <div class="tiny">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
+        <button class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
+      </div><button class="btn ok" id="ayahStart">شروع تمرین ←</button>
+      <div class="tiny" style="margin-top:15px">بهترین امتیاز: <b>${U.fa(Progress.recordLabel('ayahlight') || 0)}</b> · ۱۵ آیه در بانک · ۱۰ پرسش در هر دور</div>
+    </div></div>`;
+    U.$$('[data-am]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.mode=b.dataset.am; U.$$('[data-am]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-checked',String(on)); }); Sound.tick(); });
+    U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); Sound.tick(); });
+    U.$('#ayahStart').onclick = () => this.start();
+  },
+  start(){
+    Stats.track('ayahlight'); Combo.reset();
+    this.qs=U.shuffle(this.BANK).slice(0,10); this.i=0; this.right=0; this.score=0; this.locked=false;
+    this.render();
+  },
+  stopTimer(){ if(this.timer){ Timers.clear(this.timer); this.timer=null; } },
+  arm(){
+    this.stopTimer(); this.left=this.seconds; this.paintTime();
+    this.timer=Timers.every(() => { this.left--; this.paintTime(); if(this.left<=0){ this.stopTimer(); this.answer(false,null,true); } },1000);
+  },
+  paintTime(){ const e=U.$('#ayahTime'); if(e){ e.textContent=U.fa(Math.max(0,this.left)); e.classList.toggle('danger',this.left<=7); } },
+  render(){
+    const q=this.qs[this.i]; if(!q){ this.finish(); return; }
+    this.locked=false; this.picked=[];
+    U.prog(this.i/this.qs.length*100,{cur:this.i+1,total:this.qs.length,cap:'آیه'});
+    U.$('#pgBar').innerHTML=`<span class="pill">✅ ${U.fa(this.right)}</span><span class="pill">⭐ ${U.fa(this.score)}</span>`;
+    let body='';
+    if(this.mode==='order'){
+      const words=q.t.split(/\s+/); const shuffled=U.shuffle(words.map((w,n)=>({w,n})));
+      body=`<div class="question">واژه‌ها را به ترتیب درست انتخاب کن</div><div class="ayah-answer" id="ayahAnswer"><span class="tiny">نخستین واژه را انتخاب کن…</span></div><div class="ayah-pool">${shuffled.map(x=>`<button class="word-chip" data-word="${x.n}">${U.esc(x.w)}</button>`).join('')}</div><div class="ayah-actions"><button class="btn gh sm" id="ayahReset">پاک کردن</button><button class="btn sm" id="ayahCheck">بررسی پاسخ</button></div>`;
+    } else if(this.mode==='missing'){
+      const words=q.t.split(/\s+/), at=Math.max(0,Math.floor(words.length/2)); const ans=words[at]; words[at]='…؟…';
+      /* واژه‌های پرت یکتا باشند؛ دو دکمهٔ یکسان، انتخاب را گمراه می‌کرد. */
+      const pool=[...new Set(this.BANK.filter(x=>x!==q).flatMap(x=>x.t.split(/\s+/)).filter(x=>x!==ans))];
+      const others=U.shuffle(pool).slice(0,3);
+      body=`<div class="question">واژهٔ گمشده را پیدا کن</div><div class="ayah-text">${U.esc(words.join(' '))}</div><div class="ayah-choices">${U.shuffle([ans,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">${U.esc(w)}</button>`).join('')}</div>`;
+    } else {
+      const names=[...new Set(this.BANK.map(x=>x.s))]; const others=U.shuffle(names.filter(x=>x!==q.s)).slice(0,3);
+      body=`<div class="question">این آیه از کدام سوره است؟</div><div class="ayah-text">${U.esc(q.t)}</div><div class="ayah-choices">${U.shuffle([q.s,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">سورهٔ ${U.esc(w)}</button>`).join('')}</div>`;
+    }
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-head"><span class="chip wr">پرسش ${U.fa(this.i+1)} از ${U.fa(this.qs.length)}</span><span class="sp"></span><div class="ayah-time" id="ayahTime" role="timer" aria-label="زمان باقی‌مانده"></div></div><div class="ayah-board">${body}<div class="ayah-feedback" id="ayahFeedback" role="status" aria-live="polite">با آرامش پاسخ بده؛ هدف یادگیری است.</div></div></div>`;
+    if(this.mode==='order') this.wireOrder(q); else U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>b.onclick=()=>this.answer(b.dataset.choice===(this.mode==='missing'?q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]:q.s),b));
+    this.arm();
+  },
+  wireOrder(q){
+    const paint=()=>{ const box=U.$('#ayahAnswer'); if(!box)return; box.innerHTML=this.picked.length?this.picked.map(x=>`<button class="word-chip picked" data-picked="${x.n}">${U.esc(x.w)}</button>`).join(''):'<span class="tiny">نخستین واژه را انتخاب کن…</span>'; U.$$('[data-picked]',box).forEach(b=>b.onclick=()=>{this.picked=this.picked.filter(x=>x.n!==+b.dataset.picked); const src=U.$(`[data-word="${b.dataset.picked}"]`); if(src)src.classList.remove('used'); paint();}); };
+    U.$$('[data-word]',U.$('#pgBody')).forEach(b=>b.onclick=()=>{ if(this.locked)return; b.classList.add('used'); this.picked.push({n:+b.dataset.word,w:b.textContent}); paint(); Sound.tick(); });
+    U.$('#ayahReset').onclick=()=>{this.picked=[];U.$$('[data-word]',U.$('#pgBody')).forEach(x=>x.classList.remove('used'));paint();};
+    U.$('#ayahCheck').onclick=()=>this.answer(this.picked.map(x=>x.w).join(' ')===q.t,null);
+  },
+  answer(ok,button,timeout=false){
+    if(this.locked)return; this.locked=true; this.stopTimer(); const q=this.qs[this.i];
+    if(button)button.classList.add(ok?'good':'bad');
+    if(!ok && this.mode!=='order') U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>{ const ans=this.mode==='surah'?q.s:q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]; if(b.dataset.choice===ans)b.classList.add('good'); });
+    if(ok){ const pts=10+Math.max(0,this.left); this.right++;this.score+=pts; Progress.award({game:'ayahlight',pts,ok:true}); Sound.chime(); Haptic.success(); }
+    else { Progress.award({game:'ayahlight',pts:0,ok:false}); Sound.buzz(); Haptic.warn(); }
+    const f=U.$('#ayahFeedback'); if(f){ f.className='ayah-feedback '+(ok?'ok':'err'); f.innerHTML=ok?`✅ آفرین! <b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`:`${timeout?'⏱ زمان تمام شد.':'پاسخ درست را با رنگ سبز ببین.'}<br><b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`; }
+    const actions=U.$('.ayah-actions',U.$('#pgBody'))||U.$('.ayah-choices',U.$('#pgBody')); if(actions){ const n=document.createElement('button');n.className='btn ok';n.textContent=this.i+1>=this.qs.length?'دیدن نتیجه':'پرسش بعدی ←';n.onclick=()=>{this.i++;this.render();};actions.appendChild(n); }
+  },
+  finish(){
+    this.stopTimer(); const pct=Math.round(this.right/this.qs.length*100), stars=pct>=90?3:pct>=60?2:1;
+    Progress.record('ayahlight',this.score); Store.update(d=>{d.stars.ayahlight=Math.max(d.stars.ayahlight||0,stars);d.completed.ayahlight=pct>=60;});
+    if(pct>=60)Wallet.earn(8,'نور آیه‌ها'); U.prog(100,{cur:10,total:10,cap:'تمام'});
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-result"><div class="ayah-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div><h2>تمرین تمام شد</h2><div class="ayah-score">${U.fa(this.score)}</div><p>${U.fa(this.right)} پاسخ درست از ${U.fa(this.qs.length)} · دقت ${U.fa(pct)}٪</p><div class="ayah-actions"><button class="btn ok" id="ayahAgain">دوباره بازی کن</button><button class="btn gh" id="ayahHome">خانه</button></div></div></div>`;
+    U.$('#ayahAgain').onclick=()=>this.open(); U.$('#ayahHome').onclick=()=>Router.go('home'); Sound.fanfare();
+  }
+};
+
+
 /* ─────────────────── 11. GAME REGISTRY ─────────────────── */
 const Games = {
+  ayahlight: () => AyahLight.open(),
   recite:    () => Router.go('quran'),
   surah:     () => SurahEngine.start(),
   scramble:  () => ScrambleEngine.start(),
@@ -15720,6 +15935,7 @@ function init(){
 
   Router.init();
   renderHome(); updateHomeStats(); updateNotifDot();
+  try{ HomeCarousel.init(); }catch(e){ console.warn('carousel', e); }
   Me.render();
 
   // نوار پایین
