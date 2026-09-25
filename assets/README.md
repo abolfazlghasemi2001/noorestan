@@ -128,7 +128,7 @@ Assets.imageOrSvg('illustrations/mushaf.webp', Art.mushaf(), { alt: 'قرآن گ
 
 ## ۵. کش و آفلاین
 
-`sw.js` (نسخهٔ کش: `noorestan-19`) این پوشه را این‌گونه مدیریت می‌کند:
+`sw.js` (نسخهٔ کش: `noorestan-20`) این پوشه را این‌گونه مدیریت می‌کند:
 
 | گروه | راهبرد |
 |---|---|
@@ -164,3 +164,10 @@ navigator.serviceWorker.controller.postMessage({ t: 'clear' })
   قاری فرستاده نمی‌شود — پیش‌تر می‌شد و همه‌اش ۴۰۴ بود.
 - **فشرده‌سازی:** هر تصویر را زیر ۲۰۰KB نگه دار. برای فشرده‌سازی در اندروید:
   `cwebp -q 78 in.png -o out.webp`
+
+
+## نگاره‌ها و قلمِ تیتر (به‌روزرسانی ۲۰)
+
+- `fonts/lalezar-arabic-400.woff2`: لاله‌زار، بستهٔ @fontsource/lalezar نسخهٔ 5.3.0؛ مجوز SIL OFL در `fonts/Lalezar-OFL.txt`.
+- `images/promo/courtyard.svg`، `recitation.svg` و `night.svg`: نگاره‌های هندسی/معماریِ دست‌ساز این پروژه؛ بدون عکس، فونت یا لینک خارجی.
+- هر چهار فایل در service worker پیش‌ذخیره می‌شوند؛ اسلایدر به Swiper یا CDN نیاز ندارد.
