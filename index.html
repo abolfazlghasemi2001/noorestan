@@ -30,7 +30,7 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin
       href="assets/fonts/vazirmatn-bold.woff2">
 <!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.css">
 <style>
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
@@ -2052,7 +2052,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 .promo-art{position:relative;z-index:2;width:118px;height:118px;flex:none;display:grid;place-items:center;border-radius:36px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);font-size:59px;box-shadow:inset 0 0 30px rgba(255,255,255,.06),0 18px 40px rgba(0,0,0,.25)}
 .home-slider .swiper-pagination{bottom:15px!important;direction:ltr}.home-slider .swiper-pagination-bullet{width:7px;height:7px;background:#fff;opacity:.38;transition:.25s}.home-slider .swiper-pagination-bullet-active{width:23px;border-radius:10px;opacity:1;background:var(--gold)}
 .home-slider .swiper-button-next,.home-slider .swiper-button-prev{width:36px;height:36px;border-radius:12px;background:rgba(0,0,0,.28);color:#fff;backdrop-filter:blur(6px)}.home-slider .swiper-button-next::after,.home-slider .swiper-button-prev::after{font-size:13px;font-weight:900}
-.home-slider.fallback .swiper-wrapper{transform:translateX(calc(var(--slide,0) * 100%));transition:transform .55s var(--ease)}.home-slider.fallback .swiper-slide{direction:rtl}
+.home-slider.fallback .swiper-wrapper{direction:ltr;transform:translateX(calc(var(--slide,0) * -100%));transition:transform .55s var(--ease)}.home-slider.fallback .swiper-slide{direction:rtl}
 .slider-fallback-dots{position:absolute;z-index:5;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:6px;direction:ltr}.slider-fallback-dots button{width:7px;height:7px;border:0;border-radius:10px;background:#fff;opacity:.38;padding:0;cursor:pointer}.slider-fallback-dots button.on{width:23px;opacity:1;background:var(--gold)}
 @media(max-width:540px){.promo-slide{min-height:232px;padding:20px 18px 47px}.promo-art{width:82px;height:82px;font-size:42px;border-radius:25px}.promo-copy p{font-size:12px}.home-slider .swiper-button-next,.home-slider .swiper-button-prev{display:none}}@media(max-width:370px){.promo-art{display:none}}
 
@@ -2496,7 +2496,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <div class="gt-in" id="gateBox"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.js" defer></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
@@ -11274,7 +11274,8 @@ const HomeCarousel = {
     root.classList.add('fallback');
     const slides = U.$$('.swiper-slide', root), wrap = root.querySelector('.swiper-wrapper');
     if(!slides.length || !wrap) return;
-    /* RTL است؛ اسلاید بعدی با translateX مثبت دیده می‌شود. */
+    /* خود wrapper چپ‌به‌راست است تا اسلاید بعدی با translateX منفی دیده شود؛
+       محتوای هر اسلاید جداگانه RTL می‌ماند. */
     const dots = document.createElement('div'); dots.className = 'slider-fallback-dots';
     dots.innerHTML = slides.map((_, i) => `<button aria-label="بنر ${U.fa(i + 1)}" data-dot="${i}"></button>`).join('');
     root.appendChild(dots);
@@ -11322,17 +11323,17 @@ const AyahLight = {
       <div class="ayah-mark">﷽</div><h2>با آیات قرآن بازی کن</h2>
       <p>حالت تمرین و زمان هر پرسش را انتخاب کن. ترجمه پس از هر پاسخ نمایش داده می‌شود.</p>
       <div class="ayah-options" role="radiogroup" aria-label="حالت بازی">
-        <button class="ayah-opt on" data-am="order"><span>🧩</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
-        <button class="ayah-opt" data-am="missing"><span>🔎</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
-        <button class="ayah-opt" data-am="surah"><span>📖</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
+        <button class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" data-am="order"><span>🧩</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
+        <button class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" data-am="missing"><span>🔎</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
+        <button class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" data-am="surah"><span>📖</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
       </div>
-      <div class="tiny">زمان هر پرسش</div><div class="ayah-speed">
-        <button data-sec="45">آرام · ۴۵ ثانیه</button><button class="on" data-sec="30">متعادل · ۳۰ ثانیه</button><button data-sec="18">چابک · ۱۸ ثانیه</button>
+      <div class="tiny">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
+        <button class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
       </div><button class="btn ok" id="ayahStart">شروع تمرین ←</button>
-      <div class="tiny" style="margin-top:15px">۱۵ آیه در بانک · ۱۰ پرسش در هر دور · بدون موسیقی</div>
+      <div class="tiny" style="margin-top:15px">بهترین امتیاز: <b>${U.fa(Progress.recordLabel('ayahlight') || 0)}</b> · ۱۵ آیه در بانک · ۱۰ پرسش در هر دور</div>
     </div></div>`;
-    U.$$('[data-am]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.mode=b.dataset.am; U.$$('[data-am]',U.$('#pgBody')).forEach(x=>x.classList.toggle('on',x===b)); Sound.tick(); });
-    U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>x.classList.toggle('on',x===b)); Sound.tick(); });
+    U.$$('[data-am]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.mode=b.dataset.am; U.$$('[data-am]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-checked',String(on)); }); Sound.tick(); });
+    U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); Sound.tick(); });
     U.$('#ayahStart').onclick = () => this.start();
   },
   start(){
@@ -11357,13 +11358,15 @@ const AyahLight = {
       body=`<div class="question">واژه‌ها را به ترتیب درست انتخاب کن</div><div class="ayah-answer" id="ayahAnswer"><span class="tiny">نخستین واژه را انتخاب کن…</span></div><div class="ayah-pool">${shuffled.map(x=>`<button class="word-chip" data-word="${x.n}">${U.esc(x.w)}</button>`).join('')}</div><div class="ayah-actions"><button class="btn gh sm" id="ayahReset">پاک کردن</button><button class="btn sm" id="ayahCheck">بررسی پاسخ</button></div>`;
     } else if(this.mode==='missing'){
       const words=q.t.split(/\s+/), at=Math.max(0,Math.floor(words.length/2)); const ans=words[at]; words[at]='…؟…';
-      const others=U.shuffle(this.BANK.filter(x=>x!==q).flatMap(x=>x.t.split(/\s+/)).filter(x=>x!==ans)).slice(0,3);
+      /* واژه‌های پرت یکتا باشند؛ دو دکمهٔ یکسان، انتخاب را گمراه می‌کرد. */
+      const pool=[...new Set(this.BANK.filter(x=>x!==q).flatMap(x=>x.t.split(/\s+/)).filter(x=>x!==ans))];
+      const others=U.shuffle(pool).slice(0,3);
       body=`<div class="question">واژهٔ گمشده را پیدا کن</div><div class="ayah-text">${U.esc(words.join(' '))}</div><div class="ayah-choices">${U.shuffle([ans,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">${U.esc(w)}</button>`).join('')}</div>`;
     } else {
       const names=[...new Set(this.BANK.map(x=>x.s))]; const others=U.shuffle(names.filter(x=>x!==q.s)).slice(0,3);
       body=`<div class="question">این آیه از کدام سوره است؟</div><div class="ayah-text">${U.esc(q.t)}</div><div class="ayah-choices">${U.shuffle([q.s,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">سورهٔ ${U.esc(w)}</button>`).join('')}</div>`;
     }
-    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-head"><span class="chip wr">پرسش ${U.fa(this.i+1)} از ${U.fa(this.qs.length)}</span><span class="sp"></span><div class="ayah-time" id="ayahTime" aria-label="زمان باقی‌مانده"></div></div><div class="ayah-board">${body}<div class="ayah-feedback" id="ayahFeedback">با آرامش پاسخ بده؛ هدف یادگیری است.</div></div></div>`;
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-head"><span class="chip wr">پرسش ${U.fa(this.i+1)} از ${U.fa(this.qs.length)}</span><span class="sp"></span><div class="ayah-time" id="ayahTime" role="timer" aria-label="زمان باقی‌مانده"></div></div><div class="ayah-board">${body}<div class="ayah-feedback" id="ayahFeedback" role="status" aria-live="polite">با آرامش پاسخ بده؛ هدف یادگیری است.</div></div></div>`;
     if(this.mode==='order') this.wireOrder(q); else U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>b.onclick=()=>this.answer(b.dataset.choice===(this.mode==='missing'?q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]:q.s),b));
     this.arm();
   },

@@ -5585,6 +5585,34 @@ section('پوسته — پوستهٔ کلِ برنامه (فاز ۳)');
   ok('و درخشش را هم برمی‌دارد', /@media\(prefers-reduced-motion:reduce\)\{[\s\S]{0,300}?\.btn::after\{ display:none \}/.test(css2));
 }
 
+section('نورِ آیه‌ها و بنر چرخشی خانه');
+{
+  ok('بازی نور آیه‌ها در رجیستری داده ثبت شده',
+     !!DATA.GAMES.ayahlight && typeof Games.ayahlight === 'function');
+  ok('نور آیه‌ها در دستهٔ آموزش قرآن دیده می‌شود',
+     DATA.categories.some(c => c.id === 'quran' && c.games.includes('ayahlight')));
+  ok('بانک بازی دست‌کم ۱۵ آیه دارد', AyahLight.BANK.length >= 15, AyahLight.BANK.length + '');
+  ok('هر آیه متن، ترجمه، سوره و شماره دارد',
+     AyahLight.BANK.every(x => x.t && x.tr && x.s && Number.isInteger(x.a)));
+  ok('هیچ آیهٔ تکراری در بانک نیست',
+     new Set(AyahLight.BANK.map(x => `${x.s}:${x.a}`)).size === AyahLight.BANK.length);
+  ok('هر سه حالت بازی پیاده شده‌اند',
+     ['order','missing','surah'].every(m => SRC.includes(`this.mode==='${m}'`)));
+  ok('سه زمان آرام، متعادل و چابک وجود دارد',
+     [45,30,18].every(n => SRC.includes(`data-sec="${n}"`)));
+  ok('بازخورد بازی برای صفحه‌خوان زنده است',
+     /id="ayahFeedback" role="status" aria-live="polite"/.test(SRC));
+  ok('بنر خانه سه اسلاید و سه مقصد واقعی دارد',
+     (SRC.match(/class="swiper-slide"/g) || []).length >= 3 &&
+     ['ayahlight','quran','daily'].every(a => SRC.includes(`data-slide-action="${a}"`)));
+  ok('نسخهٔ Swiper دقیق و ثابت است',
+     /swiper@11\.2\.10\/swiper-bundle\.min\.(css|js)/.test(SRC));
+  ok('بنر در نبود CDN واپس‌روی داخلی دارد',
+     /typeof window\.Swiper === 'function'/.test(SRC) && /this\.fallback\(root\)/.test(SRC));
+  ok('واپس‌روی اسلایدر جهت درست دارد',
+     /translateX\(calc\(var\(--slide,0\) \* -100%\)\)/.test(SRC));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();
