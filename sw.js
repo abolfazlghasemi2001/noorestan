@@ -25,10 +25,10 @@
    پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-19';
-const SHELL = 'noorestan-shell-19';
-const MEDIA = 'noorestan-media-19';
-const TEXT  = 'noorestan-text-19';
+const CACHE = 'noorestan-20';
+const SHELL = 'noorestan-shell-20';
+const MEDIA = 'noorestan-media-20';
+const TEXT  = 'noorestan-text-20';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -52,6 +52,10 @@ const OPTIONAL = [
   /* قلمِ پایهٔ برنامه، میزبانی‌شده روی خودمان. بی اینها برنامه با قلمِ
      پیش‌فرضِ سیستم بالا می‌آید؛ نبودشان نصب را نمی‌شکند ولی ظاهر را
      عوض می‌کند، پس هر سه وزن پیش‌ذخیره می‌شوند. */
+  './assets/fonts/lalezar-arabic-400.woff2',
+  './assets/images/promo/courtyard.svg',
+  './assets/images/promo/recitation.svg',
+  './assets/images/promo/night.svg',
   './assets/fonts/vazirmatn-regular.woff2',
   './assets/fonts/vazirmatn-bold.woff2',
   './assets/fonts/vazirmatn-extrabold.woff2',

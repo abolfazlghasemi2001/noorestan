@@ -669,8 +669,8 @@ ok('نستعلیق line-height بزرگ دارد (حرف‌ها بریده نش�
 ok('فونت‌های وب نشانی CSS دارند', Object.keys(FONTS)
    .filter(k => FONTS[k].css)
    .every(k => /^https:\/\//.test(FONTS[k].css)));
-ok('فونت‌های بی‌فایل‌خارجی فقط فونت‌های سیستم‌اند',
-   Object.keys(FONTS).filter(k => !FONTS[k].css).every(k => ['vazir', 'kitab'].includes(k)));
+ok('فونت‌های بی‌فایل‌خارجی محلی‌اند',
+   Object.keys(FONTS).filter(k => !FONTS[k].css).every(k => ['vazir', 'kitab', 'lalezar'].includes(k)));
 ok('فونت‌های وب از jsDelivr می‌آیند', Object.keys(FONTS)
    .filter(k => FONTS[k].css).every(k => FONTS[k].css.includes('cdn.jsdelivr.net')));
 ok('Fonts.apply بدون خطا اجرا می‌شود',
@@ -678,9 +678,9 @@ ok('Fonts.apply بدون خطا اجرا می‌شود',
 ok('Fonts.apply با کلید ناشناس هم نمی‌شکند',
    tryIt(() => Fonts.apply({ display: 'بلا', quran: null })) === 'OK');
 ok('Fonts.load کلید ناشناس را بی‌خطا رد می‌کند', Fonts.load('nope') === undefined || !!Fonts.load('nope'));
-ok('فونت پیش‌فرض نمایشی نستعلیق است', (() => {
+ok('فونت پیش‌فرض نمایشی لاله‌زار محلی است', (() => {
   const d = Store.defaults().fonts;
-  return d && Fonts.isNastaliq(d.display) && d.quran === 'amiri';
+  return d && d.display === 'lalezar' && FONTS.lalezar.family === 'Lalezar' && fs.existsSync(__dirname + '/assets/fonts/lalezar-arabic-400.woff2') && d.quran === 'amiri';
 })());
 ok('انتخاب فونت در Store می‌ماند', (() => {
   Store.update(x => x.fonts.display = 'vazir');
@@ -1925,9 +1925,9 @@ section('سرویس‌ورکر');
   ok('صفحهٔ آفلاین پیش‌ذخیره می‌شود', /const OFFLINE = '\.\/offline\.html'/.test(src) && src.includes('OFFLINE,'));
   /* نسخهٔ کش باید تک‌شماره و جاری باشد؛ هر چهار نام با هم جلو می‌روند،
      وگرنه `activate` یکی را نگه می‌دارد و بقیه را پاک می‌کند. */
-  ok('نسخهٔ کش ۱۹ است و هر چهار نام با هم',
-     /noorestan-19/.test(src) && /noorestan-shell-19/.test(src) &&
-     /noorestan-media-19/.test(src) && /noorestan-text-19/.test(src) &&
+  ok('نسخهٔ کش ۲۰ است و هر چهار نام با هم',
+     /noorestan-20/.test(src) && /noorestan-shell-20/.test(src) &&
+     /noorestan-media-20/.test(src) && /noorestan-text-20/.test(src) &&
      !/noorestan-17/.test(src));
   ok('واپس‌رویِ ناوبری اول پوسته، بعد صفحهٔ آفلاین است', (() => {
     const i = src.indexOf('async function navFallback');
@@ -3342,7 +3342,8 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
   ok('`lead` ایموجیِ صدر را جدا می‌کند',
      JSON.stringify(Glyph.lead('⚠️ تلاوت نشد')) === JSON.stringify({ emoji: '⚠️', rest: 'تلاوت نشد' }));
   ok('و پیامِ بی‌ایموجی را دست نمی‌زند', Glyph.lead('سلام') === null);
-  ok('🔒 و چهرکِ انتخابیِ کاربر را به آیکن بدل نمی‌کند', Glyph.lead('🦉 جغد') === null);
+  ok('🔒 و چهرکِ ناشناختهٔ کاربر را به آیکن بدل نمی‌کند', Glyph.lead('🦄 چهرک دلخواه') === null);
+  ok('نگاشت افزودهٔ جغد SVG معتبر دارد', Glyph.of('🦉').startsWith('<svg'));
   ok('و بلندترین کلید اول تطبیق می‌خورد (❌⭕ نه ❌)',
      Glyph.lead('❌⭕ دوز')?.emoji === '❌⭕');
 }
@@ -3671,7 +3672,7 @@ section('تصاویر — هیچ درخواستی به فایلی که نیست 
   const readme = fs.readFileSync(__dirname + '/assets/README.md', 'utf8');
   ok('README دیگر آیکنِ webp/jpg وعده نمی‌دهد',
      !/icons\/icon-(192|512)\.(webp|jpg)/.test(readme) && !/maskable-512\.jpg/.test(readme));
-  ok('README نسخهٔ کش را ۱۹ می‌گوید', /noorestan-19/.test(readme) && !/noorestan-17/.test(readme));
+  ok('README نسخهٔ کش را ۲۰ می‌گوید', /noorestan-20/.test(readme) && !/noorestan-17/.test(readme));
   ok('README واپس‌رویِ srcset را انکار می‌کند', /srcset\*\*? نیست|در `srcset` نیست/.test(readme) ||
      /واپس‌رویِ خودکار بین دو\s*\n?\s*پسوند \*\*در `srcset` نیست\*\*/.test(readme));
 
@@ -5220,7 +5221,7 @@ section('سفرِ سوره‌ها — شمارش یکتا و نشانِ پایا
 section('پیام‌های کوتاه (toast) — بستن، سقفِ دو، و متنِ ایمن');
 {
   const i = SRC.indexOf('toast(msg, type');
-  const body = SRC.slice(i, i + 1200);
+  const body = SRC.slice(i, SRC.indexOf('isOpen(){', i));
   ok('مدتِ پیش‌فرض ۴۰۰۰ میلی‌ثانیه است', /toast\(msg,\s*type = '',\s*ms = 4000\)/.test(SRC));
   ok('دکمهٔ بستن با onclick بسته می‌شود', /x\.className = 'x'/.test(body) && /x\.onclick = close/.test(body));
   ok('دکمهٔ بستن برچسبِ دسترس‌پذیری دارد', /setAttribute\('aria-label', 'بستن پیام'\)/.test(body));
@@ -5390,24 +5391,24 @@ section('پوسته — صفحهٔ ورودِ بازطراحی‌شده (فاز 
      /webotpStop\(\)\{/.test(SRC) && /this\.webotpStop\(\);\s*\n\s*this\.lockShown/.test(SRC));
 
   /* ── قفلِ موقت ── */
-  ok('سقفِ تلاش و مدتِ قفل تعریف شده‌اند', Gate.MAX_TRY === 5 && Gate.LOCK_SEC === 60);
+  ok('سقفِ تلاش و مدتِ قفل تعریف شده‌اند', Gate.MAX_TRY === OTP.MAX_TRIES && Gate.LOCK_SEC === OTP.LOCK_MS / 1000);
   ok('🔒 و در حافظه می‌ماند، نه فقط تا نوسازیِ صفحه',
-     /lockSet\(fails, until\)\{ Store\.set\('gateLock'/.test(SRC));
+     /lockSet\(fails, until\)[^\n]*OTP\.put\(st\)/.test(SRC));
   ok('و مقدارِ خرابِ حافظه را بی‌خطر می‌کند',
-     (() => { const keep = Store.get('gateLock');
-       try{ Store.set('gateLock', 'چیزِبی‌ربط');
+     (() => { const keep = OTP.st();
+       try{ OTP.put(null);
          const l = Gate.lockGet();
          return l.fails === 0 && l.until === 0; }
-       finally{ Store.set('gateLock', keep); } })());
+       finally{ OTP.put(keep); } })());
   /* ── تلهٔ `|0` روی مُهرِ زمانی ──
      میلی‌ثانیهٔ امروز ≈۱.۷۶e۱۲ است و از ۳۲ بیت می‌گذرد؛ اگر کسی دوباره
      `until|0` بنویسد، قفل بی‌صدا هرگز بسته نمی‌شود. پس صریح سنجیده می‌شود. */
   ok('🔒 مُهرِ زمانیِ قفل از ۳۲ بیت سالم می‌گذرد',
-     (() => { const keep = Store.get('gateLock');
+     (() => { const keep = OTP.st();
        try{ const t = Date.now() + 60000;
-         Gate.lockSet(0, t);
+         OTP.put({ phone:'09123456789', tries:0, lock:0 }); Gate.lockSet(0, t);
          return Gate.lockGet().until === t && Gate.lockLeft() > 55; }
-       finally{ Store.set('gateLock', keep); } })(),
+       finally{ OTP.put(keep); } })(),
      String(Gate.lockGet().until));
   /* ── بازگشت به فرم پس از پایانِ شمارش ──
      این همان جایی است که یک‌بار حلقهٔ tick→paint→run→tick ساخت و
@@ -5417,9 +5418,9 @@ section('پوسته — صفحهٔ ورودِ بازطراحی‌شده (فاز 
   ok('🔒 و تصمیمِ حلقه به گرهِ DOM بند نیست',
      /if\(this\.lockShown\)\{/.test(SRC) && /lockShown: false,/.test(SRC));
   /* ── قفل که باز است، فرمِ کد کشیده نمی‌شود ── */
-  const keepLockVal = Store.get('gateLock');
+  const keepLockVal = OTP.st();
   try{
-    Store.set('gateLock', { fails:0, until: Date.now() + 60000 });
+    OTP.put({ tries:0, lock: Date.now() + OTP.LOCK_MS });
     const locked = paintGate('code');
     Gate.stop();
     ok('🔒 در حالتِ قفل، جعبه‌های کد کشیده نمی‌شوند',
@@ -5427,7 +5428,7 @@ section('پوسته — صفحهٔ ورودِ بازطراحی‌شده (فاز 
     ok('و راهِ مهمان باز می‌ماند تا کاربر گیر نکند', locked.includes('id="gtGuest"'));
     ok('و جعبهٔ پیشرفت هم نیست', !locked.includes('gt-pin-group'));
   } finally {
-    Store.set('gateLock', keepLockVal);
+    OTP.put(keepLockVal);
     Gate.lockShown = false;
   }
 
@@ -5550,7 +5551,7 @@ section('پوسته — پوستهٔ کلِ برنامه (فاز ۳)');
      /\.btn:not\(\.gh\):not\(:disabled\)::after\{[^}]*pointer-events:none/.test(css2));
   ok('🔒 و دیگر `overflow` روی `.btn` نیست که متن را ببُرد',
      /\.btn\{ position:relative \}/.test(css2) &&
-     !/\.btn\{[^}]*overflow/.test(css2));
+     !/\.btn\{[^}]*overflow\s*:/.test(css2));
 
   /* ── توست ── */
   ok('توست از راست می‌آید', /\.toast\{[\s\S]{0,260}?animation:sk-toast /.test(css2));
@@ -5603,15 +5604,100 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
   ok('بازخورد بازی برای صفحه‌خوان زنده است',
      /id="ayahFeedback" role="status" aria-live="polite"/.test(SRC));
   ok('بنر خانه سه اسلاید و سه مقصد واقعی دارد',
-     (SRC.match(/class="swiper-slide"/g) || []).length >= 3 &&
+     (SRC.match(/class="promo-panel(?: is-active)?"/g) || []).length >= 3 &&
      ['ayahlight','quran','daily'].every(a => SRC.includes(`data-slide-action="${a}"`)));
-  ok('نسخهٔ Swiper دقیق و ثابت است',
-     /swiper@11\.2\.10\/swiper-bundle\.min\.(css|js)/.test(SRC));
-  ok('بنر در نبود CDN واپس‌روی داخلی دارد',
-     /typeof window\.Swiper === 'function'/.test(SRC) && /this\.fallback\(root\)/.test(SRC));
-  ok('واپس‌روی اسلایدر جهت درست دارد',
-     /translateX\(calc\(var\(--slide,0\) \* -100%\)\)/.test(SRC));
+  ok('اسلایدر هیچ وابستگی Swiper/CDN ندارد', !/swiper-bundle/.test(SRC));
+  ok('اسلایدر بومی هر ۴۵۰۰ میلی‌ثانیه پیش می‌رود', /4500, 'sys'/.test(SRC));
+  ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
+  ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
+
 }
+
+section('بازگشت‌ناپذیریِ اصلاحات نسخهٔ ۲۰');
+{
+  const saved = JSON.parse(JSON.stringify(Store.data)), state = QuizEngine.state, opts = QuizEngine.opts;
+  const place = Install.place, tab = Admin.currentTab, meTab = Me.tab;
+  const rec = { cur:Recite.cur, state:Recite.state, el:Recite.el, stopped:Recite.stoppedManually, playSurah:Recite.playSurah, listeners:Recite.listeners };
+  try {
+    Store.data = Store.defaults(); Recite.listeners = [];
+    QuizEngine.start({ qs:DATA.meaning, title:'معنی', sub:'آزمون', count:3, game:'meaning' });
+    const snap = QuizEngine.snapshot();
+    ok('snapshot نوع بازی را نگه می‌دارد', snap.game === 'meaning');
+    Autosave.put('quiz', snap, snap.label); Autosave.resume();
+    ok('resume نوع بازی و ترتیب پرسش‌ها را برمی‌گرداند', QuizEngine.opts.game === 'meaning' && JSON.stringify(QuizEngine.state.qs) === JSON.stringify(snap.qs));
+    Admin.currentTab = 'users'; Games.stats();
+    ok('آمار حساب زبانهٔ مدیر را عوض نمی‌کند', Admin.currentTab === 'users');
+    let places = 0; Install.place = () => places++;
+    Recite.cur = {s:1,a:1}; Recite.state = 'playing'; QuranUI.syncMini();
+    Recite.cur = null; Recite.state = 'idle'; QuranUI.syncMini();
+    ok('بنر نصب با باز و بسته شدن پخش دوباره جاگذاری می‌شود', places >= 2);
+    Recite.el = new Audio(); Recite.stop();
+    Store.get('quran').night = {on:true, until:U.now()+60000};
+    let plays = 0; Recite.playSurah = () => plays++;
+    NightRepeat.tick(); NightRepeat.tick();
+    ok('stop دستی حتی پس از چند tick دوباره پخش نمی‌شود', plays === 0 && Recite.stoppedManually);
+    Recite.stoppedManually = false; NightRepeat.tick();
+    ok('اتمام طبیعی هنوز اجازهٔ تکرار شبانه می‌دهد', plays === 1);
+    Progress.award({game:'meaning',pts:0,ok:true,silent:true});
+    ok('award شمارندهٔ بازی را افزایش می‌دهد', Store.get('gamesPlayed').meaning === 1);
+    ok('سامانهٔ Week و فراخوانی‌های آن حذف شده', !/\bWeek\./.test(SRC) && !/const Week =/.test(SRC));
+    ok('نگاشت همهٔ آیکن‌های تازه معتبر است', Object.values(Glyph.MAP).every(k => !!Icon.REG[k]));
+    ok('هر پنج آیکن ناوبری واریانت توپر دارد', ['home','listen','globe','gamepad','user'].every(k=>Icon.REG[k+'-active'].f === 1));
+    const source = require('child_process').execFileSync('git',['show','456811b:index.html'],{encoding:'utf8',maxBuffer:5e6});
+    const bank = text => text.slice(text.indexOf('const DATA ='), text.indexOf('/* ─────────────────── 8. NET'));
+    ok('بانک DATA دقیقاً دست‌نخورده است', bank(source) === bank(SRC));
+    const block = text => text.match(/const AyahLight = \{\s*BANK: (\[[\s\S]*?\n  \]),/)[1];
+    ok('بانک نور آیه‌ها دقیقاً دست‌نخورده است', block(source) === block(SRC));
+  } finally {
+    Store.data = saved; Store.save(); QuizEngine.state=state; QuizEngine.opts=opts;
+    Install.place=place; Admin.currentTab=tab; Me.tab=meTab;
+    Recite.cur=rec.cur; Recite.state=rec.state; Recite.el=rec.el; Recite.stoppedManually=rec.stopped; Recite.playSurah=rec.playSurah; Recite.listeners=rec.listeners;
+    Timers.clearPage();
+  }
+}
+{
+  const RealDate = Date, tz = process.env.TZ;
+  try{
+    const at = (zone, instant) => {
+      process.env.TZ = zone;
+      global.Date = class extends RealDate { constructor(...args){ super(...(args.length ? args : [instant])); } static now(){return new RealDate(instant).getTime();} };
+    };
+    at('Asia/Tehran','2026-09-25T21:30:00Z');
+    ok('تهران: امروز پس از نیمه‌شب محلی شنبه است', U.today() === '2026-09-26');
+    ok('تهران: دیروز و آغاز هفته هم محلی‌اند', DailyChallenge.yesterday() === '2026-09-25' && Weekly.start() === '2026-09-26' && Weekly.left() === 6);
+    at('America/Los_Angeles','2026-09-26T02:00:00Z');
+    ok('لس‌آنجلس: جمعه هنوز تمام نشده', U.today() === '2026-09-25' && Weekly.start() === '2026-09-19' && Weekly.left() === 0);
+    at('America/New_York','2026-03-09T04:30:00Z');
+    ok('عبور از DST به دیروز محلی برمی‌گردد', DailyChallenge.yesterday() === '2026-03-08');
+    at('Pacific/Kiritimati','2026-12-31T12:00:00Z');
+    ok('مرز سال در UTC+14', U.today() === '2027-01-01' && DailyChallenge.yesterday() === '2026-12-31');
+  }finally{ global.Date=RealDate; if(tz===undefined) delete process.env.TZ; else process.env.TZ=tz; }
+}
+__smsChecks.push(async () => {
+  const data=JSON.parse(JSON.stringify(Store.data)), remote=Admin.remote, now=U.now;
+  try{
+    Store.data=Store.defaults(); Admin.remote=()=>false;
+    Store.set('adminHash',await U.sha256Async('private-test-pass'));
+    let clock=Date.now(); U.now=()=>clock;
+    let r=await Admin.tryPass('wrong');
+    ok('اولین رمز غلط یک ثانیه تأخیر دارد',!r.ok && r.retryAfter===1000);
+    r=await Admin.tryPass('private-test-pass');
+    ok('رمز درست هم نمی‌تواند تأخیر را دور بزند',r.locked===true);
+    clock+=1001; r=await Admin.tryPass('wrong');
+    ok('تأخیر دوم دو برابر می‌شود',r.retryAfter===2000);
+    clock+=2001; r=await Admin.tryPass('private-test-pass');
+    ok('ورود درست شمارنده را پاک می‌کند',r.ok && Store.get('adminAttempts')===null);
+    const salt='test'; OTP.put({phone:'09123456789', salt,hash:OTP.hash('12345',salt),exp:clock+OTP.TTL_MS,tries:0,lock:0});
+    await OTP.verify('09123456789','00000'); await OTP.verify('09123456789','00000');
+    r=await OTP.verify('09123456789','00000');
+    ok('سه تلاش همان یک قفل OTP را می‌بندد',r.locked && r.lock===OTP.LOCK_MS);
+    const until=OTP.st().lock;
+    Gate.bumpFail();
+    ok('Gate شمارنده و مهلت مستقل نمی‌سازد',OTP.st().lock===until && Gate.lockGet().until===until && !Store.get('gateLock'));
+    r=await OTP.verify('09123456789','12345');
+    ok('کد درست هم تا پایان قفل رد می‌شود',r.locked===true);
+  }finally{Store.data=data;Store.save();Admin.remote=remote;U.now=now;Gate.stop();Gate.lockShown=false;}
+});
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */

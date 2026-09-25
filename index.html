@@ -30,8 +30,10 @@
 <link rel="preload" as="font" type="font/woff2" crossorigin
       href="assets/fonts/vazirmatn-bold.woff2">
 <!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.css">
+<!-- اسلایدر اکنون بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
 <style>
+@font-face{font-family:Lalezar;font-style:normal;font-weight:400;font-display:swap;
+  src:url("assets/fonts/lalezar-arabic-400.woff2") format("woff2")}
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
    مستقل از specificity. پس «تم روشن» و «حرکت» می‌توانند پایه را
@@ -91,9 +93,9 @@
   --fill:linear-gradient(135deg,#f5c451,#e0a325);
   /* ── فونت‌ها: همه با متغیر، تا از تنظیمات زنده عوض شوند ── */
   --f-ui: Vazirmatn, system-ui, "Segoe UI", Tahoma, sans-serif;
-  --f-disp: Vazirmatn, system-ui, sans-serif;   /* تیتر و نام نورستان */
-  --f-disp-w: 800;  --f-disp-lh: 1.3;  --f-disp-ls: 0px;
-  --f-quran: Amiri, "Scheherazade New", "Times New Roman", serif;  /* متن قرآن */
+  --f-disp: Lalezar, Vazirmatn, system-ui, sans-serif;   /* تیتر و نام نورستان */
+  --f-disp-w: 400;  --f-disp-lh: 1.3;  --f-disp-ls: 0px;
+  --f-quran: Amiri, "Scheherazade New", Vazirmatn, serif;  /* متن قرآن */
   --f-quran-w: 400; --f-quran-lh: 2.05;
   --read-size: 25px;
 
@@ -144,12 +146,12 @@
   --glass:rgba(14,42,28,.72); --orb1:#1e4a2a; --orb2:#14403c;
 }
 [data-theme="royal"]{
-  --bg:#0d0716; --bg2:#180d29; --card:#211138; --card2:#2b1849;
-  --line:#3d2464; --txt:#f2e9ff; --mut:#b49ad6;
-  --gold:#d9a6ff; --gold2:#a259ff; --grn:#3fd9b0; --red:#ff5f8f;
-  --glow1:#2a1550; --glow2:#3a1440; --ink:#1b0530;
-  --grad:linear-gradient(135deg,#d9a6ff,#a259ff);
-  --glass:rgba(33,17,56,.72); --orb1:#3a2a5e; --orb2:#26305e;
+  --bg:#080f20; --bg2:#111e35; --card:#172840; --card2:#20344f;
+  --line:#344967; --txt:#eff4fc; --mut:#b1bfd4;
+  --gold:#efd18a; --gold2:#d9af53; --grn:#65dbb8; --red:#ff8990; --prp:#bba4ef;
+  --glow1:#1a3255; --glow2:#243649; --ink:#171e2d;
+  --grad:linear-gradient(135deg,#f2d596,#d9af53);
+  --glass:rgba(23,40,64,.8); --orb1:#244368; --orb2:#4b422c;
 }
 /* تم ششم — کویر. در فروشگاه با سکه باز می‌شود و پیش از خرید قفل است. */
 [data-theme="desert"]{
@@ -2042,19 +2044,70 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   .tile, .stat{ will-change:auto }
 }
 /* ═══════════════ بنر چرخشی خانه (Swiper) ═══════════════ */
-.home-slider{position:relative;margin:0 0 18px;overflow:hidden;border-radius:24px;isolation:isolate}
-.home-slider .swiper-wrapper{display:flex}.home-slider .swiper-slide{flex:0 0 100%;min-width:0;height:auto}
-.promo-slide{min-height:214px;padding:24px 24px 48px;display:flex;align-items:center;gap:20px;border:1px solid var(--line);border-radius:24px;overflow:hidden;position:relative;cursor:pointer;background:linear-gradient(125deg,#182849,#101829);box-shadow:var(--sh)}
-.promo-slide::before{content:"";position:absolute;inset:-40%;opacity:.22;background:radial-gradient(circle at 30% 30%,var(--gold),transparent 28%),repeating-conic-gradient(from 22.5deg,transparent 0 12deg,rgba(255,255,255,.13) 13deg 14deg)}
-.promo-slide.green{background:linear-gradient(125deg,#0e3a32,#101d28)}.promo-slide.purple{background:linear-gradient(125deg,#362052,#15162a)}
-.promo-copy{position:relative;z-index:2;flex:1}.promo-kicker{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;background:rgba(0,0,0,.22);color:#fff4c4;font-size:11px;margin-bottom:10px}
-.promo-copy h2{font-size:clamp(21px,5vw,29px);line-height:1.45;margin-bottom:5px;color:#fff}.promo-copy p{font-size:13px;line-height:1.9;color:rgba(255,255,255,.76);max-width:520px}.promo-go{display:inline-flex;margin-top:13px;padding:9px 15px;border-radius:12px;background:var(--grad);color:var(--ink);font-weight:800;font-size:12px}
-.promo-art{position:relative;z-index:2;width:118px;height:118px;flex:none;display:grid;place-items:center;border-radius:36px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);font-size:59px;box-shadow:inset 0 0 30px rgba(255,255,255,.06),0 18px 40px rgba(0,0,0,.25)}
-.home-slider .swiper-pagination{bottom:15px!important;direction:ltr}.home-slider .swiper-pagination-bullet{width:7px;height:7px;background:#fff;opacity:.38;transition:.25s}.home-slider .swiper-pagination-bullet-active{width:23px;border-radius:10px;opacity:1;background:var(--gold)}
-.home-slider .swiper-button-next,.home-slider .swiper-button-prev{width:36px;height:36px;border-radius:12px;background:rgba(0,0,0,.28);color:#fff;backdrop-filter:blur(6px)}.home-slider .swiper-button-next::after,.home-slider .swiper-button-prev::after{font-size:13px;font-weight:900}
-.home-slider.fallback .swiper-wrapper{direction:ltr;transform:translateX(calc(var(--slide,0) * -100%));transition:transform .55s var(--ease)}.home-slider.fallback .swiper-slide{direction:rtl}
-.slider-fallback-dots{position:absolute;z-index:5;bottom:15px;left:50%;transform:translateX(-50%);display:flex;gap:6px;direction:ltr}.slider-fallback-dots button{width:7px;height:7px;border:0;border-radius:10px;background:#fff;opacity:.38;padding:0;cursor:pointer}.slider-fallback-dots button.on{width:23px;opacity:1;background:var(--gold)}
-@media(max-width:540px){.promo-slide{min-height:232px;padding:20px 18px 47px}.promo-art{width:82px;height:82px;font-size:42px;border-radius:25px}.promo-copy p{font-size:12px}.home-slider .swiper-button-next,.home-slider .swiper-button-prev{display:none}}@media(max-width:370px){.promo-art{display:none}}
+.home-slider{position:relative;margin:0 0 24px;border-radius:26px;isolation:isolate;border:1px solid var(--line);background:#102139;color:#f4f6fb;box-shadow:var(--sh);touch-action:pan-y pinch-zoom;overflow:hidden}
+.promo-panels{display:grid}
+.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .55s var(--ease),visibility .55s;min-height:300px;padding:30px 32px 64px;gap:20px}
+.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto}
+.promo-copy{position:relative;z-index:1;flex:1;min-width:0}
+.promo-kicker{display:inline-flex;align-items:center;gap:7px;color:#eed79d;font-size:12px;letter-spacing:.1px;margin-bottom:12px}
+.promo-copy h2{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:clamp(26px,4vw,38px);line-height:1.5;color:#fff;margin-bottom:6px}
+.promo-copy p{max-width:480px;font-size:13px;line-height:2;color:#c6d2e4}
+.promo-go.btn{margin-top:18px;background:linear-gradient(135deg,#f2d596,#d9af53);color:#171e2d;gap:14px}
+.promo-go .ic{width:17px;height:17px;transform:rotate(180deg)}
+.promo-scene{width:42%;max-width:380px;flex:none;align-self:stretch;object-fit:cover;object-position:center;border-radius:120px 120px 14px 14px;border:1px solid #edcd8233;opacity:.95}
+.slider-controls{position:absolute;bottom:12px;inset-inline:24px;display:flex;align-items:center;justify-content:center;gap:12px}
+.slider-dots{display:flex;align-items:center;direction:rtl}
+.slider-dots button{display:grid;place-items:center;width:36px;height:32px;border:0;background:none;cursor:pointer}
+.slider-dots button::after{content:'';width:7px;height:7px;border-radius:10px;background:#8f9fb5;transition:width .3s var(--ease),background .3s}
+.slider-dots button.on::after{width:24px;background:#efd18a}
+.slider-pause{width:32px;height:32px;display:grid;place-items:center;border:1px solid #8f9fb566;background:#ffffff09;border-radius:50%;color:#efd18a;cursor:pointer}
+.slider-pause .ic{width:15px;height:15px}
+.slider-pause:disabled{opacity:.45;cursor:default}
+@media(max-width:540px){.promo-panel{padding:24px 20px 58px;min-height:335px;gap:12px}.promo-copy{flex:1.7}.promo-scene{width:30%;max-height:200px;align-self:center;border-radius:75px 75px 10px 10px}.promo-copy h2{font-size:27px}.promo-copy p{font-size:12px}}
+@media(max-width:360px){.promo-panel{padding-inline:16px}.promo-scene{position:absolute;inset:0;width:100%;height:100%;max-height:none;max-width:none;opacity:.16;border:0;border-radius:0}.promo-copy p{max-width:260px}}
+
+/* پرداختِ صحن نور: سطح‌های آرام، لبهٔ طلایی و قوس معماری */
+.hero{border-radius:28px 28px 18px 18px;border-color:var(--line);background:radial-gradient(ellipse at 10% 0%,var(--glow1),transparent 65%),var(--glass)}
+.hero::after{content:'';position:absolute;inset:16px auto 0 5%;width:160px;border:1px solid var(--gold);border-bottom:0;border-radius:120px 120px 0 0;opacity:.08;pointer-events:none}
+.hero h1,.brand>div,.cat-head h2{font-family:var(--f-disp);font-weight:var(--f-disp-w)}
+.card,.tile{border-color:var(--line)}
+.tile{border-radius:22px 22px 14px 14px}
+.btn,.btn.sm,.room-row .btn,.peer-row .btn{min-width:0;max-width:100%;height:auto;min-height:44px;padding:10px 16px;line-height:1.8;white-space:normal;overflow-wrap:break-word;flex-shrink:1;text-align:center;gap:7px}
+.btn.sm{padding:7px 12px;min-height:40px}
+.shop-item .sp{flex:0 0 86px;min-width:86px}.shop-item .btn.sm{width:100%;white-space:nowrap;overflow-wrap:normal}
+@media(max-width:350px){.shop-item{flex-wrap:wrap}.shop-item .sp{margin-inline-start:auto}}
+.btn>span{min-width:0;overflow-wrap:anywhere}
+.row:has(>.btn){flex-wrap:wrap}
+.btn:focus-visible,.slider-dots button:focus-visible,.slider-pause:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.bar-shine{position:relative;overflow:hidden}.bar-shine::after{pointer-events:none;animation-fill-mode:forwards}
+.btn.gh{filter:none;width:auto}.btn.w{width:100%}
+h1>.ic,h2>.ic,h3>.ic,h1>i>.ic{display:inline-block;vertical-align:middle}
+.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:width .4s var(--ease)}
+.streak-warn .swe.at-risk{animation:streakGlow 2.8s ease-in-out infinite}
+@keyframes streakGlow{50%{opacity:.65;filter:drop-shadow(0 0 5px var(--gold));transform:scale(1.08)}}
+.skeleton,.shimmer{position:relative;background-image:linear-gradient(100deg,transparent 20%,var(--sheen) 50%,transparent 80%);background-size:220% 100%;animation:loadingSheen 1.8s ease-in-out infinite}
+.skeleton{min-height:60px;border-radius:14px;background-color:var(--card2)}
+@keyframes loadingSheen{from{background-position:180% 0}to{background-position:-80% 0}}
+.glyph-token,.completion-check{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center}.glyph-token>.ic,.completion-check>.ic{width:1.2em;height:1.2em;min-width:16px;min-height:16px}
+.empty-state{display:grid;justify-items:center;gap:10px;text-align:center;padding:28px 18px;border:1px dashed var(--line);border-radius:20px;background:var(--glass);color:var(--mut);margin:12px 0;font-size:12px;line-height:1.9}
+.empty-state>.ic{width:32px;height:32px;color:var(--gold)}
+.empty-state strong{color:var(--txt);font-size:14px}
+.ayah-embed-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.ayah-embed-tools>.tiny{flex-basis:100%;line-height:1.9}
+.ayah-stars{display:flex;justify-content:center;gap:6px}.ayah-stars .ic{width:32px;height:32px}.ayah-stars>.ic{fill:currentColor}.ayah-stars .unearned{opacity:.3}
+.ayah-frame-shell{width:100%;min-width:0;height:850px;height:max(720px,calc(100dvh - 100px));border:1px solid var(--line);border-radius:18px;background:#081323;overflow:auto}
+.ayah-frame-shell iframe{display:block;width:100%;height:100%;min-height:720px;border:0}
+.ayah-frame-shell:fullscreen{height:100dvh;border:0;border-radius:0;overflow:auto}
+.ayah-frame-shell:fullscreen iframe{min-height:100%;height:100%}
+@media(orientation:landscape) and (max-height:550px){.ayah-frame-shell{height:760px}}
+html[data-theme="light"] .top{background:var(--float1);color:var(--txt)}
+html[data-theme="light"] #bgArt{opacity:.035}
+html[data-theme="light"] #modal .box{background:#fffdf8;border-color:var(--line)}
+html[data-theme="light"] .hero{background:radial-gradient(ellipse at 10% 0%,#ece2c9,transparent 70%),#fffdf8}
+html[data-theme="light"] .ayah-stage{--txt:#edf3fd;--mut:#bbcada;--gold:#f5d27d;--grn:#66dfba;color:var(--txt)}
+html[data-theme="light"] .promo-kicker{color:#eed79d}
+html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .promo-go:focus-visible{outline-color:#fff}
+@media(prefers-reduced-motion:reduce){.promo-panel,.slider-dots button::after{transition:none}.streak-warn .swe,.shimmer,.skeleton{animation:none!important}.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:none}}
 
 /* ═══════════════ بازی «نور آیه‌ها» ═══════════════ */
 .ayah-stage{position:relative;overflow:hidden;border:1px solid rgba(245,196,81,.28);border-radius:26px;min-height:470px;padding:22px;background:linear-gradient(#071323 0 42%,#102433 43% 64%,#14231e 65%);box-shadow:0 24px 55px rgba(0,0,0,.34);isolation:isolate}
@@ -2152,21 +2205,30 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
     </div>
 
     <!-- بنر چرخشی Swiper: پیشنهادهای مهم و دسترسی مستقیم -->
-    <div class="swiper home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان">
-      <div class="swiper-wrapper">
-        <div class="swiper-slide"><article class="promo-slide" data-slide-action="ayahlight" tabindex="0" role="button" aria-label="اجرای بازی نور آیه‌ها">
-          <div class="promo-copy"><span class="promo-kicker">✨ بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p><span class="promo-go">شروع بازی ←</span></div><div class="promo-art" aria-hidden="true">🕌</div>
-        </article></div>
-        <div class="swiper-slide"><article class="promo-slide green" data-slide-action="quran" tabindex="0" role="button" aria-label="رفتن به تلاوت قرآن">
-          <div class="promo-copy"><span class="promo-kicker">🎧 آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی، تکرار و ادامهٔ خودکار گوش کن.</p><span class="promo-go">رفتن به تلاوت ←</span></div><div class="promo-art" aria-hidden="true">📖</div>
-        </article></div>
-        <div class="swiper-slide"><article class="promo-slide purple" data-slide-action="daily" tabindex="0" role="button" aria-label="اجرای چالش روزانه">
-          <div class="promo-copy"><span class="promo-kicker">🌙 هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و رکورد روزهای پیوسته‌ات را بیشتر کن.</p><span class="promo-go">چالش امروز ←</span></div><div class="promo-art" aria-hidden="true">🏆</div>
-        </article></div>
+    <section class="home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان" aria-roledescription="اسلایدر">
+      <div class="promo-panels">
+        <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="1 از ۳" >
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p>
+            <button class="btn promo-go" data-slide-action="ayahlight">شروع بازی <i data-ic="back"></i></button></div>
+          <img class="promo-scene" src="assets/images/promo/courtyard.svg" alt="" width="640" height="420" draggable="false">
+        </article>
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="2 از ۳" inert aria-hidden="true">
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="headphones"></i> آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی و تکرار آیات، لحظه‌ای آرام بگیر.</p>
+            <button class="btn promo-go" data-slide-action="quran">رفتن به تلاوت <i data-ic="back"></i></button></div>
+          <img class="promo-scene" src="assets/images/promo/recitation.svg" alt="" width="640" height="420" draggable="false">
+        </article>
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="3 از ۳" inert aria-hidden="true">
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="moon"></i> هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و به روشنایی روزهای پیوسته‌ات اضافه کن.</p>
+            <button class="btn promo-go" data-slide-action="daily">چالش امروز <i data-ic="back"></i></button></div>
+          <img class="promo-scene" src="assets/images/promo/night.svg" alt="" width="640" height="420" draggable="false">
+        </article>
       </div>
-      <div class="swiper-pagination" aria-hidden="true"></div>
-      <div class="swiper-button-prev" aria-label="بنر قبلی"></div><div class="swiper-button-next" aria-label="بنر بعدی"></div>
-    </div>
+      <div class="slider-controls"><div class="slider-dots" aria-label="انتخاب بنر">
+        <button data-dot="0" aria-label="نورِ آیه‌ها" aria-current="true"></button>
+        <button data-dot="1" aria-label="تلاوت آیه‌به‌آیه"></button>
+        <button data-dot="2" aria-label="چالش روزانه"></button>
+      </div><button id="slidePause" class="slider-pause" aria-label="توقف حرکت خودکار"><i data-ic="pause"></i></button></div>
+    </section>
 
     <!-- نوار «ادامهٔ خواندن» و مأموریت‌های امروز -->
     <div id="homeResume"></div>
@@ -2496,7 +2558,7 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
   <div class="gt-in" id="gateBox"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/swiper@11.2.10/swiper-bundle.min.js" defer></script>
+
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════════
@@ -2719,7 +2781,10 @@ const U = {
     });
   },
   now: () => Date.now(),
-  today: () => new Date().toISOString().slice(0, 10),
+  localDay(date = new Date()){
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  },
+  today: () => U.localDay(),
   clamp: (v, a, b) => Math.min(b, Math.max(a, v)),
   seedRand(seed){ let s = 0; for(const c of String(seed)) s = (s*31 + c.charCodeAt(0))>>>0; return () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; },
   sleep: ms => new Promise(r => setTimeout(r, ms)),
@@ -2760,7 +2825,7 @@ const U = {
       const y = get('year'), m = get('month'), dd = get('day');
       if(y && m && dd) return `${y}/${m}/${dd}`;
     }catch(e){}
-    return U.fa(d.toISOString().slice(0, 10));
+    return U.fa(U.localDay(d));
   },
   // نرمال‌سازی متن فارسی برای مقایسه (ی/ك عربی، نیم‌فاصله، اعراب)
   norm(s){
@@ -2839,6 +2904,27 @@ const U = {
    f:۱ یعنی آیکنِ توپر (پخش، توقف) — وگرنه خطی است. */
 const Icon = {
   REG: {
+    bird: { d:'<path d="M3 16c5 1 7-2 8-6l2-5 4 1 2 4 3 1-4 2c-1 7-9 9-15 3Z"/><path d="M8 15l5-2M15 8h.01"/>' },
+    flower: { d:'<circle cx="12" cy="12" r="3"/><path d="M10 9C3 3 15 1 14 9c7-6 11 6 1 5 6 7-6 11-5 1-7 6-11-6-1-5"/>' },
+    leaf: { d:'<path d="M20 4C7 2 2 7 5 15s16 5 15-11ZM5 20 16 9"/>' },
+    fish: { d:'<path d="M3 12 1 6l6 3c4-6 11-5 16 3-5 8-12 9-16 3l-6 3Z"/><path d="M17 10h.01M13 6v12"/>' },
+    shell: { d:'<path d="M8 20 3 9C3 1 21 1 21 9l-5 11ZM8 7l3 11m1-13v13m4-11-3 11"/>' },
+    orbit: { d:'<circle cx="12" cy="12" r="6"/><ellipse cx="12" cy="12" rx="12" ry="3" transform="rotate(-35 12 12)"/>' },
+    lantern: { d:'<path d="M12 2v4M8 7h8l3 5-3 8H8l-3-8Zm0 3h8v7H8Zm2 12h4"/>' },
+    paw: { d:'<path d="M6 16c0-2 3-3 4-5h4c1 2 4 3 4 5 0 5-4 3-6 3s-6 2-6-3Z"/><ellipse cx="4" cy="9" rx="2" ry="3"/><ellipse cx="9" cy="5" rx="2" ry="3"/><ellipse cx="15" cy="5" rx="2" ry="3"/><ellipse cx="20" cy="9" rx="2" ry="3"/>' },
+    meal: { d:'<circle cx="12" cy="12" r="6"/><path d="M2 3v7m3-7v7M2 7h3M3.5 10v11M22 3c-4 2-4 8 0 8v10"/>' },
+    city: { d:'<path d="M3 21V8h7v13m0-17h7v17m0-10h4v10M6 11h1m-1 4h1m6-8h1m-1 4h1m-1 4h1M2 21h20"/>' },
+    'home-active': { f:1, d:'<path d="M2 11 12 2l10 9-2 2-1-1v10h-5v-7h-4v7H5V12l-1 1Z"/>' },
+    'listen-active': { f:1, d:'<path d="M3 12a9 9 0 0 1 18 0v6a3 3 0 0 1-3 3h-3V11h3a6 6 0 0 0-12 0h3v10H6a3 3 0 0 1-3-3Z"/>' },
+    'globe-active': { f:1, d:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM5 10h14v2H5Zm0 5h14v2H5Zm6-11h2v16h-2Z"/>' },
+    'gamepad-active': { f:1, d:'<path fill-rule="evenodd" d="M8 6h8a7 7 0 0 1 6 10l-1 3a3 3 0 0 1-5 1l-2-2h-4l-2 2a3 3 0 0 1-5-1l-1-3A7 7 0 0 1 8 6Zm-1 4v2H5v2h2v2h2v-2h2v-2H9v-2Zm9 1h2v2h-2Zm2 3h2v2h-2Z"/>' },
+    'user-active': { f:1, d:'<circle cx="12" cy="7" r="5"/><path d="M3 22v-2a9 7 0 0 1 18 0v2Z"/>' },
+    stop: { f:1, d:'<rect x="5" y="5" width="14" height="14" rx="2"/>' },
+    search: { d:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>' },
+    hourglass: { d:'<path d="M6 3h12M6 21h12M7 3v4l10 10v4M17 3v4L7 17v4"/>' },
+    expand: { d:'<path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/>' },
+    lab: { d:'<path d="M9 3h6M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3M7 15h10"/>' },
+    repeat: { d:'<path d="M4 9a8 8 0 0 1 14-3l2 2m0-5v5h-5M20 15a8 8 0 0 1-14 3l-2-2m0 5v-5h5"/>' },
     home:   { d:'<path d="M3.6 10.9 12 3.5l8.4 7.4"/><path d="M5.9 9.7V20a1 1 0 0 0 1 1h10.2a1 1 0 0 0 1-1V9.7"/><path d="M10 21v-5.5h4V21"/>' },
     listen: { d:'<path d="M4.2 15.1v-3.3a7.8 7.8 0 0 1 15.6 0v3.3"/><path d="M7.4 13.3H6.1a1.6 1.6 0 0 0-1.6 1.6v3a1.6 1.6 0 0 0 1.6 1.6h1.3z"/><path d="M16.6 13.3h1.3a1.6 1.6 0 0 1 1.6 1.6v3a1.6 1.6 0 0 1-1.6 1.6h-1.3z"/>' },
     globe:  { d:'<path d="M12 3.3a8.7 8.7 0 1 0 0 17.4 8.7 8.7 0 0 0 0-17.4z"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/><path d="M12 3.3c2.4 2.6 2.4 14.8 0 17.4M12 3.3c-2.4 2.6-2.4 14.8 0 17.4"/>' },
@@ -2980,7 +3066,9 @@ const Icon = {
   hydrate(root){
     try{
       (root || document).querySelectorAll('[data-ic]').forEach(el => {
-        const svg = this.of(el.getAttribute('data-ic'));
+        const name = el.getAttribute('data-ic');
+        const active = el.closest?.('.navi.on');
+        const svg = this.of(active && this.REG[name + '-active'] ? name + '-active' : name);
         if(svg) el.innerHTML = svg;
       });
     }catch(err){}
@@ -2997,6 +3085,20 @@ const Icon = {
    دستهٔ تازه در آینده چیزی را نمی‌شکند. */
 const Glyph = {
   MAP: {
+    '⏮':'prev', '⏭':'next', '⭕':'dot', '👨‍👩‍👧':'users', '🏙️':'city', '🌍':'globe',
+    '🍽️':'meal', '🐾':'paw', '✖':'close', '🐦':'bird', '🍃':'leaf', '🧿':'eye',
+    '🪔':'lantern', '🌻':'flower', '❄️':'snow', '🐬':'fish', '🦅':'bird', '🏵️':'flower',
+    '🎴':'image', '🪐':'orbit', '🦚':'bird', '🐚':'shell', '🌷':'flower', '🍀':'leaf',
+    '🎐':'lantern', '🪷':'flower', '🦉':'bird', '🛡️':'shield',
+    '🆔':'id-card', '🗓':'calendar', '🕊':'sprout', '💻':'tools', '📶':'signal', '⛔':'ban',
+    '✨':'sparkle', '💫':'sparkle', '✦':'sparkle', '☀️':'sun', '🌊':'globe', '🌲':'tree',
+    '🥈':'medal', '🥉':'medal', '🔎':'search', '🔍':'search', '🧪':'lab',
+    '⏳':'hourglass', '⌛':'hourglass', '⏱':'clock', '⏰':'clock', '⏲':'clock',
+    '🔊':'volume', '🔉':'volume', '🔁':'repeat', '📋':'copy', '📨':'send', '✉️':'send',
+    '▶️':'play', '▶':'play', '⏹':'stop', '❚❚':'pause', '⏸':'pause', '☑':'check',
+    '📕':'book', '📗':'book', '📘':'book', '📙':'book', '🧘':'moon', '🙏':'smile',
+    '😔':'smile', '😮':'smile', '😂':'smile', '😊':'smile', '💪':'bolt', '💤':'moon',
+    '🚩':'flag', '💬':'chat', '📩':'send', '🧭':'target', '🕋':'mosque',
     '📖':'book-open', '📚':'book', '📜':'scroll', '📝':'pen', '📿':'sparkle',
     '🕌':'mosque',    '🤲':'smile', '🕯️':'sun',  '🌙':'moon',  '🌠':'sparkle',
     '🧠':'target',    '🧩':'plus',  '🧊':'gem',   '🦋':'sparkle', '💎':'gem',
@@ -3075,6 +3177,31 @@ const Glyph = {
     else s.textContent = h;
     return s;
   },
+  decorate(root){
+    if(!root || !document.createTreeWalker) return;
+    const keys = Object.keys(this.MAP).sort((a,b) => b.length - a.length);
+    const pattern = new RegExp(keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gu');
+    const walker = document.createTreeWalker(root, 4);
+    const nodes = []; let n;
+    while((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(node => {
+      const parent = node.parentElement;
+      if(!parent || parent.closest('svg,script,style,textarea,input,option,[contenteditable],.glyph-token,.read-ar,.q-ar,.ayah-text,.av,.ava,.msg,.profile-avatar,#pgBody')) return;
+      const text = node.textContent;
+      pattern.lastIndex = 0;
+      if(!pattern.test(text)) return;
+      pattern.lastIndex = 0;
+      const fragment = document.createDocumentFragment(); let last = 0;
+      for(const m of text.matchAll(pattern)){
+        fragment.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const span = document.createElement('span'); span.className = 'glyph-token';
+        span.innerHTML = this.of(m[0]);
+        fragment.appendChild(span); last = m.index + m[0].length;
+      }
+      fragment.appendChild(document.createTextNode(text.slice(last)));
+      node.replaceWith(fragment);
+    });
+  },
   of(e){
     const n = this.MAP[e];
     return n ? (Icon.of(n) || e) : e;
@@ -3150,7 +3277,6 @@ const Store = {
       missions: { date: '', list: [], weekStart: '', week: [] },
       bookmarks: [],                       // { s, a, name, at, note }
       tree: {},                            // topicId -> شمار پاسخ درست
-      week: { start: '', score: 0, prize: false },
       friends: [],                         // { id, name, at, lastSeen }
       gamesPlayed: {},                     // gameId -> شمار بازی (برای «رکوردت را بزن»)
       savedGame: null,                     // بازی نیمه‌کاره — { kind, label, at, data }
@@ -3159,7 +3285,7 @@ const Store = {
       wallet: { earned: 0, spent: 0, items: {} },   // items: shopId -> شمار خرید
       profile: { emoji: '🌟', color: 0, joined: 0, motto: '' },
       // فونت‌ها: نمایشی (نستعلیق) و متن قرآن (نسخ)
-      fonts: { display: 'gulzar', quran: 'amiri' },
+      fonts: { display: 'lalezar', quran: 'amiri' },
       /* رمز مدیر: عمداً هیچ رمز پیش‌فرضی نیست.
          پیش‌تر هشِ «noor2024» همین‌جا ثابت بود — یعنی رمزِ مدیر داخل خودِ بسته
          منتشر می‌شد و هر کسی که برنامه را باز می‌کرد، مدیر بود. حالا رشتهٔ خالی
@@ -3220,7 +3346,7 @@ const Store = {
       this.data.fonts = { ...this.defaults().fonts, ...(this.data.fonts || {}) };
       this.data.dailyChallenge = { ...this.defaults().dailyChallenge, ...(this.data.dailyChallenge || {}) };
       this.data.missions = { ...this.defaults().missions, ...(this.data.missions || {}) };
-      this.data.week = { ...this.defaults().week, ...(this.data.week || {}) };
+      delete this.data.week;
       /* رمزهای پیش‌فرضِ قدیمی (از جمله «noor2024» و هش شکستهٔ نسخهٔ ۱۲) پاک
          می‌شوند. قبلاً هش شکسته با هش «درست»ِ noor2024 جانشین می‌شد؛ یعنی
          ارتقا خودش رمزِ عمومیِ شناخته‌شده را سرِ جایش می‌گذاشت. */
@@ -3273,7 +3399,6 @@ const Store = {
     if(!d.tree || typeof d.tree !== 'object') d.tree = {};
     if(!d.missions || typeof d.missions !== 'object') d.missions = { date:'', list:[] };
     if(!Array.isArray(d.missions.list)) d.missions.list = [];
-    if(!d.week || typeof d.week !== 'object') d.week = { start:'', score:0, prize:false };
     if(!Array.isArray(d.friends)) d.friends = [];
     d.friends = d.friends.filter(f => f && f.id).slice(0, 100);
     if(!d.gamesPlayed || typeof d.gamesPlayed !== 'object') d.gamesPlayed = {};
@@ -3586,7 +3711,7 @@ const FX = {
   },
   /* ورود پله‌ای فرزندان یک ظرف */
   stagger(host, sel = ':scope > *', step = 55){
-    if(!host) return;
+    if(!host || this.reduced) return;
     const kids = host.querySelectorAll ? host.querySelectorAll(sel) : [];
     kids.forEach((k, i) => {
       if(!k.style) return;
@@ -3600,8 +3725,10 @@ const FX = {
   },
   /* تیلت سه‌بعدی با نشانگر/لمس */
   tilt(el, max = 8){
-    if(!el || this.reduced || !el.addEventListener) return;
+    if(!el || this.reduced || !el.addEventListener || el._tiltBound) return;
+    el._tiltBound = true;
     const move = e => {
+      if(this.reduced || e.pointerType === 'touch'){ el.style.transform = ''; return; }
       const b = el.getBoundingClientRect ? el.getBoundingClientRect() : { left:0, top:0, width:1, height:1 };
       const x = ((e.clientX || 0) - b.left) / (b.width || 1) - .5;
       const y = ((e.clientY || 0) - b.top) / (b.height || 1) - .5;
@@ -3617,7 +3744,7 @@ const FX = {
     for(let i = 0; i < n; i++){
       const s = document.createElement('i');
       s.className = 'starfly';
-      s.textContent = glyphs[i % glyphs.length];
+      s.innerHTML = Glyph.of(glyphs[i % glyphs.length]);
       s.style.left = x + 'px'; s.style.top = y + 'px';
       document.body.appendChild(s);
       const ang = (Math.PI * 2 * i) / n + Math.random() * .5;
@@ -3755,7 +3882,7 @@ const FX = {
   reaction(x, y, emoji){
     if(this.reduced) return;
     const s = document.createElement('i');
-    s.className = 'react-fly'; s.textContent = emoji;
+    s.className = 'react-fly'; s.innerHTML = Glyph.inline(emoji);
     s.style.left = (x || (window.innerWidth || 360) / 2) + 'px';
     s.style.top = (y || (window.innerHeight || 620) * .72) + 'px';
     document.body.appendChild(s);
@@ -3787,6 +3914,7 @@ const Router = {
     if(name !== 'play' || this.stack[this.stack.length - 1] === 'play') Timers.clearPage();
     /* رفتن به صفحهٔ دیگر، پنجرهٔ باز را می‌بندد؛ وگرنه پنجره روی صفحهٔ
        تازه می‌ماند و ورودیِ نشان‌دارش در تاریخچه بی‌صاحب می‌شود. */
+    AyahEmbed.cleanup();
     if(UI.isOpen()) UI.closeModal();
     UI.absorbModalEntry();
     if(!replace && this.stack[this.stack.length-1] !== name){
@@ -3807,6 +3935,7 @@ const Router = {
     this.go('home', true);
   },
   _render(name){
+    if(name !== 'play') AyahEmbed.cleanup();
     U.$$('.screen').forEach(s => s.classList.remove('active'));
     const el = U.$('#' + this.screens[name]);
     if(el) el.classList.add('active');
@@ -3816,7 +3945,9 @@ const Router = {
       b.dataset.nav === name ||
       (name === 'room'  && b.dataset.nav === 'online') ||
       (name === 'admin' && b.dataset.nav === 'me')));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    Icon.hydrate(U.$('#nav'));
+    HomeCarousel.schedule();
+    window.scrollTo({ top: 0, behavior: FX.reduced ? 'auto' : 'smooth' });
     /* گذار نرم صفحه + جهش آیکن نوار پایین */
     try{ FX.view(name); }catch(e){}
     try{
@@ -3871,6 +4002,44 @@ const Router = {
 
 /* ─────────────────── 5. UI ─────────────────── */
 const UI = {
+  empty(icon, title, detail){
+    return `<div class="empty-state">${Icon.of(icon)}<strong>${U.esc(title)}</strong><span>${U.esc(detail)}</span></div>`;
+  },
+  busy(selector, on, skeleton = false){
+    U.$$(selector).forEach(el => {
+      el.classList.toggle(skeleton ? 'skeleton' : 'shimmer', !!on);
+      el.setAttribute('aria-busy', String(!!on));
+    });
+  },
+  decorate(root){
+    Glyph.decorate(root);
+    const lists = '#shopList,.coll-grid,.miss-list,.lbwrap,#gboard,.list,#adminBody';
+    const fresh = '.shop-item,.coll,.miss,.lbrow,.item,.adm-user,.adm-bar';
+    U.$$(lists, root).forEach(list => {
+      const rows = U.$$(fresh, list).filter(el => !el.dataset.fxReady);
+      rows.forEach(el => { el.dataset.fxReady = '1'; el.classList.add('fx-fresh'); });
+      FX.stagger(list, '.fx-fresh', 40);
+      rows.forEach(el => { el.classList.remove('fx-fresh'); FX.tilt(el, 3); });
+    });
+    U.$$('.completion-check', root).forEach(el => {
+      if(el.dataset.popped) return; el.dataset.popped = '1'; FX.pop(el);
+    });
+  },
+  observeShell(){
+    if(typeof MutationObserver === 'undefined' || this._shellObserver) return;
+    const roots = U.$$('#s-home,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar');
+    const queued = new Set(); let pending = false;
+    this._shellObserver = new MutationObserver(records => {
+      records.forEach(r => { const root = roots.find(x => x.contains(r.target)); if(root) queued.add(root); });
+      if(pending) return; pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        const work = [...queued]; queued.clear();
+        work.forEach(root => this.decorate(root));
+      });
+    });
+    roots.forEach(root => { this.decorate(root); this._shellObserver.observe(root, { childList:true, subtree:true, characterData:true }); });
+  },
   /* ── توست ──
      • چهار ثانیه می‌ماند: پیام‌های این برنامه جمله‌های کامل‌اند، نه یک
        واژه؛ ۲٫۵ ثانیه برای خواندنشان کم بود.
@@ -3900,6 +4069,7 @@ const UI = {
     x.innerHTML = Icon.of('close');
     el.appendChild(tx); el.appendChild(x);
     box.appendChild(el);
+    if(type === 'ok' && g?.emoji === '✅') FX.pop(el.querySelector('.ic'));
     while(box.children.length > 2) box.firstChild.remove();
     let done = false, t = 0;
     const close = () => {
@@ -3946,6 +4116,7 @@ const UI = {
       this.trap();
     }
     box.innerHTML = html;
+    this.decorate(box);
     /* کلید روی خودِ جعبه می‌نشیند، نه روی اولین دکمه: فوکوسِ خودکار روی
        ورودی، روی گوشی صفحه‌کلید را می‌آورد و پنجره را نصفه می‌کند. */
     box.setAttribute('tabindex', '-1');
@@ -4404,7 +4575,7 @@ const FONTS = {
                  css:'https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu/arabic.css' },
   lalezar:     { name:'لاله‌زار',            note:'تیتری و درشت — چشمگیر برای سربرگ', role:'disp',
                  group:'نمایشی', w:400, lh:1.45, ls:'0px',
-                 css:'https://cdn.jsdelivr.net/npm/@fontsource/lalezar/arabic.css' },
+                 family:'Lalezar' },
   markazi:     { name:'مرکزی',              note:'خوش‌نویس کلاسیک با طمأنینهٔ نسخ', role:'disp',
                  group:'نمایشی', w:700, lh:1.6, ls:'0px',
                  css:'https://cdn.jsdelivr.net/npm/@fontsource/markazi-text/arabic.css' },
@@ -4442,21 +4613,22 @@ const FONTS = {
   kitab:       { name:'وزیرمتن',            note:'بی‌فونت‌بار — سبک‌ترین حالت', role:'quran',
                  group:'ساده', family:'Vazirmatn', w:400, lh:2.1 }
 };
-const FALLBACK_DISP = 'Vazirmatn, system-ui, sans-serif';
+const FALLBACK_DISP = 'Lalezar, Vazirmatn, system-ui, sans-serif';
 /* قلمِ قرآنیِ انتخابی هم اگر نیامد (مثلاً نخستین اجرای آفلاین)، باید
    به قلمِ همراهِ خودِ برنامه برسد، نه به serifِ سیستم که ممکن است
    پوششِ عربی نداشته باشد. */
 const FALLBACK_QURAN = 'Amiri, "Scheherazade New", Vazirmatn, serif';
 
 const Fonts = {
-  pending: {},
+  pending: {}, loading: 0,
   load(key){
     const f = FONTS[key];
     if(!f || (!f.css && !f.faces)) return Promise.resolve(f);
     if(this.pending[key] !== undefined) return this.pending[key];
+    this.loading++; UI.busy('#setFontDisp,#setFontQuran,.fpick', true);
     this.pending[key] = new Promise(resolve => {
       let done = false;
-      const fin = ok => { if(!done){ done = true; resolve(ok ? f : null); } };
+      const fin = ok => { if(!done){ done = true; this.loading--; UI.busy('#setFontDisp,#setFontQuran,.fpick', this.loading > 0); resolve(ok ? f : null); } };
 
       /* راهِ ترجیحی: خودمان شیءِ FontFace را می‌سازیم با display:'swap'.
          چرا؟ برگهٔ سبکِ سه قلمِ rastikerdar هیچ font-display ندارد، یعنی
@@ -4505,13 +4677,13 @@ const Fonts = {
   },
   /* اعمال روی متغیرهای CSS — بلافاصله، حتی اگر فونت هنوز نیامده باشد */
   apply(prefs){
-    const disp = FONTS[prefs.display] || FONTS.gulzar;
+    const disp = FONTS[prefs.display] || FONTS.lalezar;
     const qur  = FONTS[prefs.quran]   || FONTS.amiri;
     this.load(prefs.display);
     this.load(prefs.quran);
     const st = document.documentElement.style;
-    st.setProperty('--f-disp', (disp.family || 'Vazirmatn') + ', ' + FALLBACK_DISP);
-    st.setProperty('--f-disp-w', String(disp.w || 800));
+    st.setProperty('--f-disp', (disp.family || 'Lalezar') + ', ' + FALLBACK_DISP);
+    st.setProperty('--f-disp-w', String(disp.w || 400));
     st.setProperty('--f-disp-lh', String(disp.lh || 1.3));
     st.setProperty('--f-disp-ls', disp.ls || '0px');
     st.setProperty('--f-quran', (qur.family || 'Amiri') + ', ' + FALLBACK_QURAN);
@@ -4683,6 +4855,7 @@ const QPICKS = [
 
 /* ═══════════════ 6.7 موتور پخش تلاوت ═══════════════ */
 const Recite = {
+  stoppedManually: false,
   el: null,
   cur: null,          // { s, a }
   queue: [],          // آیه‌های بعدی
@@ -4749,6 +4922,7 @@ const Recite = {
 
   /* پخش یک آیه. opts: { source, queue } */
   play(s, a, opts = {}){
+    this.stoppedManually = false;
     const q = Store.get('quran');
     const r = this.reciter();
     this.cur = { s, a };
@@ -4866,7 +5040,7 @@ const Recite = {
     const q = Store.get('quran');
     this.play(q.surah || 1, q.ayah || 1);
   },
-  stop(){ this.init().pause(); try{ this.el.removeAttribute('src'); this.el.load(); }catch(e){} this.queue = []; this.cur = null; this.set('idle'); QuranUI.syncMini(); },
+  stop(manual = true){ this.stoppedManually = manual; this.init().pause(); try{ this.el.removeAttribute('src'); this.el.load(); }catch(e){} this.queue = []; this.cur = null; this.set('idle'); QuranUI.syncMini(); },
   step(d){
     const q = Store.get('quran');
     const s = this.cur?.s ?? q.surah ?? 1;
@@ -5242,6 +5416,7 @@ const QuranUI = {
     const c = Recite.cur;
     const on = !!c && Recite.state !== 'idle';
     bar.classList.toggle('on', on);
+    Install.place();
     if(!on) return;
     const su = QURAN[c.s - 1], r = Recite.reciter();
     U.$('#mqArt').innerHTML = this.medal(r, 34);
@@ -5264,6 +5439,7 @@ const QuranUI = {
     /* قاری از نوارِ پخش عوض می‌شود: بی ترکِ صفحه و بی قطعِ صدا. */
     const rb = U.$('#mqRec');
     if(rb && !rb.onclick) rb.onclick = () => this.reciterSheet();
+    Install.place();
   }
 };
 Recite.on(() => QuranUI.renderNow());
@@ -7730,7 +7906,7 @@ const Net = {
 
   on(evt, fn){ if(!this.listeners.has(evt)) this.listeners.set(evt, []); this.listeners.get(evt).push(fn); },
   emit(evt, data){ (this.listeners.get(evt) || []).forEach(fn => { try{ fn(data); }catch(e){ console.warn(e); } }); },
-  setStatus(s, info){ this.status = s; this.emit('state', { status: s, mode: this.mode, info }); },
+  setStatus(s, info){ this.status = s; UI.busy('#netState,#gboard', s === 'connecting'); UI.busy('#players', s === 'connecting', true); this.emit('state', { status: s, mode: this.mode, info }); },
 
   /* ── ارسال از سمت این کلاینت ── */
   post(env){
@@ -8055,6 +8231,7 @@ const Net = {
         UI.toast('⚠️ ' + (msg.msg || 'انجام نشد'), 'err', 3200);
         break;
       case 'lb':
+        Sync.finish();
         this.board = Array.isArray(msg.list) ? msg.list : [];
         this.emit('board', this.board);
         break;
@@ -8333,7 +8510,7 @@ const Progress = {
         if(!d.tree) d.tree = {};
         d.tree[topic] = (d.tree[topic] || 0) + 1;
       }
-      if(game){ d.gamesPlayed = d.gamesPlayed || {}; }
+      if(game){ d.gamesPlayed = d.gamesPlayed || {}; d.gamesPlayed[game] = (d.gamesPlayed[game] || 0) + 1; }
       const n = Combo.hit();
       d.stats.maxCombo = Math.max(d.stats.maxCombo, n);
       if(ms != null) d.stats.fastestAnswer = Math.min(d.stats.fastestAnswer, ms / 1000);
@@ -8348,7 +8525,6 @@ const Progress = {
     Sync.push();
     /* ── نسخهٔ ۱۵: مأموریت روزانه، درخت دانش و جایزهٔ هفته ── */
     try{
-      if(ok && pts) Week.add(pts);
       if(ok) Missions.refresh(true);
     }catch(e){ /* اگر یکی از این‌ها نبود، بازی نباید بشکند */ }
   },
@@ -8367,13 +8543,16 @@ const Progress = {
 
 /* همگام‌سازی رکورد با سرور (اگر وصل باشیم) */
 const Sync = {
-  last: 0,
+  last: 0, timer: null,
+  finish(){ UI.busy('#gboard,#meLbRefresh', false); if(this.timer) Timers.clear(this.timer); this.timer = null; },
   push(force = false){
     const now = U.now();
     if(!force && now - this.last < 4000) return;
     this.last = now;
     saveLeaderboard();
     if(Net.status === 'online'){
+      this.finish(); UI.busy('#gboard,#meLbRefresh', true);
+      this.timer = Timers.after(() => this.finish(), 6000, 'sys');
       Net.post({ t: 'lb:put', name: Store.get('playerName'), score: Store.get('score') });
     }
   }
@@ -8383,8 +8562,9 @@ const Sync = {
 
 /* ── 10.1 آزمون (عادی و سرعت نور) ── */
 const QuizEngine = {
-  state: null,
+  state: null, opts: null,
   start(opts){
+    this.opts = opts;
     const { qs, title, sub, mode = 'normal', count = 10, onDone, hearts = false, resume = null,
             game = 'quiz' } = opts;
     /* `game: null` یعنی «این را نشمار» — آزمونِ خودِ برنامه (selfTest) بازی
@@ -8456,7 +8636,7 @@ const QuizEngine = {
   snapshot(){
     const s = this.state;
     if(!s || s.onDone || !Array.isArray(s.qs) || !s.qs.length) return null;
-    return { resume: true, qs: s.qs, title: s.title, sub: s.sub, mode: s.mode, hearts: s.hearts,
+    return { resume: true, game: this.opts?.game, qs: s.qs, title: s.title, sub: s.sub, mode: s.mode, hearts: s.hearts,
              label: s.title, i: s.i, correct: s.correct, pts: s.pts,
              times: s.times.slice(-50) };
   },
@@ -9865,6 +10045,8 @@ const NightRepeat = {
     const c = this.conf();
     c.on = true; c.until = this.untilMs();
     Store.save();
+    clearInterval(this.timer);
+    Recite.stoppedManually = false;
     this.timer = setInterval(() => this.tick(), 20000);
     this.tick();
     Sound.whoosh();
@@ -9884,7 +10066,7 @@ const NightRepeat = {
     const c = this.conf();
     if(!c.on) return;
     if(U.now() >= (c.until || 0)){ this.stop(); return; }
-    if(!Recite.cur){
+    if(!Recite.cur && !Recite.stoppedManually){
       /* اگر پخش ایستاده، سورهٔ انتخابی را از اول شروع کن */
       const q = Store.get('quran');
       try{ Recite.playSurah(U.clamp(q.surah || 1, 1, 114), q.ayah || 1); }catch(e){}
@@ -10004,7 +10186,7 @@ const Missions = {
     if(paid){
       Wallet.earn(Math.round(paid / 2), 'مأموریت روزانه');
       Sound.fanfare(); Haptic.success();
-      UI.toast(`🏁 مأموریت کامل شد — ${U.fa(paid)} امتیاز`, 'ok', 2600);
+      UI.toast(`✅ مأموریت کامل شد — ${U.fa(paid)} امتیاز`, 'ok', 2600);
       if(Store.get('missions').list.every(m => m.done)) UI.toast('🌟 هر سه مأموریت امروز انجام شد!', 'ok', 3000);
       checkBadges();
     } else if(!silent && doneCount === 3){
@@ -10021,7 +10203,7 @@ const Missions = {
       const pct = Math.round(100 * n / m.goal);
       return `<div class="miss ${m.done ? 'done' : ''}">
         <span class="mi">${Glyph.of(m.icon)}</span>
-        <span class="mb"><div class="mt">${U.esc(m.t)} ${m.done ? '✅' : ''}</div>
+        <span class="mb"><div class="mt">${U.esc(m.t)} ${m.done ? '<span class="completion-check">' + Icon.of('check') + '</span>' : ''}</div>
           <div class="md">${U.esc(m.d)} — جایزهٔ ${U.fa(m.pts)} امتیاز</div>
           <div class="mp"><i style="width:${pct}%"></i></div></span>
         <span class="tiny">${U.fa(n)}/${U.fa(m.goal)}</span>
@@ -10060,11 +10242,12 @@ const Collection = {
         <span class="chip wr">${pct === 100 ? '🏆 کامل!' : 'ادامه بده'}</span>
       </div>
       <div class="lvlbar bar-shine" style="margin-bottom:14px"><i style="width:${pct}%"></i></div>
+      ${n ? '' : UI.empty('medal', 'اولین نشانت منتظر توست', 'با یک بازی کوتاه شروع کن؛ نشان‌های قفل‌شده مسیر را نشانت می‌دهند.')}
       <div class="coll-grid" style="max-height:56vh;overflow-y:auto">
         ${DATA.badges.map(b => {
           const on = !!got[b.id];
           return `<div class="coll ${on ? 'got' : ''}" data-b="${U.esc(b.id)}" title="${U.esc(b.desc || b.name)}">
-            <span class="ci">${on ? (b.icon || '🎖️') : '🔒'}</span>
+            <span class="ci">${Glyph.of(on ? (b.icon || '🎖️') : '🔒')}</span>
             <span class="cn">${U.esc(b.name)}</span></div>`;
         }).join('')}
       </div>`);
@@ -10124,54 +10307,6 @@ const Tree = {
    هفته از شنبه آغاز می‌شود. امتیاز هر هفته جدا شمرده می‌شود و
    در پایان هفته، اگر از سقف گذشتی، نشان می‌گیری.
    ─────────────────────────────────────────────────────────────────── */
-const Week = {
-  startOf(){
-    const n = new Date();
-    const d = n.getDay();                       // ۰ = یکشنبه
-    const back = (d + 1) % 7;                   // شنبه = ۰
-    const s = new Date(n);
-    s.setDate(n.getDate() - back); s.setHours(0, 0, 0, 0);
-    return s.toISOString().slice(0, 10);
-  },
-  ensure(){
-    const w = Store.get('week');
-    if(w.start !== this.startOf()) Store.update(d => d.week = { start: this.startOf(), score: 0, prize: false });
-  },
-  add(pts){
-    this.ensure();
-    if(!pts) return;
-    Store.update(d => { d.week.score = (d.week.score || 0) + pts; });
-    this.check();
-  },
-  GOAL: 1200,
-  check(){
-    const w = Store.get('week');
-    if(w.prize || (w.score || 0) < this.GOAL) return;
-    Store.update(d => d.week.prize = true);
-    Sound.fanfare(); FX.levelBurst(U.$('#stScore'));
-    UI.toast(`🏆 جایزهٔ هفتگی! ${U.fa(this.GOAL)} امتیاز در این هفته`, 'ok', 3200);
-    Progress.award({ game:'week', pts:200, ok:true, silent:true });
-    checkBadges();
-  },
-  rows(){
-    this.ensure();
-    const w = Store.get('week');
-    const lb = [...(Store.get('leaderboard') || [])].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 8);
-    const me = { name: Store.get('playerName'), score: Store.get('score'), me:true };
-    const merged = [...lb, me].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 8);
-    const max = Math.max(1, ...merged.map(x => x.score || 0));
-    return `<div class="prize"><span style="font-size:19px">🏆</span><span>
-        امتیاز این هفته: <b>${U.fa(w.score || 0)}</b> از ${U.fa(this.GOAL)}
-        — ${w.prize ? 'جایزه گرفته شد ✅' : `${U.fa(this.GOAL - (w.score || 0))} امتیاز مانده`}</span></div>
-      <div class="mt14">${merged.map(x => `
-        <div class="lbrow">
-          <span class="tiny" style="width:88px;flex:none">${x.me ? '👤 ' : ''}${U.esc(String(x.name || '—').slice(0, 12))}</span>
-          <span class="lbbar grow"><i class="fill" style="width:${Math.round(100 * (x.score || 0) / max)}%"></i></span>
-          <span class="tiny" style="width:52px;text-align:start">${U.fa(x.score || 0)}</span>
-        </div>`).join('')}</div>`;
-  }
-};
-
 /* ─────────────────── 10.978 دوستان و پیوند دعوت ─────────────────── */
 const Friends = {
   list(){ return Store.get('friends') || []; },
@@ -11136,7 +11271,6 @@ function selfTest(){
     ok('مأموریت‌ها سه‌تا می‌سازند', Missions.ensure().list.length === 3);
     ok('کلکسیون باز می‌شود', typeof Collection.open === 'function');
     ok('درخت دانش سطر می‌سازد', Tree.rowsHtml().includes('tree-row'));
-    ok('جایزهٔ هفتگی سطر می‌سازد', Week.rows().includes('prize'));
     ok('دوستان پیوند دعوت می‌سازند', Friends.invite('123456').includes('#join='));
     ok('واکنش‌ها هشت‌تا هستند', Reactions.SET.length === 8);
     ok('اتاق صوتی تعریف شده', typeof Voice.toggle === 'function');
@@ -11240,57 +11374,127 @@ try{ window.selfTest = selfTest; }catch(e){}
    کتابخانهٔ اصلی از CDN می‌آید. اگر شبکه یا CDN بسته باشد، یک fallback
    لمسی/خودکار همان مارک‌آپ را زنده نگه می‌دارد؛ خانه هرگز به بنر شکسته
    تبدیل نمی‌شود. */
+/* یادداشتِ پیاده‌سازی قبلی، برای حفظ توضیحات موجود؛ نسخهٔ جاری از fade بومی استفاده می‌کند و CDN ندارد. */
+/* خود wrapper چپ‌به‌راست است تا اسلاید بعدی با translateX منفی دیده شود؛
+       محتوای هر اسلاید جداگانه RTL می‌ماند. */
 const HomeCarousel = {
-  ready: false, timer: null, index: 0,
+  ready: false, timer: null, index: 0, pauses: new Set(),
   init(){
     const root = U.$('#homeSlider');
     if(!root || this.ready) return;
-    this.ready = true;
-    const open = a => {
+    this.ready = true; this.root = root;
+    this.slides = U.$$('.promo-panel', root);
+    this.dots = U.$$('[data-dot]', root);
+    const open = action => {
       Sound.click();
-      if(a === 'ayahlight') AyahLight.open();
-      else if(a === 'quran') Router.go('quran');
-      else if(a === 'daily') DailyChallenge.open();
+      if(action === 'ayahlight') AyahEmbed.open();
+      else if(action === 'quran') Router.go('quran');
+      else DailyChallenge.open();
     };
-    U.$$('[data-slide-action]', root).forEach(el => {
-      el.onclick = () => open(el.dataset.slideAction);
-      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(el.dataset.slideAction); } };
+    U.$$('[data-slide-action]', root).forEach(b => b.onclick = () => {
+      if(Date.now() < (this.suppressClickUntil || 0)) return;
+      open(b.dataset.slideAction);
     });
-    if(typeof window !== 'undefined' && typeof window.Swiper === 'function'){
-      try{
-        this.swiper = new window.Swiper(root, {
-          loop:true, speed:650, slidesPerView:1, spaceBetween:12,
-          autoplay:{ delay:5200, disableOnInteraction:false, pauseOnMouseEnter:true },
-          pagination:{ el:root.querySelector('.swiper-pagination'), clickable:true },
-          navigation:{ nextEl:root.querySelector('.swiper-button-next'), prevEl:root.querySelector('.swiper-button-prev') },
-          keyboard:{ enabled:true }, a11y:{ enabled:true }
-        });
-        return;
-      }catch(e){ console.warn('swiper fallback', e); }
-    }
-    this.fallback(root);
-  },
-  fallback(root){
-    root.classList.add('fallback');
-    const slides = U.$$('.swiper-slide', root), wrap = root.querySelector('.swiper-wrapper');
-    if(!slides.length || !wrap) return;
-    /* خود wrapper چپ‌به‌راست است تا اسلاید بعدی با translateX منفی دیده شود؛
-       محتوای هر اسلاید جداگانه RTL می‌ماند. */
-    const dots = document.createElement('div'); dots.className = 'slider-fallback-dots';
-    dots.innerHTML = slides.map((_, i) => `<button aria-label="بنر ${U.fa(i + 1)}" data-dot="${i}"></button>`).join('');
-    root.appendChild(dots);
-    const show = i => {
-      this.index = (i + slides.length) % slides.length;
-      root.style.setProperty('--slide', this.index);
-      U.$$('[data-dot]', dots).forEach((d, k) => d.classList.toggle('on', k === this.index));
+    this.dots.forEach(d => d.onclick = () => { this.show(+d.dataset.dot); this.schedule(); });
+    U.$('#slidePause').onclick = () => {
+      this.pause('user', !this.pauses.has('user'));
+      this.paintPause();
     };
-    U.$$('[data-dot]', dots).forEach(d => d.onclick = e => { e.stopPropagation(); show(+d.dataset.dot); this.restart(show); });
-    let x = null;
-    root.addEventListener('pointerdown', e => { x = e.clientX; });
-    root.addEventListener('pointerup', e => { if(x == null) return; const dx=e.clientX-x; x=null; if(Math.abs(dx)>45){ show(this.index + (dx > 0 ? 1 : -1)); this.restart(show); } });
-    show(0); this.restart(show);
+    root.addEventListener('mouseenter', () => this.pause('hover', true));
+    root.addEventListener('mouseleave', () => this.pause('hover', false));
+    root.addEventListener('focusin', () => this.pause('focus', true));
+    root.addEventListener('focusout', e => { if(!root.contains(e.relatedTarget)) this.pause('focus', false); });
+    let origin = null;
+    root.addEventListener('pointerdown', e => {
+      if(e.button !== 0) return;
+      origin = { x:e.clientX, y:e.clientY, id:e.pointerId };
+      this.pause('touch', true);
+    });
+    const release = e => {
+      if(!origin || (e.pointerId != null && e.pointerId !== origin.id)) return;
+      const dx = e.clientX - origin.x, dy = e.clientY - origin.y;
+      if(e.type !== 'pointercancel' && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
+        this.show(this.index + (dx > 0 ? 1 : -1));
+        this.suppressClickUntil = Date.now() + 500;
+      }
+      origin = null;
+      this.pause('touch', false);
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    root.addEventListener('keydown', e => {
+      if(!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+      e.preventDefault(); this.show(this.index + (e.key === 'ArrowLeft' ? 1 : -1)); this.schedule();
+    });
+    this.media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this.media?.addEventListener?.('change', () => { this.schedule(); this.paintPause(); });
+    document.addEventListener('visibilitychange', () => this.schedule());
+    this.show(0); this.schedule(); this.paintPause();
   },
-  restart(show){ if(this.timer) Timers.clear(this.timer); this.timer = Timers.every(() => show(this.index + 1), 5200, 'sys'); }
+  paintPause(){
+    const b = U.$('#slidePause'); if(!b) return;
+    const stopped = FX.reduced || this.pauses.has('user');
+    b.innerHTML = Icon.of(stopped ? 'play' : 'pause');
+    b.setAttribute('aria-label', FX.reduced ? 'حرکت خودکار با تنظیم کم‌حرکتی خاموش است' : stopped ? 'ادامهٔ حرکت خودکار' : 'توقف حرکت خودکار');
+    b.setAttribute('aria-pressed', String(stopped));
+    b.disabled = FX.reduced;
+  },
+  show(i){
+    if(!this.slides?.length) return;
+    this.index = (i + this.slides.length) % this.slides.length;
+    this.slides.forEach((slide, n) => {
+      const on = n === this.index;
+      slide.classList.toggle('is-active', on);
+      slide.inert = !on;
+      slide.setAttribute('aria-hidden', String(!on));
+    });
+    this.dots.forEach((d,n) => {
+      d.classList.toggle('on', n === this.index);
+      d.setAttribute('aria-current', String(n === this.index));
+    });
+  },
+  pause(reason, on){ on ? this.pauses.add(reason) : this.pauses.delete(reason); this.schedule(); },
+  schedule(){
+    if(this.timer) Timers.clear(this.timer);
+    this.timer = null;
+    if(!this.ready || FX.reduced || this.pauses.size || document.hidden || !U.$('#s-home')?.classList.contains('active')) return;
+    this.timer = Timers.after(() => { this.show(this.index + 1); this.schedule(); }, 4500, 'sys');
+  }
+};
+
+const AyahEmbed = {
+  URL: 'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
+  open(){
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Icon.of('mosque') + ' نورِ آیه‌ها';
+    U.$('#pgSub').textContent = 'صحن نورانی مسجد · نسخهٔ سه‌بعدی';
+    U.$('#pgBar').innerHTML = '';
+    U.$('#pgProgWrap').classList.add('hide');
+    U.$('#pgBody').innerHTML = `<div class="ayah-embed-tools">
+      <button class="btn gh sm" id="ayahExpand">${Icon.of('expand')} تمام‌صفحه</button>
+      <a class="btn gh sm" href="${this.URL}" target="_blank" rel="noopener noreferrer">بازکردن در صفحهٔ جدا</a>
+      <button class="btn gh sm" id="ayahOffline">${Icon.of('book')} تمرین آفلاین</button>
+      <span class="tiny">نسخهٔ سه‌بعدی به اینترنت نیاز دارد؛ امتیاز آن جداگانه نگه داشته می‌شود.</span>
+    </div><div class="ayah-frame-shell" id="ayahFrameShell">
+      <iframe id="ayahFrame" title="بازی قرآنی نور آیه‌ها" src="${this.URL}" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div><p class="tiny" id="ayahFrameStatus" role="status">در حال اتصال به بازی؛ اگر باز نشد، تمرین آفلاین یا صفحهٔ جدا را انتخاب کن.</p>`;
+    const frame = U.$('#ayahFrame');
+    U.$('#ayahExpand').onclick = async () => {
+      const shell = U.$('#ayahFrameShell');
+      try{
+        if(shell.requestFullscreen) await shell.requestFullscreen();
+        else UI.toast('برای نمایش بزرگ‌تر، بازی را در صفحهٔ جدا باز کن.');
+      }catch(e){ UI.toast('تمام‌صفحه در دسترس نیست؛ از صفحهٔ جدا استفاده کن.'); }
+    };
+    U.$('#ayahOffline').onclick = () => { this.cleanup(); AyahLight.open(); };
+    frame.onload = () => {
+      U.$('#ayahFrameStatus').textContent = 'اگر بازی نمایش داده نمی‌شود، از صفحهٔ جدا یا تمرین آفلاین استفاده کن.';
+    };
+  },
+  cleanup(){
+    const frame = U.$('#ayahFrame'); if(frame) frame.remove();
+    U.$('#pgProgWrap')?.classList.remove('hide');
+  }
 };
 
 /* ─────────────────── 10.991 بازی نورِ آیه‌ها ─────────────────── */
@@ -11313,7 +11517,7 @@ const AyahLight = {
     {s:'شرح',a:5,t:'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا',tr:'پس به‌راستی با هر دشواری آسانی است'}
   ],
   mode:'order', seconds:30, qs:[], i:0, right:0, score:0, left:0, timer:null, locked:false, picked:[],
-  lanterns(){ return '<div class="ayah-lanterns" aria-hidden="true"><i>✦</i><i>✦</i></div>'; },
+  lanterns(){ return `<div class="ayah-lanterns" aria-hidden="true"><i>${Icon.of('sparkle')}</i><i>${Icon.of('sparkle')}</i></div>`; },
   open(){
     Timers.clearPage(); Router.go('play');
     U.$('#pgTitle').textContent = '🕌 نورِ آیه‌ها';
@@ -11323,9 +11527,9 @@ const AyahLight = {
       <div class="ayah-mark">﷽</div><h2>با آیات قرآن بازی کن</h2>
       <p>حالت تمرین و زمان هر پرسش را انتخاب کن. ترجمه پس از هر پاسخ نمایش داده می‌شود.</p>
       <div class="ayah-options" role="radiogroup" aria-label="حالت بازی">
-        <button class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" data-am="order"><span>🧩</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
-        <button class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" data-am="missing"><span>🔎</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
-        <button class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" data-am="surah"><span>📖</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
+        <button class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" data-am="order"><span>${Glyph.of('🧩')}</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
+        <button class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" data-am="missing"><span>${Glyph.of('🔎')}</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
+        <button class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" data-am="surah"><span>${Glyph.of('📖')}</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
       </div>
       <div class="tiny">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
         <button class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
@@ -11382,14 +11586,14 @@ const AyahLight = {
     if(!ok && this.mode!=='order') U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>{ const ans=this.mode==='surah'?q.s:q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]; if(b.dataset.choice===ans)b.classList.add('good'); });
     if(ok){ const pts=10+Math.max(0,this.left); this.right++;this.score+=pts; Progress.award({game:'ayahlight',pts,ok:true}); Sound.chime(); Haptic.success(); }
     else { Progress.award({game:'ayahlight',pts:0,ok:false}); Sound.buzz(); Haptic.warn(); }
-    const f=U.$('#ayahFeedback'); if(f){ f.className='ayah-feedback '+(ok?'ok':'err'); f.innerHTML=ok?`✅ آفرین! <b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`:`${timeout?'⏱ زمان تمام شد.':'پاسخ درست را با رنگ سبز ببین.'}<br><b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`; }
+    const f=U.$('#ayahFeedback'); if(f){ f.className='ayah-feedback '+(ok?'ok':'err'); f.innerHTML=ok?`${Icon.of('check')} آفرین! <b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`:`${timeout?'⏱ زمان تمام شد.':'پاسخ درست را با رنگ سبز ببین.'}<br><b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`; }
     const actions=U.$('.ayah-actions',U.$('#pgBody'))||U.$('.ayah-choices',U.$('#pgBody')); if(actions){ const n=document.createElement('button');n.className='btn ok';n.textContent=this.i+1>=this.qs.length?'دیدن نتیجه':'پرسش بعدی ←';n.onclick=()=>{this.i++;this.render();};actions.appendChild(n); }
   },
   finish(){
     this.stopTimer(); const pct=Math.round(this.right/this.qs.length*100), stars=pct>=90?3:pct>=60?2:1;
     Progress.record('ayahlight',this.score); Store.update(d=>{d.stars.ayahlight=Math.max(d.stars.ayahlight||0,stars);d.completed.ayahlight=pct>=60;});
     if(pct>=60)Wallet.earn(8,'نور آیه‌ها'); U.prog(100,{cur:10,total:10,cap:'تمام'});
-    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-result"><div class="ayah-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div><h2>تمرین تمام شد</h2><div class="ayah-score">${U.fa(this.score)}</div><p>${U.fa(this.right)} پاسخ درست از ${U.fa(this.qs.length)} · دقت ${U.fa(pct)}٪</p><div class="ayah-actions"><button class="btn ok" id="ayahAgain">دوباره بازی کن</button><button class="btn gh" id="ayahHome">خانه</button></div></div></div>`;
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-result"><div class="ayah-stars">${Icon.of('star').repeat(stars)}${('<span class="unearned">'+Icon.of('star')+'</span>').repeat(3-stars)}</div><h2>تمرین تمام شد</h2><div class="ayah-score">${U.fa(this.score)}</div><p>${U.fa(this.right)} پاسخ درست از ${U.fa(this.qs.length)} · دقت ${U.fa(pct)}٪</p><div class="ayah-actions"><button class="btn ok" id="ayahAgain">دوباره بازی کن</button><button class="btn gh" id="ayahHome">خانه</button></div></div></div>`;
     U.$('#ayahAgain').onclick=()=>this.open(); U.$('#ayahHome').onclick=()=>Router.go('home'); Sound.fanfare();
   }
 };
@@ -11397,7 +11601,7 @@ const AyahLight = {
 
 /* ─────────────────── 11. GAME REGISTRY ─────────────────── */
 const Games = {
-  ayahlight: () => AyahLight.open(),
+  ayahlight: () => AyahEmbed.open(),
   recite:    () => Router.go('quran'),
   surah:     () => SurahEngine.start(),
   scramble:  () => ScrambleEngine.start(),
@@ -11424,7 +11628,7 @@ const Games = {
   shop:      () => Shop.open(),
   onboarding:() => Onboarding.open(),
   profile:   () => { Router.go('me'); Me.tab = 'profile'; Me.render(); },
-  stats:     () => { Admin.currentTab = 'stats'; Router.go('me'); Me.tab = 'stats'; Me.render(); },
+  stats:     () => { Router.go('me'); Me.tab = 'stats'; Me.render(); },
   badges:    () => { Router.go('me'); Me.tab = 'badges'; Me.render(); },
   collection:() => Collection.open(),
   tree:      () => Tree.open(),
@@ -11577,7 +11781,7 @@ const DailyChallenge = {
   },
   yesterday(){
     const t = new Date(); t.setDate(t.getDate() - 1);
-    return t.toISOString().slice(0, 10);
+    return U.localDay(t);
   },
   open(){
     const st = this.status();
@@ -11602,7 +11806,7 @@ const DailyChallenge = {
         });
         Wallet.earn(Wallet.RATE.daily + Math.min(streak, 7) * Wallet.RATE.perStreak, 'چالش روزانه');
         checkLevelUp(); checkBadges(); Sync.push(true);
-        UI.toast(`🎉 +${U.fa(reward)} امتیاز • زنجیره ${U.fa(streak)} روز`, 'ok', 3500);
+        UI.toast(`✅ +${U.fa(reward)} امتیاز • زنجیره ${U.fa(streak)} روز`, 'ok', 3500);
       }
     });
   }
@@ -11903,7 +12107,9 @@ function renderOnline(){
         <b class="tiny" style="color:var(--gold);width:54px;text-align:start">${U.fa(b.score)}</b>
       </div>`).join('')}</div>
     <div class="tiny mt6">${Net.board.length ? '🏆 رکورد سرور' : '💾 رکورد محلی'} — بلندی میله نسبت به صدر جدول</div>`
-    : '<div class="empty">هنوز رکوردی نیست</div>';
+    : UI.empty('trophy', 'هنوز رکوردی نیست', 'یک بازی انجام بده تا اولین رکوردت اینجا ثبت شود.');
+  if(Net.mode !== 'ws' || Net.status !== 'online') U.$('#gboard').insertAdjacentHTML?.('afterbegin', UI.empty('globe', 'لیدربورد سرور در انتظار اتصال', 'از بخش اتصال به سرور وصل شو؛ رکوردهای محلی‌ات روی همین دستگاه می‌مانند.'));
+  UI.decorate(U.$('#s-online'));
 }
 
 function renderRoom(){
@@ -12249,6 +12455,7 @@ const Me = {
         <div class="card">
           <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
           <div class="sep"></div>
+          ${Object.keys(d.best).length ? '' : UI.empty('chart', 'داستان بازی‌هایت از اینجا شروع می‌شود', 'نتیجهٔ نخستین بازی‌ات را اینجا خواهی دید.')}
           ${Object.entries(recLabels).map(([k, label]) => {
             const v = d.best[k];
             const unit = k === 'memory_best' ? ' حرکت' : k.includes('best') && k !== 'esmfamil_best' ? '%' : ' امتیاز';
@@ -12264,7 +12471,7 @@ const Me = {
                 <div class="av">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : U.fa(i + 1)}</div>
                 <div class="sp"><b>${U.esc(b.name)}${b.name === d.playerName ? ' (تو)' : ''}</b></div>
                 <b style="color:var(--gold)">${U.fa(b.score)}</b>
-              </div>`).join('') || '<div class="empty">هنوز رکوردی ثبت نشده</div>'}
+              </div>`).join('') || UI.empty('chart', 'هنوز نتیجه‌ای ثبت نشده', 'از خانه یک بازی انتخاب کن و اولین رکوردت را بساز.')}
           </div>
           <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
         </div>`;
@@ -12965,23 +13172,38 @@ const Admin = {
 
      این تابع فقط می‌سنجد و پرچم را می‌نشاند؛ پاک‌کردنِ ورودی و رندر به
      صداکننده می‌ماند چون هر کدام جعبهٔ خودش را دارد. */
+  _passBusy: false,
+  passFail(why){
+    const prior = Store.get('adminAttempts') || {};
+    const fails = Math.min(12, (prior.fails || 0) + 1);
+    const delay = Math.min(300000, 1000 * 2 ** (fails - 1));
+    Store.set('adminAttempts', { fails, until: U.now() + delay });
+    return { ok: false, why, retryAfter: delay };
+  },
   async tryPass(pass){
+    const wait = Math.max(0, ((Store.get('adminAttempts') || {}).until || 0) - U.now());
+    if(wait) return { ok: false, locked: true, retryAfter: wait, why: `کمی صبر کن — ${U.fa(Math.ceil(wait / 1000))} ثانیه` };
+    if(this._passBusy) return { ok: false, why: 'در حال بررسی رمز…' };
+    this._passBusy = true;
+    try{
     const remote = this.remote();
     const first = !remote && !Store.get('adminHash');
     if(!pass) return { ok: false, why: 'رمز را بنویس', empty: true };
 
     if(remote){
       const r = await this.loginServer(pass);
-      if(!r.ok) return { ok: false, why: r.why };
+      if(!r.ok) return this.passFail(r.why);
     }else if(first){
       const why = this.passProblem(pass);
       if(why) return { ok: false, why };
       await this.setLocalPass(pass);
     }else if(await U.sha256Async(pass) !== Store.get('adminHash')){
-      return { ok: false, why: 'رمز اشتباه' };
+      return this.passFail('رمز اشتباه');
     }
+    Store.set('adminAttempts', null);
     Store.set('isAdmin', true);
     return { ok: true, remote, first };
+    }finally{ this._passBusy = false; }
   },
   /* ── گذاشتنِ رمزِ محلی ──
      تنها جایی که رمز به هش بدل و ذخیره می‌شود. اگر دو جا هش بسازند، دیر یا
@@ -13730,7 +13952,7 @@ const Share = {
 /* ─────────────────── 20. THEME ─────────────────── */
 function applyTheme(t){
   document.documentElement.setAttribute('data-theme', t || 'dark');
-  const colors = { dark: '#0b1120', ocean: '#03101a', forest: '#05100b', royal: '#0d0716', light: '#f7f3ea' };
+  const colors = { dark: '#0b1120', ocean: '#03101a', forest: '#05100b', royal: '#080f20', light: '#f7f3ea' };
   const meta = document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute('content', colors[t] || colors.dark);
 }
@@ -13740,21 +13962,22 @@ const Theme = {
   DARK: ['dark', 'ocean', 'forest', 'royal', 'desert'],
   ALL: ['dark', 'ocean', 'forest', 'royal', 'desert', 'light'],
   LOCKED: ['desert'],                     // با ۲۵۰ سکه در فروشگاه باز می‌شود
-  LABEL: { dark:'🌙 شب', ocean:'🌊 اقیانوس', forest:'🌲 جنگل', royal:'👑 سلطنتی',
+  LABEL: { dark:'🌙 شب', ocean:'🌊 اقیانوس', forest:'🌲 جنگل', royal:'👑 شبِ زرین',
            desert:'🏜 کویر', light:'☀️ روشن' },
   /* پوسته‌های قفل را نمی‌شماریم — وگرنه چرخش روی تمی می‌ایستد که کاربر ندارد */
   free(){ return this.ALL.filter(t => !this.LOCKED.includes(t) || Wallet.owns('theme-' + t)); },
   owns(t){ return !this.LOCKED.includes(t) || Wallet.owns('theme-' + t); },
   cur(){ return Store.get('settings').theme || 'dark'; },
-  set(t){
+  set(t, fromSystem = false){
     if(!this.ALL.includes(t)) t = 'dark';
     if(!this.owns(t)){
       UI.toast('🏜 پوستهٔ کویر در فروشگاه باز می‌شود — ۲۵۰ سکه', 'err', 2800);
       Sound.buzz();
       return;
     }
-    Store.update(d => d.settings.theme = t);
+    Store.update(d => { d.settings.theme = t; if(!fromSystem) d.settings.themeChosen = true; });
     applyTheme(t);
+    if(fromSystem) return;
     Sound.tick();
     UI.toast(`🎨 ${this.LABEL[t] || t}`, 'ok', 1600);
   },
@@ -13769,7 +13992,10 @@ const Theme = {
     try{
       if(!window.matchMedia) return;
       if(Store.get('settings').themeChosen) return;
-      if(window.matchMedia('(prefers-color-scheme: light)').matches) this.set('light');
+      const media = window.matchMedia('(prefers-color-scheme: light)');
+      const update = () => { if(!Store.get('settings').themeChosen) this.set(media.matches ? 'light' : 'dark', true); };
+      update();
+      if(!this._systemBound){ media.addEventListener?.('change', update); this._systemBound = true; }
     }catch(e){}
   },
   /* غبار طلایی اختیاری پس‌زمینه */
@@ -14051,7 +14277,7 @@ const Streak = {
   warn(){
     if(!this.atRisk()) return '';
     return `<div class="streak-warn">
-      <span class="swe">🔥</span>
+      <span class="swe ${!FX.reduced && this.atRisk() ? 'at-risk' : ''}">${Icon.of('flame')}</span>
       <span class="grow"><b>زنجیرهٔ ${U.fa(this.count())} روزه‌ات امشب می‌شکند</b>
         <small>چالش امروز را بزن، یا با ۸۰ سکه یخش بزن.</small></span>
       <button class="btn sm" data-streak="go">بزن</button>
@@ -14192,10 +14418,12 @@ const Weekly = {
   ],
   /* هفته از شنبه. از UTC حساب می‌شود چون U.today هم UTC است؛ اگر یکی
      محلی و دیگری UTC باشد، نزدیک نیمه‌شب کلید هفته یک روز جابه‌جا می‌شود. */
+  // محاسبهٔ جاری، برخلاف توضیح تاریخیِ بالا، کاملاً بر پایهٔ روز محلی است.
   start(){
     const d = new Date();
-    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7));
-    return d.toISOString().slice(0, 10);
+    d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+    d.setHours(0, 0, 0, 0);
+    return U.localDay(d);
   },
   ensure(){
     const m = Store.get('missions');
@@ -14252,7 +14480,7 @@ const Weekly = {
       const n = Math.min(x.n, x.goal), pct = Math.round(100 * n / x.goal);
       return `<div class="miss ${x.done ? 'done' : ''}">
         <span class="mi">${Glyph.of(x.icon)}</span>
-        <span class="mb"><div class="mt">${U.esc(x.t)} ${x.done ? '✅' : ''}</div>
+        <span class="mb"><div class="mt">${U.esc(x.t)} ${x.done ? '<span class="completion-check">' + Icon.of('check') + '</span>' : ''}</div>
           <div class="md">${U.esc(x.d)} — جایزهٔ ${U.fa(x.pts)} امتیاز و ${U.fa(x.coins || 0)} سکه</div>
           <div class="mp"><i style="width:${pct}%"></i></div></span>
         <span class="tiny">${U.fa(n)}/${U.fa(x.goal)}</span>
@@ -14261,7 +14489,7 @@ const Weekly = {
   },
   left(){
     const d = new Date();
-    return 6 - ((d.getUTCDay() + 1) % 7);         // چند روز تا پایان هفته
+    return 6 - ((d.getDay() + 1) % 7);         // چند روز تا پایان هفته
   }
 };
 
@@ -15137,7 +15365,8 @@ const OTP = {
           if(st.tries >= this.MAX_TRIES){ st.tries = 0; st.lock = now + this.LOCK_MS; }
           this.put(st);
         }
-        return { ok: false, why: r.why, expired: r.expired, burned: r.burned, left: r.left };
+        return { ok: false, why: r.why, expired: r.expired, burned: r.burned, left: r.left,
+                 locked: this.lockSec() > 0, lock: this.lockSec() * 1000 };
       }
       this.clear();
       const wasNew = Store.get('phone') !== phone;
@@ -15362,10 +15591,11 @@ const Gate = {
      مرجع پنج تلاش و ۶۰ ثانیه داشت و در حافظهٔ صفحه نگه می‌داشت؛ اینجا
      در Store می‌ماند، وگرنه کاربر با یک نوسازیِ صفحه قفل را دور می‌زد
      و محافظ بی‌معنی می‌شد. */
-  MAX_TRY: 5,
-  LOCK_SEC: 60,
+  MAX_TRY: OTP.MAX_TRIES,
+  LOCK_SEC: OTP.LOCK_MS / 1000,
   lockGet(){
-    const l = Store.get('gateLock');
+    const st = OTP.st();
+    const l = st ? { fails: st.tries, until: st.lock } : null;
     if(!l || typeof l !== 'object') return { fails:0, until:0 };
     /* ── چرا `|0` روی `until` نمی‌گذاریم ──
        مُهرِ زمانیِ میلی‌ثانیه (≈۱.۷۶e۱۲) از ۳۲ بیت می‌گذرد و `|0`
@@ -15376,21 +15606,17 @@ const Gate = {
       until: Math.max(0, Math.floor(Number(l.until) || 0))
     };
   },
-  lockSet(fails, until){ Store.set('gateLock', { fails: fails|0, until: Math.floor(until) || 0 }); },
+  lockSet(fails, until){ const st = OTP.st(); if(st){ st.tries = fails; st.lock = until; OTP.put(st); } },
   lockLeft(){ return Math.max(0, Math.ceil((this.lockGet().until - Date.now()) / 1000)); },
-  lockClear(){ Store.set('gateLock', null); },
+  lockClear(){ const st = OTP.st(); if(st && !OTP.lockSec()){ st.lock = 0; st.tries = 0; OTP.put(st); } },
   /* یک تلاشِ ناموفق. به سقف که رسید، در باز می‌شود. */
   bumpFail(){
-    const l = this.lockGet();
-    const fails = l.fails + 1;
-    if(fails >= this.MAX_TRY){
-      this.lockSet(0, Date.now() + this.LOCK_SEC * 1000);
+    if(OTP.lockSec() > 0){
       this.step = 'code';
       Haptic.warn(); Sound.click();
       this.paint();
       return true;
     }
-    this.lockSet(fails, 0);
     this.setState('is-failing');
     Timers.after(() => { if(this.state === 'is-failing') this.setState(''); }, 1400, 'sys');
     return false;
@@ -15817,7 +16043,8 @@ const Gate = {
       /* ── قفلِ موقت ──
          `bumpFail` خودش تصمیم می‌گیرد: یا لرزشِ سرخ نشان بده، یا اگر
          به سقف رسیدیم صفحه را به گامِ قفل ببر. */
-      if(this.bumpFail()) return;
+      if(r.locked || r.lock || OTP.lockSec() > 0){ this.step = 'code'; this.paint(); return; }
+      this.bumpFail();
       if(inp){ inp.value = ''; this.paintPins(); if(inp.focus) inp.focus(); }
       return;
     }
@@ -15892,7 +16119,7 @@ function init(){
   }catch(e){ console.warn('theme', e); }
   try{ Debug.mount(); }catch(e){ console.warn('debug', e); }
   try{ A11y.run(); }catch(e){ console.warn('a11y', e); }
-  try{ Missions.ensure(); Week.ensure(); Weekly.ensure(); }catch(e){ console.warn('missions', e); }
+  try{ Missions.ensure(); Weekly.ensure(); }catch(e){ console.warn('missions', e); }
   try{ Tips.init(); }catch(e){ console.warn('tips', e); }
   try{ Install.init(); }catch(e){ console.warn('install', e); }
   /* پیامک: پیکربندی خوانده می‌شود و یک بار از سرور می‌پرسیم کلید دارد یا نه.
@@ -16213,6 +16440,11 @@ function init(){
     }
   });
 
+  UI.observeShell();
+  if(document.fonts?.ready){
+    UI.busy('.brand', true);
+    document.fonts.ready.finally(() => UI.busy('.brand', false));
+  }
   console.log('%c🌟 نورستان ۱۴', 'font-size:16px;font-weight:bold;color:#f5c451');
   console.log('📡 شبکه:', Net.status, '| حالت:', Net.mode);
   /* عمداً هیچ رمزی چاپ نمی‌شود. رمز ادمین را کاربر در پنل خودش می‌سازد و
