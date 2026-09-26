@@ -5614,7 +5614,7 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
      (SRC.match(/class="promo-panel(?: is-active)?"/g) || []).length >= 3 &&
      ['ayahlight','quran','daily'].every(a => SRC.includes(`data-slide-action="${a}"`)));
   ok('اسلایدر هیچ وابستگی Swiper/CDN ندارد', !/swiper-bundle/.test(SRC));
-  ok('اسلایدر بومی هر ۴۵۰۰ میلی‌ثانیه پیش می‌رود', /4500, 'sys'/.test(SRC));
+  ok('اسلایدر بومی هر ۵۰۰۰ میلی‌ثانیه پیش می‌رود', /5000, 'sys'/.test(SRC));
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
   ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
 

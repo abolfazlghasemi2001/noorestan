@@ -2115,14 +2115,15 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 }
 /* ═══════════════ بنر چرخشی خانه (Swiper) ═══════════════ */
 .home-slider{position:relative;margin:0 0 24px;border-radius:26px;isolation:isolate;border:1px solid var(--line);background:#102139;color:#f4f6fb;box-shadow:var(--sh);touch-action:pan-y pinch-zoom;overflow:hidden}
-.promo-panels{display:grid;transition:transform .42s var(--ease)}
-.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transform:scale(.968);transition:opacity .55s var(--ease),visibility .55s,transform .6s var(--ease);min-height:300px;padding:30px 32px 64px;gap:20px;will-change:opacity,transform}
-.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:none}
-/* گذارِ جهت‌دار: اسلایدِ تازه از سمتِ جهتِ حرکت وارد می‌شود — راست (اسلاید بعد) یا چپ (قبلی) */
-.home-slider[data-dir="1"] .promo-panel.is-active{animation:promoNext .58s var(--ease)}
-.home-slider[data-dir="-1"] .promo-panel.is-active{animation:promoPrev .58s var(--ease)}
-@keyframes promoNext{from{opacity:.25;transform:translateX(38px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes promoPrev{from{opacity:.25;transform:translateX(-38px) scale(.985)}to{opacity:1;transform:none}}
+.home-slider{perspective:1200px;cursor:grab}
+.promo-panels{display:grid;transform-style:preserve-3d;transition:transform 800ms cubic-bezier(.22,1,.36,1)}
+.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transform:translateZ(-80px) scale(.85);transform-style:preserve-3d;transition:opacity 600ms ease,visibility 600ms,transform 800ms cubic-bezier(.22,1,.36,1);min-height:300px;padding:30px 32px 64px;gap:20px;contain:layout}
+.promo-panel.is-prev{transform:translateX(-40px) translateZ(-40px) rotateY(4deg) scale(.92)}
+.promo-panel.is-next{transform:translateX(40px) translateZ(-40px) rotateY(-4deg) scale(.92)}
+.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:translateZ(0) scale(1)}
+.promo-scene{transition:transform 800ms cubic-bezier(.22,1,.36,1)}
+.promo-panel.is-active .promo-scene{transform:scale(1.05) translateX(-8px)}
+.home-slider.dragging .promo-panels{will-change:transform}
 /* حالتِ کشیدن: گذارها خاموش تا کارت ۱:۱ انگشت را دنبال کند */
 .home-slider.dragging{cursor:grabbing}
 .home-slider.dragging .promo-panel,.home-slider.dragging .promo-panels{transition:none}
@@ -2144,6 +2145,10 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 .slider-pause:disabled{opacity:.45;cursor:default}
 @media(max-width:540px){.promo-panel{padding:24px 20px 58px;min-height:335px;gap:12px}.promo-copy{flex:1.7}.promo-scene{width:30%;max-height:200px;align-self:center;border-radius:75px 75px 10px 10px}.promo-copy h2{font-size:27px}.promo-copy p{font-size:12px}}
 @media(max-width:360px){.promo-panel{padding-inline:16px}.promo-scene{position:absolute;inset:0;width:100%;height:100%;max-height:none;max-width:none;opacity:.16;border:0;border-radius:0}.promo-copy p{max-width:260px}}
+
+/* OS preference and in-app setting both disable spatial motion. */
+@media(prefers-reduced-motion:reduce){#homeSlider .promo-panel,#homeSlider .promo-scene,#homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}}
+html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSlider .promo-scene,html[data-motion="off"] #homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}
 
 /* پرداختِ صحن نور: سطح‌های آرام، لبهٔ طلایی و قوس معماری */
 .hero{border-radius:28px 28px 18px 18px;border-color:var(--line);background:radial-gradient(ellipse at 10% 0%,var(--glow1),transparent 65%),var(--glass)}
@@ -11293,7 +11298,6 @@ const HomeCarousel = {
     this.slides = U.$$('.promo-panel', root);
     this.dots = U.$$('[data-dot]', root);
     this.track = U.$('.promo-panels', root);
-    let origin = null;
     const open = action => {
       Sound.click();
       if(action === 'ayahlight') AyahEmbed.open();
@@ -11309,8 +11313,8 @@ const HomeCarousel = {
       this.pause('user', !this.pauses.has('user'));
       this.paintPause();
     };
-    root.addEventListener('mouseenter', () => this.pause('hover', true));
-    root.addEventListener('mouseleave', () => this.pause('hover', false));
+    root.addEventListener('pointerenter', e => { if(e.pointerType !== 'touch') this.pause('hover', true); });
+    root.addEventListener('pointerleave', () => this.pause('hover', false));
     root.addEventListener('focusin', () => this.pause('focus', true));
     root.addEventListener('focusout', e => { if(!root.contains(e.relatedTarget)) this.pause('focus', false); });
     /* ── کشیدنِ زنده: کارت انگشت/ماوس را دنبال می‌کند ──
@@ -11321,29 +11325,29 @@ const HomeCarousel = {
        رفتارِ آستانه‌ایِ ساده برمی‌گردد. */
     this.drag = null;
     root.addEventListener('pointerdown', e => {
-      if(e.button !== 0) return;
+      if(e.button !== 0 || e.isPrimary === false || this.drag || e.target.closest('.slider-controls')) return;
       this.pause('touch', true);
-      if(FX.reduced){
-        origin = { x:e.clientX, y:e.clientY, id:e.pointerId };
-        return;
-      }
       this.drag = { id:e.pointerId, x0:e.clientX, y0:e.clientY, dx:0, dy:0,
                     t0:U.now(), lastX:e.clientX, lastT:U.now(), vx:0, locked:false, dead:false };
-      try{ root.setPointerCapture(e.pointerId); }catch(err){}
-      root.classList.add('dragging');
+
     });
     root.addEventListener('pointermove', e => {
       const d = this.drag;
-      if(!d || e.pointerId !== d.id) return;
+      if(!d || d.dead || e.pointerId !== d.id) return;
       d.dx = e.clientX - d.x0; d.dy = e.clientY - d.y0;
       const dt = Math.max(1, U.now() - d.lastT);
       d.vx = (e.clientX - d.lastX) / dt; d.lastX = e.clientX; d.lastT = U.now();
       /* اگر حرکت عمودی غالب بود، این کشیدن نیست — اسکرولِ صفحه است. */
       if(!d.locked){
         if(Math.abs(d.dy) > 12 && Math.abs(d.dy) > Math.abs(d.dx)){ d.dead = true; root.classList.remove('dragging'); this.resetDrag(); return; }
-        if(Math.abs(d.dx) > 6) d.locked = true;
+        if(Math.abs(d.dx) > 6){
+          d.locked = true;
+          try{ root.setPointerCapture(e.pointerId); }catch(err){}
+          if(!FX.reduced) root.classList.add('dragging');
+        }
       }
-      if(!d.locked) return;
+      if(!d.locked || FX.reduced) return;
+      this.resetDrag();
       const w = root.clientWidth || 320;
       const prog = Math.min(1, Math.abs(d.dx) / (w * .55));
       const dir = d.dx > 0 ? 1 : -1;                       // راست ⇒ اسلاید بعد
@@ -11360,32 +11364,26 @@ const HomeCarousel = {
       if(!d || (e.pointerId != null && e.pointerId !== d.id)) return;
       this.drag = null;
       root.classList.remove('dragging');
-      if(FX.reduced){
-        const dx = e.clientX - (origin ? origin.x : 0), dy = e.clientY - (origin ? origin.y : 0);
-        if(e.type !== 'pointercancel' && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
-          this.show(this.index + (dx > 0 ? 1 : -1));
-          this.suppressClickUntil = Date.now() + 500;
-        }
-        origin = null;
-        this.pause('touch', false);
-        return;
-      }
-      const flick = Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
-      const commit = !d.dead && e.type !== 'pointercancel' &&
+      try{ root.releasePointerCapture(d.id); }catch(err){}
+      const flick = !FX.reduced && U.now() - d.lastT < 100 && Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
+      const cancelled = e.type === 'pointercancel' || e.type === 'lostpointercapture' || e.type === 'blur';
+      const commit = !d.dead && !cancelled &&
                      d.locked && (Math.abs(d.dx) > 60 || flick) && Math.abs(d.dx) > Math.abs(d.dy);
       const dir = d.dx > 0 ? 1 : -1;
       if(commit){
-        this.show(this.index + dir);
+        this.show(this.index + dir, dir);
         this.suppressClickUntil = Date.now() + 500;
       }else{
         /* فنرِ ملایم به جای خود — transform مسیر با گذارِ CSS صفر می‌شود */
-        this.track.style.transform = '';
+        this.resetDrag();
         if(d.locked) this.suppressClickUntil = Date.now() + 260;
       }
       this.pause('touch', false);
     };
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
+    root.addEventListener('lostpointercapture', release);
+    window.addEventListener('blur', release);
     root.addEventListener('keydown', e => {
       if(!['ArrowLeft','ArrowRight'].includes(e.key)) return;
       e.preventDefault(); this.show(this.index + (e.key === 'ArrowLeft' ? 1 : -1)); this.schedule();
@@ -11406,7 +11404,8 @@ const HomeCarousel = {
   show(i, dir){
     if(!this.slides?.length) return;
     const prev = this.index;
-    this.index = (i + this.slides.length) % this.slides.length;
+    this.resetDrag();
+    this.index = ((i % this.slides.length) + this.slides.length) % this.slides.length;
     /* جهتِ گذار: اسلایدِ تازه از سمتِ درست وارد شود (راست ⇒ بعدی).
        در بار نخست جهت نیست — فقط محوِ آرام. */
     if(dir === undefined && this.ready) dir = this.index > prev || (prev === this.slides.length - 1 && this.index === 0) ? 1 : -1;
@@ -11418,6 +11417,8 @@ const HomeCarousel = {
       /* اثرِ زندهٔ کشیدن پاک می‌شود؛ حالت از کلاس می‌آید */
       slide.style.opacity = ''; slide.style.transform = ''; slide.style.visibility = '';
       slide.classList.toggle('is-active', on);
+      slide.classList.toggle('is-prev', n === (this.index - 1 + this.slides.length) % this.slides.length);
+      slide.classList.toggle('is-next', n === (this.index + 1) % this.slides.length);
       slide.inert = !on;
       slide.setAttribute('aria-hidden', String(!on));
     });
@@ -11436,7 +11437,7 @@ const HomeCarousel = {
     if(this.timer) Timers.clear(this.timer);
     this.timer = null;
     if(!this.ready || FX.reduced || this.pauses.size || document.hidden || !U.$('#s-home')?.classList.contains('active')) return;
-    this.timer = Timers.after(() => { this.show(this.index + 1); this.schedule(); }, 4500, 'sys');
+    this.timer = Timers.after(() => { this.show(this.index + 1); this.schedule(); }, 5000, 'sys');
   }
 };
 
