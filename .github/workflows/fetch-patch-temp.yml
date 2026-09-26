@@ -3,11 +3,15 @@ on:
   push:
     branches: [arena/01a0de02-noorestan]
     paths: [.github/workflows/fetch-patch-temp.yml]
-  workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/01a0de02-noorestan
       - name: Download and verify raw patch
         shell: bash
         run: |
@@ -16,9 +20,10 @@ jobs:
           head -c 11 patch.patch | grep -q '^diff --git '
           sha256sum patch.patch
           wc -c patch.patch
-      - name: Upload patch
-        uses: actions/upload-artifact@v4
-        with:
-          name: downloaded-patch
-          path: patch.patch
-          retention-days: 1
+      - name: Commit patch temporarily onto current branch
+        run: |
+          git config user.name 'arena-ai-coding-agent[bot]'
+          git config user.email '298482267+arena-ai-coding-agent[bot]@users.noreply.github.com'
+          git add patch.patch
+          git commit -m 'Temporarily add downloaded patch'
+          git push origin HEAD:arena/01a0de02-noorestan
