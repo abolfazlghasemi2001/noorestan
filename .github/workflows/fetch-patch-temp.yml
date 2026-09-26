@@ -1,0 +1,24 @@
+name: fetch-patch-temp
+on:
+  push:
+    branches: [arena/01a0de02-noorestan]
+    paths: [.github/workflows/fetch-patch-temp.yml]
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download and verify raw patch
+        shell: bash
+        run: |
+          curl -fsSL --retry 5 --retry-all-errors --max-time 90 -o patch.patch 'https://hoosna1402.ir/patch'
+          test "$(wc -c < patch.patch)" -eq 65949
+          head -c 11 patch.patch | grep -q '^diff --git '
+          sha256sum patch.patch
+          wc -c patch.patch
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-patch
+          path: patch.patch
+          retention-days: 1
