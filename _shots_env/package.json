@@ -5,6 +5,7 @@
   "dependencies": {
     "@sparticuz/chromium": "^153.0.0",
     "gifenc": "^1.0.3",
+    "pngjs": "^7.0.0",
     "puppeteer": "^25.12.0"
   }
 }

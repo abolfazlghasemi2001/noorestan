@@ -15341,6 +15341,8 @@ const Gate = {
       <div class="gt-card"><label for="gtPhone">شمارهٔ موبایل</label><input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${U.esc(this.phone||Store.get('phone')||'')}">
       <button class="btn w" id="gtSend" style="margin-top:14px" ${this.canLogin()?'':'disabled'}>دریافت کد پیامکی</button><p class="gt-msg" id="gtMsg" role="status">${this.canLogin()?'':this.whyNot()}</p>
       <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div>`;
+      U.$('#gtSend').onclick=()=>this.send();U.$('#gtPhone').onkeydown=e=>{if(e.key==='Enter')this.send();};
+      U.$('#gtRefresh').onclick=async()=>{await SMS.probe();this.sync();};
       /* نکتهٔ امنیتی: در این صفحه هیچ نشانه‌ای از ورودِ مدیریت نیست —
          نه لینک، نه دکمه، نه متن. تنها مسیرِ مدیر، نشانیِ مستقیمِ «#admin»
          است که بیرون از برنامه دانسته می‌شود. */
@@ -15386,6 +15388,12 @@ const AdminLogin = {
     Session.layout();
     U.$('#adminMessage').textContent='';
     U.$('#adminMessage').classList.remove('error');
+    /* اتصالِ فرم: با preventDefault، سابمیتِ بومی (بارگذاریِ دوبارهٔ صفحه)
+       می‌خوابد و هر دو راه — دکمه و Enter — از همان submitِ ما می‌گذرد. */
+    const form=U.$('#alogForm');
+    if(form) form.onsubmit = e => { e.preventDefault(); this.submit(); };
+    const back=U.$('#adminBack');
+    if(back) back.onclick = () => { try{Sound.click();}catch(e){} this.back(); };
     this.paintLock();
     Icon.hydrate(el);
     try{ U.$('#adminPassword').focus({preventScroll:true}); }catch(e){}

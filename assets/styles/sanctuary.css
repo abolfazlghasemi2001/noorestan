@@ -213,8 +213,8 @@ html[data-theme="light"] #app::after{ opacity:.5 }
    نمی‌گذارد دیده شود، هم لمس را از آن ناحیه می‌گیرد تا گزینه‌ای پشتش
    نماند. جای دکمه‌های اصلی بازی را نمی‌گیرد؛ فقط همان گوشه است. */
 .ayah-banner-mask{
-  position:absolute; bottom:10px; right:10px; z-index:5;
-  width:min(300px,58%); height:64px; max-width:calc(100% - 20px);
+  position:absolute; bottom:0; right:0; z-index:5;
+  width:min(300px,58%); height:64px; max-width:calc(100% - 12px);
   border-radius:14px; pointer-events:auto; overflow:hidden;
   display:flex; align-items:center; justify-content:center; gap:9px;
   background:linear-gradient(160deg, rgba(10,18,32,.96), rgba(16,28,48,.96));
@@ -232,3 +232,6 @@ html[data-theme="light"] #app::after{ opacity:.5 }
 .ayah-banner-mask b{ font-weight:700 }
 .ayah-banner-mask .abm-col{ display:flex; flex-direction:column; align-items:flex-start; line-height:1.5 }
 @media(max-width:360px){ .ayah-banner-mask{ height:56px; font-size:11px } }
+/* لنگرِ مُهر، خودِ پوستهٔ قاب است — همان مرجعی که بنرِ میزبانِ داخلِ قاب
+   نسبت به آن سنجیده می‌شود. در نمای تمام‌صفحه، پوسته خودش viewport است. */
+.ayah-frame-shell{position:relative}
