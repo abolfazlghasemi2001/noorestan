@@ -1,0 +1,416 @@
+{
+  "baseline": "tmp/phase2/security-before/index.html",
+  "baselineSha256": "8837cc2d3fe15a61bbf1b62eaaa0a76f7cb15c794a36fd9d7076fc5afde903f7",
+  "currentSha256": "8981fa5f7679124ee3980aba77d7739c2ebdf9480fab3f6d21922d2ff17b3189",
+  "conditions": "750 kbit/s down; 250 kbit/s up; 150ms latency; CPU 4x; mobile 390x844; no compression; cold cache; SW blocked",
+  "summary": {
+    "before": {
+      "fcpMs": 4200,
+      "domMs": 13892.700000000186,
+      "loadMs": 14072.799999999814,
+      "transferBytes": 1238460,
+      "bodyBytes": 1235160,
+      "requests": 13
+    },
+    "after": {
+      "fcpMs": 4184,
+      "domMs": 13533,
+      "loadMs": 13640.200000000186,
+      "transferBytes": 1203502,
+      "bodyBytes": 1200202,
+      "requests": 13
+    }
+  },
+  "results": [
+    {
+      "version": "before",
+      "run": 1,
+      "fcpMs": 4200,
+      "domMs": 13892.700000000186,
+      "loadMs": 14119.900000000373,
+      "transferBytes": 1238460,
+      "bodyBytes": 1235160,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/before",
+          "bytes": 1061335
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "run": 1,
+      "fcpMs": 4184,
+      "domMs": 13531.80000000028,
+      "loadMs": 13624,
+      "transferBytes": 1203502,
+      "bodyBytes": 1200202,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/after",
+          "bytes": 1026377
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "run": 2,
+      "fcpMs": 4172,
+      "domMs": 13884.799999999814,
+      "loadMs": 14005.599999999627,
+      "transferBytes": 1238460,
+      "bodyBytes": 1235160,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/before",
+          "bytes": 1061335
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "run": 2,
+      "fcpMs": 4152,
+      "domMs": 13533,
+      "loadMs": 13640.200000000186,
+      "transferBytes": 1203502,
+      "bodyBytes": 1200202,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/after",
+          "bytes": 1026377
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "run": 3,
+      "fcpMs": 4216,
+      "domMs": 13949.100000000093,
+      "loadMs": 14072.799999999814,
+      "transferBytes": 1238460,
+      "bodyBytes": 1235160,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/before",
+          "bytes": 1061335
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "run": 3,
+      "fcpMs": 4232,
+      "domMs": 13629.899999999907,
+      "loadMs": 13745.200000000186,
+      "transferBytes": 1203502,
+      "bodyBytes": 1200202,
+      "requests": 13,
+      "lazyGameOrPayment": [],
+      "resources": [
+        {
+          "url": "/after",
+          "bytes": 1026377
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-regular.woff2",
+          "bytes": 50984
+        },
+        {
+          "url": "/assets/fonts/vazirmatn-bold.woff2",
+          "bytes": 51320
+        },
+        {
+          "url": "/assets/styles/sanctuary.css",
+          "bytes": 13018
+        },
+        {
+          "url": "/assets/images/sanctuary-court.svg",
+          "bytes": 4154
+        },
+        {
+          "url": "/assets/images/promo/courtyard.svg",
+          "bytes": 1577
+        },
+        {
+          "url": "/assets/images/promo/recitation.svg",
+          "bytes": 1565
+        },
+        {
+          "url": "/assets/images/promo/night.svg",
+          "bytes": 1475
+        },
+        {
+          "url": "/assets/fonts/lalezar-arabic-400.woff2",
+          "bytes": 52428
+        },
+        {
+          "url": "/api/otp/status",
+          "bytes": 302
+        },
+        {
+          "url": "/npm/@fontsource/amiri/arabic.css",
+          "bytes": 0
+        },
+        {
+          "url": "/v1/surah/1/editions/quran-uthmani,fa.ansarian",
+          "bytes": 0
+        },
+        {
+          "url": "/api/health",
+          "bytes": 302
+        }
+      ]
+    }
+  ]
+}
