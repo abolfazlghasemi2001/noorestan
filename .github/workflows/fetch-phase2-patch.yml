@@ -1,0 +1,17 @@
+name: fetch-phase2-patch
+on:
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download patch
+        run: curl -fsSL --retry 5 --retry-all-errors -o noorestan-phase2-full.patch "https://hoosna1402.ir/patch"
+      - name: Show patch header
+        run: wc -c noorestan-phase2-full.patch && head -n 5 noorestan-phase2-full.patch
+      - name: Upload patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-patch
+          path: noorestan-phase2-full.patch
+          retention-days: 1
