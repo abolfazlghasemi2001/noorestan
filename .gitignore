@@ -35,3 +35,7 @@ archive/
 # خروجی خامِ اجرای تست‌ها — نه ورودی است نه سند. سندِ واقعی همان
 # _tests.js و _servertest.js است که خودشان خوانا و قابلِ اجرااند.
 _o.txt
+
+# ── شواهد تصویری فازها: بازتولیدپذیر با _phase3-shots.js و _p1-landscape.js ──
+screenshots/phase1/
+screenshots/phase3/

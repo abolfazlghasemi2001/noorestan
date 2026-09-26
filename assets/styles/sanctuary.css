@@ -235,3 +235,55 @@ html[data-theme="light"] #app::after{ opacity:.5 }
 /* لنگرِ مُهر، خودِ پوستهٔ قاب است — همان مرجعی که بنرِ میزبانِ داخلِ قاب
    نسبت به آن سنجیده می‌شود. در نمای تمام‌صفحه، پوسته خودش viewport است. */
 .ayah-frame-shell{position:relative}
+
+/* ── حالتِ افقیِ بازیِ جاسازی‌شده (فاز ۱.۲) ──
+   مسئله: در افقی، اگر تمام‌صفحه ننشیند (Safari، ژستِ نامعتبر)، قابِ
+   16/9 از دید بلندتر می‌شود؛ صفحه اسکرول می‌خورد و چیدمانِ ثابتِ
+   داخلِ بازی (سؤالِ ثابت + گزینه‌ها) از هم می‌پاشد — «سؤال جلوی
+   گزینه‌ها». چون قاب کراس‌اوریجین است، از بیرون فقط می‌توان یک
+   ویوپورتِ درست، پایدار و تمام‌قد به بازی داد:
+     ۱) در تمام‌صفحه: ستونِ فلکسِ 100dvh با نوارِ فشردهٔ در-جریان؛ قاب
+        باقی‌مانده را می‌گیرد و هیچ پیکسلی از بازی پوشیده نمی‌شود.
+     ۲) اگر تمام‌صفحه نشد (کلاس ayah-theater روی body): کرومِ صفحه
+        (نوارِ بالا/پایین) می‌خوابد و قاب در همان دیدِ افقی می‌گنجد —
+        بدون هیچ اسکرولی، تا آنچه بازی می‌بیند همان باشد که کاربر می‌بیند.
+   مُهرِ بنر در هر دو حالت سر جای خودش (گوشهٔ پایین-راستِ قاب) می‌ماند. */
+/* تمام‌صفحه: ستونِ فلکس با ارتفاعِ معینِ 100dvh است، پس قاب (flex:1)
+   دقیقاً باقی‌مانده را می‌گیرد — بدون اسکرول و بدون اینکه نوار،
+   پیکسلی از بازی (مثل دکمهٔ «ادامه» پایینِ بازی) را بپوشاند. */
+.ayah-game:fullscreen{padding:4px 4px calc(4px + env(safe-area-inset-bottom));gap:4px;background:#050a12}
+.ayah-game:fullscreen .ayah-frame-shell{flex:1;min-height:0;border:0;border-radius:0}
+.ayah-game:fullscreen .ayah-under{flex-wrap:nowrap;overflow-x:auto;justify-content:center;
+  scrollbar-width:none;padding:2px}
+.ayah-game:fullscreen .ayah-under::-webkit-scrollbar{display:none}
+.ayah-game:fullscreen .ayah-under .btn{flex:none;min-height:36px;padding:5px 12px;font-size:11px}
+.ayah-game:fullscreen .ayah-rotate{display:none}
+body.ayah-theater .top,body.ayah-theater #nav,body.ayah-theater #miniQ,body.ayah-theater #ib{display:none!important}
+body.ayah-theater .nav-spacer{display:none!important}
+body.ayah-theater #app{padding-bottom:8px}
+body.ayah-theater #pgHead{margin-bottom:6px}
+/* سربرگِ فشردهٔ تئاتر: تک‌ردیفه؛ زیرنویس می‌خوابد و «شروعِ دوباره» که
+   دکمه‌ای تمام‌عرض بود، گوشهٔ سربرگ می‌نشیند تا از ۳۹۰pxِ دیدِ افقی
+   فقط ~۴۶px بگیرد. */
+body.ayah-theater #s-play{position:relative}
+body.ayah-theater #s-play .phead{gap:8px;margin-bottom:6px;min-height:40px;padding-inline-end:104px}
+body.ayah-theater #s-play .phead h2{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.ayah-theater #pgSub{display:none!important}
+body.ayah-theater #s-play .back{width:36px;height:36px}
+body.ayah-theater #pgRestart{position:absolute;top:2px;inset-inline-end:0;margin:0;min-height:36px;padding:5px 12px;font-size:11px;white-space:nowrap}
+body.ayah-theater .ayah-under{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;
+  scrollbar-width:none;padding:6px 2px}
+body.ayah-theater .ayah-under::-webkit-scrollbar{display:none}
+body.ayah-theater .ayah-under .btn{flex:none;min-height:38px;padding:6px 12px;font-size:11px}
+/* flex:none وگرنه flex-basis:0ِ flex:1 روی height می‌نشیند و درصدِ iframe
+   (مبهم در برابرِ ارتفاعِ نامعینِ فلکس) به ۱۵۰pxِ پیش‌فرضِ iframe می‌افتد. */
+body.ayah-theater .ayah-frame-shell{aspect-ratio:auto;flex:none}
+/* در تئاتر، صفحه نباید هیچ اسکرولی بخورد: متنِ وضعیت و ردیفِ لینک‌ها
+   (بیرون از #ayahGame) می‌خوابند؛ راهِ خروج همان دکمه‌های زیرِ قاب است. */
+body.ayah-theater #pgBody>.ayah-under,body.ayah-theater #ayahFrameStatus{display:none!important}
+@media(orientation:landscape){
+  body.ayah-theater .ayah-game .ayah-frame-shell{height:calc(100dvh - 150px);min-height:220px}
+}
+@media(orientation:portrait){
+  body.ayah-theater .ayah-game .ayah-frame-shell{height:calc(100dvh - 190px);min-height:300px}
+}

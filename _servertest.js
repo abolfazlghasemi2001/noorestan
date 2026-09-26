@@ -220,7 +220,11 @@ const cleanup = () => {
   const health = await fetch(`http://127.0.0.1:${PORT}/health`).then(r => r.json()).catch(() => null);
   ok('/health پاسخ می‌دهد', health?.ok === true, JSON.stringify(health));
   ok('نسخه گزارش می‌شود', health?.version === '15.0');
-  ok('ظرفیت روم ۸ بازیکن + تماشاچی اعلام می‌شود', health?.spectators === 0 && (await fetch(`http://127.0.0.1:${PORT}/api/rooms`).then(r => r.json())).maxPlayers === 8);
+  ok('آمار تماشاچی در health گزارش می‌شود', Number.isInteger(health?.spectators), JSON.stringify({ spectators: health?.spectators }));
+  /* از وقتی /api/rooms احرازی شد، بی‌نشانه 401 می‌دهد؛ خواندنِ با نشانه
+     پایین‌تر (پس از ورودِ پیامکی) سنجیده می‌شود. */
+  const roomsNoAuth = await fetch(`http://127.0.0.1:${PORT}/api/rooms`);
+  ok('🔒 فهرست روم بدون نشانه 401 می‌دهد', roomsNoAuth.status === 401, 'status=' + roomsNoAuth.status);
   const page = await fetch(`http://127.0.0.1:${PORT}/`).then(r => r.text()).catch(() => '');
   ok('صفحه برنامه سرو می‌شود', page.includes('نورستان') && page.includes('<script>'), 'len=' + page.length);
   const bad = await fetch(`http://127.0.0.1:${PORT}/../../etc/passwd`).then(r => r.status).catch(() => 0);
@@ -286,7 +290,12 @@ const cleanup = () => {
   ok('کدِ درست پذیرفته می‌شود', vOk.status === 200 && vOkJ.success === true, JSON.stringify(vOkJ));
   ok('و نشانهٔ نشستِ کاربر می‌آید', /^[0-9a-f]{64}$/.test(vOkJ.token || ''), JSON.stringify(vOkJ).slice(0,120));
   ok('🔒 نشانه، خودِ کد نیست', vOkJ.token !== C1);
-  ok('شناسهٔ کاربر برگردانده می‌شود', vOkJ.id === 'usr_' + 'a1b2c3d4e5'.repeat(2), vOkJ.id);
+  /* شناسه را سرور می‌سازد (userId ارسالی نادیده گرفته می‌شود) و در
+     ورودهای بعدیِ همان شماره پایدار می‌ماند — پایین‌تر سنجیده می‌شود. */
+  ok('شناسهٔ کاربر در سرور ساخته می‌شود', /^usr_[0-9a-f]{20}$/.test(vOkJ.id || ''), vOkJ.id);
+  const roomsHttp0 = await fetch(`http://127.0.0.1:${PORT}/api/rooms`,
+    { headers: { Authorization: 'Bearer ' + vOkJ.token } }).then(r => r.json());
+  ok('فهرست روم با نشانهٔ کاربر خوانده می‌شود', Array.isArray(roomsHttp0.rooms), JSON.stringify(roomsHttp0).slice(0, 120));
   ok('نخستین ورودِ این شماره، first=true دارد', vOkJ.first === true, JSON.stringify(vOkJ).slice(0, 140));
 
   /* ── پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴) ──
@@ -302,13 +311,13 @@ const cleanup = () => {
     ok('خوش‌آمد به همان شماره می‌رود',
        Array.isArray(wb.recipients) && wb.recipients[0] === '09121110001', JSON.stringify(wb.recipients));
     ok('خوش‌آمد شناسهٔ کاربر را در متن دارد',
-       String(wb.message).includes('usr_' + 'a1b2c3d4e5'.repeat(2)), String(wb.message).slice(0, 90));
+       String(wb.message).includes(vOkJ.id), String(wb.message).slice(0, 90));
     ok('🔒 متنِ خوش‌آمد الگو (pattern) ندارد — متنِ مستقیم است',
        !/pattern|\{\{/.test(String(wb.message)), String(wb.message).slice(0, 60));
     ok('🔒 کلید در بدنهٔ خوش‌آمد نیست', !wh.body.includes(SMS_KEY));
     ok('خوش‌آمد به همان endpoint و دستگاه می‌رود',
        wh.url === '/api/v1/gateway/send-sms' && wb.deviceId === SMS_DEVICE && wh.method === 'POST');
-    ok('🔒 کد تأیید در خوش‌آمد نیست', !/\d{5}/.test(String(wb.message).replace('۱۵ بازی', '')),
+    ok('🔒 کد تأیید در خوش‌آمد نیست', !/\d{5}/.test(String(wb.message).replace(vOkJ.id, '').replace('۱۵ بازی', '')),
        String(wb.message).slice(0, 120));
     ok('متنِ خوش‌آمد خطِ «نورستان» را در پایان دارد', /\nنورستان$/.test(String(wb.message)));
   }
@@ -341,6 +350,7 @@ const cleanup = () => {
   const v2j = await v2.json();
   ok('ورودِ دومِ همان شماره پذیرفته می‌شود', v2.status === 200 && v2j.success === true, JSON.stringify(v2j).slice(0, 120));
   ok('ورودِ دوم دیگر «نخستین بار» نیست', v2j.first === false, JSON.stringify(v2j).slice(0, 120));
+  ok('شناسه در ورودِ دومِ همان شماره پایدار می‌ماند', v2j.id === v3j.id && /^usr_/.test(v2j.id || ''), v3j.id + ' / ' + v2j.id);
   await sleep(500);
   ok('🔒 خوش‌آمدگویی بارِ دوم فرستاده نمی‌شود', !seenWelcome(), 'hits=' + smsHits.length);
 
@@ -371,7 +381,7 @@ const cleanup = () => {
   W1.clear();
   W1.send({ t: 'hello', ns: NS, name: 'آزمون', userId: FID, userToken: v5j.token });
   const me5 = await W1.wait(m => m.t === 'me', 3000);
-  ok('کارنامهٔ کاربر به خودش می‌رسد', !!me5 && me5.id === FID, JSON.stringify(me5));
+  ok('کارنامهٔ کاربر به خودش می‌رسد', !!me5 && me5.id === v5j.id, JSON.stringify(me5));
   ok('🔒 و هیچ شناسهٔ نشستی در آن نیست',
      !!me5 && !Object.keys(me5).some(k => /token|hash|salt|code/i.test(k)), JSON.stringify(me5));
   ok('🔒 خوش‌آمدِ ناموفق نشانِ «رفته» نمی‌خورد', !!me5 && me5.welcomed === false, JSON.stringify(me5));
@@ -535,6 +545,17 @@ const cleanup = () => {
      !/x-api-key/i.test(op.headers.get('access-control-allow-headers') || ''),
      op.headers.get('access-control-allow-headers'));
 
+  /* کاربرِ چهارم برای A: ماندگار است و در بخشِ «حذف» دست‌نخورده می‌ماند؛
+     vOkJ همان قربانیِ آزمون‌های مسدود/حذف است و A نباید با توکنِ او جلو برود
+     (حذف، نشست‌ها و اتصالِ صاحبش را هم می‌بندد). */
+  smsHits = [];
+  const rpA = await post('/request', { phone: '09121110077' });
+  const CA = (() => { const m = JSON.parse(smsHits[0].body || '{}').message.match(OTP_SHAPE); return m ? m[1] : ''; })();
+  const vA = await post('/verify', { phone: '09121110077', code: CA });
+  const vAj = await vA.json();
+  ok('کاربرِ ماندگارِ A ساخته شد',
+     rpA.status === 200 && vA.status === 200 && vAj.success === true && /^usr_[0-9a-f]{20}$/.test(vAj.id || ''));
+
   /* 2. اتصال و حضور */
   section('اتصال و حضور');
   const A = new Client('A'); await A.connect();
@@ -550,9 +571,11 @@ const cleanup = () => {
   C.id = wc.id;
   ok('شناسه‌ها یکتا هستند', new Set([A.id, B.id, C.id]).size === 3);
   A.clear(); B.clear(); C.clear();
-  A.send({ t: 'hello', name: 'آرش', level: 4, score: 300 });
-  B.send({ t: 'hello', name: 'سارا', level: 2, score: 120 });
-  C.send({ t: 'hello', name: 'رضا', level: 1, score: 10 });
+  /* هر سه با نشانهٔ واقعیِ سه شمارهٔ ثبت‌شدهٔ بالا وارد می‌شوند؛ وگرنه
+     سرور auth:error می‌دهد و وصل را می‌بندد. نام‌ها در کارنامه ثبت‌اند. */
+  A.send({ t: 'hello', name: 'آرش', level: 4, score: 300, userToken: vAj.token });
+  B.send({ t: 'hello', name: 'سارا', level: 2, score: 120, userToken: v3j.token });
+  C.send({ t: 'hello', name: 'رضا', level: 1, score: 10, userToken: v5j.token });
   await sleep(400);
   const peers = await A.wait(m => m.t === 'peers' && m.list?.length === 3 && m.list.some(p => p.name === 'سارا'));
   ok('هر سه نفر در لیست حضور هستند', peers?.list.length === 3, 'got ' + peers?.list.length);
@@ -679,7 +702,8 @@ const cleanup = () => {
   const lb = await A.wait(m => m.t === 'lb' && m.list?.some(x => x.name === 'سارا'));
   ok('رکوردها ذخیره شدند', lb.list.find(x => x.name === 'سارا')?.score === 9100);
   ok('مرتب‌سازی نزولی', lb.list[0].name === 'سارا');
-  const lbHttp = await fetch(`http://127.0.0.1:${PORT}/api/leaderboard`).then(r => r.json());
+  const lbHttp = await fetch(`http://127.0.0.1:${PORT}/api/leaderboard`,
+    { headers: { Authorization: 'Bearer ' + vOkJ.token } }).then(r => r.json());
   ok('لیدربورد از HTTP هم خوانده می‌شود', lbHttp[0].score === 9100);
 
   /* 7. اعلان مدیریتی — با *نشانهٔ نشست*، نه با هش.
@@ -712,9 +736,15 @@ const cleanup = () => {
      JSON.stringify(login).slice(0, 120));
   ok('و نشانه، رمز نیست', login.token !== PASS && login.token !== HASH);
   const token = login.token;
+  const ADM = new Client('ADM'); await ADM.connect();
+  ADM.id = (await ADM.wait(m => m.t === 'welcome')).id;
+  ADM.clear();
+  ADM.send({ t: 'hello', adminToken: token });
+  ok('اتصالِ مدیر با نشانه احراز می‌شود',
+     (await ADM.wait(m => m.t === 'authenticated'))?.role === 'admin');
 
-  C.clear(); A.clear(); B.clear();
-  C.send({ t: 'admin:broadcast', token, title: 'خبر مهم', desc: 'مسابقه امشب' });
+  ADM.clear(); A.clear(); B.clear();
+  ADM.send({ t: 'admin:broadcast', token, title: 'خبر مهم', desc: 'مسابقه امشب' });
   ok('اعلان با نشانهٔ درست پخش شد', (await A.wait(m => m.t === 'notif' && m.title === 'خبر مهم'))?.desc === 'مسابقه امشب');
   ok('اعلان به همه رسید', !!(await B.wait(m => m.t === 'notif' && m.title === 'خبر مهم')));
 
@@ -745,7 +775,13 @@ const cleanup = () => {
 
   /* اتصالِ *تازه* با نشانهٔ باطل‌شده: سرور باید از نو بسنجد، نه اینکه
      به وضعیتِ اتصالِ قبلی تکیه کند. */
-  C.send({ t: 'admin:broadcast', token, title: 'دوباره', desc: 'بعد از خروج' });
+  const ADMdead = new Client('ADMdead'); await ADMdead.connect();
+  ADMdead.id = (await ADMdead.wait(m => m.t === 'welcome')).id;
+  ADMdead.clear();
+  ADMdead.send({ t: 'hello', adminToken: token });
+  ok('🔒 اتصالِ تازه با نشانهٔ باطل‌شده احراز نمی‌شود',
+     !!(await ADMdead.wait(m => m.t === 'auth:error')));
+  ADMdead.send({ t: 'admin:broadcast', token, title: 'دوباره', desc: 'بعد از خروج' });
   await sleep(250);
   ok('🔒 نشانهٔ باطل‌شده دوباره راه نمی‌دهد',
      !A.msgs.some(m => m.t === 'notif' && m.title === 'دوباره'));
@@ -755,11 +791,24 @@ const cleanup = () => {
      دارد: شناسه از کلاینت می‌آید ولی تا وقتی پیامک تأیید نشود به شماره
      بسته نمی‌شود. */
   section('دفترِ کاربران — فهرست، مسدود، حذف');
+  const admin2fast = await fetch(`http://127.0.0.1:${PORT}/api/admin/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pass: PASS })
+  });
+  ok('🔒 پس از رمزِ اشتباه، ورودِ فوریِ دوباره محدود می‌شود', admin2fast.status === 429, admin2fast.status);
+  await sleep(1300);
   const admin2 = await fetch(`http://127.0.0.1:${PORT}/api/admin/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pass: PASS })
   }).then(r => r.json());
+  ok('پس از پایانِ مهلت، ورودِ درستِ دوباره موفق است', admin2.success === true);
   const token2 = admin2.token;
+  const ADM2 = new Client('ADM2'); await ADM2.connect();
+  ADM2.id = (await ADM2.wait(m => m.t === 'welcome')).id;
+  ADM2.clear();
+  ADM2.send({ t: 'hello', adminToken: token2 });
+  ok('اتصالِ دومِ مدیر هم احراز می‌شود',
+     (await ADM2.wait(m => m.t === 'authenticated'))?.role === 'admin');
 
   const U1 = new Client('U1'); await U1.connect();
   U1.id = (await U1.wait(m => m.t === 'welcome')).id;
@@ -768,9 +817,9 @@ const cleanup = () => {
             userId: vOkJ.id, userToken: vOkJ.token });
   ok('کاربر با نشانهٔ تأییدشده وارد می‌شود', !!(await U1.wait(m => m.t === 'peers')));
 
-  C.clear();
-  C.send({ t: 'admin:users', token: token2 });
-  const ul = await C.wait(m => m.t === 'admin:users');
+  ADM2.clear();
+  ADM2.send({ t: 'admin:users', token: token2 });
+  const ul = await ADM2.wait(m => m.t === 'admin:users');
   const row1 = (ul.list || []).find(u => u.id === vOkJ.id);
   ok('فهرستِ کاربران به مدیر می‌رسد', !!ul && Array.isArray(ul.list), JSON.stringify(ul).slice(0, 80));
   ok('و کاربرِ واردشده در آن هست', !!row1, JSON.stringify((ul.list || []).map(u => u.id)));
@@ -787,8 +836,8 @@ const cleanup = () => {
   ok('🔒 کاربرِ عادی فهرستِ کاربران را نمی‌گیرد',
      !U1.msgs.some(m => m.t === 'admin:users'));
 
-  /* هش روی اتصالی که *هرگز* مدیر نشده. (C از پیش با نشانه مدیر شده و
-     پرسیدنش با هش چیزی را دربارهٔ هش ثابت نمی‌کند.) */
+  /* هش روی اتصالی که *هرگز* مدیر نشده (اتصالِ مدیر، ADM2 است و U1
+     کاربرِ عادی) — نه فهرست می‌دهد نه کنشی انجام می‌شود. */
   U1.clear();
   U1.send({ t: 'admin:users', hash: HASH });
   await sleep(250);
@@ -797,16 +846,16 @@ const cleanup = () => {
   U1.clear();
   U1.send({ t: 'admin:user:delete', hash: HASH, id: vOkJ.id });
   await sleep(250);
-  C.clear(); C.send({ t: 'admin:users', token: token2 });
+  ADM2.clear(); ADM2.send({ t: 'admin:users', token: token2 });
   ok('🔒 و هیچ کنشی هم با هش انجام نمی‌شود',
-     ((await C.wait(m => m.t === 'admin:users')).list || []).some(u => u.id === vOkJ.id));
+     ((await ADM2.wait(m => m.t === 'admin:users')).list || []).some(u => u.id === vOkJ.id));
 
   /* ── مسدودکردن ── */
-  U1.clear(); C.clear();
-  C.send({ t: 'admin:user:block', token: token2, id: vOkJ.id });
+  U1.clear(); ADM2.clear();
+  ADM2.send({ t: 'admin:user:block', token: token2, id: vOkJ.id });
   const kick = await U1.wait(m => m.t === 'notif', 3000);
   ok('کاربرِ آنلاین بی‌درنگ بیرون می‌رود', !!kick && /مسدود/.test(kick.desc || ''), JSON.stringify(kick));
-  const ul2 = await C.wait(m => m.t === 'admin:users');
+  const ul2 = await ADM2.wait(m => m.t === 'admin:users');
   const row2 = (ul2.list || []).find(u => u.id === vOkJ.id);
   ok('و در فهرست مسدود علامت می‌خورد', row2 && row2.blocked === true);
   ok('و آفلاین می‌شود', row2 && row2.online === false);
@@ -821,10 +870,10 @@ const cleanup = () => {
      JSON.stringify(kick2));
 
   /* آزادکردن دوباره راه می‌دهد */
-  C.clear();
-  C.send({ t: 'admin:user:unblock', token: token2, id: vOkJ.id });
+  ADM2.clear();
+  ADM2.send({ t: 'admin:user:unblock', token: token2, id: vOkJ.id });
   ok('آزادکردن در فهرست دیده می‌شود',
-     ((await C.wait(m => m.t === 'admin:users')).list || []).find(u => u.id === vOkJ.id)?.blocked === false);
+     ((await ADM2.wait(m => m.t === 'admin:users')).list || []).find(u => u.id === vOkJ.id)?.blocked === false);
   const U3 = new Client('U3'); await U3.connect();
   U3.id = (await U3.wait(m => m.t === 'welcome')).id;
   U3.clear();
@@ -834,22 +883,22 @@ const cleanup = () => {
 
   /* ── پیامکِ مدیریتی ── */
   smsHits = [];
-  C.clear();
-  C.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: 'خوش آمدی' });
-  const smsRes = await C.wait(m => m.t === 'admin:user:sms', 3000);
+  ADM2.clear();
+  ADM2.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: 'خوش آمدی' });
+  const smsRes = await ADM2.wait(m => m.t === 'admin:user:sms', 3000);
   ok('نتیجهٔ پیامکِ مدیریتی به مدیر می‌رسد', !!smsRes && smsRes.state === 'sent', JSON.stringify(smsRes));
   ok('و پیامک واقعاً به همان شماره رفت', smsHits.length === 1 &&
      JSON.parse(smsHits[0].body).recipients[0] === '09121110001');
   ok('با متنِ مدیر در آن', JSON.parse(smsHits[0].body).message.includes('خوش آمدی'));
-  C.clear();
-  C.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: '' });
-  ok('متنِ خالی فرستاده نمی‌شود', (await C.wait(m => m.t === 'admin:user:err'))?.msg.includes('خالی'));
+  ADM2.clear();
+  ADM2.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: '' });
+  ok('متنِ خالی فرستاده نمی‌شود', (await ADM2.wait(m => m.t === 'admin:user:err'))?.msg.includes('خالی'));
   ok('و هیچ پیامکِ تازه‌ای نرفت', smsHits.length === 1, 'hits=' + smsHits.length);
 
   /* ── حذف ── */
-  C.clear();
-  C.send({ t: 'admin:user:delete', token: token2, id: vOkJ.id });
-  const ul3 = await C.wait(m => m.t === 'admin:users');
+  ADM2.clear();
+  ADM2.send({ t: 'admin:user:delete', token: token2, id: vOkJ.id });
+  const ul3 = await ADM2.wait(m => m.t === 'admin:users');
   ok('کاربرِ حذف‌شده از فهرست می‌رود',
      !(ul3.list || []).some(u => u.id === vOkJ.id), JSON.stringify(ul3.list));
   const U4 = new Client('U4'); await U4.connect();
@@ -857,7 +906,7 @@ const cleanup = () => {
   U4.clear();
   U4.send({ t: 'hello', ns: 'noorestan', name: 'زهرا', userId: vOkJ.id, userToken: vOkJ.token });
   ok('🔒 نشانهٔ کاربرِ حذف‌شده بی‌ارزش است',
-     !!(await U4.wait(m => m.t === 'peers')) && !U4.msgs.some(m => m.t === 'notif'));
+     !!(await U4.wait(m => m.t === 'auth:error')) && !U4.msgs.some(m => m.t === 'peers'));
   ok('و شناسهٔ او دیگر کسی را به کاربرِ ثبت‌شده وصل نمی‌کند', (() => {
     const src = require('fs').readFileSync(__dirname + '/server.js', 'utf8');
     return /userTokens\.delete\(tok\)/.test(src) && /userById\.delete\(rec\.id\)/.test(src);
@@ -985,7 +1034,8 @@ const cleanup = () => {
   ok('میزبان بعد از خروج می‌تواند روم جدید بسازد', /^\d{6}$/.test((await A.wait(m => m.t === 'room:joined'))?.code || ''));
   A.send({ t: 'room:leave' });
   await sleep(300);
-  const roomsHttp = await fetch(`http://127.0.0.1:${PORT}/api/rooms`).then(r => r.json());
+  const roomsHttp = await fetch(`http://127.0.0.1:${PORT}/api/rooms`,
+    { headers: { Authorization: 'Bearer ' + vAj.token } }).then(r => r.json());
   ok('روم خالی از سرور پاک شد', roomsHttp.rooms.length === 0, JSON.stringify(roomsHttp.rooms));
 
   /* 9. اسم فامیل آنلاین */
@@ -1021,7 +1071,9 @@ const cleanup = () => {
   const D = new Client('D'); await D.connect();
   D.id = (await D.wait(m => m.t === 'welcome')).id;
   D.clear();
-  D.send({ t: 'hello', name: 'x'.repeat(500), level: 99999, score: -50 });
+  /* با نشانهٔ معتبر (همان کاربرِ ماندگار، اتصالِ دوم) — وگرنه hello به
+     auth:error می‌رسد و peers هرگز نمی‌آید. */
+  D.send({ t: 'hello', name: 'x'.repeat(500), level: 99999, score: -50, userToken: vAj.token });
   await sleep(300);
   const dl = (await D.wait(m => m.t === 'peers'))?.list.find(p => p.id === D.id);
   ok('نام بلند بریده می‌شود', (dl?.name || '').length <= 20, 'len=' + (dl?.name || '').length);
@@ -1031,7 +1083,7 @@ const cleanup = () => {
   const E = new Client('E'); await E.connect();
   E.id = (await E.wait(m => m.t === 'welcome')).id;
   E.clear();
-  E.send({ t: 'hello', name: 'E' });
+  E.send({ t: 'hello', name: 'E', userToken: vAj.token });
   await sleep(200);
   E.clear();
   for(let i = 0; i < 60; i++) E.send({ t: 'hb' });

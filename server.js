@@ -455,6 +455,15 @@ function handleMessage(c, msg){
     }
     const auth=userTokenGet(msg.userToken);
     if(!auth || c.role==='admin'){
+      if(userTokenBlocked(msg.userToken)){
+        /* نشست معتبر است پس هویت محرز است و known می‌خورد — وگرنه sendRaw
+           همین notif را (مثل هر پیامِ غیرِ welcome/auth:error) می‌انداخت.
+           اتصال ۹۰۰ms بعد بسته می‌شود و هرگز وارد peers/rooms نمی‌شود. */
+        c.known=true;
+        sendRaw(c,{t:'notif',to:c.id,title:'دسترسی بسته است',
+                     desc:'این شماره مسدود شده — با مدیر تماس بگیر',icon:'🚫'});
+        log('🚫 ورودِ کاربرِ مسدود رد شد');Timers_sleep_close(c);return;
+      }
       sendRaw(c,{t:'auth:error',to:c.id,msg:'ورود پیامکی لازم است'});Timers_sleep_close(c);return;
     }
     c.role='user';c.userToken=msg.userToken;c.known=true;
@@ -486,25 +495,24 @@ function handleMessage(c, msg){
          مهمان می‌ماند — همان‌طور که پیش‌تر همه بودند. */
       const uTok = userTokenGet(msg.userToken);
       if(uTok){
+        /* uTok یعنی نشستِ زندهٔ نامسدود (مسدود در دروازه رد شده) */
         const rec = userOf(uTok.phone);
-        if(rec && !rec.blocked){
+        if(rec){
           c.user = rec;
           c.phone = rec.phone;
           c.uid = rec.id;
-          /* نام و امتیازِ اعلامی با کارنامهٔ ثبت‌شده هم‌تراز می‌شود. */
+          /* نامِ نمایشی از hello می‌آید (همان playerNameِ تنظیماتِ کاربر) و
+             در کارنامه ثبت می‌شود. پیش‌تر اینجا فقط `rec.name` خوانده
+             می‌شد و rec.name همیشه «بازیکن» می‌ماند (userBind هیچ‌وقت
+             به‌روزش نمی‌کرد) — یعنی نامِ ارسالی دور انداخته می‌شد و همه
+             در محفل، چت و روم «بازیکن» بودند. */
+          const want = clampStr(msg.name, LIMITS.nameLen);
+          if(want) rec.name = want;
           c.name = rec.name || c.name;
           rec.plays = Math.max(rec.plays || 0, 0);
           rec.lastLogin = now();
           saveData();
           c.name = clampStr(c.name, LIMITS.nameLen) || 'بازیکن';
-        }else if(rec && rec.blocked){
-          /* مسدود: با خبر می‌فرستیمش بیرون. بی صدا قطع نمی‌کنیم تا کاربر
-             بداند چرا و بیهوده تلاش نکند. */
-          sendRaw(c, { t: 'notif', to: c.id, title: 'دسترسی بسته است',
-                       desc: 'این شماره مسدود شده — با مدیر تماس بگیر', icon: '🚫' });
-          log(`🚫 کاربرِ مسدود رد شد (${rec.id})`);
-          Timers_sleep_close(c);
-          return;
         }
       }else if(msg.userId && !USER_ID_RE.test(String(msg.userId))){
         /* شناسهٔ بی‌شکل نادیده گرفته می‌شود؛ ولی چیزی که مهم است این است که
@@ -1186,8 +1194,21 @@ function userTokenGet(token){
   if(typeof token !== 'string' || token.length !== 64) return null;
   const s = userTokens.get(token);
   if(!s) return null;
-  if(now() > s.exp || !userOf(s.phone) || userOf(s.phone).blocked || userOf(s.phone).id!==s.id){ userTokens.delete(token); return null; }
+  const rec = userOf(s.phone);
+  if(now() > s.exp || !rec || rec.id !== s.id){ userTokens.delete(token); return null; }
+  /* مسدودی، نشست را نمی‌سوزاند — فقط راه نمی‌دهد. آزادکردن باید همان
+     نشانه را دوباره معتبر کند؛ وگرنه «آزاد شد ولی باید از نو وارد شود». */
+  if(rec.blocked) return null;
   return s;
+}
+/* نشست زنده است ولی کاربرش مسدود است؟ دروازهٔ hello با این، ردِ مسدود را
+   از ردِ بی‌نشانه جدا می‌کند تا «چرا» را هم بگوید، نه فقط «نه». */
+function userTokenBlocked(token){
+  if(typeof token !== 'string' || token.length !== 64) return false;
+  const s = userTokens.get(token);
+  if(!s || now() > s.exp) return false;
+  const rec = userOf(s.phone);
+  return !!rec && rec.id === s.id && rec.blocked === true;
 }
 /* حذفِ کاربر: هم از شماره، هم از شناسه، هم نشست‌هایش. */
 function userDrop(rec){
@@ -1334,6 +1355,13 @@ function sameHash(a, b){
   return crypto.timingSafeEqual(x, y);
 }
 
+/* جدولِ تأخیرِ قفلِ مدیر — آینهٔ Admin.lockDelay در کلاینت (فاز ۲.۳).
+   «۳→۵ثانیه» و «۵→۳۰ثانیه» معیارِ پذیرش‌اند. */
+function adminDelay(fails){
+  const table = [0, 1000, 2000, 5000, 15000, 30000];
+  if(fails <= 5) return table[Math.max(1, Math.floor(fails))] || 1000;
+  return Math.min(300000, 60000 * 2 ** (fails - 6));
+}
 function adminAllow(ip){
   const t = now();
   const backoff=adminBackoff.get(ip);
@@ -1543,7 +1571,7 @@ async function handleHttp(req, res){
       if(!lim.ok){ log(`🚫 ورودِ مدیر رد شد (${ip}): ${lim.why}`); return no(429, lim.why); }
       if(!sameHash(sha256Hex(pass), ADMIN_HASH)){
         const fails=Math.min(12,(adminBackoff.get(ip)?.fails||0)+1);
-        adminBackoff.set(ip,{fails,until:now()+Math.min(300000,1000*2**(fails-1))});
+        adminBackoff.set(ip,{fails,until:now()+adminDelay(fails)});
         log(`🚫 رمزِ مدیر اشتباه (${ip})`);
         return no(401, 'رمز اشتباه است');
       }

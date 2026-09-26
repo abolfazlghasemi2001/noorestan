@@ -998,7 +998,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
    می‌تواند هر عرضی داشته باشد و متنش هرگز بریده نمی‌شود. */
 @keyframes sk-sheen  { 0%{background-position:180% 0} 55%,100%{background-position:-60% 0} }
 
-.a-in     { animation:fadeUp .42s cubic-bezier(.22,.9,.3,1) both }
+.a-in     { animation:fadeUp .42s cubic-bezier(.22,.9,.3,1) backwards } /* backwards نه both: fillِ both حالتِ پایانی را برای همیشه نگه می‌داشت و ‎:hover/:active را خفه می‌کرد */
 .a-fade   { animation:fadeIn .5s both }
 .a-scale  { animation:scaleIn .34s cubic-bezier(.22,.9,.3,1) both }
 .a-pop    { animation:popIn .4s cubic-bezier(.22,1.2,.36,1) both }
@@ -1047,7 +1047,7 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
 .sp-bar .fill{ transition:width .5s cubic-bezier(.22,.9,.3,1) }
 
 /* ── ۲.۲ خانه: ورود پله‌ای، تیلت، شمارش، درخشش نوار ── */
-.stagger > *{ animation:fadeUp .5s cubic-bezier(.22,.9,.3,1) both;
+.stagger > *{ animation:fadeUp .5s cubic-bezier(.22,.9,.3,1) backwards;
   animation-delay:calc(var(--i,0) * 55ms) }
 .tilt{ transform-style:preserve-3d; transition:transform .22s ease-out;
   will-change:transform }
@@ -1060,8 +1060,9 @@ input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(
   animation:shine 1.1s ease-out }
 
 /* ── ۲.۳ بازی‌ها ── */
-.opt{ animation:slideInR .32s cubic-bezier(.22,.9,.3,1) both;
+.opt{ animation:slideInR .32s cubic-bezier(.22,.9,.3,1) backwards;
   animation-delay:calc(var(--i,0) * 60ms) }
+.opt:active{ transform:scale(.97) }
 .qbox.q-enter{ animation:fadeUp .34s cubic-bezier(.22,.9,.3,1) both }
 .opt.right{ animation:pulseOk .55s ease-out both }
 .opt.wrong{ animation:shakeX .42s cubic-bezier(.36,.07,.19,.97) both }
@@ -2178,7 +2179,7 @@ h1>.ic,h2>.ic,h3>.ic,h1>i>.ic{display:inline-block;vertical-align:middle}
 .ayah-frame-shell iframe{display:block;width:100%;height:100%;min-height:720px;border:0}
 .ayah-frame-shell:fullscreen{height:100dvh;border:0;border-radius:0;overflow:auto}
 .ayah-frame-shell:fullscreen iframe{min-height:100%;height:100%}
-@media(orientation:landscape) and (max-height:550px){.ayah-frame-shell{height:760px}}
+@media(orientation:landscape) and (max-height:550px){.ayah-frame-shell{height:calc(100dvh - 120px)}.ayah-frame-shell iframe{min-height:0}}
 html[data-theme="light"] .top{background:var(--float1);color:var(--txt)}
 html[data-theme="light"] #bgArt{opacity:.035}
 html[data-theme="light"] #modal .box{background:#fffdf8;border-color:var(--line)}
@@ -2200,6 +2201,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 .ayah-board{position:relative;z-index:1;text-align:center}.ayah-board .question{font-size:12px;color:var(--gold);margin-bottom:12px}.ayah-text{font-family:var(--f-quran);font-size:clamp(24px,6vw,35px);line-height:2.1;margin:8px auto 16px;max-width:720px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
 .ayah-answer{min-height:74px;border:1px dashed rgba(245,196,81,.45);border-radius:18px;padding:12px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(8,13,24,.48);margin-bottom:13px}.word-chip,.ayah-choice{border:1px solid rgba(245,196,81,.35);background:rgba(18,35,52,.92);color:var(--txt);border-radius:13px;padding:10px 13px;cursor:pointer;line-height:1.6;transition:.18s;font-family:var(--f-quran);font-size:17px}.word-chip:hover,.ayah-choice:hover{transform:translateY(-2px);border-color:var(--gold)}.word-chip.used{opacity:.23;pointer-events:none}.word-chip.picked{background:rgba(245,196,81,.15)}
 .ayah-pool,.ayah-choices{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0}.ayah-choice{font-family:var(--f-ui);font-size:13px;min-width:120px}.ayah-choice.good{background:rgba(47,211,155,.2);border-color:var(--grn)}.ayah-choice.bad{background:rgba(255,95,109,.18);border-color:var(--red)}
+.word-chip:active,.ayah-choice:active,.ayah-opt:active,.imam-card:active{transform:scale(.96)}
 .ayah-feedback{min-height:58px;margin-top:13px;padding:10px 14px;border-radius:14px;background:rgba(8,13,24,.58);font-size:12px;line-height:1.8;color:var(--mut)}.ayah-feedback.ok{color:var(--grn);border:1px solid rgba(47,211,155,.3)}.ayah-feedback.err{color:#ff9da5;border:1px solid rgba(255,95,109,.3)}.ayah-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}.ayah-result{text-align:center;position:relative;z-index:1;padding-top:35px}.ayah-score{font-size:56px;color:var(--gold);font-weight:800;margin:14px}.ayah-stars{font-size:33px;letter-spacing:6px}
 @keyframes ayahPulse{to{transform:scale(1.07);box-shadow:0 0 18px rgba(255,95,109,.38)}}
 @media(max-width:520px){.ayah-stage{padding:17px;min-height:500px}.ayah-options{grid-template-columns:1fr}.ayah-opt{display:grid;grid-template-columns:35px 1fr;align-items:center;text-align:right;padding:9px 12px}.ayah-opt b{margin:0}.ayah-opt small{grid-column:2}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
@@ -2612,7 +2614,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
     <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — روی «بازی» دوباره بزن تا فهرست باز شود"><i class="ni" data-ic="gamepad"></i>بازی</button>
     <button class="navi" data-nav="me" aria-label="حساب من" data-tip="پروفایل، آمار، نشان‌ها، رکوردها و تنظیمات"><i class="ni" data-ic="user"></i>حساب</button>
   </nav>
-  <div style="height:74px"></div>
+  <div class="nav-spacer" style="height:74px"></div>
 </div>
 
 <!-- دکمهٔ خروج از حالت تمرکز — فقط وقتی تمرکز روشن است دیده می‌شود -->
@@ -3833,7 +3835,7 @@ const FX = {
       k.classList && k.classList.add('a-in');
       if(k.getAnimations && k.getAnimations.length === 0 && !this.reduced){
         try{ k.animate([{ opacity:0, transform:'translateY(14px)' }, { opacity:1, transform:'none' }],
-          { duration:480, delay:i * step, easing:'cubic-bezier(.22,.9,.3,1)', fill:'backwards' }); }catch(e){}
+          { duration:480, delay:Math.min(i * step, 480), easing:'cubic-bezier(.22,.9,.3,1)', fill:'backwards' }); }catch(e){}
       }
     });
   },
@@ -4128,13 +4130,14 @@ const UI = {
   },
   decorate(root){
     Glyph.decorate(root);
-    const lists = '#shopList,.coll-grid,.miss-list,.lbwrap,#gboard,.list,#adminBody';
-    const fresh = '.shop-item,.coll,.miss,.lbrow,.item,.adm-user,.adm-bar';
+    const lists = '#shopList,.coll-grid,.miss-list,.lbwrap,#gboard,.list,#adminBody,.qgrid,.fpicks,#tpList,.rec-grid,.imam-grid,.ava-grid,.ayah-choices,.ayah-options';
+    const fresh = '.shop-item,.coll,.miss,.lbrow,.item,.adm-user,.adm-bar,.qcard,.fpick,.rec,.imam-card,.ava-pick,.ayah-choice,.ayah-opt';
+    const tiltSel = '.shop-item,.coll,.miss,.lbrow,.item,.adm-user,.adm-bar,.qcard,.fpick,.rec,.ava-pick'; // گزینه‌های بازی تیلت نمی‌گیرند تا لرزشِ اشاره، دقتِ لمس را کم نکند
     U.$$(lists, root).forEach(list => {
       const rows = U.$$(fresh, list).filter(el => !el.dataset.fxReady);
       rows.forEach(el => { el.dataset.fxReady = '1'; el.classList.add('fx-fresh'); });
       FX.stagger(list, '.fx-fresh', 40);
-      rows.forEach(el => { el.classList.remove('fx-fresh'); FX.tilt(el, 3); });
+      rows.forEach(el => { el.classList.remove('fx-fresh'); if(el.matches && el.matches(tiltSel)) FX.tilt(el, 3); });
     });
     U.$$('.completion-check', root).forEach(el => {
       if(el.dataset.popped) return; el.dataset.popped = '1'; FX.pop(el);
@@ -11461,17 +11464,55 @@ const AyahEmbed = {
     '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد. مُهرِ گوشهٔ پایین، بنرِ میزبانِ بیرونی را می‌پوشاند تا چیزی از دید و لمس پنهان نشود.</p>'+
     '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین آفلاین</button></div>';
   U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
-  U.$('#ayahExpand').onclick=()=>this.landscape();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  U.$('#ayahExpand').onclick=()=>this.toggle();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  /* ── نگهبانِ تمام‌صفحه (فاز ۱.۲) ──
+     یک شنونده برای کلِ عمرِ قاب: با هر ورود/خروج (حتی با Esc)، لیبلِ
+     دکمه و حالتِ تئاتر را با واقعیت هم‌گام می‌کند. */
+  if(!this._fsBound){
+    this._fsBound=true;
+    this._onFs=()=>{ try{ this.paintExpand(); }catch(e){} };
+    document.addEventListener('fullscreenchange',this._onFs);
+  }
+  this.paintExpand();
   this.pending=this.landscape();
  },
+ /* نمای افقی: تمام‌صفحه اگر شد، وگرنه حالتِ تئاتر (فاز ۱.۲).
+    خروجی true یعنی تمام‌صفحه واقعاً نشست؛ false یعنی مرورگر نپذیرفت
+    (Safari آیفون، ژستِ نامعتبر، iframeِ بی‌مجوز) و باید تئاتر گرفت. */
  async landscape(){
+  const shell=U.$('#ayahGame');if(!shell)return false;
+  let ok=false;
+  try{
+    if(!document.fullscreenElement&&shell.requestFullscreen)await shell.requestFullscreen();
+    ok=document.fullscreenElement===shell;
+    if(ok&&screen.orientation?.lock)await screen.orientation.lock('landscape');
+  }
+  catch(e){ ok=document.fullscreenElement===shell; }
+  if(!U.$('#ayahFrame')){try{screen.orientation?.unlock();}catch(e){} }
+  document.body.classList.toggle('ayah-theater',!ok&&!!U.$('#ayahFrame'));
+  this.paintExpand();
+  return ok;
+ },
+ /* دکمهٔ «نمای افقی / تمام‌صفحه» یک کلیدِ دوحالته است: اگر تمام‌صفحه‌ایم
+    بیرون می‌آید، وگرنه دوباره تلاش می‌کند (این‌بار با ژستِ مستقیمِ کاربر)
+    و اگر باز نشد، تئاتر را نگه می‌دارد و راهنمایی می‌کند. */
+ async toggle(){
+  try{ Sound.click(); }catch(e){}
   const shell=U.$('#ayahGame');if(!shell)return;
-  try{if(!document.fullscreenElement&&shell.requestFullscreen)await shell.requestFullscreen();if(document.fullscreenElement===shell&&screen.orientation?.lock)await screen.orientation.lock('landscape');}
-  catch(e){/* در Safari و مرورگرهای بدون قفل جهت، راهنمای چرخاندن باقی می‌ماند. */}
-  if(!U.$('#ayahFrame')){try{screen.orientation?.unlock();}catch(e){}}
+  if(document.fullscreenElement===shell){ try{ await document.exitFullscreen(); }catch(e){} this.paintExpand(); return; }
+  if(document.fullscreenElement){ try{ await document.exitFullscreen(); }catch(e){} }
+  const ok=await this.landscape();
+  if(!ok)UI.toast('تمام‌صفحه پشتیبانی نشد؛ نمای تئاتر فعال است — گوشی را افقی نگه دار.','');
+ },
+ paintExpand(){
+  const b=U.$('#ayahExpand');if(!b)return;
+  const fs=document.fullscreenElement===U.$('#ayahGame');
+  b.textContent=fs?'خروج از تمام‌صفحه':'نمای افقی / تمام‌صفحه';
+  b.setAttribute('aria-pressed',String(fs));
  },
  cleanup(){
   U.$('#ayahBannerMask')?.remove();   /* مُهرِ پوشاننده هم با قاب جمع می‌شود */
+  document.body.classList.remove('ayah-theater');
   const frame=U.$('#ayahFrame'),shell=frame?.closest('#ayahGame');if(frame){frame.remove();try{screen.orientation?.unlock();}catch(e){}
    this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(shell&&document.fullscreenElement===shell)return document.exitFullscreen?.().catch(()=>{});});
   }
@@ -13156,10 +13197,19 @@ const Admin = {
      این تابع فقط می‌سنجد و پرچم را می‌نشاند؛ پاک‌کردنِ ورودی و رندر به
      صداکننده می‌ماند چون هر کدام جعبهٔ خودش را دارد. */
   _passBusy: false,
+  /* جدولِ تأخیرِ تصاعدیِ قفلِ مدیر (فاز ۲.۳): ۱، ۲، ۵، ۱۵، ۳۰ ثانیه و
+     سپس دوبرابر تا سقفِ ۵ دقیقه. نقطه‌های «۳→۵ثانیه» و «۵→۳۰ثانیه» همان
+     معیارِ پذیرش‌اند. سرور (adminDelay در server.js) از همین جدول پیروی
+     می‌کند تا شمارشِ این‌سو با دروازهٔ آن‌سو هم‌خوان بماند. */
+  lockDelay(fails){
+    const table = [0, 1000, 2000, 5000, 15000, 30000];
+    if(fails <= 5) return table[Math.max(1, Math.floor(fails))] || 1000;
+    return Math.min(300000, 60000 * 2 ** (fails - 6));
+  },
   passFail(why){
     const prior = Store.get('adminAttempts') || {};
     const fails = Math.min(12, (prior.fails || 0) + 1);
-    const delay = Math.min(300000, 1000 * 2 ** (fails - 1));
+    const delay = this.lockDelay(fails);
     Store.set('adminAttempts', { fails, until: U.now() + delay });
     return { ok: false, why, retryAfter: delay };
   },
