@@ -1,6 +1,8 @@
 name: fetch-phase2-patch
 on:
-  workflow_dispatch:
+  push:
+    branches: [arena/01a0da98-noorestan]
+    paths: [.github/workflows/fetch-phase2-patch.yml]
 jobs:
   fetch:
     runs-on: ubuntu-latest
