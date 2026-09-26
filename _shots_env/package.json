@@ -2,5 +2,9 @@
   "name": "noorestan-shots",
   "private": true,
   "description": "ابزار توسعه: اسکرین‌شات با Puppeteer. برنامهٔ نورستان به این وابستگی نیاز ندارد.",
-  "dependencies": { "puppeteer": "^25.11.0" }
+  "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "gifenc": "^1.0.3",
+    "puppeteer": "^25.12.0"
+  }
 }

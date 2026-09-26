@@ -85,22 +85,24 @@ ok('🔒 با رمز، نشست مدیر پاک نمی‌شود',
    querySelector یک شیء تازه می‌سازد، پس innerHTML نوشته‌شده در یک فراخوانی در
    فراخوانی بعدی گم می‌شود و آزمونِ واقعیِ صفحه ممکن نیست. اثباتِ دیداری و
    لمسی در «نیازمند آزمون دستی» گزارش می‌شود. */
-/* پیش‌تر فرمِ رمزِ مدیر یک نسخهٔ دوم هم در پنل ادمین داشت (#admPass/#admPass2)
-   که مهمان هم می‌توانست ببیندش. حالا فقط یک جا مانده: صفحهٔ ورود. */
-ok('فرمِ رمزِ مدیر فقط یک جا هست (صفحهٔ ورود)', (() => {
+/* فاز ۳: فرمِ رمزِ مدیر از Gate هم بیرون آمد. حالا صفحهٔ ورودِ مدیر
+   (#alog) کاملاً مجزاست و در نسخهٔ کاربرِ عادی هیچ نشانه‌ای از آن نیست. */
+ok('فرمِ رمزِ مدیر فقط در صفحهٔ مجزای مدیر هست (#alog)', (() => {
   const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  return /ساختن رمز مدیر/.test(src) && /id="gtPass2"/.test(src) &&
-         /ساختن رمز و ورود/.test(src) && !/id="admPass/.test(src);
+  return /id="alog"/.test(src) && /id="adminPassword"/.test(src) &&
+         !/id="gtPass2"/.test(src) && !/id="admPass/.test(src) &&
+         !/gateBox[\s\S]{0,400}adminPassword/.test(src);
 })());
-/* و پنل ادمین برای غیرمدیر یک درِ واحد دارد، نه فرمِ رمز. */
+/* پنل ادمین برای غیرمدیر هیچ فرمی نمی‌کشد؛ نگهبانِ دوم فقط به صفحهٔ
+   ورودِ مجزا می‌فرستد. */
 ok('🔐 پنل ادمین برای غیرمدیر فقط درِ ورود دارد', (() => {
   const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  return /id="admGoGate"/.test(src) && /Gate\.open\('admin'\)/.test(src) &&
+  return /AdminLogin\.open\(\);/.test(src) && !/Gate\.open\('admin'\)/.test(src) &&
          !/id="admLogin"/.test(src);
 })());
-ok('دروازهٔ ورود بین «اولین بار» و «ورود» فرق می‌گذارد',
-   /const first = !remote && !Store\.get\('adminHash'\)/.test(
-     fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('صفحهٔ ورودِ مدیر تنها از نشانیِ مستقیم زنده می‌شود',
+   /location\.hash===#admin\?AdminLogin\.open\(\)/.test(
+     fs.readFileSync(__dirname + '/index.html', 'utf8').replace(/['"]/g,'')));
 /* روی سرور، تنها راهِ ورود رمزِ سرور است — و رمزِ محلی نباید آنجا راه بدهد. */
 ok('دروازهٔ سرور از دروازهٔ محلی جدا شده', (() => {
   const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
@@ -113,22 +115,19 @@ ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف 
 /* سنجشِ متنی («noor2024 کجا آمده؟») شکننده است — کامنت چندخطی، رشتهٔ حاوی
    https://، و مانند این‌ها. به‌جایش معنای کد سنجیده می‌شود: هرجا رمزِ مدیر
    نوشته می‌شود، باید از ورودی کاربر هش شده باشد، نه از یک مقدار ثابت. */
-ok('🔒 رمز مدیر فقط از ورودی کاربر ساخته می‌شود', (() => {
+ok('🔒 رمز مدیر هیچ‌جا روی دستگاه نوشته و هش نمی‌شود', (() => {
+  /* قراردادِ تازه: رمز فقط به سرور می‌رود و نشانهٔ نشست برمی‌گردد.
+     «ساختن رمز محلی» و «هش روی دستگاه» هر دو برداشته شده‌اند. */
   const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  const calls = src.match(/Store\.set\('adminHash',[^\n]*/g) || [];
-  /* هر جا رمز نوشته می‌شود، باید از ورودی کاربر هش شده باشد، نه از ثابت. */
-  if(!calls.length || !calls.every(c => /sha256Async\(/.test(c))) return false;
-  /* و تنها *یک* جا می‌نویسد. پیش‌تر دو جا می‌نوشت و این آزمون همان دو را
-     می‌شمرد؛ ولی دو جای نوشتن یعنی دو قاعده که دیر یا زود واگرا می‌شوند.
-     حالا هر دو راه — ساختنِ رمز در صفحهٔ ورود و تغییرش در تنظیمات — از
-     یک جا می‌گذرند، پس شرطِ درست «یک نویسنده، دو خواننده» است. */
-  return calls.length === 1 && (src.match(/this\.setLocalPass\(/g) || []).length >= 2;
-})(), (fs.readFileSync(__dirname + '/index.html', 'utf8').match(/Store\.set\('adminHash',[^\n]*/g) || []).join(' ／ '));
+  return (src.match(/Store\.set\('adminHash'/g) || []).length === 0 &&
+         (src.match(/setLocalPass\(/g) || []).length === 0 &&
+         /loginServer\(pass\)/.test(src);
+})(), 'local admin password creation fully removed');
 ok('🔒 هشِ ثابت به‌عنوان مقدار پیش‌فرض نمی‌نشیند',
    !/adminHash:\s*'[0-9a-f]{64}'/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
-ok('🔒 تغییر رمز در تنظیمات همان سنجشِ دروازه را به کار می‌برد',
-   (fs.readFileSync(__dirname + '/index.html', 'utf8').match(/this\.passProblem\(/g) || []).length >= 2,
-   String((fs.readFileSync(__dirname + '/index.html', 'utf8').match(/this\.passProblem\(/g) || []).length));
+ok('🔒 سنجشِ قوّتِ رمزِ مدیر یک‌جا تعریف شده و معتبر است',
+   typeof Admin.passProblem === 'function' && Admin.MIN_PASS >= 8,
+   'MIN_PASS=' + Admin.MIN_PASS);
 ok('رمز کوتاه رد می‌شود', Admin.passProblem('abc') !== '');
 ok('رمز ۸ کاراکتری پذیرفته می‌شود', Admin.passProblem('khoob-14') === '', Admin.passProblem('khoob-14'));
 ok('رمز حدس‌زدنی رد می‌شود', Admin.passProblem('noor2024') !== '');
@@ -2955,24 +2954,32 @@ section('نوار پایین — مدیریت از آن برداشته شد، و
   ok('پنج نشانیِ نوار پایین همان‌های قبلی‌اند',
      navKeys.join(',') === 'home,quran,online,play,me', navKeys.join(','));
 
-  /* ویژگی نباید گم شود — فقط جابه‌جا می‌شود. */
+  /* فاز ۳: ویژگی فقط جابه‌جا نشده — از همهٔ رابطِ کاربرِ عادی *برداشته*
+     شده است. تنها مسیرِ مدیر، نشانیِ مستقیمِ #admin و صفحهٔ کاملاً مجزای
+     خودش (#alog) است. هیچ عنصرِ قابل‌کلیکی در نسخهٔ کاربر به مدیریت
+     نمی‌رسد: نه در نوار، نه در تنظیمات، نه در پروفایل، نه در صفحهٔ ورود. */
   ok('مسیر مدیریت هنوز در Router ثبت است', Router.screens.admin === 's-admin');
   ok('صفحهٔ مدیریت هنوز در سند است', /id="s-admin"/.test(SRC));
-  ok('کلید تازهٔ مدیریت در تنظیمات هست', /id="setAdmin"/.test(SRC));
-  ok('و به همان مسیر می‌رود', /U\.\$\('#setAdmin'\)\.onclick = \(\) => Router\.go\('admin'\)/.test(SRC));
+  ok('هیچ کلیدی به نام setAdmin در تنظیمات نیست', !/id="setAdmin"/.test(SRC));
+  ok('هیچ دکمه‌ای به نام pfAdmin در پروفایل نیست', !/id="pfAdmin"/.test(SRC));
+  ok('هیچ لینکی به نام gtAdminLink در صفحهٔ ورود نیست', !/id="gtAdminLink"/.test(SRC));
+  ok('هیچ جایی Gate.open(\'admin\') صدا نمی‌زند', !/Gate\.open\(\'admin\'\)/.test(SRC));
+  ok('صفحهٔ ورودِ مدیر مارک‌آپِ کاملاً مجزای خودش را دارد (#alog)', /id="alog"/.test(SRC) && /al-seal/.test(SRC));
+  ok('ورودِ مدیر دیگر داخل جعبهٔ Gate تزریق نمی‌شود', !/gateBox[^;]*adminPassword/.test(SRC));
+  ok('AdminLogin صفحهٔ خودش را باز می‌کند، نه Gate را', /el\(\)\{return U\.\$\('#alog'\);\}/.test(SRC));
+  ok('قفلِ نمایی روی Admin.tryPass فعال است (شمارندهٔ ناموفق)', /adminAttempts/.test(SRC) && /passFail/.test(SRC));
+  ok('پس از ورودِ مدیر، نوارِ کاربر پنهان می‌شود', /body\[data-role="admin"\] #nav/.test(fs.readFileSync(__dirname + '/assets/styles/sanctuary.css', 'utf8')));
 
-  /* پنهان‌کردن، امنیت نیست: نه میان‌بر پنهانی می‌ماند، نه دکمه‌ای قایم می‌شود. */
+  /* میان‌برهای کلیدی هم نباید راهی به مدیریت داشته باشند. */
   const keyMap = (SRC.match(/const map = \{[^}]*\}/) || [''])[0];
   ok('میان‌بر آلت+۶ برای مدیریت نمانده', !/'6'\s*:\s*'admin'/.test(keyMap), keyMap);
   ok('میان‌برهای آلت+۱..۵ سرجایشان‌اند',
      ['1','2','3','4','5'].every(k => new RegExp(`'${k}'\\s*:\\s*'\\w+'`).test(keyMap)), keyMap);
-  ok('کلید مدیریت هیچ کلاس مخفی‌کننده‌ای ندارد',
-     !/id="setAdmin"[^>]*class="[^"]*\b(hide|gh-only|hidden)\b/.test(SRC));
 
-  /* چون نوار پایین دکمه‌ای برای «مدیریت» ندارد، باید «حساب» روشن بماند
-     وگرنه کاربر بی آنکه بداند کجاست، صفحه‌ای بی‌نشان می‌بیند. */
-  ok('در صفحهٔ مدیریت، «حساب» روشن می‌ماند',
-     /name === 'admin' && b\.dataset\.nav === 'me'/.test(SRC));
+  /* نوار پایین برای مدیر اصلاً رسم نمی‌شود؛ قاعدهٔ «حساب روشن بماند»
+     جای خود را به «نوار پنهان» داده است. */
+  ok('در صفحهٔ مدیریت قاعدهٔ روشن‌نگه‌داشتنِ «حساب» نیست',
+     !/name === 'admin' && b\.dataset\.nav === 'me'/.test(SRC));
 
   /* متنِ راهنمای داخل صفحه هم باید بگوید چرا این‌جاست. */
   ok('توضیح می‌دهد که پنهان‌کردن امنیت نیست', /پنهان‌کردنِ نشانی، امنیت نیست/.test(SRC));
