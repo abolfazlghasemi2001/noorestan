@@ -212,6 +212,7 @@ function envelope(env){ return { ns: NS, from: 'server', to: '*', ...env }; }
 
 function sendRaw(c, env){
   if(!c || c.sock.destroyed || !c.ready) return;
+  if(!c.known && !['welcome','auth:error'].includes(env.t))return;
   const payload = JSON.stringify(envelope(env));
   if(payload.length > LIMITS.msgBytes){ log('⚠️ پیام بزرگ حذف شد'); return; }
   try{ c.sock.write(encodeFrame(payload)); }catch(e){ /* سوکت مرده */ }
@@ -241,7 +242,7 @@ function sendLobbyExcept(exceptId, env){
 
 /* ─────────────── حضور ─────────────── */
 function peerList(){
-  return [...clients.values()].map(c => ({
+  return [...clients.values()].filter(c=>c.known&&c.role==='user').map(c => ({
     id: c.id, name: c.name, level: c.level, score: c.score,
     room: c.room || null, spectator: !!c.spectator, since: c.since
   }));
@@ -278,6 +279,15 @@ function winnerOf(board){
   for(const [a, b, c] of LINES)
     if(board[a] && board[a] === board[b] && board[a] === board[c]) return { line: [a, b, c], player: board[a] };
   return null;
+}
+
+function sendGameSnapshot(r,c){
+  const st=r.state;if(!st)return;
+  if(r.game==='dooz')sendRaw(c,{t:'game',to:c.id,game:r.game,phase:'start',state:st,seated:true});
+  else if(st.phase==='results')sendRaw(c,{t:'game',to:c.id,game:r.game,phase:'results',letter:st.letter,round:st.round,
+    results:playersOf(r).map(m=>({id:m.id,name:m.name,answers:st.answers[m.id]||{},score:st.scores[m.id]||0}))});
+  else if(st.phase==='done')sendRaw(c,{t:'game',to:c.id,game:r.game,phase:'done',scores:st.scores});
+  else sendRaw(c,{t:'game',to:c.id,game:r.game,phase:'round',letter:st.letter,round:st.round,total:st.total,players:playersOf(r).length});
 }
 
 function startGame(r){
@@ -369,7 +379,7 @@ function leaveRoom(c, silent){
       r.state = null;
       log(`👑 میزبانی روم ${r.code} به ${heir.name} رسید`);
     }
-    r.state = null;
+    if(!wasSpectator){r.state = null;sendRoom(r.code,{t:'game:cancelled',to:'room:'+r.code,msg:'بازیکن از روم خارج شد؛ این دور پایان یافت.'});}
     /* اگر بازی دونفره بود و یکی رفت، نفر بعدی به‌جایش بازیکن می‌شود */
     if(r.game === 'dooz' && playersOf(r).length < 2){
       const promoted = spectatorsOf(r)[0];
@@ -434,6 +444,27 @@ function handleMessage(c, msg){
     }else{
       c.isAdmin = false;
       c.adminExp = 0;
+    }
+  }
+
+  if(msg.t==='hello'){
+    if(msg.adminToken && adminAlive(msg.adminToken) && c.role!=='user'){
+      c.role='admin';c.known=true;c.adminToken=msg.adminToken;c.isAdmin=true;
+      c.adminExp=adminSessions.get(msg.adminToken).exp;
+      sendRaw(c,{t:'authenticated',to:c.id,role:'admin'});return;
+    }
+    const auth=userTokenGet(msg.userToken);
+    if(!auth || c.role==='admin'){
+      sendRaw(c,{t:'auth:error',to:c.id,msg:'ورود پیامکی لازم است'});Timers_sleep_close(c);return;
+    }
+    c.role='user';c.userToken=msg.userToken;c.known=true;
+    sendRaw(c,{t:'authenticated',to:c.id,role:'user'});
+  }else{
+    const valid=c.role==='admin'?isAdminNow(c):c.role==='user'&&userTokenGet(c.userToken);
+    if(!valid){sendRaw(c,{t:'auth:error',to:c.id,msg:'نشست معتبر نیست'});Timers_sleep_close(c);return;}
+    const adminAction=String(msg.t).startsWith('admin:');
+    if((adminAction && c.role!=='admin') || (c.role==='admin'&&!adminAction&&!['hb','bye'].includes(msg.t))){
+      sendRaw(c,{t:'room:error',to:c.id,msg:'این عملیات برای این نوع حساب مجاز نیست'});return;
     }
   }
 
@@ -524,7 +555,7 @@ function handleMessage(c, msg){
       if(r.members.some(m => m.id === c.id)){ sendRaw(c, { t: 'room:error', to: c.id, msg: 'خودت در این رومی' }); return; }
 
       /* نسخهٔ ۱۵: روم تا ۸ بازیکن؛ نفرات بعدی خودکار تماشاچی می‌شوند */
-      const full = playersOf(r).length >= LIMITS.roomMembers;
+      const full = !!r.state || playersOf(r).length >= LIMITS.roomMembers;
       if(full && spectatorsOf(r).length >= LIMITS.roomSpectators){
         sendRaw(c, { t: 'room:error', to: c.id, msg: 'روم پر است — حتی جای تماشاچی هم نیست' }); return;
       }
@@ -536,8 +567,8 @@ function handleMessage(c, msg){
                    isHost: r.hostId === c.id, spectator: c.spectator, max: LIMITS.roomMembers,
                    members: r.members.map(memberView) });
       if(c.spectator) sendRaw(c, { t: 'spectate', to: c.id, reason: 'full' });
-      r.state = null;
       roomUpdate(r);
+      sendGameSnapshot(r,c);
       sendRoom(code, { t: 'chat', to: 'room:' + code, sys: true,
                        text: c.spectator ? `${c.name} به‌عنوان تماشاچی وارد شد` : `${c.name} وارد روم شد` });
       log(`➡️ ${c.name} ${c.spectator ? '(تماشاچی) ' : ''}به روم ${code} پیوست`);
@@ -559,6 +590,7 @@ function handleMessage(c, msg){
                    members: r.members.map(memberView) });
       sendRaw(c, { t: 'spectate', to: c.id, reason: 'asked' });
       roomUpdate(r);
+      sendGameSnapshot(r,c);
       pushRooms();
       break;
     }
@@ -569,7 +601,7 @@ function handleMessage(c, msg){
 
     case 'room:start': {
       const r = rooms.get(c.room);
-      if(!r || r.hostId !== c.id) return;                       // فقط میزبان
+      if(!r || r.hostId !== c.id){sendRaw(c,{t:'room:error',to:c.id,msg:'فقط میزبان می‌تواند بازی را آغاز کند'});return;}                       // فقط میزبان
       if(msg.game && msg.game !== r.game && ['dooz','esmfamil'].includes(msg.game)) r.game = msg.game;
       const players = playersOf(r);
       if(players.length < 2){
@@ -1119,18 +1151,16 @@ function userBind(phone, id, ip){
   const t = now();
   let rec = userByPhone.get(phone);
   if(!rec){
-    rec = { id: USER_ID_RE.test(id) ? id : 'usr_' + crypto.randomBytes(10).toString('hex').slice(0, 20),
+    rec = { id: 'usr_' + crypto.randomBytes(10).toString('hex'),
             phone, name: 'بازیکن', joinedAt: t, lastLogin: 0, visits: 0,
             plays: 0, score: 0, level: 1, blocked: false, lastIp: '', ips: [],
             welcomed: false, welcomedAt: 0, welcomeTries: 0 };
     userByPhone.set(phone, rec);
-  }else if(USER_ID_RE.test(id) && rec.id !== id){
-    /* شناسهٔ تازه از همان شماره: دستهٔ قدیمی رها و تازه ثبت می‌شود. دو
+  }
+/* یادداشت تاریخی؛ شناسه اکنون تنها در سرور ساخته می‌شود و پایدار می‌ماند. */
+/* شناسهٔ تازه از همان شماره: دستهٔ قدیمی رها و تازه ثبت می‌شود. دو
        شناسه برای یک شماره نگه نمی‌داریم، وگرنه «حذف کاربر» یکی را جا
        می‌گذاشت. */
-    userById.delete(rec.id);
-    rec.id = id;
-  }
   userById.set(rec.id, phone);
   rec.lastLogin = t;
   rec.visits = (rec.visits || 0) + 1;
@@ -1156,7 +1186,7 @@ function userTokenGet(token){
   if(typeof token !== 'string' || token.length !== 64) return null;
   const s = userTokens.get(token);
   if(!s) return null;
-  if(now() > s.exp){ userTokens.delete(token); return null; }
+  if(now() > s.exp || !userOf(s.phone) || userOf(s.phone).blocked || userOf(s.phone).id!==s.id){ userTokens.delete(token); return null; }
   return s;
 }
 /* حذفِ کاربر: هم از شماره، هم از شناسه، هم نشست‌هایش. */
@@ -1288,6 +1318,7 @@ const ADMIN_MAX_SESSIONS = 32;
 const ADMIN_TRY_MS       = 15 * 60 * 1000;
 const ADMIN_MAX_TRIES    = 6;
 const adminSessions = new Map();   // token -> { at, exp }
+const adminBackoff = new Map();
 const adminTries    = new Map();   // ip -> [at, …]
 
 /* دروازه بسته است تا وقتی NOOR_ADMIN_PASS ست شده باشد. */
@@ -1305,6 +1336,8 @@ function sameHash(a, b){
 
 function adminAllow(ip){
   const t = now();
+  const backoff=adminBackoff.get(ip);
+  if(backoff && t<backoff.until)return {ok:false,why:'کمی صبر کنید و دوباره تلاش کنید'};
   const list = (adminTries.get(ip) || []).filter(x => t - x < ADMIN_TRY_MS);
   adminTries.set(ip, list);
   if(list.length >= ADMIN_MAX_TRIES)
@@ -1312,7 +1345,7 @@ function adminAllow(ip){
   list.push(t);
   return { ok: true };
 }
-function adminForget(ip){ adminTries.delete(ip); }
+function adminForget(ip){ adminTries.delete(ip);adminBackoff.delete(ip); }
 
 function adminNewToken(){
   const token = crypto.randomBytes(32).toString('hex');
@@ -1336,7 +1369,7 @@ function adminAlive(token){
 }
 /* آیا این اتصال، همین حالا، مدیر است؟ `c.isAdmin` تنها کافی نیست: اتصالی که
    ۱۲ ساعت باز بماند باید خودش اختیارش را از دست بدهد. */
-const isAdminNow = c => !!c && !!c.isAdmin && now() < (c.adminExp || 0);
+const isAdminNow = c => !!c && c.role==='admin' && !!c.isAdmin && adminAlive(c.adminToken);
 
 function adminPruneSessions(){
   const t = now();
@@ -1442,9 +1475,16 @@ const MIME = {
   '.map':'application/json; charset=utf-8', '.wasm':'application/wasm'
 };
 
+let paymentService=null;
 async function handleHttp(req, res){
-  const u = new URL(req.url, 'http://x');
-  const p = decodeURIComponent(u.pathname);
+  let p;try{p=decodeURIComponent(new URL(req.url,'http://x').pathname);}catch(e){res.writeHead(400);return res.end('400');}
+
+  if(p.startsWith('/api/payments/')){
+    try{
+      if(!paymentService)paymentService=require('./payments').createPayments({file:DATA_FILE+'.payments.json',auth:userTokenGet,mode:process.env.NOOR_PAYMENTS||'disabled',publicUrl:process.env.NOOR_PUBLIC_URL||'',merchant:process.env.NOOR_ZARINPAL_MERCHANT||'00000000-0000-4000-8000-000000000001'});
+      return await paymentService.handle(req,res,new URL(req.url,'http://x'));
+    }catch(e){res.writeHead(503,{'Content-Type':'application/json','Cache-Control':'no-store'});return res.end(JSON.stringify({success:false,error:'پرداخت در دسترس نیست؛ با پشتیبانی تماس بگیر.'}));}
+  }
 
   /* پیش‌پرواز CORS. برنامه معمولاً هم‌خاستگاه است و پیش‌پرواز نمی‌فرستد،
      ولی اگر از file:// یا نشانی دیگری باز شود، همین جواب می‌دهد. */
@@ -1460,14 +1500,19 @@ async function handleHttp(req, res){
     res.writeHead(200, { 'Content-Type':'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
     return res.end(JSON.stringify({ ok: true, ...serverStats() }));
   }
-  if(p === '/api/leaderboard'){
-    res.writeHead(200, { 'Content-Type':'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
-    return res.end(JSON.stringify(leaderboard));
+  if(p === '/api/leaderboard' || p === '/api/rooms'){
+    const token=(req.headers.authorization||'').replace(/^Bearer /,'');
+    if(!userTokenGet(token)){res.writeHead(401);return res.end('ورود لازم است');}
+    res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+    return res.end(JSON.stringify(p.endsWith('rooms')?{rooms:roomList()}:leaderboard));
   }
-  if(p === '/api/rooms'){
-    res.writeHead(200, { 'Content-Type':'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
-    return res.end(JSON.stringify({ rooms: roomList(), maxPlayers: LIMITS.roomMembers,
-                                    maxSpectators: LIMITS.roomSpectators }));
+  if(p === '/api/account/me' || p === '/api/account/logout'){
+    const hdr={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':ALLOW_ORIGIN};
+    if(req.method!=='POST'){res.writeHead(405,hdr);return res.end('{}');}
+    const body=await readJson(req,2048),auth=body&&userTokenGet(body.token);
+    if(!auth){res.writeHead(401,hdr);return res.end(JSON.stringify({success:false}));}
+    if(p.endsWith('/logout')){userTokens.delete(body.token);for(const c of [...clients.values()])if(c.userToken===body.token)c.closeClient('خروج از حساب');}
+    res.writeHead(200,hdr);return res.end(JSON.stringify({success:true,id:auth.id,phone:auth.phone}));
   }
 
   /* ── ورودِ مدیر ──
@@ -1497,6 +1542,8 @@ async function handleHttp(req, res){
       const lim = adminAllow(ip);
       if(!lim.ok){ log(`🚫 ورودِ مدیر رد شد (${ip}): ${lim.why}`); return no(429, lim.why); }
       if(!sameHash(sha256Hex(pass), ADMIN_HASH)){
+        const fails=Math.min(12,(adminBackoff.get(ip)?.fails||0)+1);
+        adminBackoff.set(ip,{fails,until:now()+Math.min(300000,1000*2**(fails-1))});
         log(`🚫 رمزِ مدیر اشتباه (${ip})`);
         return no(401, 'رمز اشتباه است');
       }
@@ -1510,6 +1557,7 @@ async function handleHttp(req, res){
       const body = await readJson(req, 1024);
       if(body && adminAlive(body.token)){
         adminSessions.delete(body.token);
+        for(const c of [...clients.values()])if(c.adminToken===body.token)c.closeClient('خروج مدیریت');
         log('👑 نشستِ مدیر باطل شد');
       }
       /* بیرون‌رفتن همیشه «موفق» است؛ وگرنه وجودِ یک نشست را تأیید می‌کرد. */
@@ -1706,6 +1754,8 @@ async function handleHttp(req, res){
     return res.end(JSON.stringify({ success: true, state: 'sent', id: out.id || '' }));
   }
 
+  if(!['/','/index.html','/sw.js','/manifest.json','/offline.html'].includes(p) && !/^\/assets\/(fonts|images|styles|games)\/[a-zA-Z0-9_./-]+$/.test(p)){res.writeHead(404);return res.end('404');}
+  if(p.includes('..')||p.includes('\\')){res.writeHead(403);return res.end('403');}
   let file = p === '/' ? '/index.html' : p;
   /* جلوگیری از فرار از پوشهٔ برنامه با ../ */
   file = path.normalize(file).replace(/^(\.\.[/\\])+/, '');
@@ -1822,7 +1872,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  ظرفیت روم     : ${LIMITS.roomMembers} بازیکن + ${LIMITS.roomSpectators} تماشاچی`);
   console.log('  ─────────────────────────────────────────');
   console.log('  • برنامه را از آدرس بالا در مرورگر باز کن');
-  console.log('  • در صفحه «محفل» آدرس ws://... بالا را وارد کن');
+  console.log('  • ورود کاربران با پیامک؛ ورودی مستقل مدیریت: #admin');
   console.log('  • چند دستگاه در یک روم = بازی واقعی گروهی');
   console.log('  برای خروج Ctrl+C');
   console.log('');

@@ -2126,6 +2126,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 @media(max-width:520px){.ayah-stage{padding:17px;min-height:500px}.ayah-options{grid-template-columns:1fr}.ayah-opt{display:grid;grid-template-columns:35px 1fr;align-items:center;text-align:right;padding:9px 12px}.ayah-opt b{margin:0}.ayah-opt small{grid-column:2}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
 
 </style>
+<link rel="stylesheet" href="assets/styles/sanctuary.css">
 </head>
 
 <body>
@@ -2188,9 +2189,18 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 
   <section class="screen active" id="s-home">
     <div class="art-hero" id="homeArt"></div>
-    <div class="hero">
-      <h1><i data-ic="star"></i> به نورستان خوش آمدی</h1>
-      <p>آموزش قرآن کریم، بازی‌های فکری ایرانی و محفل چندنفره واقعی — همه در یک‌جا</p>
+    <div class="hero foyer">
+      <div class="foyer-copy">
+        <div class="foyer-eyebrow">به صحنِ نورستان خوش آمدی</div>
+        <h1>هر روز،<br><em>روشن‌تر از دیروز.</em></h1>
+        <p>اینجا جایی برای آرام گرفتن، آموختن و با هم بازی کردن است. امروزت را با یک آیه روشن کن.</p>
+        <div class="foyer-actions">
+          <button class="btn" data-foyer-route="quran"><i data-ic="book-open"></i> لحظه‌ای با قرآن</button>
+          <button class="btn gh" data-foyer-route="play"><i data-ic="gamepad"></i> انتخاب بازی</button>
+        </div>
+      </div>
+      <img class="foyer-art" src="assets/images/sanctuary-court.svg" width="900" height="720" alt="" fetchpriority="high">
+      <div class="foyer-progress">
       <div class="chips">
         <span class="chip" id="cNet">⏳ در حال بررسی شبکه</span>
         <span class="chip"><i data-ic="target"></i> <b id="cGames">۰</b> بازی</span>
@@ -2201,6 +2211,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
       <div class="lvlwrap">
         <div class="lbl2"><span>سطح <b id="lvlNum">۱</b></span><span id="lvlXp">۰ / ۱۰۰</span></div>
         <div class="lvlbar bar-shine"><i id="lvlFill"></i></div>
+      </div>
       </div>
     </div>
 
@@ -2272,15 +2283,8 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
         <input class="inp" id="myPeer" readonly>
         <button class="btn" id="copyPeer" title="رونوشت شناسه" aria-label="رونوشت شناسه"><i data-ic="copy"></i>کپی</button>
       </div>
-      <label class="lbl" id="netUrlLbl">آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه</label>
-      <div class="row">
-        <input class="inp" id="netUrl" placeholder="ws://192.168.1.5:8787" inputmode="url">
-        <button class="btn" id="netConnect">اتصال</button>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <button class="btn gh sm" id="netReconnect"><i data-ic="refresh"></i><span>اتصال دوباره</span></button>
-        <button class="btn gh sm" id="netSave"><i data-ic="save"></i><span>ذخیره آدرس</span></button>
-      </div>
+      <p id="mahfelNotice" role="status">محفل در دسترس نیست؛ اتصال به سرور لازم است.</p>
+      <button class="btn gh" id="netReconnect">بررسی دوبارهٔ اتصال</button>
     </div>
 
     <div class="sep"></div>
@@ -2365,6 +2369,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
       <button class="back" data-back>›</button>
       <div><h2 id="pgTitle">بازی</h2><p id="pgSub">—</p></div>
     </div>
+    <button class="btn gh sm" id="pgRestart" hidden>شروع دوباره</button>
     <div class="gbar" id="pgBar"></div>
     <div class="game-progress" id="pgProgWrap">
       <div class="prog" aria-hidden="true"><i id="pgProg"></i></div>
@@ -3543,12 +3548,8 @@ const Store = {
   get(k){ return this.data[k]; },
   set(k, v){ this.data[k] = v; this.save(); },
   update(fn){ fn(this.data); this.save(); },
-  export(){ return JSON.stringify(this.data, null, 2); },
-  import(json){
-    const parsed = JSON.parse(json);
-    this.data = { ...this.defaults(), ...parsed };
-    this.sanitize(); this.save();
-  },
+  export(){return PersonalData.export();},
+  import(json){return PersonalData.import(json);},
   reset(){ this.data = this.defaults(); this.save(); },
 
   /* ── جان: مصرف و بازیابی واقعی ── */
@@ -3906,7 +3907,7 @@ const Router = {
              play:'s-play', notif:'s-notif', me:'s-me', admin:'s-admin' },
   hooks: {},
   go(name, replace = false){
-    if(!this.screens[name]) return;
+    if(!this.screens[name] || !Session.allow(name)) return;
     /* تایمرِ بازی هنگام خروج پاک می‌شود. حالتِ دوم هم لازم است: رفتن از
        یک بازی به بازیِ دیگر همان صفحه است (`play` → `play`)، پس شرطِ اول
        نمی‌گیرد و تایمرِ رهاشدهٔ بازیِ قبلی روی صفحهٔ تازه شلیک می‌کرد —
@@ -3935,6 +3936,8 @@ const Router = {
     this.go('home', true);
   },
   _render(name){
+    if(!Session.allow(name))return;
+    if(name!=='play')RoundControl.clear();
     if(name !== 'play') AyahEmbed.cleanup();
     U.$$('.screen').forEach(s => s.classList.remove('active'));
     const el = U.$('#' + this.screens[name]);
@@ -3982,7 +3985,7 @@ const Router = {
       else this.stack = [name];
       if(name !== 'play') Timers.clearPage();
       this._render(name);
-      if(this.hooks[name]) { try{ this.hooks[name](); }catch(err){} }
+      if(Session.allow(name)&&this.hooks[name]) { try{ this.hooks[name](); }catch(err){} }
     });
     /* اگر صفحه وسطِ یک پنجرهٔ باز دوباره بار شده، نشانهٔ تاریخچه‌اش مانده
        ولی پنجره‌ای باز نیست. پاکش می‌کنیم تا «عقب» اول بی‌دلیل خرج نشود. */
@@ -7898,38 +7901,29 @@ const Host = {
 };
 
 const Net = {
-  mode: 'local', status: 'offline', id: U.uid(),
-  url: '', ws: null, bc: null,
+  mode: 'ws', status: 'offline', id: U.uid(),
+  url: '', ws: null,
   peers: new Map(), roomMap: new Map(), board: [], friendList: [],
   room: null, listeners: new Map(),
-  server: null, hbId: null, retry: 0, wantOnline: false, serverInfo: null,
+  hbId: null, retry: 0, wantOnline: false, serverInfo: null,
 
   on(evt, fn){ if(!this.listeners.has(evt)) this.listeners.set(evt, []); this.listeners.get(evt).push(fn); },
   emit(evt, data){ (this.listeners.get(evt) || []).forEach(fn => { try{ fn(data); }catch(e){ console.warn(e); } }); },
   setStatus(s, info){ this.status = s; UI.busy('#netState,#gboard', s === 'connecting'); UI.busy('#players', s === 'connecting', true); this.emit('state', { status: s, mode: this.mode, info }); },
 
   /* ── ارسال از سمت این کلاینت ── */
-  post(env){
-    env = { ns: SERVER_KEY, from: this.id, to: '*', ...env };
-    if(this.mode === 'ws' && this.ws && this.ws.readyState === 1){
-      try{ this.ws.send(JSON.stringify(env)); }catch(e){}
-    } else {
-      if(this.bc) try{ this.bc.postMessage(env); }catch(e){}
-      // تب میزبان باید پیام خودش را هم پردازش کند
-      if(this.server && this.server.on) this.server.handle(env);
-    }
-  },
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// تب میزبان باید پیام خودش را هم پردازش کند
+post(env){
+ if(!this.ws||this.ws.readyState!==1)return false;
+ try{this.ws.send(JSON.stringify({ns:SERVER_KEY,from:this.id,to:'*',...env}));return true;}catch(e){return false;}
+},
 
   /* ── ارسال از سمت سرور/میزبان ── */
-  srv(env){
-    env = { ns: SERVER_KEY, from: 'server', to: '*', ...env };
-    if(this.mode === 'ws' && this.ws && this.ws.readyState === 1){
-      try{ this.ws.send(JSON.stringify(env)); }catch(e){}
-    } else {
-      if(this.bc) try{ this.bc.postMessage(env); }catch(e){}   // بقیه تب‌ها
-      this.deliver(env);                                       // تب خودم
-    }
-  },
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// بقیه تب‌ها
+// تب خودم
+srv(){return false;},
 
   /* ── تحویل پیام ورودی به برنامه ── */
   deliver(msg){
@@ -7970,37 +7964,14 @@ const Net = {
     return scheme + '://' + host + (port ? ':' + port : '') + rest;
   },
 
-  connect(url){
-    const clean = this.normUrl(url);
-    this.wantOnline = true;
-    this.teardown();
-    this.roomMap.clear(); this.peers.clear(); this.board = [];
-    this.room = null;
-    if(/^wss?:\/\//i.test(clean)){
-      this.mode = 'ws'; this.url = clean;
-      this.setStatus('connecting');
-      this.openWS(clean);
-    } else {
-      this.mode = 'local'; this.url = '';
-      this.setStatus('connecting');
-      try{
-        if(typeof BroadcastChannel === 'undefined') throw new Error('no BroadcastChannel');
-        this.bc = new BroadcastChannel(SERVER_KEY + '_bc');
-        this.bc.onmessage = e => this.deliver(e.data);
-        // سرور محلی: هر تبی که روم بسازد میزبان می‌شود
-        if(!this.server) this.server = MiniServer.create(this);
-        this.server.on = true;
-        this.server.clients.set(this.id, this.selfInfo());
-        this.setStatus('online', { label: 'حالت محلی (همین دستگاه)' });
-        UI.toast('🟡 حالت محلی فعال — تب‌های دیگر همین مرورگر دیده می‌شوند', '');
-      }catch(e){
-        this.setStatus('offline');
-        UI.toast('⚠️ BroadcastChannel پشتیبانی نمی‌شود', 'err');
-      }
-    }
-    this.announce();
-    this.startHeartbeat();
-  },
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// سرور محلی: هر تبی که روم بسازد میزبان می‌شود
+connect(url){
+ const clean=this.normUrl(url);this.teardown();this.roomMap.clear();this.peers.clear();this.board=[];
+ if(!Session.user()&&!Session.admin()){this.setStatus('offline');return false;}
+ if(!/^wss?:\/\//i.test(clean)){this.url='';this.setStatus('unavailable');return false;}
+ this.wantOnline=true;this.mode='ws';this.url=clean;this.setStatus('connecting');this.openWS(clean);this.startHeartbeat();return true;
+},
 
   /* آنچه هنگامِ ورود به سرور اعلام می‌شود.
      `userToken` تنها چیزی است که سرور را متقاعد می‌کند این اتصال مالِ فلان
@@ -8008,6 +7979,7 @@ const Net = {
      می‌فرستیمش تا در فهرستِ مهمان‌ها شناسه‌مان معلوم باشد، نه برای اختیار. */
   selfInfo(){
     const u = User.get();
+    if(Session.admin())return {id:Net.id,name:'مدیریت',adminToken:Admin.token()};
     return { id: Net.id, name: Store.get('playerName'), level: Store.get('level'),
              score: Store.get('score'), userId: u ? u.id : '',
              userToken: (typeof Store.get('userToken') === 'string' && Store.get('userTokenExp') > U.now())
@@ -8020,31 +7992,35 @@ const Net = {
     this.ws = ws;
     const fail = U.now();
     ws.onopen = () => {
+      if(this.ws!==ws)return;
       this.retry = 0;
       this.ws.send(JSON.stringify({ ns: SERVER_KEY, from: this.id, to: 'server', t: 'hello', ...this.selfInfo() }));
-      this.setStatus('online', { label: 'سرور' });
-      UI.toast('✅ به سرور وصل شد', 'ok');
-      Net.requestRooms(); Net.requestBoard();
+      // وضعیت آنلاین تنها پس از پذیرش هویت در سرور اعلام می‌شود.
     };
     ws.onmessage = e => {
+      if(this.ws!==ws)return;
       let m; try{ m = JSON.parse(e.data); }catch(err){ return; }
       if(m.t === 'welcome'){
         if(m.id) this.id = m.id;
         this.serverInfo = m;
         return;
       }
+      if(m.t==='authenticated'){this.setStatus('online');if(Session.user()){this.requestRooms();this.requestBoard();}else Admin.render();return;}
+      if(m.t==='auth:error'){this.wantOnline=false;this.setStatus('offline');Session.role='';Session.layout();Gate.open();return;}
       this.deliver(m);
     };
     ws.onerror = () => { /* onclose ادامه می‌دهد */ };
     ws.onclose = () => {
-      if(this.mode !== 'ws') return;
+      if(this.ws!==ws) return;
+      const hadRoom=!!this.room;this.room=null;this.roomMap.clear();this.peers.clear();this.emit('rooms',[]);
+      if(hadRoom){Timers.clearPage();Router.go('online');}
       this.setStatus('offline');
       if(ws.__manual) return;
       if(this.wantOnline && this.retry < 5){
         this.retry++;
         const wait = Math.min(15000, 1200 * Math.pow(1.7, this.retry));
         UI.toast(`❌ قطع شد — تلاش ${U.fa(this.retry)} تا ${U.fa(Math.round(wait/1000))} ثانیه دیگر`, 'err');
-        Timers.after(() => { if(this.wantOnline && this.mode === 'ws') this.openWS(this.url); }, wait, 'sys');
+        Timers.after(() => { if(this.wantOnline && this.ws===ws && this.mode === 'ws') this.openWS(this.url); }, wait, 'sys');
       } else {
         UI.toast('❌ اتصال به سرور برقرار نشد', 'err');
       }
@@ -8053,15 +8029,9 @@ const Net = {
   },
 
   teardown(){
-    this.wantOnline = false;
-    if(this.ws){ try{ this.ws.__manual = true; this.ws.close(); }catch(e){} this.ws = null; }
-    if(this.bc){ try{ this.bc.close(); }catch(e){} this.bc = null; }
-    if(this.server){ this.server.on = false; this.server.rooms.clear(); }
-    if(this.hbId){ Timers.clear(this.hbId); this.hbId = null; }
-    this.mode = 'local';
-    this.retry = 0;
-    this.room = null;
-  },
+ this.wantOnline=false;if(this.ws){this.ws.__manual=true;try{this.ws.close();}catch(e){}this.ws=null;}
+ if(this.hbId){Timers.clear(this.hbId);this.hbId=null;}this.mode='ws';this.retry=0;this.room=null;
+},
 
   disconnect(){
     this.post({ t: 'bye' });
@@ -8079,8 +8049,7 @@ const Net = {
     if(this.hbId) Timers.clear(this.hbId);
     this.hbId = Timers.every(() => {
       const now = U.now();
-      if(this.mode === 'local') this.post({ t: 'hb', name: Store.get('playerName'), level: Store.get('level') });
-      else if(this.ws && this.ws.readyState === 1) this.post({ t: 'hb' });
+      if(this.ws && this.ws.readyState === 1) this.post({ t: 'hb' });
       // پاکسازی
       let changed = false;
       for(const [id, p] of this.peers){
@@ -8120,10 +8089,7 @@ const Net = {
     return this.post({ to: to || (this.room ? 'room:' + this.room.code : '*'), ...env });
   },
   /* دور بعد اسم فامیل — روی سرور واقعی یا میزبان محلی */
-  nextRound(){
-    if(this.mode === 'ws') return this.post({ t: 'room:game', game: 'esmfamil', phase: 'next', code: this.room?.code });
-    this.server?.nextEsmRound({ code: this.room?.code, from: this.id });
-  },
+  nextRound(){return this.post({t:'room:game',game:'esmfamil',phase:'next',code:this.room?.code});},
 
   /* ── پروتکل ورودی ── */
   handle(msg){
@@ -8157,7 +8123,7 @@ const Net = {
         break;
       case 'room:joined':
         this.room = { code: msg.code, name: msg.name, game: msg.game, host: msg.host, isHost: !!msg.isHost,
-                      codeText: msg.code, members: msg.members || [] };
+                      codeText: msg.code, spectator:!!msg.spectator, members: msg.members || [] };
         UI.closeModal();
         Router.go('room');
         renderRoom();
@@ -8168,6 +8134,7 @@ const Net = {
           this.room.members = msg.members || [];
           this.room.host = msg.host;
           this.room.isHost = (msg.host === this.id);
+          this.room.spectator=!!this.room.members.find(m=>m.id===this.id)?.spectator;
           renderRoom();
         }
         break;
@@ -8211,6 +8178,8 @@ const Net = {
       case 'friend:no':
         UI.toast('پیشنهاد دوستی پذیرفته نشد', '', 2000);
         break;
+      case 'game:cancelled':
+        Timers.clearPage();Router.go('room');UI.toast(msg.msg||'این دور پایان یافت.','');break;
       case 'game':
         GameLink.apply(msg);
         break;
@@ -8255,118 +8224,20 @@ const Net = {
                                  score: msg.score || 0, lastSeen: U.now() });
       this.emit('peers', this.peerList());
     }
-    if(isHello && this.mode === 'local'){
-      this.srv({ t: 'hello', to: '*', name: Store.get('playerName'), level: Store.get('level'),
-                 score: Store.get('score'), ack: msg.from });
-    }
+
   }
 };
 
 /* ─────────────────── 8.1 MINI SERVER (میزبان محلی) ───────────────────
    همان منطقی که server.js اجرا می‌کند، درون تبی که روم ساخته.
    ───────────────────────────────────────────────────────────────── */
-const MiniServer = {
-  create(net){
-    const S = {
-      net, on: false, rooms: new Map(), clients: new Map(),
-      /* رمز مدیر این‌جا ثابت نیست.
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* رمز مدیر این‌جا ثابت نیست.
          پیش‌تر یک کپیِ جداگانهٔ هشِ «noor2024» همین‌جا بود:
            - با تغییر رمز در تنظیمات هم عوض نمی‌شد، پس روی حالت محلی بی‌اثر بود
            - رمزِ عمومیِ منتشرشده در مخزن، تا ابد کار می‌کرد
          حالا از خودِ Store خوانده می‌شود؛ یک منبع حقیقت، نه دو تا. */
-
-      roomOfMember(id){ for(const r of this.rooms.values()) if(r.members.some(m => m.id === id)) return r; return null; },
-      roomList(){ return [...this.rooms.values()].map(r => ({ code: r.code, name: r.name, game: r.game,
-                     count: r.members.length, max: 2, host: r.hostId })); },
-      pushRoomList(){ this.net.srv({ t: 'rooms', to: '*', list: this.roomList() }); },
-      roomUpdate(r){ this.net.srv({ t: 'room:update', to: 'room:' + r.code, code: r.code, members: r.members, host: r.hostId }); },
-
-      handle(msg){
-        if(!msg || msg.ns !== SERVER_KEY || msg.from === 'server') return;
-        const c = this.clients.get(msg.from);
-        if(msg.t === 'hello' || msg.t === 'hb'){
-          this.clients.set(msg.from, { id: msg.from, name: String(msg.name || 'بازیکن').slice(0, 20),
-                                       level: +msg.level || 1, score: +msg.score || 0, lastSeen: U.now() });
-        } else if(c){ c.lastSeen = U.now(); }
-
-        switch(msg.t){
-          case 'hello':
-            if(msg.isSelf) this.pushRoomList();
-            break;
-          case 'rooms:list':
-            this.pushRoomList();
-            break;
-          case 'room:create': {
-            const me = this.clients.get(msg.from) || { id: msg.from, name: 'بازیکن' };
-            let code; do { code = U.code6(); } while(this.rooms.has(code));
-            const r = { code, name: String(msg.name || 'روم').slice(0, 24).slice(0, 24) || 'روم',
-                        game: msg.game === 'esmfamil' ? 'esmfamil' : 'dooz', hostId: msg.from,
-                        members: [me], state: null, createdAt: U.now() };
-            this.rooms.set(code, r);
-            this.net.srv({ t: 'room:joined', to: msg.from, code, name: r.name, game: r.game,
-                           host: r.hostId, isHost: true, members: r.members });
-            this.pushRoomList();
-            break;
-          }
-          case 'room:join': {
-            const r = this.rooms.get(String(msg.code || '').trim());
-            if(!r){ this.net.srv({ t: 'room:error', to: msg.from, msg: 'رومی با این کد پیدا نشد' }); return; }
-            if(r.members.length >= 2){ this.net.srv({ t: 'room:error', to: msg.from, msg: 'روم پر است' }); return; }
-            if(r.members.some(m => m.id === msg.from)){ this.net.srv({ t: 'room:error', to: msg.from, msg: 'خودت در این رومی' }); return; }
-            const me = this.clients.get(msg.from) || { id: msg.from, name: 'بازیکن' };
-            r.members.push(me);
-            this.net.srv({ t: 'room:joined', to: msg.from, code: r.code, name: r.name, game: r.game,
-                           host: r.hostId, isHost: r.hostId === msg.from, members: r.members });
-            this.syncRoom(r, true);
-            this.pushRoomList();
-            break;
-          }
-          case 'room:leave': {
-            const r = this.roomOfMember(msg.from);
-            if(!r) return;
-            r.members = r.members.filter(m => m.id !== msg.from);
-            this.net.srv({ t: 'room:left', to: msg.from });
-            if(r.members.length === 0){ this.rooms.delete(r.code); this.pushRoomList(); }
-            else { this.syncRoom(r, true); this.pushRoomList(); }
-            break;
-          }
-          case 'room:start': {
-            const r = this.rooms.get(msg.code || this.roomOfMember(msg.from)?.code);
-            if(!r || r.hostId !== msg.from) return;
-            if(r.game === 'dooz'){
-              r.state = { board: Array(9).fill(null), turn: 'X', over: false, winner: null, last: -1,
-                          sides: { X: r.hostId, O: r.members.find(m => m.id !== r.hostId)?.id || null } };
-              this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'dooz', phase: 'start', state: r.state, seated: !!r.state.sides.O });
-            } else {
-              r.state = { letter: U.rand(DATA.letters), round: 1, total: 3, phase: 'round', answers: {}, scores: {} };
-              this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'esmfamil', phase: 'round',
-                             letter: r.state.letter, round: 1, total: 3 });
-            }
-            break;
-          }
-          case 'room:game': this.gameMove(msg); break;
-          case 'chat': {
-            const r = this.roomOfMember(msg.from);
-            const name = (this.clients.get(msg.from) || {}).name || 'بازیکن';
-            const text = String(msg.text || '').slice(0, 200);
-            if(!text) return;
-            this.net.srv({ t: 'chat', to: r ? 'room:' + r.code : '*', from: msg.from, name, text });
-            break;
-          }
-          case 'lb:get':
-            this.net.srv({ t: 'lb', to: msg.from, list: Store.get('leaderboard') });
-            break;
-          case 'lb:put': {
-            const name = String(msg.name || 'بازیکن').slice(0, 20);
-            const list = Store.get('leaderboard').filter(x => x.name !== name);
-            list.push({ name, score: Math.max(0, +msg.score || 0), at: U.now() });
-            list.sort((a, b) => b.score - a.score);
-            Store.set('leaderboard', list.slice(0, 30));
-            this.net.srv({ t: 'lb', to: '*', list: Store.get('leaderboard') });
-            break;
-          }
-          case 'admin:broadcast': {
-            /* در حالتِ محلی، «سرور» همین تبِ میزبان است و میزبان صاحبِ
+/* در حالتِ محلی، «سرور» همین تبِ میزبان است و میزبان صاحبِ
                دستگاه. پس پیامِ مدیریتی از دیگری پذیرفته نمی‌شود.
                پیش‌تر اینجا هشِ رمز مقایسه می‌شد؛ ولی هش دیگر روی سیم نمی‌رود
                (کلاینت فقط نشانهٔ سرور را می‌فرستد)، پس آن شرط همیشه بسته بود
@@ -8374,108 +8245,24 @@ const MiniServer = {
                ایستگاهِ خودِ میزبان.
                رد کردن *بی‌پاسخ* است، مثل خودِ سرور: فرستنده نباید از پاسخ
                بفهمد دروازه کجاست یا چه می‌خواهد. */
-            if(msg.from !== Net.id) break;
-            this.net.srv({ t: 'notif', to: '*', title: String(msg.title || '').slice(0, 60),
-                           desc: String(msg.desc || '').slice(0, 300), icon: '📢' });
-            break;
-          }
-          case 'bye': {
-            this.clients.delete(msg.from);
-            const r = this.roomOfMember(msg.from);
-            if(r){ r.members = r.members.filter(m => m.id !== msg.from); this.net.srv({ t: 'room:left', to: msg.from });
-                   if(!r.members.length) this.rooms.delete(r.code); else this.syncRoom(r, true); this.pushRoomList(); }
-            break;
-          }
-        }
-      },
+/* ── اعتبارسنجی حرکت بازی، سمت میزبان ── */
+// پروتکل یکسان در هر دو حالت: دور بعد هم از همین مسیر می‌آید
+// نوبت تو نیست
+// خانه نامعتبر
+// پاکسازی دوره‌ای
 
-      syncRoom(r, resetIfNeeded){
-        if(r.game === 'dooz'){
-          if(!r.state || resetIfNeeded){
-            r.state = r.state || { board: Array(9).fill(null), turn: 'X', over: false, winner: null, last: -1, sides: {} };
-            r.state.sides.X = r.hostId;
-            r.state.sides.O = r.members.find(m => m.id !== r.hostId)?.id || null;
-          }
-        }
-        this.roomUpdate(r);
-      },
-
-      /* ── اعتبارسنجی حرکت بازی، سمت میزبان ── */
-      gameMove(msg){
-        const r = this.rooms.get(msg.code || this.roomOfMember(msg.from)?.code);
-        if(!r || !r.state) return;
-        // پروتکل یکسان در هر دو حالت: دور بعد هم از همین مسیر می‌آید
-        if(r.game === 'esmfamil' && msg.phase === 'next'){ this.nextEsmRound({ code: r.code, from: msg.from }); return; }
-        if(r.game === 'dooz'){
-          const st = r.state;
-          if(st.over) return;
-          if(st.sides[st.turn] !== msg.from) return;             // نوبت تو نیست
-          const i = +msg.index;
-          if(!(i >= 0 && i <= 8) || st.board[i]) return;          // خانه نامعتبر
-          st.board[i] = st.turn;
-          st.last = i;
-          const w = DoozEngine.winnerOf(st.board);
-          if(w){ st.over = true; st.winner = w.player; }
-          else if(st.board.every(Boolean)){ st.over = true; st.winner = 'D'; }
-          else st.turn = st.turn === 'X' ? 'O' : 'X';
-          this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'dooz', phase: 'state', state: st });
-        } else {
-          const st = r.state;
-          if(st.phase !== 'round') return;
-          st.answers[msg.from] = msg.answers || {};
-          st.scores[msg.from] = +msg.score || 0;
-          if(Object.keys(st.answers).length >= r.members.length){
-            st.phase = 'results';
-            this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'esmfamil', phase: 'results',
-                           round: st.round, letter: st.letter,
-                           results: r.members.map(m => ({ id: m.id, name: m.name,
-                             answers: st.answers[m.id] || {}, score: st.scores[m.id] || 0 })) });
-          } else {
-            this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'esmfamil', phase: 'waiting',
-                           got: Object.keys(st.answers).length, total: r.members.length });
-          }
-        }
-      },
-
-      nextEsmRound(msg){
-        const r = this.rooms.get(msg.code);
-        if(!r || r.game !== 'esmfamil' || r.hostId !== msg.from) return;
-        const st = r.state;
-        if(st.phase !== 'results') return;
-        if(st.round >= st.total){
-          st.phase = 'done';
-          this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'esmfamil', phase: 'done', scores: st.scores });
-        } else {
-          st.round++; st.letter = U.rand(DATA.letters); st.phase = 'round'; st.answers = {}; st.scores = {};
-          this.net.srv({ t: 'game', to: 'room:' + r.code, game: 'esmfamil', phase: 'round',
-                         letter: st.letter, round: st.round, total: st.total });
-        }
-      },
-
-      sweep(){
-        const now = U.now();
-        for(const [id, c] of this.clients){
-          if(now - c.lastSeen > 20000){
-            this.clients.delete(id);
-            const r = this.roomOfMember(id);
-            if(r){ r.members = r.members.filter(m => m.id !== id);
-                   if(!r.members.length) this.rooms.delete(r.code); else this.syncRoom(r, true);
-                   this.pushRoomList(); }
-          }
-        }
-      }
-    };
-    // پاکسازی دوره‌ای
-    Timers.every(() => { if(S.on) S.sweep(); }, 7000, 'sys');
-    return S;
-  }
-};
 
 /* ─────────────────── 8.2 GAME LINK ───────────────────
    پیام‌های بازی آنلاین را به موتور مربوطه می‌رساند.
    ───────────────────────────────────────────────────── */
 const GameLink = {
   apply(msg){
+    if(!Net.room)return;
+    if(Net.room.spectator && msg.game==='esmfamil'){
+      Router.go('play');U.$('#pgTitle').textContent='تماشای اسم فامیل';
+      U.$('#pgBar').textContent='حالت تماشاچی';
+      U.$('#pgBody').innerHTML='<div class="card">'+U.esc(msg.phase==='results'?'نتیجهٔ دور':msg.phase==='done'?'بازی تمام شد':'حرف این دور: '+(msg.letter||'—'))+'</div>';return;
+    }
     const cur = Router.stack[Router.stack.length - 1];
     if(msg.game === 'dooz'){
       if(cur !== 'play'){ Router.go('play'); }
@@ -9229,10 +9016,10 @@ const DoozEngine = {
     if(!s || !s.online) this.start(true);
     const st = this.state;
     if(msg.phase === 'start'){
-      st.board = msg.state.board; st.turn = msg.state.turn; st.over = false;
-      st.winner = null; st.last = -1; st.waiting = false;
-      st.mySide = msg.state.sides?.X === Net.id ? 'X' : 'O';
-      UI.toast(`🎮 بازی شروع شد — تو ${st.mySide === 'X' ? '❌' : '⭕'} هستی`, 'ok');
+      st.board = msg.state.board; st.turn = msg.state.turn; st.over = !!msg.state.over;
+      st.winner = msg.state.winner; st.last = msg.state.last; st.waiting = false;
+      st.mySide = msg.state.sides?.X === Net.id ? 'X' : msg.state.sides?.O === Net.id ? 'O' : '';
+      UI.toast(st.mySide?`🎮 بازی شروع شد — تو ${st.mySide === 'X' ? '❌' : '⭕'} هستی`:'در حال تماشای بازی','ok');
       this.render();
       return;
     }
@@ -9281,6 +9068,7 @@ const DoozEngine = {
     const s = this.state;
     if(s.over || s.board[i] || s.thinking) return;
     if(s.online){
+      if(Net.room?.spectator||!s.mySide)return;
       if(s.turn !== s.mySide){ UI.toast('نوبت حریف است', ''); return; }
       // حرکت را به سرور می‌فرستیم؛ خودمان خوش‌بینانه رسم می‌کنیم
       Net.post({ t: 'room:game', game: 'dooz', index: i, code: Net.room?.code });
@@ -9323,6 +9111,7 @@ const DoozEngine = {
     }, 420);
   },
   settleOnline(){
+    if(Net.room?.spectator||!this.state?.mySide)return;
     const s = this.state;
     /* هر بازی فقط یک بار حساب می‌شود. سرور می‌تواند حالتِ پایانی را دوباره
        بفرستد (اتصال دوباره، پیام تکراری)، و بی این نگهبان هر بار ۶۰ امتیاز
@@ -10315,7 +10104,7 @@ const Friends = {
     Store.update(d => {
       const f = d.friends.find(x => x.id === id);
       if(f){ f.name = name || f.name; f.lastSeen = U.now(); }
-      else d.friends.unshift({ id, name: name || 'مهمان', at: U.now(), lastSeen: U.now() });
+      else d.friends.unshift({ id, name: name || 'بازیکن', at: U.now(), lastSeen: U.now() });
       d.friends = d.friends.slice(0, 100);
     });
   },
@@ -11101,7 +10890,7 @@ const A11y = {
 /* ─────────────────── 10.969 حالت اشکال‌زدایی ?debug=1 ─────────────────── */
 const Debug = {
   on: false,
-  want(){ return /[?&]debug=1/.test(location.search || '') || /[?#&]debug/.test(location.hash || ''); },
+  want(){ return new URLSearchParams(location.search).get('debug')==='1'; },
   toggle(f){
     this.on = typeof f === 'boolean' ? f : !this.on;
     const p = U.$('#dbg'), b = U.$('#dbgBtn');
@@ -11331,20 +11120,18 @@ function selfTest(){
        Install.STEPS.ios.rows.some(r => /Add to Home Screen/.test(r[1])));
 
     /* ── نسخهٔ ۱۸: پیامک و ورود با موبایل ── */
-    ok('حالت پیامک یکی از سه حالت است',
-       ['server','direct','mock'].includes(SMS.mode()), SMS.mode());
+    ok('پیامک فقط سروری یا در دسترس نیست',
+       ['server','unavailable'].includes(SMS.mode()), SMS.mode());
     ok('شمارهٔ موبایل نرمال می‌شود', SMS.norm('+98 912-345-6789') === '09123456789',
        SMS.norm('+98 912-345-6789'));
     ok('شمارهٔ نامعتبر رد می‌شود', !SMS.phoneOk('0212345678') && !SMS.phoneOk('0912345'));
-    ok('کد OTP پنج‌رقمی است', /^\d{5}$/.test(OTP.code()), OTP.code());
-    ok('کد OTP هش می‌شود، نه ذخیره', OTP.hash('12345','s') !== '12345' &&
-       OTP.hash('12345','s').length === 64);
-    ok('نمک هش را عوض می‌کند', OTP.hash('12345','a') !== OTP.hash('12345','b'));
+    ok('کد OTP پنج‌رقمی است', OTP.LEN === 5);
+    ok('تولید کد محلی وجود ندارد', typeof OTP.code === 'undefined');
+    ok('ورود مهمان وجود ندارد', typeof Gate.guest === 'undefined');
     ok('انقضای کد دو دقیقه است', OTP.TTL_MS === 120000);
-    ok('سه تلاش و قفل ده دقیقه', OTP.MAX_TRIES === 3 && OTP.LOCK_MS === 600000);
-    ok('بی کلید، حالت آزمایشی است', SMS.mode() !== 'mock' || !SMS.ready());
-    ok('کارت پیامک دکمه‌هایش را می‌سازد', /id="smsSave"/.test(SMS.card()) ||
-       /id="smsTest"/.test(SMS.card()));
+    ok('سقف تلاش در سرور سه بار است', OTP.MAX_TRIES === 3);
+    ok('بی سرویس، ورود پیامکی غیرفعال است', SMS.mode() !== 'unavailable' || !SMS.ready());
+    ok('کلید پیامک در تنظیمات کاربر نیست', SMS.card() === '');
 
     /* ── بنر نصب خودکار ── */
     ok('بنر نصب در سند هست', !!document.querySelector('#ib'));
@@ -11463,38 +11250,31 @@ const HomeCarousel = {
 };
 
 const AyahEmbed = {
-  URL: 'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
-  open(){
-    Router.go('play');
-    U.$('#pgTitle').innerHTML = Icon.of('mosque') + ' نورِ آیه‌ها';
-    U.$('#pgSub').textContent = 'صحن نورانی مسجد · نسخهٔ سه‌بعدی';
-    U.$('#pgBar').innerHTML = '';
-    U.$('#pgProgWrap').classList.add('hide');
-    U.$('#pgBody').innerHTML = `<div class="ayah-embed-tools">
-      <button class="btn gh sm" id="ayahExpand">${Icon.of('expand')} تمام‌صفحه</button>
-      <a class="btn gh sm" href="${this.URL}" target="_blank" rel="noopener noreferrer">بازکردن در صفحهٔ جدا</a>
-      <button class="btn gh sm" id="ayahOffline">${Icon.of('book')} تمرین آفلاین</button>
-      <span class="tiny">نسخهٔ سه‌بعدی به اینترنت نیاز دارد؛ امتیاز آن جداگانه نگه داشته می‌شود.</span>
-    </div><div class="ayah-frame-shell" id="ayahFrameShell">
-      <iframe id="ayahFrame" title="بازی قرآنی نور آیه‌ها" src="${this.URL}" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-    </div><p class="tiny" id="ayahFrameStatus" role="status">در حال اتصال به بازی؛ اگر باز نشد، تمرین آفلاین یا صفحهٔ جدا را انتخاب کن.</p>`;
-    const frame = U.$('#ayahFrame');
-    U.$('#ayahExpand').onclick = async () => {
-      const shell = U.$('#ayahFrameShell');
-      try{
-        if(shell.requestFullscreen) await shell.requestFullscreen();
-        else UI.toast('برای نمایش بزرگ‌تر، بازی را در صفحهٔ جدا باز کن.');
-      }catch(e){ UI.toast('تمام‌صفحه در دسترس نیست؛ از صفحهٔ جدا استفاده کن.'); }
-    };
-    U.$('#ayahOffline').onclick = () => { this.cleanup(); AyahLight.open(); };
-    frame.onload = () => {
-      U.$('#ayahFrameStatus').textContent = 'اگر بازی نمایش داده نمی‌شود، از صفحهٔ جدا یا تمرین آفلاین استفاده کن.';
-    };
-  },
-  cleanup(){
-    const frame = U.$('#ayahFrame'); if(frame) frame.remove();
-    U.$('#pgProgWrap')?.classList.remove('hide');
+ URL:'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
+ open(){
+  if(!Session.user())return Gate.open();Router.go('play');
+  U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='برای نمایش بهتر، گوشی را افقی نگه دار';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
+  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
+    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">نمای افقی / تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
+    '<p class="tiny ayah-rotate" role="status">اگر گوشی نچرخید، آن را دستی افقی کن. قفل جهت در همهٔ مرورگرها پشتیبانی نمی‌شود.</p></div>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد.</p>'+
+    '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین آفلاین</button></div>';
+  U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
+  U.$('#ayahExpand').onclick=()=>this.landscape();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  this.pending=this.landscape();
+ },
+ async landscape(){
+  const shell=U.$('#ayahGame');if(!shell)return;
+  try{if(!document.fullscreenElement&&shell.requestFullscreen)await shell.requestFullscreen();if(document.fullscreenElement===shell&&screen.orientation?.lock)await screen.orientation.lock('landscape');}
+  catch(e){/* در Safari و مرورگرهای بدون قفل جهت، راهنمای چرخاندن باقی می‌ماند. */}
+  if(!U.$('#ayahFrame')){try{screen.orientation?.unlock();}catch(e){}}
+ },
+ cleanup(){
+  const frame=U.$('#ayahFrame'),shell=frame?.closest('#ayahGame');if(frame){frame.remove();try{screen.orientation?.unlock();}catch(e){}
+   this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(shell&&document.fullscreenElement===shell)return document.exitFullscreen?.().catch(()=>{});});
   }
+  U.$('#pgProgWrap')?.classList.remove('hide');
+ }
 };
 
 /* ─────────────────── 10.991 بازی نورِ آیه‌ها ─────────────────── */
@@ -11640,6 +11420,53 @@ const Games = {
   settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
 };
 
+/* امکانات تازه بدون دست‌زدن به بانک سؤال‌ها؛ سودوکو تنها هنگام انتخاب بار می‌شود. */
+DATA.GAMES.sudoku={name:'سودوکو',icon:'🧩',desc:'جدول یکتاپاسخ، سه سطح و یادداشت مدادی',tag:'new'};
+DATA.categories.find(c=>c.id==='brain').games.unshift('sudoku');
+const SudokuLoader={
+ promise:null,
+ async open(){
+  if(!Session.user())return Gate.open();Router.go('play');RoundControl.clear();
+  U.$('#pgBody').innerHTML='<div class="card" id="sudokuLoading" role="status">در حال آماده‌سازی سودوکو…</div>';
+  if(!this.promise)this.promise=new Promise((resolve,reject)=>{
+   const css=document.createElement('link');css.rel='stylesheet';css.href='assets/games/sudoku.css';document.head.appendChild(css);
+   const js=document.createElement('script');js.src='assets/games/sudoku.js';js.onload=resolve;js.onerror=()=>{js.remove();css.remove();this.promise=null;reject(Error('بارگذاری نشد'));};document.head.appendChild(js);
+  });
+  try{await this.promise;if(Session.user()&&U.$('#sudokuLoading'))window.SudokuUI.open();}
+  catch(e){if(U.$('#sudokuLoading'))U.$('#sudokuLoading').textContent='بارگذاری نشد؛ اتصال را بررسی کن و دوباره انتخاب کن.';}
+ }
+};
+Games.sudoku=()=>SudokuLoader.open();
+const RoundControl={
+ run:null,bound:false,
+ set(fn){this.run=fn;const b=U.$('#pgRestart');if(b)b.hidden=false;},
+ clear(){this.run=null;const b=U.$('#pgRestart');if(b)b.hidden=true;},
+ restart(){
+  if(!this.run)return;
+  if(Net.room?.spectator){UI.toast('تماشاچی نمی‌تواند بازی را از نو شروع کند.','');return;}
+  if(Net.room&&!Net.room.isHost){UI.toast('شروع دوبارهٔ بازی آنلاین با میزبان است.','');return;}
+  const fn=this.run;
+  UI.confirm('بازی از نو شروع شود؟ پیشرفت همین دور از دست می‌رود.',()=>{
+   Timers.clearPage();if(Net.room)Net.startMatch(Net.room.game);else fn();
+  });
+ },
+ bind(){
+  if(this.bound)return;this.bound=true;U.$('#pgRestart').onclick=()=>this.restart();
+  for(const engine of [QuizEngine,SurahEngine,ScrambleEngine,MemoryEngine,MatchEngine,DoozEngine,EsmFamilEngine,HadithEngine,ImamEngine,DuaEngine,AyahLight]){
+   const start=engine.start;
+   engine.start=function(...args){
+    const result=start.apply(this,args);
+    let fresh=args;
+    if(engine===MemoryEngine)fresh=[];
+    if(engine===DoozEngine)fresh=[args[0]||false];
+    if(engine===QuizEngine)fresh=[{...(args[0]||{}),resume:false}];
+    RoundControl.set(()=>engine.start(...fresh));return result;
+   };
+  }
+  const open=AyahEmbed.open;AyahEmbed.open=function(){const out=open.call(this);RoundControl.set(()=>AyahEmbed.open());return out;};
+ }
+};
+
 /* صفحه «همه بازی‌ها» — دکمه 🎮 در نوار پایین */
 const Launcher = {
   /* open() هم به صفحه می‌رود و هم می‌کشد؛ paint() فقط می‌کشد.
@@ -11652,6 +11479,7 @@ const Launcher = {
     this.paint();
   },
   paint(){
+    RoundControl.clear();
     U.$('#pgTitle').innerHTML = Glyph.inline('🎮 همه بازی‌ها');
     U.$('#pgSub').textContent = 'یکی را انتخاب کن';
     U.$('#pgBar').innerHTML = '';
@@ -11860,7 +11688,7 @@ function updateHomeStats(){
     FX.countUp(el, val, 800);
   };
   set('#stStar', star); set('#stScore', d.score); set('#stDone', done); set('#stBadge', badge);
-  U.icLabel(U.$('#cRole'), d.isAdmin ? 'crown' : 'user', d.isAdmin ? 'مدیر' : 'کاربر');
+  U.icLabel(U.$('#cRole'), Session.admin() ? 'crown' : 'user', Session.admin() ? 'مدیر' : 'کاربر');
   const co = U.$('#cCoins');
   if(co) U.icLabel(co, 'coin', U.fa(Wallet.get()));
   U.$('#lvlNum').textContent = U.fa(d.level);
@@ -12019,7 +11847,7 @@ function netChipCls(){
 }
 /* نسخهٔ کوتاه برای جاهایی که جا کم است (سرِ کارت‌های پنل) */
 function netChipShort(){
-  if(Net.status === 'online') return Net.mode === 'ws' ? 'سرور' : 'محلی';
+  if(Net.status === 'online') return 'متصل';
   return Net.status === 'connecting' ? 'اتصال…' : 'قطع';
 }
 
@@ -12046,18 +11874,7 @@ function renderOnline(){
   /* ── میزبانِ خودمان ──
      وقتی همین صفحه را سرورِ نورستان سرو کرده، آدرس را از قبل پر کن و
      برچسب را بگو، تا کاربر نفهمد «چیزی را باید دستی وارد کند». */
-  try{
-    const inp = U.$('#netUrl'), lbl = U.$('#netUrlLbl');
-    if(inp && !inp.value.trim() && Host.yes()){
-      inp.value = Host.wsUrl();
-      inp.placeholder = Host.wsUrl();
-    }
-    if(lbl){
-      lbl.textContent = Host.yes()
-        ? 'آدرس سرور — همین میزبان، خودش را سرور معرفی کرده'
-        : 'آدرس سرور — خالی = حالت محلی بین تب‌های همین دستگاه';
-    }
-  }catch(e){}
+  U.$('#mahfelNotice').textContent=Net.status==='online'?'محفل متصل است.':Net.status==='connecting'?'در حال اتصال…':'محفل در دسترس نیست. اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت، از پشتیبانی بخواه اتصال سرور را بررسی کند.';
   const peers = Net.peerList();
   const me = [{ name: Store.get('playerName'), me: true, score: Store.get('score'), level: Store.get('level') }];
   const all = [...me, ...peers];
@@ -12238,7 +12055,7 @@ const Me = {
         <div class="prof">
           <span id="pfAva" style="cursor:pointer">${Avatar.html('lg', true)}</span>
           <span class="pb">
-            <h3>${U.esc(d.playerName)}${d.isAdmin ? ' 👑' : ''}</h3>
+            <h3>${U.esc(d.playerName)}${Session.admin() ? ' 👑' : ''}</h3>
             <span class="psub">${U.esc(p.motto || 'قرآن را با هم یاد می‌گیریم')}</span>
             <span class="prow">
               <span class="chip">سطح ${U.fa(d.level)}</span>
@@ -12250,19 +12067,6 @@ const Me = {
             <span class="tiny" style="display:block;margin-top:5px">${U.fa(d.xp)} از ${U.fa(need)} تجربه تا سطح ${U.fa(d.level + 1)}</span>
           </span>
         </div>
-
-        ${!d.phone ? `<div class="card mt14">
-          <b style="font-size:13px">${Icon.of('phone')} اتصال به حساب</b>
-          <div class="sep"></div>
-          <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
-            الان مهمانی: امتیاز و نشان‌هایت فقط روی همین دستگاه می‌ماند.
-            با یک شماره وصل شو تا سرور بشناسدت، امتیازت به نام خودت ثبت شود و
-            روی دستگاه دیگر هم ادامه‌اش را ببینی.</p>
-          ${SMS.ready()
-            ? `<button class="btn w" id="pfConnect">${Icon.of('phone')} اتصال به حساب</button>`
-            : `<button class="btn gh w" id="pfConnect" disabled>${Icon.of('phone')} اتصال به حساب</button>
-               <div class="note warn"><span>⚠️</span><span>${U.esc(Gate.whyNot())}</span></div>`}
-        </div>` : ''}
 
         <div class="card mt14">
           <b style="font-size:13px">${Icon.of('edit')} ویرایش پروفایل</b>
@@ -12293,10 +12097,10 @@ const Me = {
             const welcomeLine = () => {
               /* همان سنجشی که پنل ادمین به کار می‌برد: اتصالِ ws به سرور */
               if(!(Net.status === 'online' && Net.mode === 'ws'))
-                return '<span style="color:var(--mut)">⚠️ بدون سرور</span>';
+                return '<span style="color:var(--mut)">⚠️ اتصال برقرار نیست</span>';
               if(User.welcomed()){
                 const at = User.welcomedAt();
-                return '✅ دریافت شده' + (at ? ` — ${U.esc(U.jalali(at))}` : '');
+                return '✅ ارسال ثبت شده' + (at ? ` — ${U.esc(U.jalali(at))}` : '');
               }
               return '⏳ در راه — پس از ورود فرستاده می‌شود';
             };
@@ -12312,7 +12116,7 @@ const Me = {
                 <b>${verified ? `<span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span>`
                                : '<span style="color:var(--mut)">ثبت نشده</span>'}</b></div>
               <div class="kv"><span>وضعیت</span>
-                <b>${verified ? '✅ تأییدشده با پیامک' : '👤 مهمانِ همین دستگاه'}</b></div>
+                <b>${verified ? '✅ تأییدشده با پیامک' : 'نیازمند ورود دوباره'}</b></div>
               <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
               <div class="kv"><span>${Icon.of('calendar')} عضویت</span>
                 <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
@@ -12322,20 +12126,11 @@ const Me = {
               <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
                 ${verified
                   ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
-                  : 'بدون شماره، حساب فقط روی همین دستگاه است. برای اینکه سرور بشناسدت و امتیازت به نام خودت ثبت شود، با موبایل وارد شو.'}</p>`;
+                  : 'برای ادامه، دوباره با شمارهٔ موبایل خودت وارد شو.'}</p>`;
           })()}
         </div>
 
-        <div class="card mt14">
-          <b style="font-size:13px">${Icon.of('crown')} مدیریت</b>
-          <div class="sep"></div>
-          <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">
-            ${d.isAdmin
-              ? 'تو مدیر این دستگاه هستی — پنل باز است.'
-              : 'پنل مدیریت با رمز باز می‌شود. اگر این دستگاه هنوز رمزی ندارد، در صفحهٔ ورودِ مدیر اول یک هشدار می‌بینی و بعد رمز می‌سازی — بی آن هشدار، رمز ساخته نمی‌شود.'}</p>
-          <button class="btn ${d.isAdmin ? '' : 'gh'} w" id="pfAdmin">${d.isAdmin ? '👑 پنل مدیریت' : '🔒 ورود مدیر'}</button>
-        </div>
-
+        <p><button class="btn gh sm" id="pfAdmin">ورود مدیریت</button><button class="btn gh sm" id="pfLogout">خروج از حساب</button><button class="btn gh sm" id="pfPurchases">خریدها و رسیدها</button></p>
         <div class="card mt14">
           <b style="font-size:13px">${Icon.of('id-card')} شناسنامه</b>
           <div class="sep"></div>
@@ -12371,11 +12166,6 @@ const Me = {
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
       const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
       /* مهمان بی سرور بی‌پاسخ نماند */
-      const pcx = U.$('#pfConnect');
-      if(pcx) pcx.onclick = () => {
-        if(!SMS.ready()){ UI.toast('⚠️ ' + Gate.whyNot(), 'warn', 4000); return; }
-        Sound.click(); Gate.open('phone');
-      };
       const pc = U.$('#pfCopyId');
       if(pc) pc.onclick = async () => {
         Haptic.hit();
@@ -12385,10 +12175,12 @@ const Me = {
       /* 👑 پنل مدیریت: مدیر مستقیم می‌رود، کسی که مدیر نیست به صفحهٔ
          ورودِ مدیر. عمداً پنهان نمی‌شود: دکمهٔ پنهان امنیت نیست — فقط
          پنهان‌کردنِ ناامنی است، و خودِ پنل هم همین را می‌گوید. */
+      U.$('#pfLogout').onclick=()=>Session.logout();
+      U.$('#pfPurchases').onclick=()=>PaidAccount.open();
       const pa = U.$('#pfAdmin');
       if(pa) pa.onclick = () => {
         Sound.click();
-        if(Store.get('isAdmin')) Router.go('admin');
+        if(Session.admin()) Router.go('admin');
         else Gate.open('admin');
       };
       U.$$('.adm-id').forEach(el => el.onclick = async () => {
@@ -12534,7 +12326,7 @@ const Me = {
             <button class="btn gh sm" id="setReciters">${Icon.of('mic')} قاریان</button>
             <button class="btn gh sm" id="setFocus">${Icon.of('target')} تمرکز</button>
             <button class="btn gh sm" id="setNight">${Icon.of('moon')} تکرار شبانه</button>
-            <button class="btn gh sm" id="setSelfTest">🧪 selfTest</button>
+            <button class="btn gh sm debug-only" id="setSelfTest">🧪 selfTest</button>
           </div>
           <label class="lbl">${Icon.of('shield')} مدیریت</label>
           <button class="btn gh w" id="setAdmin">${Icon.of('crown')} پنل مدیریت</button>
@@ -12585,8 +12377,7 @@ const Me = {
 
           ${SMS.card()}
 
-          <label class="lbl">آدرس سرور محفل</label>
-          <input class="inp" id="setServer" dir="ltr" placeholder="ws://192.168.1.5:8787" value="${U.esc(Net.normUrl(d.serverUrl) || '')}">
+
           <button class="btn w" id="setSave" style="margin-top:16px">${Icon.of('save')} ذخیره</button>
         </div>
         <div class="card" style="margin-top:12px">
@@ -12745,8 +12536,7 @@ const Me = {
         const name = U.$('#setName').value.trim().slice(0, 20);
         /* یکدست‌شده ذخیره می‌شود تا نشانیِ بی‌پورت در localStorage نماند
            و بارِ بعد هم وصل نشود. */
-        const srv = Net.normUrl(U.$('#setServer').value);
-        Store.update(x => { if(name) x.playerName = name; x.serverUrl = srv; });
+        Store.update(x => { if(name) x.playerName = name; });
         Net.announce();
         updateHomeStats();
         UI.toast('✅ ذخیره شد', 'ok');
@@ -12759,7 +12549,7 @@ const Me = {
         a.click();
         Timers.after(() => URL.revokeObjectURL(a.href), 4000);
       };
-      U.$('#meImport').onclick = () => U.$('#meFile').click();
+      U.$('#meImport').onclick = () => UI.confirm('پیشرفت فعلی با اطلاعات فایل جایگزین شود؟ ابتدا نسخهٔ خروجی بگیر.',()=>U.$('#meFile').click());
       U.$('#meFile').onchange = e => {
         const f = e.target.files[0]; if(!f) return;
         const r = new FileReader();
@@ -12771,7 +12561,7 @@ const Me = {
       };
       U.$('#meSync').onclick = () => {
         Sync.push(true);
-        UI.toast(Net.status === 'online' ? '☁️ ارسال شد' : '📡 آفلاین — فقط محلی ذخیره شد', Net.status === 'online' ? 'ok' : '');
+        UI.toast(Net.status === 'online' ? '☁️ ارسال شد' : 'فعلاً روی این دستگاه ذخیره شد؛ پس از اتصال دوباره تلاش کن.', Net.status === 'online' ? 'ok' : '');
       };
       U.$('#meReset').onclick = () => UI.confirm('همه داده‌ها پاک شود؟', () => {
         Store.reset(); location.reload();
@@ -13152,7 +12942,7 @@ const Admin = {
      که سرور هیچ‌وقت نمی‌شناسدش.
 
      یک تصمیم، یک جا. `tryPass` و صفحهٔ ورود هر دو از همین می‌پرسند. */
-  remote(){ return this.onServer() || Host.yes(); },
+  remote(){return true;},
 
   async loginServer(pass){
     const r = await SMS.req(this.API + '/login', { body: { pass } });
@@ -13181,50 +12971,29 @@ const Admin = {
     return { ok: false, why, retryAfter: delay };
   },
   async tryPass(pass){
-    const wait = Math.max(0, ((Store.get('adminAttempts') || {}).until || 0) - U.now());
-    if(wait) return { ok: false, locked: true, retryAfter: wait, why: `کمی صبر کن — ${U.fa(Math.ceil(wait / 1000))} ثانیه` };
-    if(this._passBusy) return { ok: false, why: 'در حال بررسی رمز…' };
-    this._passBusy = true;
-    try{
-    const remote = this.remote();
-    const first = !remote && !Store.get('adminHash');
-    if(!pass) return { ok: false, why: 'رمز را بنویس', empty: true };
-
-    if(remote){
-      const r = await this.loginServer(pass);
-      if(!r.ok) return this.passFail(r.why);
-    }else if(first){
-      const why = this.passProblem(pass);
-      if(why) return { ok: false, why };
-      await this.setLocalPass(pass);
-    }else if(await U.sha256Async(pass) !== Store.get('adminHash')){
-      return this.passFail('رمز اشتباه');
-    }
-    Store.set('adminAttempts', null);
-    Store.set('isAdmin', true);
-    return { ok: true, remote, first };
-    }finally{ this._passBusy = false; }
-  },
+ const wait=Math.max(0,((Store.get('adminAttempts')||{}).until||0)-U.now());
+ if(wait)return {ok:false,locked:true,retryAfter:wait,why:'کمی صبر کن — '+U.fa(Math.ceil(wait/1000))+' ثانیه'};
+ if(this._passBusy)return {ok:false,why:'در حال بررسی…'};
+ if(!pass)return {ok:false,why:'رمز را بنویس'};
+ this._passBusy=true;
+ try{const r=await this.loginServer(pass);if(!r.ok)return this.passFail('ورود مدیریت پذیرفته نشد؛ رمز و اتصال را بررسی کن.');
+ Store.set('adminAttempts',null);Store.set('isAdmin',true);Session.role='admin';Session.layout();return {ok:true,remote:true,first:false};
+ }finally{this._passBusy=false;}
+},
   /* ── گذاشتنِ رمزِ محلی ──
      تنها جایی که رمز به هش بدل و ذخیره می‌شود. اگر دو جا هش بسازند، دیر یا
      زود یکی از آنها قاعدهٔ دیگری پیدا می‌کند و رمزِ سست از درِ دوم می‌آید. */
-  async setLocalPass(pass){
-    Store.set('adminHash', await U.sha256Async(pass));
-  },
-  async logoutServer(){
-    if(!this.hasToken()) return;
-    await SMS.req(this.API + '/logout', { body: { token: this.token() } });
-    Store.update(d => { d.adminToken = ''; d.adminTokenExp = 0; });
-  },
+
+  async logoutServer(){await Session.logout();},
   /* نشستِ ذخیره‌شده هنوز معتبر است؟ اگر سرور باطلش کرده باشد، همین می‌فهمد. */
-  async confirmServer(){
-    if(!this.hasToken()) return false;
-    const r = await SMS.req(this.API + '/whoami', { body: { token: this.token() } });
-    if(r && r.ok && r.json && r.json.success && r.json.admin) return true;
-    if(r && r.status === 0) return true;            // شبکه قطع است — نشانه را دور نمی‌ریزیم
-    Store.update(d => { d.adminToken = ''; d.adminTokenExp = 0; });
-    return false;
-  },
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// شبکه قطع است — نشانه را دور نمی‌ریزیم
+async confirmServer(){
+ if(!this.hasToken())return false;
+ const r=await SMS.req(this.API+'/whoami',{body:{token:this.token()},ms:8000});
+ if(!r.ok)return [401,403].includes(r.status)?false:null;
+ return r.json?.success?r.json.admin===true:null;
+},
 
   /* ── دفترِ کاربران ──
      فهرست از سرور می‌آید و سرور صاحبِ آن است. اینجا فقط نگه داشته می‌شود تا
@@ -13254,22 +13023,8 @@ const Admin = {
      بی سرور، تنها کاربرِ همین دستگاه است و کنش هم محلی می‌ماند — با همین
      صراحت هم به مدیر گفته می‌شود. */
   userAct(kind, u){
-    if(!this.onServer()){
-      if(kind === 'block' || kind === 'unblock'){
-        User.setBlocked(kind === 'block');
-        UI.toast(kind === 'block' ? '🚫 این دستگاه قفل شد (قفلِ محلی، نه امنیت)'
-                                  : '✅ قفلِ محلی برداشته شد', 'ok', 2600);
-        this.renderTab();
-        return;
-      }
-      if(kind === 'delete'){
-        Store.update(d => { d.user = null; d.userToken = ''; d.userTokenExp = 0; d.phone = ''; });
-        UI.toast('🗑 هویتِ این دستگاه پاک شد — با ورود تازه از نو ساخته می‌شود', '', 3200);
-        this.renderTab();
-        return;
-      }
-      return;
-    }
+    if(!Session.admin()||!this.onServer())return;
+
     const env = { t: 'admin:user:' + kind, token: this.token() };
     if(u.id) env.id = u.id;
     if(u.phone) env.phone = u.phone;
@@ -13323,7 +13078,7 @@ const Admin = {
      چاپش می‌کرد؛ یعنی هر کسی که برنامه را باز می‌کرد، مدیر بود. */
   render(){
     const d = Store.data;
-    if(!d.isAdmin){
+    if(!Session.admin()){
       /* ── این‌جا هیچ رمزی سنجیده و هیچ رمزی ساخته نمی‌شود ──
          پیش‌تر همین شاخه یک فرمِ «ساختن رمز مدیر» می‌کاشت، و چون
          `#setAdmin` در تنظیمات هم بی‌واسطه به همین صفحه می‌آورد، هر کاربری
@@ -13349,17 +13104,19 @@ const Admin = {
       if(back) back.onclick = () => Router.go('home');
       return;
     }
-    U.$('#adminGate').innerHTML = '';
+    U.$('#adminGate').innerHTML = '<button class="btn gh" id="adminExit">خروج از مدیریت</button>';
+    U.$('#adminExit').onclick=()=>Session.logout();
     U.$('#adminMain').classList.remove('hide');
     this.renderTab();
     /* نشستِ ذخیره‌شده را در پس‌زمینه با سرور چک می‌کنیم. اگر باطل شده باشد،
        پنل بسته می‌شود — ولی بی‌آنکه کاربر را وسط کار بیرون بیندازیم: نتیجه
        فقط وقتی اعمال می‌شود که نشست دیگر معتبر نباشد. */
-    if(this.onServer() && this.hasToken()) this.confirmServer().then(ok => {
-      if(!ok && Store.get('isAdmin')){ Store.set('isAdmin', false); this.render(); }
-    }).catch(() => {});
+    if(this.onServer() && this.hasToken()){const checkedToken=this.token();this.confirmServer().then(ok => {
+      if(ok===false && Session.admin() && this.token()===checkedToken){Session.logout();}
+    }).catch(() => {});}
   },
   renderTab(){
+    if(!Session.admin())return;
     const body = U.$('#adminBody');
     /* پاسخِ سرور می‌تواند برسد وقتی پنل بسته است؛ رندر روی جعبهٔ ناموجود
        استثنا می‌ساخت. */
@@ -13823,39 +13580,7 @@ const Admin = {
               <button class="btn dg" id="opReset">${Icon.of('trash')} ریست کامل</button>
             </div>
           </div>
-          ${this.onServer() ? `
-          <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">${Icon.of('key')} امنیتِ نشست</b>
-            <div class="sep"></div>
-            <p style="font-size:12px;color:var(--mut)">
-              این نشست از طرف سرور صادر شده و
-              ${this.tokenExp() > U.now()
-                ? `${U.fa(Math.max(0, Math.ceil((this.tokenExp() - U.now()) / 3600000)))} ساعت دیگر`
-                : 'همین حالا'} تمام می‌شود.
-              رمزِ مدیر روی این دستگاه ذخیره نشده و اینجا عوض نمی‌شود —
-              تنها منبعش متغیر محیطی <span dir="ltr">NOOR_ADMIN_PASS</span> روی سرور است.</p>
-            <button class="btn w" id="opPassSave">${Icon.of('lock')} باطل کردنِ نشست و گرفتنِ نشستِ تازه</button>
-          </div>` : `
-          <div class="card" style="margin-top:12px">
-            <b style="font-size:13px">${Icon.of('key')} امنیت (محلی)</b>
-            <div class="sep"></div>
-            <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
-              سرور در دسترس نیست، پس این رمز فقط «قفلِ محلی» است: کسی را که
-              گوشی‌ات را برمی‌دارد دور می‌کند، ولی امنیتِ واقعی نیست. امنیتِ
-              راستین وقتی است که برنامه روی سرور باز شود و
-              <span dir="ltr">NOOR_ADMIN_PASS</span> ست شده باشد.</p>
-            <label class="lbl">رمز جدید مدیر</label>
-            <input class="inp" id="opPass" type="password" dir="ltr" spellcheck="false"
-                   placeholder="رمز جدید…" autocomplete="new-password">
-            <input class="inp" id="opPass2" type="password" dir="ltr" spellcheck="false"
-                   placeholder="تکرار رمز جدید…" autocomplete="new-password" style="margin-top:8px">
-            <div class="row" style="margin-top:10px">
-              <button class="btn w" id="opPassSave">${Icon.of('save')} تغییر رمز</button>
-            </div>
-            <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
-              رمز فقط به‌صورت SHA-256 روی همین دستگاه ذخیره می‌شود و جایی
-              فرستاده نمی‌شود.</p>
-          </div>`}
+          <div class="card"><p>مدیریت فقط با نشست تأییدشدهٔ سرور انجام می‌شود. رمز در مرورگر نگه‌داری یا ساخته نمی‌شود.</p><button class="btn gh" id="opPassSave">خروج و ورود دوباره</button></div>
           <button class="btn dg w" id="opLogout" style="margin-top:12px">${Icon.of('logout')} خروج از پنل</button>`;
         U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
         U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateHearts(); UI.toast('❤️ پر شد', 'ok'); };
@@ -13866,29 +13591,12 @@ const Admin = {
           a.href = URL.createObjectURL(blob); a.download = `noorestan_admin_${Date.now()}.json`; a.click();
         };
         U.$('#opReset').onclick = () => UI.confirm('ریست کامل همه داده‌ها؟', () => { Store.reset(); location.reload(); });
-        U.$('#opPassSave').onclick = async () => {
-          if(this.onServer()){
-            /* «تغییر رمز» روی سرور ممکن نیست: رمز از متغیر محیطی می‌آید و
+/* «تغییر رمز» روی سرور ممکن نیست: رمز از متغیر محیطی می‌آید و
                سرور رمزی را ذخیره نمی‌کند. کاری که *می‌شود* کرد، باطل‌کردنِ
                نشستِ کنونی و گرفتنِ نشستِ تازه با رمزِ سرور است. */
-            await this.logoutServer();
-            Store.set('isAdmin', false);
-            this.render(); updateHomeStats();
-            UI.toast('🔒 نشست باطل شد — با رمزِ سرور از نو وارد شو', 'ok');
-            return;
-          }
-          const a = U.$('#opPass'), b = U.$('#opPass2');
-          const v = a ? a.value : '';
-          /* همان سنجشِ دروازهٔ ورود — یک‌جا نوشته شده تا دو جای مختلف دو
+/* همان سنجشِ دروازهٔ ورود — یک‌جا نوشته شده تا دو جای مختلف دو
              قاعدهٔ متفاوت نداشته باشند. */
-          const why = this.passProblem(v);
-          if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
-          if(b && b.value !== v){ UI.toast('⚠️ دو رمز یکی نیستند', 'err'); return; }
-          await this.setLocalPass(v);
-          if(a) a.value = '';
-          if(b) b.value = '';
-          UI.toast('🔑 رمز تغییر کرد', 'ok');
-        };
+        U.$('#opPassSave').onclick=()=>Session.logout();
         U.$('#opLogout').onclick = async () => {
           /* خروج باید نشستِ *سرور* را هم باطل کند. بی این، نشانه تا پایان
              انقضایش زنده می‌ماند و «خروج» فقط یک تظاهر بود. */
@@ -14141,7 +13849,7 @@ const Wallet = {
     this.ping();
   },
   items(){ const w = Store.get('wallet') || {}; return w.items || {}; },
-  owns(id){ return (this.items()[id] || 0) > 0; },
+  owns(id){ return (this.items()[id] || 0) > 0 || PaidAccount.owns(id); },
   /* حرکت ریز روی همهٔ نشان‌های سکهٔ صفحه — بازخورد بی‌صدا ولی دیدنی */
   ping(){
     try{
@@ -14156,6 +13864,26 @@ const Wallet = {
 /* ── فروشگاه ──
    هر قلمی که می‌فروشیم واقعاً کاری می‌کند. اگر اثری نگرفت، سکه برمی‌گردد —
    فروش چیز بی‌اثر بدترین نوع تقلب به کاربر است. */
+/* ماندهٔ خرید هرگز از localStorage خوانده نمی‌شود؛ دادهٔ حافظه به نشانهٔ همان حساب بسته است. */
+const PaidAccount={
+ data:null,token:'',loading:null,
+ owns(id){return !!(Session.user()&&this.token===Store.get('userToken')&&this.data?.enabled&&this.data?.mode==='sandbox'&&this.data.items[id]);},
+ async refresh(){
+  const token=Store.get('userToken');if(!Session.user())return null;
+  const r=await SMS.req('/api/payments/account',{body:{token},ms:8000});
+  if(!Session.user()||Store.get('userToken')!==token)return null;
+  this.data=r.ok&&r.json?.success?r.json:null;this.token=this.data?token:'';return this.data;
+ },
+ async open(){
+  if(!Session.user())return Gate.open();
+  if(!window.PaymentUI){
+   if(!this.loading)this.loading=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='assets/games/payments-ui.js';s.onload=resolve;s.onerror=()=>{s.remove();this.loading=null;reject(Error('بارگذاری نشد'));};document.head.appendChild(s);});
+   try{await this.loading;}catch(e){UI.toast('بارگذاری خریدها ممکن نشد؛ دوباره تلاش کن.','err');return;}
+  }
+  return window.PaymentUI.open();
+ }
+};
+
 const Shop = {
   ITEMS: [
     { id:'heart1', icon:'❤️', name:'یک جان',            desc:'فوراً یک جان پر می‌کند',                price:30  },
@@ -14170,7 +13898,7 @@ const Shop = {
      «سکه کم داری» بررسی می‌شوند. وگرنه کاربری که سکه ندارد ولی جانش پُر
      است، پیام گمراه‌کنندهٔ «کم است» می‌بیند. */
   worn(item){
-    const n = Wallet.items()[item.id] || 0;
+    const n = Wallet.owns(item.id) ? 1 : 0;
     if(item.once && n) return 'owned';
     if((item.id === 'heart1' || item.id === 'hearts') && Store.get('hearts') >= Store.HEART_MAX) return 'full';
     if(item.id === 'freeze' && Streak.frozenToday()) return 'frozen';
@@ -14231,9 +13959,10 @@ const Shop = {
         <span class="tiny">سکه از بازی، نشان، مأموریت و زنجیره به‌دست می‌آید.</span>
         ${Wallet.chip(true)}
       </div>
-      <div id="shopList">${this.rows()}</div>`, box => this.wire(box));
+      <button class="btn gh w" id="paidShop" style="margin-bottom:14px">خرید آزمایشی سکه و رسیدها</button><div id="shopList">${this.rows()}</div>`, box => this.wire(box));
   },
   wire(box){
+    const paid=U.$('#paidShop',box||document);if(paid)paid.onclick=()=>PaidAccount.open();
     U.$$('[data-buy]', box || document).forEach(b => b.onclick = () => {
       if(this.buy(b.dataset.buy)){ this.open(); Me.coins && Me.render(); }
     });
@@ -14352,7 +14081,7 @@ const Onboarding = {
   i: 0,
   SLIDES: [
     { art:'🕌', t:'به نورستان خوش آمدی',
-      d:'یک برنامهٔ کامل قرآنی و بازی — همه‌چیز در همین یک فایل. بی اینترنت هم کار می‌کند و روی گوشی نصب می‌شود.' },
+      d:'به خانهٔ قرآن و بازی خوش آمدی. ورود با پیامک انجام می‌شود؛ پیشرفت قبلی این دستگاه هم حفظ می‌شود.' },
     { art:'🎮', t:'بیش از ۳۰ بازی',
       d:'از پرسش‌های قرآنی و معارف تا دوز، حافظه، اسم فامیل و چهارده معصوم. هر بازی رکورد خودش را نگه می‌دارد.' },
     { art:'📖', t:'حافظ نور',
@@ -14363,6 +14092,7 @@ const Onboarding = {
   seen(){ return !!Store.get('settings').onboarded; },
   /* فقط برای کاربر تازه. اگر کسی امتیاز دارد، نشان دادن اسلایدها آزار است. */
   maybe(){
+    if(!Session.user()||Gate.shown)return false;
     if(this.seen()) return false;
     if((Store.get('score') || 0) > 0){ Store.update(d => d.settings.onboarded = true); return false; }
     this.open();
@@ -14637,9 +14367,12 @@ const Install = {
     const el = U.$('#ib');
     if(!el) return;
     const nav = U.$('#nav');
-    let bottom = (nav ? nav.offsetHeight : 62) + 10;
+    const navTop = nav && typeof nav.getBoundingClientRect === 'function'
+      ? window.innerHeight - nav.getBoundingClientRect().top : (nav ? nav.offsetHeight : 62);
+    let bottom = Math.max(0, navTop) + 12;
     const mini = U.$('#miniQ');
-    if(mini && mini.classList.contains('on')) bottom += mini.offsetHeight + 10;
+    if(mini) mini.style.bottom = bottom + 'px';
+    if(mini && mini.classList.contains('on')) bottom += mini.offsetHeight + 12;
     el.style.bottom = bottom + 'px';
   },
   /* همان شکل «ن» که در آیکن‌های واقعی است، درون‌خطی و کوچک. پهنای
@@ -14858,16 +14591,10 @@ const SMS = {
   /* ── گزارش ──
      هر رفت‌وبرگشت پیامک ثبت می‌شود تا وقتی کاربر می‌گوید «پیامک نیامد» بتوانیم
      بگوییم کدام مرحله شکست خورد. کلید، کد تأیید و هدرها هرگز ثبت نمی‌شوند. */
-  log(ev, data){
-    try{
-      const safe = Object.assign({}, data || {});
-      delete safe.apiKey; delete safe.key; delete safe.code;
-      delete safe.headers; delete safe.message; delete safe.body;
-      /* رشتهٔ فشرده، نه آبجکت: در کنسول موبایل یک خط می‌شود و می‌شود
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* رشتهٔ فشرده، نه آبجکت: در کنسول موبایل یک خط می‌شود و می‌شود
          کپی‌اش کرد و در گزارش باگ فرستاد. */
-      console.log('[SMS ' + ev + '] ' + JSON.stringify(safe));
-    }catch(e){}
-  },
+log(ev,data){if(new URLSearchParams(location.search).get('debug')==='1')console.log('[SMS]',ev);},
 
   /* ── داوری پاسخ سرویس پیامک ──
      قرارداد واقعی:
@@ -14912,32 +14639,15 @@ const SMS = {
   PENDING_MSG: 'در حال ارسال... لطفاً چک کنید',
 
   /* ── پیکربندی ── */
-  hydrate(){
-    const s = Store.get('sms') || {};
-    this.config.apiKey   = s.apiKey || '';
-    this.config.deviceId = s.deviceId || '';
-    return this.config;
-  },
-  save(patch){
-    Store.update(x => {
-      if(typeof patch.apiKey === 'string')   x.sms.apiKey = patch.apiKey.trim().slice(0, 200);
-      if(typeof patch.deviceId === 'string') x.sms.deviceId = patch.deviceId.trim().slice(0, 80);
-    });
-    this.hydrate();
-  },
+  hydrate(){this.config.apiKey='';this.config.deviceId='';return this.config;},
+  save(){Store.update(d=>{d.sms={apiKey:'',deviceId:'',testPhone:''};});this.hydrate();},
 
   /* ── حالت جاری ──
      تنها جایی که تصمیم گرفته می‌شود. «کلید دارم؟» هرگز تنها معیار نیست؛
      اگر سرور کلید داشته باشد، کلید محلی نادیده می‌ماند. */
-  mode(){
-    if(this.server.configured) return 'server';
-    if(this.config.apiKey && this.config.deviceId) return 'direct';
-    return 'mock';
-  },
-  modeName(){
-    return { server: 'سرور', direct: 'مستقیم', mock: 'آزمایشی' }[this.mode()];
-  },
-  ready(){ return this.mode() !== 'mock'; },
+  mode(){return this.server.configured?'server':'unavailable';},
+  modeName(){return this.ready()?'پیامکی':'در دسترس نیست';},
+  ready(){return this.server.configured;},
 
   /* ── شمارهٔ موبایل ──
      هر شکل معقولی را می‌پذیرد و به شکل ۰۹xxxxxxxxx درمی‌آورد، چون
@@ -15036,54 +14746,21 @@ const SMS = {
 
   /* ── فرستادن مستقیم به textbee ──
      تنها جایی که کلید محلی به کار می‌آید. */
-  async direct(phone, message){
-    const p = this.norm(phone);
-    this.log('direct:req', { phone: p, len: message.length });
-    const r = await this.req(this.config.endpoint, {
-      headers: { 'x-api-key': this.config.apiKey },
-      /* قالب دقیقاً همان چیزی است که textbee می‌خواهد:
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* قالب دقیقاً همان چیزی است که textbee می‌خواهد:
          recipients آرایه است، نه رشته — و deviceId کلیدواژهٔ درست است. */
-      body: { deviceId: this.config.deviceId, recipients: [p], message }
-    });
-    const v = this.verdict(r);
-    this.log('direct:res', { state: v.state, status: r.status, id: v.id || '', error: v.error || '' });
-
-    /* حالت مستقیم از مرورگر می‌رود و مرورگر به CORS حساس است. اگر شبکه پاسخ
+/* حالت مستقیم از مرورگر می‌رود و مرورگر به CORS حساس است. اگر شبکه پاسخ
        نداد، احتمال زیادی هست که پاسخ را دور انداخته باشد — یعنی پیامک رفته و
        ما ندیدیم. راه‌حل واقعی، بردن کلید به سرور است. */
-    const corsHint = 'اگر تکرار شد، کلید را به‌جای دستگاه روی سرور بگذار (NOOR_SMS_KEY) — احتمالاً مرورگر جلوی خواندن پاسخ را گرفته.';
-
-    if(v.state === 'sent') return { success: true, state: 'sent', id: v.id || '' };
-    if(v.state === 'pending')
-      return { success: false, pending: true, state: 'pending', status: r.status,
-               error: this.PENDING_MSG, hint: corsHint };
-
-    return { success: false, state: 'failed', status: r.status,
-             error: v.error || 'فرستادن پیامک نشد', hint: '' };
-  },
+async direct(){return {success:false,error:'پیامک فقط از سرور ارسال می‌شود'};},
 
   /* ── کد تأیید ──
      متن پیام عیناً همان است که خواسته شد؛ فقط کد داخلش می‌نشیند.
      در حالت سرور، همین متن آن‌طرف ساخته می‌شود. */
-  async sendOTP(phone, code){
-    const p = this.norm(phone);
-    if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
-
-    /* حالت آزمایشی: کد جایی نمی‌رود، فقط روی همان صفحه نشان داده می‌شود.
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* حالت آزمایشی: کد جایی نمی‌رود، فقط روی همان صفحه نشان داده می‌شود.
        کد در log نمی‌رود — لاگ می‌تواند ذخیره، فرستاده یا در گزارش خطا دیده شود. */
-    if(this.mode() === 'mock'){
-      this.log('mock:otp', { phone: p, note: 'کد در حالت آزمایشی روی صفحه نشان داده شد' });
-      UI.toast(`🔐 کد تست: ${code}`, '', 6000);
-      return { success: true, mock: true };
-    }
-    if(this.mode() === 'server') return await this.viaServer({ phone: p, code });
-
-    return await this.direct(p,
-      '🌟 نورستان\n' +
-      '🔐 کد تأیید ثبت‌نام شما: ' + code + '\n' +
-      '⏱ اعتبار: ۲ دقیقه\n' +
-      '⚠️ این کد را با کسی به اشتراک نگذارید.');
-  },
+async sendOTP(phone){return this.request(phone);},
 
   /* ── درخواستِ کد از سرور ──
      در حالتِ سرور، کد را *سرور* می‌سازد و کد هرگز به این دستگاه نمی‌آید.
@@ -15121,13 +14798,13 @@ const SMS = {
     const r = await this.req(this.PROXY + '/verify', { body: { phone: p, code, userId: id } });
     const j = (r.json && typeof r.json === 'object') ? r.json : null;
     if(!j) return { ok: false, why: r.error || 'پاسخ سرور خوانده نشد' };
-    if(j.success && typeof j.token === 'string'){
+    if(r.ok && j.success && /^[a-f0-9]{64}$/.test(j.token) && /^usr_[a-f0-9]{20}$/.test(j.id)){
       Store.update(d => { d.userToken = j.token; d.userTokenExp = U.now() + (+j.exp || 0); });
       this.log('server:res', { verified: true });
       return { ok: true, id: j.id || '', server: true };
     }
     this.log('server:res', { verified: false, status: r.status });
-    return { ok: false, why: j.error || 'کد پذیرفته نشد', expired: !!j.expired,
+    return { ok: false, why: 'کد پذیرفته نشد یا منقضی شده است؛ دوباره تلاش کن.', expired: !!j.expired,
              burned: !!j.burned, left: j.left };
   },
 
@@ -15141,70 +14818,12 @@ const SMS = {
   },
 
   /* ── کارت تنظیمات ── */
-  card(){
-    const m = this.mode();
-    const hint = m === 'server'
-      ? '✅ کلید روی سرور تنظیم شده است. درخواست‌ها از سرور می‌روند و کلید هرگز به این دستگاه نمی‌آید.'
-      : m === 'direct'
-        ? '🔑 کلید در همین دستگاه ذخیره شده و مرورگر خودش به textbee می‌زند. اگر برنامه را جایی میزبانی می‌کنی که دیگران هم بازش می‌کنند، کلید را به‌جای این‌جا روی سرور بگذار (NOOR_SMS_KEY) تا از سورس صفحه بیرون بماند.'
-        : '🧪 حالت آزمایشی — بی کلید. کد ساخته می‌شود و فقط روی همین صفحه نشان داده می‌شود؛ هیچ پیامکی نمی‌رود.';
+  card(){return '';},
 
-    return `<div class="card mt14"><b style="font-size:13px">${Icon.of('phone')} پیامک (ورود با موبایل)</b><div class="sep"></div>
-      <p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">${U.esc(hint)}</p>
-      ${m === 'server' ? '' : `
-      <label class="lbl">کلید API — <span dir="ltr">x-api-key</span></label>
-      <input class="inp" id="smsKey" type="password" dir="ltr" autocomplete="off" spellcheck="false"
-             placeholder="txb_…" value="${U.esc(this.config.apiKey)}">
-      <label class="lbl">شناسهٔ دستگاه — <span dir="ltr">Device ID</span></label>
-      <input class="inp" id="smsDev" dir="ltr" autocomplete="off" spellcheck="false"
-             placeholder="6aad…" value="${U.esc(this.config.deviceId)}">`}
-      <label class="lbl">شمارهٔ آزمایش</label>
-      <input class="inp" id="smsTestPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
-             placeholder="09123456789" value="${U.esc(this.config.testPhone || '')}">
-      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn gh" id="smsTest">🧪 تست ارسال</button>
-        <button class="btn gh" id="smsLogin">${Icon.of('phone')} ورود با موبایل</button>
-        ${m === 'server' ? '' : `<button class="btn" id="smsSave" style="flex:1">${Icon.of('save')} ذخیره</button>`}
-      </div>
-      <div class="tiny" id="smsMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em">
-        حالت جاری: <b>${U.esc(this.modeName())}</b>${this.server.on ? ' — سرور پاسخ داد' : ''}</div>
-    </div>`;
-  },
-
-  wire(){
-    const key = U.$('#smsKey'), dev = U.$('#smsDev'), ph = U.$('#smsTestPhone');
-    const msg = U.$('#smsMsg');
-    const say = (t, ok) => { if(msg) msg.innerHTML = `<span style="color:${ok ? 'var(--green, #3ddc84)' : 'var(--red, #ff6b6b)'}">${U.esc(t)}</span>`; };
-
-    const save = U.$('#smsSave');
-    if(save) save.onclick = () => {
-      Haptic.hit();
-      const k = (key ? key.value : '').trim(), d = (dev ? dev.value : '').trim();
-      this.save({ apiKey: k, deviceId: d });
-      if(ph) Store.update(x => { x.sms.testPhone = ph.value.trim().slice(0, 20); });
-      Me.render();
-      UI.toast(k && d ? '✅ ذخیره شد' : '💾 ذخیره شد — حالت آزمایشی', k && d ? 'ok' : '', 2200);
-    };
-
-    const test = U.$('#smsTest');
-    if(test) test.onclick = async () => {
-      Haptic.hit();
-      /* اگر کاربر تازه کلید را تایپ کرده ولی ذخیره نکرده، همان را برمی‌داریم
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* اگر کاربر تازه کلید را تایپ کرده ولی ذخیره نکرده، همان را برمی‌داریم
          تا مجبور نباشد اول ذخیره کند و بعد آزمایش. */
-      if(key && dev) this.config.apiKey = key.value.trim(), this.config.deviceId = dev.value.trim();
-      const phone = this.norm(ph ? ph.value : '');
-      if(!this.phoneOk(phone)){ say('شمارهٔ آزمایش را درست وارد کن (مثل 09123456789)'); return; }
-      if(!this.ready()){ say('حالت آزمایشی است — بی کلید، پیامکی فرستاده نمی‌شود.', true); UI.toast('🧪 حالت آزمایشی', '', 2200); return; }
-      test.disabled = true; say('در حال فرستادن…');
-      const r = await this.sendTest(phone);
-      test.disabled = false;
-      if(r && r.success){ say(`✅ فرستاده شد به ${this.faPhone(phone)}`, true); UI.toast('✅ پیامک آزمایشی رفت', 'ok', 2600); }
-      else say('❌ ' + ((r && r.error) || 'فرستادن نشد'));
-    };
-
-    const login = U.$('#smsLogin');
-    if(login) login.onclick = () => { UI.closeModal(); Gate.open('phone'); };
-  },
+wire(){},
 
   async init(){
     this.hydrate();
@@ -15233,176 +14852,41 @@ const SMS = {
 
    چرا در Store می‌نشیند و نه در حافظه؟ چون در حافظه، یک رفرشِ صفحه
    شمارندهٔ تلاش را صفر می‌کرد و قفل بی‌معنا می‌شد. */
-const OTP = {
-  LEN: 5,
-  TTL_MS: 2 * 60 * 1000,        // ۲ دقیقه
-  MAX_TRIES: 3,
-  LOCK_MS: 10 * 60 * 1000,      // ۱۰ دقیقه
-  RESEND_MS: 60 * 1000,         // فاصلهٔ لازم میان دو ارسال
-  /* آخرین شماره‌ای که کد برایش درخواست شد — تنها حالتی که این‌جا می‌ماند.
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// ۲ دقیقه
+// ۱۰ دقیقه
+// فاصلهٔ لازم میان دو ارسال
+/* آخرین شماره‌ای که کد برایش درخواست شد — تنها حالتی که این‌جا می‌ماند.
      ظاهرِ صفحه در Gate است؛ این شیء فقط منطقِ کد و شمارنده‌هاست. */
-  lastPhone: '',
-
-  /* ── حالت ذخیره‌شده ── */
-  st(){ return Store.get('otp'); },
-  put(st){ Store.update(x => { x.otp = st; }); },
-  clear(){ Store.update(x => { x.otp = null; }); },
-
-  code(){ return U.code5(); },
-  hash(code, salt){ return U.sha256(String(code) + '|' + String(salt) + '|noorestan-otp'); },
-
-  /* ثانیه‌های مانده تا انقضا — ۰ یعنی تمام شده */
-  leftSec(){
-    const st = this.st();
-    if(!st) return 0;
-    return Math.max(0, Math.ceil((st.exp - U.now()) / 1000));
-  },
-  lockSec(){
-    const st = this.st();
-    if(!st || !st.lock) return 0;
-    return Math.max(0, Math.ceil((st.lock - U.now()) / 1000));
-  },
-  waitSec(){
-    const st = this.st();
-    if(!st || !st.at) return 0;
-    return Math.max(0, Math.ceil((st.at + this.RESEND_MS - U.now()) / 1000));
-  },
-
-  /* ── گام ۱: ساختن و فرستادن کد ── */
-  async start(raw){
-    const phone = SMS.norm(raw);
-    if(!SMS.phoneOk(phone))
-      return { ok: false, why: 'شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹' };
-    if(this.lockSec() > 0)
-      return { ok: false, why: `ورود قفل است — ${U.fa(Math.ceil(this.lockSec() / 60))} دقیقهٔ دیگر`, locked: true };
-    if(this.waitSec() > 0)
-      return { ok: false, why: `کمی صبر کن — ${U.fa(this.waitSec())} ثانیه`, wait: this.waitSec() };
-
-    /* ── روی سرور: کد را سرور می‌سازد ──
+/* ── حالت ذخیره‌شده ── */
+/* ثانیه‌های مانده تا انقضا — ۰ یعنی تمام شده */
+/* ── گام ۱: ساختن و فرستادن کد ── */
+/* ── روی سرور: کد را سرور می‌سازد ──
        هیچ کدی روی این دستگاه ساخته و هیچ هشی نگه داشته نمی‌شود. اگر اینجا
        هم کد می‌ساختیم، دو منبعِ حقیقت می‌داشتیم و آنکه روی دستگاه بود
        می‌توانست پلهٔ پیامک را رد کند. */
-    if(SMS.mode() === 'server'){
-      const r = await SMS.request(phone);
-      const ttl = (r && r.ttl) || this.TTL_MS;
-      const st = { phone, server: true, exp: U.now() + ttl, tries: 0, lock: 0, at: U.now() };
-      if(r && r.pending){
-        this.put(st); this.lastPhone = phone;
-        return { ok: true, pending: true, phone,
-                 note: 'ارسال تأیید نشد — اگر پیامک رسید، کد را وارد کن' };
-      }
-      if(!r || r.success === false){
-        /* قطعاً نشد ⇒ هیچ حالتی نمی‌نشیند، وگرنه کاربر بی کدِ گرفته، دو دقیقه
+/* قطعاً نشد ⇒ هیچ حالتی نمی‌نشیند، وگرنه کاربر بی کدِ گرفته، دو دقیقه
            انتظار و سه تلاش بی‌فایده می‌گیرد. */
-        return { ok: false, why: (r && r.error) || 'فرستادن پیامک نشد', send: r };
-      }
-      this.put(st); this.lastPhone = phone;
-      return { ok: true, server: true, phone };
-    }
-
-    /* ── بی سرور: همان مسیرِ محلی ── */
-    const code = this.code();
-    /* کد ساخته نشد ⇒ هیچ پیامکی هم نباید برود. اگر بی کد ادامه می‌دادیم،
+/* ── بی سرور: همان مسیرِ محلی ── */
+/* کد ساخته نشد ⇒ هیچ پیامکی هم نباید برود. اگر بی کد ادامه می‌دادیم،
        پیامکی با متن «کد تأیید: » می‌رفت و کاربر پشت در می‌ماند. */
-    if(!code)
-      return { ok: false, why: 'ساخت کد امن در این مرورگر ممکن نیست — صفحه را رفرش کن یا از مرورگر دیگری استفاده کن' };
-    const salt = U.salt();
-    const st = { phone, salt, hash: this.hash(code, salt), exp: U.now() + this.TTL_MS,
-                 tries: 0, lock: 0, at: U.now() };
-
-    const res = await SMS.sendOTP(phone, code);
-
-    /* «نمی‌دانیم» با «نشد» یکی نیست. اگر وقت تمام شد یا شبکه پاسخ نداد، پیامک
+/* «نمی‌دانیم» با «نشد» یکی نیست. اگر وقت تمام شد یا شبکه پاسخ نداد، پیامک
        ممکن است رسیده باشد. در آن حالت هم حالت را می‌نشانیم تا کاربر بتواند کدی
        را که گرفته وارد کند — ولی پیام روشن می‌دهیم که ارسال تأیید نشده.
        پیش‌تر این حالت «ارسال نشد» شمرده می‌شد و همین باگ گزارش‌شده بود:
        پیامک می‌رسید ولی برنامه خطا نشان می‌داد و کاربر کد را وارد نمی‌کرد. */
-    if(res && res.pending){
-      this.put(st);
-      this.lastPhone = phone;
-      return { ok: true, pending: true, phone,
-               note: 'ارسال تأیید نشد — اگر پیامک رسید، کد را وارد کن' };
-    }
-
-    if(!res || res.success === false){
-      /* قطعاً ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
+/* قطعاً ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
          باشد، دو دقیقه انتظار و سه تلاش بی‌فایده می‌گرفت. */
-      return { ok: false, why: (res && res.error) || 'فرستادن پیامک نشد', send: res };
-    }
-    this.put(st);
-    this.lastPhone = phone;
-    return { ok: true, mock: !!res.mock, code: res.mock ? code : '', phone };
-  },
-
-  /* ── گام ۲: بررسی کد ──
+/* ── گام ۲: بررسی کد ──
      ناهمگام است چون روی سرور یک رفت‌وبرگشت دارد. مسیرِ محلی هم داخلش
      همان‌جا و بی‌درنگ جواب می‌دهد. */
-  async verify(raw, input){
-    const phone = SMS.norm(raw || this.lastPhone);
-    const st = this.st();
-    const now = U.now();
-    if(!st || st.phone !== phone) return { ok: false, why: 'اول یک کد بگیر' };
-
-    if(st.lock && now < st.lock)
-      return { ok: false, why: 'قفل است', locked: true, lock: st.lock - now };
-    if(now > st.exp){
-      this.clear();
-      return { ok: false, why: 'کد منقضی شد — کد تازه بگیر', expired: true };
-    }
-
-    /* ── روی سرور: تنها سرور می‌داند کد درست چیست ── */
-    if(st.server){
-      const code = U.unfa(input).replace(/\D/g, '');
-      if(code.length !== this.LEN)
-        return { ok: false, why: `کد ${U.fa(this.LEN)} رقمی است` };
-      const r = await SMS.verifyServer(phone, code);
-      if(!r.ok){
-        /* سرور خودش تلاش‌ها را می‌شمارد و کد را می‌سوزاند؛ ما فقط حالتی را
+/* ── روی سرور: تنها سرور می‌داند کد درست چیست ── */
+/* سرور خودش تلاش‌ها را می‌شمارد و کد را می‌سوزاند؛ ما فقط حالتی را
            که گفته می‌نشانیم تا شمارندهٔ صفحه هم درست بماند. */
-        if(r.expired || r.burned){ this.clear(); }
-        else{
-          st.tries = (st.tries || 0) + 1;
-          if(st.tries >= this.MAX_TRIES){ st.tries = 0; st.lock = now + this.LOCK_MS; }
-          this.put(st);
-        }
-        return { ok: false, why: r.why, expired: r.expired, burned: r.burned, left: r.left,
-                 locked: this.lockSec() > 0, lock: this.lockSec() * 1000 };
-      }
-      this.clear();
-      const wasNew = Store.get('phone') !== phone;
-      try{ User.setPhone(phone); }
-      catch(e){ Store.update(x => { x.phone = phone; }); }
-      return { ok: true, phone, first: wasNew, server: true };
-    }
-
-    const code = U.unfa(input).replace(/\D/g, '');
-    if(code.length !== this.LEN)
-      return { ok: false, why: `کد ${U.fa(this.LEN)} رقمی است` };
-
-    if(this.hash(code, st.salt) !== st.hash){
-      st.tries = (st.tries || 0) + 1;
-      if(st.tries >= this.MAX_TRIES){
-        st.tries = 0;
-        st.lock = now + this.LOCK_MS;
-        this.put(st);
-        return { ok: false, why: `سه بار اشتباه — ${U.fa(this.LOCK_MS / 60000)} دقیقه قفل شد`,
-                 locked: true, lock: this.LOCK_MS };
-      }
-      this.put(st);
-      return { ok: false, why: `کد اشتباه است — ${U.fa(this.MAX_TRIES - st.tries)} تلاش مانده`,
-               left: this.MAX_TRIES - st.tries };
-    }
-
-    /* درست بود: کد سوخته و شماره ثبت می‌شود. */
-    this.clear();
-    const wasNew = Store.get('phone') !== phone;
-    /* شماره روی *هویت* می‌نشیند، نه فقط روی وضعیتِ دستگاه؛ پنل ادمین
+/* درست بود: کد سوخته و شماره ثبت می‌شود. */
+/* شماره روی *هویت* می‌نشیند، نه فقط روی وضعیتِ دستگاه؛ پنل ادمین
        کاربر را با همین شماره می‌شناسد. */
-    try{ User.setPhone(phone); }
-    catch(e){ Store.update(x => { x.phone = phone; }); }
-    return { ok: true, phone, first: wasNew };
-  }
-};
+
 
 /* ─────────────────── 20.11 GATE — صفحهٔ ورودِ تمام‌صفحه ───────────────────
    یک صفحه، سه راه: ورود با موبایل، مهمان، مدیر.
@@ -15414,691 +14898,313 @@ const OTP = {
    نگرفته باشد (Store.gate خالی). پس از انتخابِ «مهمان» یا ورود، دیگر
    نمی‌آید — چون تحمیلِ ورود در هر باز کردن، برنامهٔ قرآنی را به دیوار
    بدل می‌کند و همان کسی که فقط یک آیه می‌خواست را بیرون می‌گذارد. */
-const Gate = {
-  step: 'intro',
-  phone: '',
-  busy: false,
-  devCode: '',
-  tid: null,
-  /* خودش آمده یا کاربر خواسته؟ تنها تفاوتش این است که پس از «مهمان» فقط در
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* خودش آمده یا کاربر خواسته؟ تنها تفاوتش این است که پس از «مهمان» فقط در
      حالتِ خودآمده کاربر را به خانه می‌بریم؛ وگرنه از هر صفحه‌ای که بودیم
      بیرونش می‌انداختیم. */
-  auto: false,
-  /* آیا کاربرِ همین نشست تأیید کرده که می‌خواهد نخستین رمزِ مدیر را بسازد؟ */
-  adminConfirm: false,
-  /* الان باز است؟ (نامش `open` نمی‌تواند باشد — همنامِ همان متد می‌شد و
+/* آیا کاربرِ همین نشست تأیید کرده که می‌خواهد نخستین رمزِ مدیر را بسازد؟ */
+/* الان باز است؟ (نامش `open` نمی‌تواند باشد — همنامِ همان متد می‌شد و
      متد را بازنویسی می‌کرد؛ یک اشتباهِ یک‌حرفی که تا مدت‌ها دیده نمی‌شود.) */
-  shown: false,
-  /* حالتِ بصریِ جاریِ صفحه (`is-typing`، `is-checking`، …) — فاز ۲. */
-  state: '',
-  /* دستهٔ لغوِ WebOTP؛ با رفتن از گامِ کد باید بسته شود، وگرنه
+/* حالتِ بصریِ جاریِ صفحه (`is-typing`، `is-checking`، …) — فاز ۲. */
+/* دستهٔ لغوِ WebOTP؛ با رفتن از گامِ کد باید بسته شود، وگرنه
      درخواستِ نیمه‌باز در پس‌زمینه می‌ماند. */
-  otpAC: null,
-  /* الان صفحهٔ «قفلِ موقت» بالا است؟ تصمیمِ `tick` به این بند است، نه
+/* الان صفحهٔ «قفلِ موقت» بالا است؟ تصمیمِ `tick` به این بند است، نه
      به بودنِ گره در DOM — استابِ آزمون هرگز null برنمی‌گرداند. */
-  lockShown: false,
-
-  el(){ return U.$('#gate'); },
-  /* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
+/* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
      مستقیم سرِ شماره می‌رود، ولی `Gate.maybe()` همیشه از «خوش آمدی» شروع
      می‌کند تا کاربر بداند سه راه دارد. */
-  open(at, auto){
-    const el = this.el();
-    if(!el) return false;
-    this.auto = !!auto;
-    this.shown = true;
-    /* تأییدِ ساختنِ رمز به نشستِ بعدی نمی‌رسد: هر بار از نو پرسیده می‌شود. */
-    this.adminConfirm = false;
-    this.step = (at === 'phone' || at === 'admin' || at === 'code') ? at : 'intro';
-    this.busy = false;
-    this.devCode = '';
-    this.lockShown = false;
-    if(this.step === 'phone') this.phone = this.phone || Store.get('phone') || '';
-    el.classList.remove('hide', 'leaving');
-    /* فوکوس به داخلِ صفحه می‌رود، وگرنه صفحه‌خوان همچنان پشتِ آن را
+/* تأییدِ ساختنِ رمز به نشستِ بعدی نمی‌رسد: هر بار از نو پرسیده می‌شود. */
+/* فوکوس به داخلِ صفحه می‌رود، وگرنه صفحه‌خوان همچنان پشتِ آن را
        می‌خواند و کاربر نمی‌داند چیزی جلوی صفحه باز شده. */
-    Timers.after(() => {
-      const n = U.$('#gtGo', el) || U.$('#gtGuest', el);
-      if(n && n.focus) n.focus();
-    }, 80, 'sys');
-    this.paint();
-    return true;
-  },
-  /* اگر کاربر تصمیمش را گرفته، صفحه خودبه‌خود نمی‌آید. */
-  maybe(){
-    /* همین حالا باز است؟ از نو نکش.
+/* اگر کاربر تصمیمش را گرفته، صفحه خودبه‌خود نمی‌آید. */
+/* همین حالا باز است؟ از نو نکش.
        صفحه یک بار در آغازِ برنامه باز می‌شود (پشتِ پردهٔ آغازین) و یک بار
        هم پس از کنار رفتنِ پرده از این راه صدا زده می‌شود. بی این سطر،
        فراخوانیِ دوم گامِ کاربر را به «خوش آمدی» برمی‌گرداند و هر چه تا
        آن لحظه زده باشد پاک می‌شد. */
-    if(this.shown) return true;
-    if(Store.get('gate')) return false;
-    return this.open(undefined, true);
-  },
-  close(why){
-    const el = this.el();
-    if(!el) return;
-    this.shown = false;
-    this.stop();
-    /* درخواستِ WebOTP باید بسته شود، وگرنه نیمه‌باز در پس‌زمینه می‌ماند. */
-    this.webotpStop();
-    this.lockShown = false;
-    el.classList.add('leaving');
-    Timers.after(() => {
-      if(el) el.classList.add('hide');
-      el && el.classList.remove('leaving');
-      if(el) this.setState('');
-    }, 260, 'sys');
-    if(why) UI.toast(why, 'ok', 2600);
-  },
-  /* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور.
+/* درخواستِ WebOTP باید بسته شود، وگرنه نیمه‌باز در پس‌زمینه می‌ماند. */
+/* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور.
      گامِ «مدیر» هم این‌جاست: تا پاسخِ میزبان نرسد، شکلِ درستِ آن گام
      معلوم نیست. */
-  sync(){
-    const el = this.el();
-    if(!el || el.classList.contains('hide')) return;
-    if(this.step === 'intro' || this.step === 'phone' || this.step === 'admin') this.paint();
-  },
-
-  /* ── ورود با پیامک ممکن است؟ ──
+/* ── ورود با پیامک ممکن است؟ ──
      سه حالت داریم: سرور کلید دارد، خودِ دستگاه کلید دارد، یا هیچ‌کدام.
      در حالت سوم ورود ممکن نیست و باید صریح گفته شود — نه اینکه دکمه
      باشد و بی‌صدا کار نکند. */
-  canLogin(){ return SMS.ready(); },
-  /* ── چرا نمی‌شود؟ ──
+/* ── چرا نمی‌شود؟ ──
      یک جملهٔ کلی («به سرور وصل شو») برای سه وضعیتِ متفاوت کافی نیست:
      کاربری که سرورش بالاست ولی کلید ندارد، با آن جمله به جای اشتباهی
      فرستاده می‌شود. */
-  whyNot(){
-    const s = SMS.server || {};
-    if(s.on && !s.configured)
-      return 'سرور در دسترس است، ولی کلیدِ پیامک روی آن تنظیم نشده (NOOR_SMS_KEY و NOOR_SMS_DEVICE).';
-    if(!s.on)
-      return 'سروری در دسترس نیست. برای ورود، سرور را بالا بیاور یا از «ادامه به‌عنوان مهمان» استفاده کن.';
-    return 'ورود با پیامک روی این دستگاه ممکن نیست — از «ادامه به‌عنوان مهمان» استفاده کن.';
-  },
-
-  msg(text, tone, id){
-    const el = U.$('#' + (id || 'gtMsg'), this.el() || document);
-    if(!el) return;
-    if(!text){ el.textContent = ''; return; }
-    const c = tone === 'ok' ? 'var(--grn)' : tone === 'wait' ? 'var(--gold)' : 'var(--red)';
-    el.classList.toggle('error', !tone || tone === 'err');
-    el.classList.toggle('ok', tone === 'ok');
-    el.innerHTML = `<span style="color:${c}">${U.esc(text)}</span>`;
-  },
-  /* ── برچسبِ دکمهٔ آیکن‌دار ──
+/* ── برچسبِ دکمهٔ آیکن‌دار ──
      دکمه‌ها حالا `<svg>` + `<span>` دارند؛ `textContent` آیکن را پاک
      می‌کند، پس فقط متنِ span را عوض می‌کنیم.
      حالا به `U.label` سپرده شده تا یک پیاده‌سازی باشد، نه دو تا. */
-  label(btn, text){ U.label(btn, text); },
-
-  /* ── شمارندهٔ زنده ──
+/* ── شمارندهٔ زنده ──
      بی این، کاربر نمی‌داند کدش چقدر اعتبار دارد و «ارسال دوباره» را
      بی‌دلیل می‌زند. حلقه خودترمیم است: اگر گره‌ها نیستند (کاربر از صفحه
      بیرون رفته) خودش را می‌خواباند. */
-  stop(){ if(this.tid){ Timers.clear(this.tid); this.tid = null; } },
-  tick(){
-    const root = this.el() || document;
-    const el = U.$('#gtLeft', root), again = U.$('#gtAgain', root);
-    /* ── حلقهٔ قفلِ موقت (فاز ۲) ──
+/* ── حلقهٔ قفلِ موقت (فاز ۲) ──
        تصمیم روی `lockShown` است، نه روی *بودنِ* گره: در برخی محیط‌ها
        (از جمله استابِ آزمون) `querySelector` هرگز null برنمی‌گرداند،
        پس «گره هست؟» به «قفل باز است؟» ترجمه نمی‌شود و حلقهٔ
        tick→paint→run→tick تا سرریزِ پشته می‌چرخد. */
-    if(this.lockShown){
-      const w = this.lockLeft();
-      const num = U.$('#gtNum', root), bar = U.$('#gtBar', root);
-      if(num) num.textContent = U.fa(w);
-      /* محیطِ دایره ≈ ۲۸۹؛ هرچه زمان بیشتر گذشته، کمان کوتاه‌تر. */
-      if(bar && bar.style) bar.style.strokeDashoffset = String(Math.round(289 * (w / this.LOCK_SEC)));
-      /* شمارش تمام شد: خودش به فرمِ کد برگردد، بی آنکه کاربر کاری کند.
+/* محیطِ دایره ≈ ۲۸۹؛ هرچه زمان بیشتر گذشته، کمان کوتاه‌تر. */
+/* شمارش تمام شد: خودش به فرمِ کد برگردد، بی آنکه کاربر کاری کند.
          `lockShown` را *پیش از* رنگ‌آمیزی صفر می‌کنیم، وگرنه paint
          دوباره run می‌زند و حلقه از نو شروع می‌شود. */
-      if(w <= 0){ this.lockClear(); this.lockShown = false; Haptic.hit(); this.paint(); }
-      return;
-    }
-    if(!el && !again){ this.stop(); return; }
-    if(el){
-      const s = OTP.leftSec();
-      el.textContent = s > 0 ? `⏱ ${U.fa(s)} ثانیه تا پایان اعتبار کد`
-                             : '⏱ کد منقضی شد — کد تازه بگیر';
-    }
-    if(again){
-      const w = OTP.waitSec();
-      again.disabled = w > 0;
-      this.label(again, w > 0 ? `ارسال دوباره (${U.fa(w)})` : 'ارسال دوباره');
-    }
-  },
-  run(){
-    this.stop();
-    this.tid = Timers.every(() => this.tick(), 1000, 'sys');
-    this.tick();
-  },
-
-  /* ═══════════ فاز ۲ — حالت‌ها، نشان، جعبه‌ها، WebOTP ═══════════
+/* ═══════════ فاز ۲ — حالت‌ها، نشان، جعبه‌ها، WebOTP ═══════════
      نامِ حالت‌ها همان‌های فایلِ مرجع است. روی خودِ #gate می‌نشینند تا
      قفل، مدار، جرقه‌ها و جعبه‌ها یک‌صدا عوض شوند — نه هر کدام جدا. */
-  STATE: ['is-typing','is-checking','is-success','is-failing','is-locked'],
-  setState(s){
-    const el = this.el();
-    this.state = s || '';
-    if(!el) return;
-    this.STATE.forEach(k => el.classList.toggle(k, k === this.state));
-  },
-
-  /* ── قفلِ موقت ──
+/* ── قفلِ موقت ──
      مرجع پنج تلاش و ۶۰ ثانیه داشت و در حافظهٔ صفحه نگه می‌داشت؛ اینجا
      در Store می‌ماند، وگرنه کاربر با یک نوسازیِ صفحه قفل را دور می‌زد
      و محافظ بی‌معنی می‌شد. */
-  MAX_TRY: OTP.MAX_TRIES,
-  LOCK_SEC: OTP.LOCK_MS / 1000,
-  lockGet(){
-    const st = OTP.st();
-    const l = st ? { fails: st.tries, until: st.lock } : null;
-    if(!l || typeof l !== 'object') return { fails:0, until:0 };
-    /* ── چرا `|0` روی `until` نمی‌گذاریم ──
+/* ── چرا `|0` روی `until` نمی‌گذاریم ──
        مُهرِ زمانیِ میلی‌ثانیه (≈۱.۷۶e۱۲) از ۳۲ بیت می‌گذرد و `|0`
        دورش می‌اندازد به عددی بی‌ربط — و آن‌وقت قفل هرگز درست بسته
        نمی‌شد. `fails` کوچک است و `|0` برایش بی‌خطر. */
-    return {
-      fails: Math.max(0, Math.floor(Number(l.fails) || 0)) | 0,
-      until: Math.max(0, Math.floor(Number(l.until) || 0))
-    };
-  },
-  lockSet(fails, until){ const st = OTP.st(); if(st){ st.tries = fails; st.lock = until; OTP.put(st); } },
-  lockLeft(){ return Math.max(0, Math.ceil((this.lockGet().until - Date.now()) / 1000)); },
-  lockClear(){ const st = OTP.st(); if(st && !OTP.lockSec()){ st.lock = 0; st.tries = 0; OTP.put(st); } },
-  /* یک تلاشِ ناموفق. به سقف که رسید، در باز می‌شود. */
-  bumpFail(){
-    if(OTP.lockSec() > 0){
-      this.step = 'code';
-      Haptic.warn(); Sound.click();
-      this.paint();
-      return true;
-    }
-    this.setState('is-failing');
-    Timers.after(() => { if(this.state === 'is-failing') this.setState(''); }, 1400, 'sys');
-    return false;
-  },
-
-  /* ── نشانِ قفل ──
+/* یک تلاشِ ناموفق. به سقف که رسید، در باز می‌شود. */
+/* ── نشانِ قفل ──
      گرادیان‌ها این‌جا تعریف می‌شوند چون رنگِ بدنه در حالت‌های موفق و
      قفل عوض می‌شود و CSS بی آن‌ها نمی‌تواند fill را بشکند. */
-  lockSVG(){
-    return `
-      <svg class="gt-lock" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id="gtBody" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#f7d27a"/><stop offset="100%" stop-color="#c98a12"/>
-          </linearGradient>
-          <linearGradient id="gtBodyOk" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#46d5a5"/><stop offset="100%" stop-color="#0e8c68"/>
-          </linearGradient>
-          <linearGradient id="gtBodyNo" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#ff8ea3"/><stop offset="100%" stop-color="#c93a55"/>
-          </linearGradient>
-          <linearGradient id="gtKey" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#fff0c4"/><stop offset="100%" stop-color="#d98d12"/>
-          </linearGradient>
-        </defs>
-        <path class="g-shackle" d="M28 36V22a12 12 0 0 1 24 0v14"
-              fill="none" stroke="#c98a12" stroke-width="5" stroke-linecap="round"/>
-        <rect class="g-body" x="16" y="36" width="48" height="34" rx="10"
-              fill="url(#gtBody)" stroke="#c98a12" stroke-width="1.5"/>
-        <g class="g-hole">
-          <circle cx="40" cy="50" r="4.5" fill="#2a1f06" opacity=".78"/>
-          <rect x="38" y="53" width="4" height="9" rx="2" fill="#2a1f06" opacity=".78"/>
-        </g>
-        <g class="g-key">
-          <circle cx="40" cy="52" r="4" fill="url(#gtKey)"/>
-          <rect x="38.5" y="54" width="3" height="14" rx="1.5" fill="url(#gtKey)"/>
-          <rect x="41" y="62" width="5" height="2.5" rx="1" fill="url(#gtKey)"/>
-          <rect x="41" y="65" width="3.5" height="2.5" rx="1" fill="url(#gtKey)"/>
-        </g>
-      </svg>`;
-  },
-  /* `kind` اگر `lock` باشد قفلِ جان‌دار می‌آید؛ وگرنه آیکنِ ساده در
+/* `kind` اگر `lock` باشد قفلِ جان‌دار می‌آید؛ وگرنه آیکنِ ساده در
      همان قاب، تا هر چهار گام یک زبانِ بصری داشته باشند. */
-  emblem(kind){
-    const inner = (!kind || kind === 'lock')
-      ? `<div class="gt-orbit"></div><div class="gt-flash"></div>
-         <span class="gt-spark"></span><span class="gt-spark"></span><span class="gt-spark"></span>
-         <span class="gt-spark"></span><span class="gt-spark"></span><span class="gt-spark"></span>
-         <span class="gt-sparkle s1">✦</span><span class="gt-sparkle s2">✦</span>
-         ${this.lockSVG()}`
-      : `<div class="gt-orbit"></div>${Icon.of(kind)}`;
-    return `<div class="gt-emblem" aria-hidden="true"><div class="gt-tile">${inner}</div></div>`;
-  },
-
-  /* ── جعبه‌های کد ──
+/* ── جعبه‌های کد ──
      پنج جعبه (OTP.LEN) که فقط *آینه*‌اند. inputِ راستین شفاف رویشان
      نشسته و همه‌چیز — تایپ، لمس، WebOTP — به همان یک گره می‌رسد. */
-  pinsHTML(n){
-    let h = '';
-    for(let i = 0; i < n; i++) h += '<span class="gt-pin"></span>';
-    return h;
-  },
-  barsHTML(n){ return '<span></span>'.repeat(n); },
-  /* آینه را از روی input پر کن. */
-  paintPins(){
-    const el = this.el();
-    if(!el) return;
-    const inp = U.$('#gtCode', el);
-    if(!inp) return;
-    const v = U.unfa(inp.value || '').replace(/\D/g, '');
-    const busy = el.classList.contains('is-checking');
-    el.querySelectorAll('.gt-pin').forEach((p, i) => {
-      const ch = v[i] || '';
-      if(p.textContent !== ch) p.textContent = ch ? U.fa(ch) : '';
-      p.classList.toggle('on', !!ch);
-      p.classList.toggle('caret', i === v.length && !busy);
-    });
-    el.querySelectorAll('.gt-progress span').forEach((s, i) => {
-      s.classList.toggle('complete', i < v.length);
-    });
-  },
-
-  /* ── WebOTP ──
+/* آینه را از روی input پر کن. */
+/* ── WebOTP ──
      اندرویدِ کروم می‌تواند کد را خودش از پیامک بردارد و بی هیچ تایپی
      پرش کند. سه شرط دارد که هر سه رعایت شده: پیامکِ قالب‌بندی‌شده با
      «@دامنه #کد»، اتصالِ امن (https یا localhost)، و autocomplete
      روی یک inputِ واقعی. اگر نبود، بی‌صدا رد می‌شویم — نه خطا، نه وعده. */
-  otpAC: null,
-  webotp(){
-    this.webotpStop();
-    try{
-      if(!navigator.credentials || !window.OTPCredential) return;
-      const ac = new AbortController();
-      this.otpAC = ac;
-      navigator.credentials.get({ otp:{ transport:['sms'] }, signal: ac.signal })
-        .then(c => {
-          if(!c || !c.code) return;
-          const inp = U.$('#gtCode', this.el());
-          if(!inp) return;
-          inp.value = U.unfa(c.code).replace(/\D/g, '').slice(0, OTP.LEN);
-          Sound.click(); Haptic.hit();
-          this.paintPins();
-          if(inp.value.length === OTP.LEN) this.check();
-        })
-        .catch(() => {});   // رد شدن = کاربر دستی می‌زند
-    }catch(e){ /* مرورگرِ قدیمی: بی‌صدا رد شو */ }
-  },
-  webotpStop(){
-    if(this.otpAC){ try{ this.otpAC.abort(); }catch(e){} this.otpAC = null; }
-  },
-
-  paint(){
-    const el = this.el();
-    if(!el) return;
-    const box = U.$('#gateBox', el);
-    if(!box) return;
-    /* هر رنگ‌آمیزی از حالتِ پاک شروع می‌شود؛ وگرنه `is-failing` گامِ
+// رد شدن = کاربر دستی می‌زند
+/* مرورگرِ قدیمی: بی‌صدا رد شو */
+/* هر رنگ‌آمیزی از حالتِ پاک شروع می‌شود؛ وگرنه `is-failing` گامِ
        پیشین روی گامِ تازه می‌ماند و جعبه‌ها بی‌دلیل سرخ می‌مانند. */
-    this.setState('');
-    const can = this.canLogin();
-    const m = SMS.modeName();
-
-    if(this.step === 'intro'){
-      box.innerHTML = `
-        ${this.emblem('lock')}
-        <h2>نورستان</h2>
-        <p class="gt-sub">بازی، حفظ و اُنس با قرآن<br>۱۱۴ سوره • ۱۵ بازی • بی هزینه</p>
-        <div class="gt-card">
-          <button class="btn w" id="gtGo" ${can ? '' : 'disabled'}>${Icon.of('phone')}<span>ورود با موبایل</span></button>
-          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px">${Icon.of('warn')}<span>${U.esc(this.whyNot())}</span></div>`}
-          <button class="btn gh w" id="gtGuest" style="margin-top:10px">${Icon.of('user')}<span>ادامه به‌عنوان مهمان</span></button>
-          <button class="btn gh w" id="gtAdmin" style="margin-top:10px">${Icon.of('crown')}<span>ورود مدیر</span></button>
-          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
-        </div>
-        <p class="gt-foot">
-          بی ورود، همهٔ قرآن و بازی‌ها در دسترس است — فقط امتیازت روی سرور
-          ثبت نمی‌شود و روی دستگاهِ دیگری ادامه‌اش را نمی‌بینی.<br>
-          راهِ فرستادن: <b>${U.esc(m)}</b></p>`;
-      U.$('#gtGo', box).onclick = () => { Sound.click(); this.step = 'phone'; this.paint(); };
-      U.$('#gtGuest', box).onclick = () => this.guest();
-      U.$('#gtAdmin', box).onclick = () => {
-        Sound.click();
-        this.step = 'admin';
-        /* اگر پاسخِ میزبان نرسیده، همین‌جا منتظرش بمان و پس از رسیدن
+/* اگر پاسخِ میزبان نرسیده، همین‌جا منتظرش بمان و پس از رسیدن
            دوباره رنگ کن — گامِ «مدیر» شکلِ درستش به آن پاسخ بند است. */
-        Host.ready().then(() => this.sync());
-        this.paint();
-      };
-      return;
-    }
-
-    if(this.step === 'phone'){
-      box.innerHTML = `
-        ${this.emblem('phone')}
-        <h2>ورود با موبایل</h2>
-        <p class="gt-sub">یک کد ${U.fa(OTP.LEN)} رقمی پیامک می‌شود. کد ۲ دقیقه اعتبار دارد
-          و شماره به کسی نشان داده نمی‌شود.</p>
-        <div class="gt-card">
-          <label class="lbl" for="gtPhone">شمارهٔ موبایل</label>
-          <input class="inp" id="gtPhone" dir="ltr" inputmode="numeric" autocomplete="tel"
-                 placeholder="09123456789" value="${U.esc(this.phone)}">
-          <button class="btn w" id="gtSend" style="margin-top:14px" ${can ? '' : 'disabled'}>${Icon.of('send')}<span>دریافت کد</span></button>
-          ${can ? '' : `<div class="gt-note warn" style="margin-top:10px">${Icon.of('warn')}<span>${U.esc(this.whyNot())}</span></div>`}
-          <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
-          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
-        </div>`;
-      const inp = U.$('#gtPhone', box);
-      inp.onkeydown = e => { if(e.key === 'Enter') this.send(); };
-      U.$('#gtSend', box).onclick = () => this.send();
-      U.$('#gtBack', box).onclick = () => { this.step = 'intro'; this.paint(); };
-      Timers.after(() => inp.focus(), 60, 'sys');
-      return;
-    }
-
-    if(this.step === 'code'){
-      /* ── قفلِ موقت ──
+/* ── قفلِ موقت ──
          پیش از هر چیز: اگر در باز است، فرمِ کد را نکش. کشیدنش یعنی
          کاربر پنج بار دیگر هم می‌تواند امتحان کند و قفل بی‌معنی شود. */
-      const wait = this.lockLeft();
-      if(wait > 0){
-        this.lockShown = true;
-        this.setState('is-locked');
-        box.innerHTML = `
-          ${this.emblem('lock')}
-          <h2>کمی صبر کن</h2>
-          <div class="gt-card">
-            <div class="gt-lockout">
-              <div class="gt-ring">
-                <svg viewBox="0 0 104 104" aria-hidden="true">
-                  <circle class="track" cx="52" cy="52" r="46"/>
-                  <circle class="bar" id="gtBar" cx="52" cy="52" r="46"/>
-                </svg>
-                <b id="gtNum">${U.fa(wait)}</b>
-              </div>
-              <div class="lockout-title">تلاش‌های پشت‌سرهم زیاد شد</div>
-              <p class="gt-sub" style="margin:0">برای جلوگیری از حدس‌زدنِ کد، ورود
-                <b>${U.fa(this.MAX_TRY)}</b> تلاشِ ناموفق را دید. تا پایانِ شمارش
-                می‌توانی قرآن بخوانی — این صفحه خودش باز می‌شود.</p>
-            </div>
-            <button class="btn gh w" id="gtGuest" style="margin-top:14px">${Icon.of('user')}<span>ادامه به‌عنوان مهمان</span></button>
-          </div>`;
-        const g = U.$('#gtGuest', box);
-        if(g) g.onclick = () => this.guest();
-        this.run();
-        return;
-      }
-      /* در باز شد؛ اگر قفلی مانده بود پاکش کن. */
-      if(this.lockGet().until) this.lockClear();
-      this.lockShown = false;
-      box.innerHTML = `
-        ${this.emblem('lock')}
-        <h2>کد تأیید</h2>
-        <p class="gt-sub">کد ${U.fa(OTP.LEN)} رقمی به
-          <b dir="ltr">${U.esc(SMS.faPhone(this.phone))}</b> پیامک شد.</p>
-        <div class="gt-card">
-          <div class="gt-pins">
-            <div class="gt-pin-group" aria-hidden="true">${this.pinsHTML(OTP.LEN)}</div>
-            <input class="gt-code-in" id="gtCode" dir="ltr" inputmode="numeric"
-                   maxlength="${OTP.LEN}" autocomplete="one-time-code"
-                   aria-label="کد ${U.fa(OTP.LEN)} رقمی">
-          </div>
-          <div class="gt-progress" aria-hidden="true">${this.barsHTML(OTP.LEN)}</div>
-          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
-          <div class="tiny" id="gtLeft" style="margin-top:4px;min-height:1.2em;text-align:center"></div>
-          <button class="btn w" id="gtOk" style="margin-top:12px">${Icon.of('check')}<span>تأیید و ورود</span></button>
-          <button class="btn gh w" id="gtAgain" style="margin-top:8px">${Icon.of('retry')}<span>ارسال دوباره</span></button>
-          <button class="btn gh w" id="gtEdit" style="margin-top:8px">${Icon.of('edit')}<span>تغییر شماره</span></button>
-        </div>`;
-      const inp = U.$('#gtCode', box);
-      inp.onkeydown = e => { if(e.key === 'Enter') this.check(); };
-      inp.oninput = () => {
-        inp.value = U.unfa(inp.value).replace(/\D/g, '').slice(0, OTP.LEN);
-        this.setState(inp.value ? 'is-typing' : '');
-        this.paintPins();
-        if(inp.value.length === OTP.LEN) this.check();      // پنج رقم که کامل شد، خودش می‌رود
-      };
-      /* لمسِ هر جعبه = فوکوسِ inputِ شفاف؛ بی این، لمسِ جعبه‌ها کاری نمی‌کرد
+/* در باز شد؛ اگر قفلی مانده بود پاکش کن. */
+// پنج رقم که کامل شد، خودش می‌رود
+/* لمسِ هر جعبه = فوکوسِ inputِ شفاف؛ بی این، لمسِ جعبه‌ها کاری نمی‌کرد
          چون کاربر جعبه را می‌بیند، نه input را. */
-      box.querySelectorAll('.gt-pin').forEach(p => {
-        p.onclick = () => { if(inp.focus) inp.focus(); };
-      });
-      U.$('#gtOk', box).onclick = () => this.check();
-      U.$('#gtAgain', box).onclick = () => this.again();
-      U.$('#gtEdit', box).onclick = () => { this.step = 'phone'; this.paint(); };
-      Timers.after(() => inp.focus(), 60, 'sys');
-      this.paintPins();
-      this.run();
-      /* کد را خودِ اندروید از پیامک بردارد — کاربر بی تایپ وارد شود. */
-      this.webotp();
-      /* در حالت آزمایشی کد همان‌جا نشان داده می‌شود، وگرنه کاربر بی کد
+/* کد را خودِ اندروید از پیامک بردارد — کاربر بی تایپ وارد شود. */
+/* در حالت آزمایشی کد همان‌جا نشان داده می‌شود، وگرنه کاربر بی کد
          گیر می‌افتد و فکر می‌کند برنامه خراب است. */
-      if(this.devCode) Timers.after(() => this.msg(`حالت آزمایشی — کد: ${U.fa(this.devCode)}`, 'ok'), 40, 'sys');
-      return;
-    }
-
-    if(this.step === 'admin'){
-      /* تا پاسخِ «سرور همین‌جاست؟» نرسیده، تصمیم نگیر. یک لحظه فرمِ
+/* تا پاسخِ «سرور همین‌جاست؟» نرسیده، تصمیم نگیر. یک لحظه فرمِ
          ساختنِ رمزِ محلی نشان‌دادن روی صفحه‌ای که سرور سرو کرده، همان
          باگی است که کاربر دید: دو تا رمزِ ادمین.
 
          سنجش روی `_yes` است نه `asked`: `asked` به‌محضِ *شروعِ* درخواست
          پر می‌شود، پس اگر کاربر پیش از رسیدنِ پاسخ روی «ورود مدیر» بزند،
          با `asked` از این نگهبان رد می‌شد و همان فرمِ خطرناک را می‌دید. */
-      if(Host._yes === null){
-        Host.ready().then(() => this.sync());
-        box.innerHTML = `
-          ${this.emblem('sat')}
-          <h2>بررسی سرور…</h2>
-          <p class="gt-sub">ببینیم رمزِ مدیر را از سرور بپرسیم یا روی همین دستگاه.</p>
-          <div class="gt-card">
-            <div class="gt-note" role="status" aria-live="polite">${Icon.of('clock')}<span>یک لحظه…</span></div>
-            <button class="btn gh w" id="gtBack" style="margin-top:12px">${Icon.of('back')}<span>بازگشت</span></button>
-          </div>`;
-        const back = U.$('#gtBack', box);
-        if(back) back.onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
-        return;
-      }
-
-      const remote = Admin.remote();
-      const first = !remote && !Store.get('adminHash');
-
-      /* ── ساختنِ نخستین رمز، نه با یک ضربهٔ ناخواسته ──
+/* ── ساختنِ نخستین رمز، نه با یک ضربهٔ ناخواسته ──
          اگر این دستگاه هنوز رمزِ مدیر ندارد، فرم را *نمی‌کاریم*؛ اول یک
          هشدار می‌گذاریم که صریح می‌گوید این کار چه معنایی دارد. بی این،
          هر کسی که روی «ورود مدیر» می‌زد — از جمله مهمان — بی‌آنکه بخواهد
          مدیرِ دستگاه می‌شد. */
-      if(first && !this.adminConfirm){
-        box.innerHTML = `
-          ${this.emblem('crown')}
-          <h2>مدیرِ این دستگاه کیست؟</h2>
-          <p class="gt-sub">این دستگاه هنوز رمزِ مدیر ندارد.</p>
-          <div class="gt-card">
-            <div class="gt-note warn" style="margin-top:0">${Icon.of('warn')}<span>
-              هر کسی این رمز را بسازد، مدیرِ همین دستگاه می‌شود: می‌تواند
-              کاربران را ببیند، پیامک بفرستد و داده‌ها را پاک کند.
-              این کار فقط <b>یک بار</b> ممکن است.</span></div>
-            <button class="btn w" id="gtMake" style="margin-top:12px">${Icon.of('lock')}<span>می‌دانم — رمزِ مدیر را می‌سازم</span></button>
-            <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
-          </div>
-          <p class="gt-foot">اگر تو صاحبِ این دستگاه نیستی، همین‌جا بایست و بازگرد.</p>`;
-        U.$('#gtMake', box).onclick = () => {
-          Sound.click(); Haptic.hit();
-          this.adminConfirm = true;
-          this.paint();
-        };
-        U.$('#gtBack', box).onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
-        return;
-      }
-
-      box.innerHTML = `
-        ${this.emblem('crown')}
-        <h2>${first ? 'ساختن رمز مدیر' : 'ورود مدیر'}</h2>
-        <p class="gt-sub">${first
-            ? 'یک رمز بگذار. همین رمز، قفلِ پنلِ مدیریتِ این دستگاه می‌شود.'
-            : (remote ? 'رمز روی سرور سنجیده می‌شود و روی این دستگاه ذخیره نمی‌شود.'
-                      : 'رمز مدیر را وارد کن.')}</p>
-        <div class="gt-card">
-          <label class="lbl" for="gtPass">رمز مدیر</label>
-          <input class="inp" id="gtPass" type="password" dir="ltr" spellcheck="false"
-                 autocomplete="${first ? 'new-password' : 'current-password'}"
-                 placeholder="${first ? 'رمز تازه…' : 'رمز…'}">
-          ${first ? `<input class="inp" id="gtPass2" type="password" dir="ltr" spellcheck="false"
-                 autocomplete="new-password" placeholder="تکرار رمز تازه…" style="margin-top:8px">` : ''}
-          <button class="btn w" id="gtLogin" style="margin-top:12px">
-            ${Icon.of(remote ? 'sat' : 'lock')}<span>${remote ? 'ورود به پنل سرور' : (first ? 'ساختن رمز و ورود' : 'ورود')}</span></button>
-          <button class="btn gh w" id="gtBack" style="margin-top:10px">${Icon.of('back')}<span>بازگشت</span></button>
-          <div class="gt-msg" id="gtMsg" role="status" aria-live="polite"></div>
-        </div>
-        <p class="gt-foot">${remote
-          ? `رمز فقط یک بار به سرور می‌رود؛ بازگشتی نشانهٔ نشستی ${U.fa(12)} ساعته است.`
-          : `این رمز «قفلِ محلی» است، نه امنیتِ راستین — هر کسی به فایل‌های همین
-             مرورگر دسترسی داشته باشد می‌تواند برش دارد. برای امنیتِ واقعی، برنامه
-             را روی سرور باز کن و NOOR_ADMIN_PASS بگذار.`}</p>`;
-      const pass = U.$('#gtPass', box), again = U.$('#gtPass2', box), btn = U.$('#gtLogin', box);
-      const run = () => this.adminLogin(first, remote);
-      pass.onkeydown = e => { if(e.key === 'Enter') run(); };
-      if(again) again.onkeydown = e => { if(e.key === 'Enter') run(); };
-      btn.onclick = run;
-      U.$('#gtBack', box).onclick = () => { this.adminConfirm = false; this.step = 'intro'; this.paint(); };
-      Timers.after(() => pass.focus(), 60, 'sys');
-      return;
-    }
-  },
-
-  /* ── مهمان ──
+/* ── مهمان ──
      تصمیمش در Store می‌ماند تا صفحه دیگر خودبه‌خود نیاید. */
-  guest(){
-    Store.set('gate', 'guest');
-    Sound.click(); Haptic.hit();
-    this.close('🌿 خوش آمدی — هر وقت خواستی از «حساب من» وارد شو');
-    /* اگر این صفحه خودش آمده بود (نه به درخواستِ کاربر)، کاربر را به خانه
+/* اگر این صفحه خودش آمده بود (نه به درخواستِ کاربر)، کاربر را به خانه
        می‌بریم؛ وگرنه پشتِ صفحهٔ ورود، هر صفحه‌ای که قبلاً باز بود می‌ماند و
        کاربر نمی‌داند وارد شده یا نه. */
-    if(this.auto) Timers.after(() => { try{ Router.go('home'); }catch(e){} }, 300, 'sys');
-  },
-
-  async send(){
-    if(this.busy) return;
-    const el = this.el();
-    const inp = U.$('#gtPhone', el), btn = U.$('#gtSend', el);
-    const phone = SMS.norm(inp ? inp.value : '');
-    if(!SMS.phoneOk(phone)){
-      this.msg('شمارهٔ موبایل معتبر نیست — مثل ۰۹۱۲۳۴۵۶۷۸۹');
-      Haptic.warn(); return;
-    }
-    if(!this.canLogin()){ this.msg(this.whyNot()); return; }
-    this.phone = phone;
-    this.busy = true;
-    if(btn) btn.disabled = true;
-    this.msg('در حال فرستادن کد…', 'wait');
-    let r;
-    try{ r = await OTP.start(phone); }
-    catch(e){ r = { ok: false, why: 'فرستادن کد ممکن نشد — دوباره امتحان کن' }; }
-    finally{ this.busy = false; if(btn) btn.disabled = false; }
-
-    if(!r.ok){ this.msg(r.why || 'فرستادن نشد'); Haptic.warn(); return; }
-    this.devCode = r.code || '';
-    this.step = 'code';
-    this.paint();
-    if(r.pending){
-      /* نمی‌دانیم رسید یا نه. کاربر را بیرون نمی‌کنیم و وعدهٔ دروغ هم نمی‌دهیم. */
-      this.msg('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait');
-      Haptic.warn(); return;
-    }
-    Haptic.success();
-    UI.toast(r.mock ? '🧪 کد آزمایشی ساخته شد' : '📨 کد پیامک شد', 'ok', 2400);
-  },
-
-  async again(){
-    if(this.busy) return;
-    const btn = U.$('#gtAgain', this.el());
-    this.busy = true;
-    if(btn) btn.disabled = true;
-    let r;
-    try{ r = await OTP.start(this.phone); }
-    catch(e){ r = { ok: false, why: 'فرستادن نشد' }; }
-    finally{ this.busy = false; if(btn) btn.disabled = false; }
-    if(!r.ok){ this.msg(r.why || 'فرستادن نشد'); return; }
-    this.devCode = r.code || '';
-    this.paint();
-    if(r.pending){ this.msg('⏳ ' + (r.note || SMS.PENDING_MSG), 'wait'); return; }
-    this.msg(r.mock ? `🧪 کد تازه: ${U.fa(r.code)}` : '📨 کد تازه فرستاده شد', 'ok');
-  },
-
-  /* دکمه در همان فاصله قفل می‌شود؛ وگرنه دو بار زدن، دو رفت‌وبرگشت و
+/* نمی‌دانیم رسید یا نه. کاربر را بیرون نمی‌کنیم و وعدهٔ دروغ هم نمی‌دهیم. */
+/* دکمه در همان فاصله قفل می‌شود؛ وگرنه دو بار زدن، دو رفت‌وبرگشت و
      دو شمارشِ تلاش روی سرور می‌سازد. */
-  async check(){
-    if(this.busy) return;
-    const el = this.el();
-    const inp = U.$('#gtCode', el), btn = U.$('#gtOk', el);
-    const code = inp ? inp.value : '';
-    this.busy = true;
-    if(btn) btn.disabled = true;
-    this.setState('is-checking');
-    let r;
-    try{ r = await OTP.verify(this.phone, code); }
-    catch(e){ r = { ok: false, why: 'بررسی کد ممکن نشد — دوباره امتحان کن' }; }
-    finally{ this.busy = false; if(btn) btn.disabled = false; }
-
-    if(!r.ok){
-      this.setState('');
-      this.msg(r.why || 'کد پذیرفته نشد');
-      Haptic.warn();
-      /* ── قفلِ موقت ──
+/* ── قفلِ موقت ──
          `bumpFail` خودش تصمیم می‌گیرد: یا لرزشِ سرخ نشان بده، یا اگر
          به سقف رسیدیم صفحه را به گامِ قفل ببر. */
-      if(r.locked || r.lock || OTP.lockSec() > 0){ this.step = 'code'; this.paint(); return; }
-      this.bumpFail();
-      if(inp){ inp.value = ''; this.paintPins(); if(inp.focus) inp.focus(); }
-      return;
-    }
-    this.lockClear();
-    this.setState('is-success');
-    Haptic.success();
-    Store.set('gate', 'user');
-    /* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
-    UI.toast(r.first ? `✅ خوش آمدی! حسابت با ${SMS.faPhone(r.phone)} ساخته شد`
-                     : `✅ شماره به ${SMS.faPhone(r.phone)} به‌روز شد`, 'ok', 3200);
-    try{ Me.render(); }catch(e){}
-    /* بستن را کمی عقب می‌اندازیم تا قفل واقعاً *باز شود* و کاربر ببیند
+/* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
+/* بستن را کمی عقب می‌اندازیم تا قفل واقعاً *باز شود* و کاربر ببیند
        کد پذیرفته شد؛ بستنِ فوری، همهٔ انیمیشنِ موفقیت را خفه می‌کرد. */
-    Timers.after(() => this.close(), 640, 'sys');
-  },
-
-  async adminLogin(first, remote){
-    if(this.busy) return;
-    const el = this.el();
-    const pass = U.$('#gtPass', el), again = U.$('#gtPass2', el), btn = U.$('#gtLogin', el);
-    const v = pass ? pass.value : '';
-    if(!v){ this.msg('رمز را بنویس'); return; }
-    if(again && again.value !== v){ this.msg('دو رمز یکی نیستند'); return; }
-    this.busy = true;
-    if(btn){ btn.disabled = true; if(remote) this.label(btn, 'در حال بررسی…'); }
-    let r;
-    try{ r = await Admin.tryPass(v); }
-    catch(e){ r = { ok: false, why: 'بررسی رمز ممکن نشد' }; }
-    finally{
-      this.busy = false;
-      if(btn){ btn.disabled = false; if(remote) this.label(btn, 'ورود به پنل سرور'); }
-    }
-    if(!r.ok){
-      this.setState('is-failing');
-      Timers.after(() => { if(this.state === 'is-failing') this.setState(''); }, 1400, 'sys');
-      this.msg(r.why); Haptic.warn(); return;
-    }
-    Haptic.success();
-    if(pass) pass.value = '';
-    if(again) again.value = '';
-    /* مدیر هم تصمیمش را گرفته؛ صفحه دیگر خودبه‌خود نمی‌آید. «مهمان»
+/* مدیر هم تصمیمش را گرفته؛ صفحه دیگر خودبه‌خود نمی‌آید. «مهمان»
        نمی‌نویسیم چون مدیر مهمان نیست — و دروغ‌نوشتن در حافظه، بعداً
        به تصمیمِ غلط می‌رسد. */
-    if(!Store.get('gate')) Store.set('gate', 'admin');
-    this.close(r.first ? '👑 رمز ساخته شد — خوش آمدی مدیر' : '👑 خوش آمدی مدیر');
-    /* پنل را باز می‌کنیم، نه فقط پروفایل را: کسی که رمز مدیر زده،
+/* پنل را باز می‌کنیم، نه فقط پروفایل را: کسی که رمز مدیر زده،
        مقصدش پنل است. */
-    Timers.after(() => { try{ Router.go('admin'); }catch(e){} }, 320, 'sys');
+/* ورود نسخهٔ تازه: اعتبار نشست فقط از سرور می‌آید؛ پیشرفت قدیمی حذف نمی‌شود. */
+const PersonalData = {
+  keys: ['playerName','score','xp','level','stars','completed','badges','best','stats','dailyChallenge','missions','bookmarks','tree','gamesPlayed','savedGame','coins','wallet','profile'],
+  clean(value){
+    return JSON.parse(JSON.stringify(value, (key,v) => /token|password|admin|apikey|deviceid|secret|phone|serverurl|vip|entitlement|__proto__|constructor|prototype/i.test(key) ? undefined : v));
+  },
+  snapshot(data = Store.data){
+    const out = {};
+    this.keys.forEach(k => {if(data[k] !== undefined) out[k] = this.clean(data[k]);});
+    return out;
+  },
+  export(){ return JSON.stringify({format:'noorestan-personal',version:1,exportedAt:new Date().toISOString(),progress:this.snapshot()},null,2); },
+  download(){
+    const url = URL.createObjectURL(new Blob([this.export()],{type:'application/json'}));
+    const a = document.createElement('a'); a.href=url; a.download='noorestan-progress-'+U.today()+'.json';a.click();
+    Timers.after(()=>URL.revokeObjectURL(url),4000,'sys');
+  },
+  import(text){
+    if(typeof text !== 'string' || text.length > 2000000) throw new Error('فایل بیش از اندازه بزرگ است');
+    const raw=JSON.parse(text), data=raw.format==='noorestan-personal'?raw.progress:raw;
+    if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('فایل نامعتبر');
+    const safe=this.snapshot(data); Store.update(d=>Object.assign(d,safe));Store.sanitize();Store.save();
   }
 };
+const Session = {
+  role: '', restoring: false,
+  user(){return this.role==='user' && Store.get('userTokenExp')>U.now();},
+  admin(){return this.role==='admin' && Admin.hasToken();},
+  layout(){
+    document.body.dataset.role=this.role;
+    const app=U.$('#app');if(app) app.inert=!this.user()&&!this.admin();
+    ['#nav','#miniQ','.top'].forEach(s=>{const e=U.$(s);if(e)e.hidden=!this.user();});
+  },
+  prepare(){
+    const d=Store.data;
+    if(!d.progressOwner && !d.guestMigration && (d.gate==='guest'||d.score>0||d.xp>0))
+      d.guestMigration={at:U.now(),claimed:false,progress:PersonalData.snapshot(d)};
+    d.isAdmin=false;d.adminHash='';d.otp=null;
+    if(d.sms){d.sms.apiKey='';d.sms.deviceId='';}
+    if(d.gate==='guest')d.gate='';
+    Store.save();this.layout();
+  },
+  accept(id,phone){
+    Store.update(d=>{
+      d.accountProgress=d.accountProgress||{};
+      if(d.progressOwner && d.progressOwner!==id){
+        d.accountProgress[d.progressOwner]=PersonalData.snapshot(d);
+        Object.assign(d,PersonalData.snapshot(Store.defaults()),d.accountProgress[id]||{});
+      }
+      d.progressOwner=id;
+      if(d.guestMigration&&!d.guestMigration.claimed){d.guestMigration.claimed=true;d.guestMigration.owner=id;}
+      d.phone=phone;d.gate='user';d.isAdmin=false;
+      if(d.user){d.user.id=id;d.user.phone=phone;}
+    });
+    this.role='user';this.layout();PaidAccount.refresh();
+  },
+  async restore(){
+    if(this.restoring)return;this.restoring=true;
+    try{
+      if(location.hash==='#admin'){
+        if(await Admin.confirmServer()){this.role='admin';Store.set('isAdmin',true);this.layout();Gate.close();Router.go('admin',true);Net.connect(Host.defaultUrl());return;}
+        AdminLogin.open();return;
+      }
+      if(Store.get('userToken')){
+        const r=await SMS.req('/api/account/me',{body:{token:Store.get('userToken')},ms:8000});
+        if(r.ok&&r.json?.success){this.accept(r.json.id,r.json.phone);Gate.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();if(new URLSearchParams(location.search).has('payment')){Router.go('me');PaidAccount.open();}return;}
+      }
+      Gate.open('phone',true);
+    }finally{this.restoring=false;}
+  },
+  async logout(){
+    Net.disconnect();PaidAccount.data=null;PaidAccount.token='';
+    const role=this.role, token=role==='admin'?Admin.token():Store.get('userToken');
+    this.role='';
+    Store.update(d=>{d.isAdmin=false;d.gate='';d.userToken='';d.userTokenExp=0;d.adminToken='';d.adminTokenExp=0;});
+    history.replaceState({},'','#home');AdminLogin.shown=false;this.layout();Gate.open('phone',true);
+    if(token) await SMS.req(role==='admin'?'/api/admin/logout':'/api/account/logout',{body:{token}});
+  },
+  allow(name){
+    if(name==='admin'){if(this.admin())return true;AdminLogin.open();return false;}
+    if(this.admin()){UI.toast('برای استفاده از برنامه، از مدیریت خارج شو.','');return false;}
+    if(!this.user()){Gate.open('phone',true);return false;}return true;
+  }
+};
+const OTP = {
+  LEN:5, TTL_MS:120000, RESEND_MS:60000, MAX_TRIES:3, LOCK_MS:600000, lastPhone:'',
+  st(){return Store.get('otp');},put(s){Store.set('otp',s);},clear(){Store.set('otp',null);},
+  leftSec(){return Math.max(0,Math.ceil(((this.st()?.exp||0)-U.now())/1000));},
+  lockSec(){return 0;},waitSec(){return Math.max(0,Math.ceil(((this.st()?.at||0)+this.RESEND_MS-U.now())/1000));},
+  async start(raw){
+    const phone=SMS.norm(raw);
+    if(!SMS.phoneOk(phone))return {ok:false,why:'شمارهٔ موبایل معتبر نیست'};
+    if(this.waitSec())return {ok:false,why:'برای ارسال دوباره کمی صبر کن'};
+    const r=await SMS.request(phone);
+    if(!r || (!r.success&&!r.pending))return {ok:false,why:'ارسال پیامک ممکن نشد؛ کمی بعد دوباره تلاش کن.'};
+    this.put({phone,server:true,exp:U.now()+(+r.ttl||this.TTL_MS),at:U.now()});this.lastPhone=phone;
+    return {ok:true,pending:!!r.pending,phone};
+  },
+  async verify(raw,input){
+    const phone=SMS.norm(raw),code=U.unfa(input).replace(/\D/g,'');
+    if(!this.st()?.server||this.st().phone!==phone)return {ok:false,why:'ابتدا کد پیامکی بگیر'};
+    if(code.length!==this.LEN)return {ok:false,why:'کد پنج‌رقمی را وارد کن'};
+    const r=await SMS.verifyServer(phone,code);
+    if(!r.ok)return {ok:false,why:'کد پذیرفته نشد یا منقضی شده است؛ دوباره تلاش کن.',...r};
+    this.clear();Session.accept(r.id,phone);return {ok:true,phone};
+  }
+};
+const Gate = {
+  shown:false,auto:false,step:'phone',phone:'',busy:false,tid:null,
+  el(){return U.$('#gate');},canLogin(){return SMS.ready();},
+  whyNot(){return 'ورود پیامکی اکنون در دسترس نیست. اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیر. پیشرفت قبلی‌ات محفوظ است.';},
+  open(at='phone',auto=false){
+    if(at==='admin')return AdminLogin.open();
+    this.auto=auto;this.step=at==='code'?'code':'phone';this.shown=true;
+    this.el()?.classList.remove('hide','leaving');Session.layout();this.paint();return true;
+  },
+  maybe(){if(Session.user()||Session.admin())return false;if(this.shown)return true;return location.hash==='#admin'?AdminLogin.open():this.open('phone',true);},
+  close(){if(!Session.user()&&!Session.admin())return;this.shown=false;this.stop();this.el()?.classList.add('hide');Session.layout();},
+  stop(){if(this.tid)Timers.clear(this.tid);this.tid=null;},
+  sync(){if(this.shown&&!AdminLogin.shown&&this.step==='phone')this.paint();},
+  msg(text){const e=U.$('#gtMsg');if(e)e.textContent=text;},
+  paint(){
+    this.stop();AdminLogin.shown=false;const box=U.$('#gateBox');if(!box)return;
+    const migration=Store.get('guestMigration');
+    if(this.step==='phone'){
+      box.innerHTML=`<h2>به نورستان خوش آمدی</h2><p class="gt-sub">برای ادامه، با شمارهٔ موبایل خودت وارد شو.</p>
+      ${migration&&!migration.claimed?'<p class="gt-note">ورود مهمان برداشته شده؛ امتیاز، نشان‌ها و پیشرفت این دستگاه پاک نشده‌اند و پس از تأیید شماره به حسابت متصل می‌شوند. پیش از ورود می‌توانی نسخهٔ شخصی بگیری.</p><button class="btn gh w" id="gtExport">دریافت پیشرفت قبلی</button>':''}
+      <div class="gt-card"><label for="gtPhone">شمارهٔ موبایل</label><input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${U.esc(this.phone||Store.get('phone')||'')}">
+      <button class="btn w" id="gtSend" style="margin-top:14px" ${this.canLogin()?'':'disabled'}>دریافت کد پیامکی</button><p class="gt-msg" id="gtMsg" role="status">${this.canLogin()?'':this.whyNot()}</p>
+      <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div><a href="#admin" id="gtAdminLink" class="gt-foot">ورود مدیریت</a>`;
+      U.$('#gtSend').onclick=()=>this.send();U.$('#gtPhone').onkeydown=e=>{if(e.key==='Enter')this.send();};
+      U.$('#gtRefresh').onclick=async()=>{await SMS.probe();this.sync();};
+      U.$('#gtAdminLink').onclick=e=>{e.preventDefault();AdminLogin.open();};
+      const exp=U.$('#gtExport');if(exp)exp.onclick=()=>PersonalData.download();
+    }else{
+      box.innerHTML=`<h2>کد پیامکی را وارد کن</h2><p class="gt-sub" dir="ltr">${U.esc(SMS.faPhone(this.phone))}</p><div class="gt-card"><label for="gtCode">کد پنج‌رقمی</label><input class="inp" id="gtCode" inputmode="numeric" autocomplete="one-time-code" maxlength="5" dir="ltr"><button class="btn w" id="gtOk">تأیید و ورود</button><p id="gtMsg" class="gt-msg" role="status"></p><p id="gtLeft"></p><button class="btn gh w" id="gtAgain">ارسال دوباره</button><button class="btn gh w" id="gtEdit">تغییر شماره</button></div>`;
+      U.$('#gtOk').onclick=()=>this.check();U.$('#gtCode').onkeydown=e=>{if(e.key==='Enter')this.check();};
+      U.$('#gtAgain').onclick=()=>this.again();U.$('#gtEdit').onclick=()=>{this.step='phone';this.paint();};
+      this.tick();this.tid=Timers.every(()=>this.tick(),1000,'sys');
+    }
+    Icon.hydrate(box);
+  },
+  tick(){const e=U.$('#gtLeft'),b=U.$('#gtAgain');if(e)e.textContent=OTP.leftSec()?U.fa(OTP.leftSec())+' ثانیه تا انقضا':'کد منقضی شد؛ کد تازه بگیر';if(b)b.disabled=this.busy||OTP.waitSec()>0;},
+  async send(){
+    if(this.busy)return;const p=SMS.norm(U.$('#gtPhone')?.value||this.phone);
+    if(!SMS.phoneOk(p)){this.msg('شمارهٔ موبایل معتبر نیست');return;}this.phone=p;this.busy=true;this.msg('در حال ارسال…');
+    try{const r=await OTP.start(p);if(!r.ok){this.msg(r.why);return;}this.step='code';this.paint();this.msg(r.pending?'ارسال هنوز تأیید نشده؛ اگر پیامک رسید کد را وارد کن.':'کد پیامک شد.');}catch(e){this.msg('اتصال برقرار نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+  },
+  async again(){if(this.busy)return;this.busy=true;try{const r=await OTP.start(this.phone);this.msg(r.ok?(r.pending?'اگر پیامک رسید کد را وارد کن.':'کد تازه پیامک شد.'):r.why);}finally{this.busy=false;}},
+  async check(){
+    if(this.busy)return;this.busy=true;this.msg('در حال بررسی…');
+    try{const r=await OTP.verify(this.phone,U.$('#gtCode')?.value||'');if(!r.ok){this.msg(r.why);return;}this.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();}
+    catch(e){this.msg('بررسی کد ممکن نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+  }
+};
+const AdminLogin = {
+  shown:false,busy:false,
+  open(){
+    Gate.stop();Gate.shown=true;this.shown=true;
+    try{history.replaceState({screen:'admin'},'','#admin');}catch(e){}
+    U.$('#gate')?.classList.remove('hide','leaving');
+    U.$('#gateBox').innerHTML=`<h2>مدیریت نورستان</h2><p class="gt-sub">این ورودی فقط برای مدیر سامانه است.</p><div class="gt-card"><label for="adminPassword">رمز مدیریت</label><input class="inp" id="adminPassword" type="password" autocomplete="current-password" dir="ltr"><button class="btn w" id="adminSignIn">ورود مدیریت</button><p id="adminMessage" class="gt-msg" role="status"></p><button class="btn gh w" id="adminBack">بازگشت به ورود کاربران</button></div>`;
+    U.$('#adminSignIn').onclick=()=>this.submit();U.$('#adminPassword').onkeydown=e=>{if(e.key==='Enter')this.submit();};
+    U.$('#adminBack').onclick=()=>{this.shown=false;history.replaceState({},'','#home');if(Session.user()){Gate.close();Router.go('home',true);}else Gate.open();};
+    return true;
+  },
+  async submit(){
+    if(this.busy)return;this.busy=true;const input=U.$('#adminPassword'),button=U.$('#adminSignIn');button.disabled=true;
+    try{const r=await Admin.tryPass(input.value);input.value='';if(!r.ok){U.$('#adminMessage').textContent=r.why;return;}
+      this.shown=false;Gate.close();Router.go('admin',true);Net.connect(Host.defaultUrl());
+    }catch(e){U.$('#adminMessage').textContent='ورود ممکن نشد؛ اتصال را بررسی کن.';}finally{this.busy=false;button.disabled=false;}
+  }
+};
+
 
 /* ─────────────────── 21. INIT ─────────────────── */
 function init(){
   Store.load();
+  RoundControl.bind();
+  Session.prepare();
+  document.body.dataset.debug=new URLSearchParams(location.search).get('debug')==='1'?'1':'0';
   applyTheme(Store.get('settings').theme);
   /* روکشِ ویرایشِ محتوا، پیش از آن‌که چیزی از بانک‌ها بخواند */
   try{ Content.apply(); }catch(e){ console.warn('content', e); }
@@ -16251,21 +15357,7 @@ function init(){
      `ws://1.2.3.4` می‌بیند، برنامه `ws://1.2.3.4:8787` وصل می‌شود، و
      این دوگانگی خودش باگِ بعدی است. */
   const savedUrl = Net.normUrl(Store.get('serverUrl'));
-  U.$('#netUrl').value = savedUrl || '';
-  U.$('#netConnect').onclick = () => {
-    const url = Net.normUrl(U.$('#netUrl').value);
-    U.$('#netUrl').value = url;
-    Store.set('serverUrl', url);
-    Net.connect(url);
-    Timers.after(() => { netStateChip(); renderOnline(); }, 1200);
-  };
-  U.$('#netReconnect').onclick = () => Net.connect(Store.get('serverUrl') || U.$('#netUrl').value.trim());
-  U.$('#netSave').onclick = () => {
-    const url = Net.normUrl(U.$('#netUrl').value);
-    U.$('#netUrl').value = url;
-    Store.set('serverUrl', url);
-    UI.toast('💾 ذخیره شد', 'ok');
-  };
+  U.$('#netReconnect').onclick=()=>Net.connect(Host.defaultUrl());
   /* همان چیزی کپی می‌شود که نشان داده شده — نه شناسهٔ دیگری. پیش‌تر
      شناسهٔ گذرای اتصال کپی می‌شد که روی سرور معنایی ندارد. */
   U.$('#copyPeer').onclick = async () => {
@@ -16310,7 +15402,7 @@ function init(){
       const go = () => {
         const code = U.$('#rmCodeIn', box).value.trim();
         if(!/^\d{6}$/.test(code)){ UI.toast('کد باید ۶ رقم باشد', 'err'); return; }
-        if(Net.status !== 'online'){ UI.toast('اول به سرور/حالت محلی وصل شو', 'err'); return; }
+        if(Net.status !== 'online'){ UI.toast('محفل اکنون متصل نیست؛ دوباره اتصال را بررسی کن', 'err'); return; }
         if(!Net.roomMap.has(code)){
           // ممکن است روم تازه ساخته شده باشد
           Net.requestRooms();
@@ -16355,10 +15447,7 @@ function init(){
   U.$('#rmStart').onclick = () => {
     if(!Net.room){ UI.toast('اول یک روم بساز', 'err'); return; }
     Net.startMatch(Net.room.game);
-    if(Net.mode === 'local' && Net.room.isHost && Net.room.members.length < 2){
-      UI.toast('منتظر بازیکن دوم بمان', '');
-      return;
-    }
+
     Timers.after(() => {
       if(Net.room?.game === 'esmfamil') EsmFamilEngine.start(true);
       else DoozEngine.start(true);
@@ -16419,6 +15508,7 @@ function init(){
           است که «از localhost:8787 باز شد ولی محلی ماند» را می‌بندد.
        ۳) وگرنه حالت محلی. */
   Timers.after(async () => {
+    if(!Session.user()&&!Session.admin())return;
     if(Net.status !== 'offline') return;
     if(savedUrl){ Net.connect(savedUrl); return; }
     await Host.ready();
@@ -16429,7 +15519,7 @@ function init(){
   // اعلان خوش‌آمد
   Timers.after(() => {
     if(!Store.get('notifications').length){
-      pushNotif('به نورستان ۱۴ خوش آمدی!', 'برای بازی چندنفره واقعی، server.js را اجرا کن و آدرسش را در «محفل» وارد کن', '🌟');
+      pushNotif('به نورستان ۱۴ خوش آمدی!', 'از تلاوت، بازی‌ها و مأموریت‌های روزانه شروع کن. بازی گروهی در بخش محفل است.', '🌟');
     }
   }, 1500);
 
@@ -16440,17 +15530,21 @@ function init(){
     }
   });
 
+  U.$$('[data-foyer-route]').forEach(button => button.onclick = () => Router.go(button.dataset.foyerRoute));
   UI.observeShell();
+  Host.ready().then(()=>Session.restore());
   if(document.fonts?.ready){
     UI.busy('.brand', true);
     document.fonts.ready.finally(() => UI.busy('.brand', false));
   }
+  if(new URLSearchParams(location.search).get('debug')==='1'){
   console.log('%c🌟 نورستان ۱۴', 'font-size:16px;font-weight:bold;color:#f5c451');
   console.log('📡 شبکه:', Net.status, '| حالت:', Net.mode);
   /* عمداً هیچ رمزی چاپ نمی‌شود. رمز ادمین را کاربر در پنل خودش می‌سازد و
      رمزِ سرور از متغیر محیطی NOOR_ADMIN_PASS می‌آید. */
   console.log('👑 رمز ادمین: در پنل مدیریت ساخته می‌شود • رمز سرور: NOOR_ADMIN_PASS');
   console.log('💡 برای چندنفره واقعی: node server.js');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -1,4 +1,5 @@
-/* Browser acceptance checks for the 28-item update.
+/* Visual regression checks; authenticated read-only HTTP fixtures below.
+   Authentication authority is tested separately by _phase2-integration-tests.js.
    Dev-only: npm install --no-save --no-package-lock playwright @sparticuz/chromium
    Serve the repository first; BASE_URL defaults to http://localhost:8080.
    Set CHROMIUM_PATH to use an already installed browser. Output stays in tmp/.
@@ -26,13 +27,20 @@ function ok(name, value, detail){
     const page = await context.newPage();
     page.on('pageerror', e => errors.push(e.message));
     // Optional recitation/font services are deliberately unavailable in these shell tests.
-    await page.route('**/*', route => route.request().url().startsWith(BASE) ? route.continue() : route.abort());
+    await page.route('**/*', route => {
+      const url=route.request().url();
+      if(url===BASE+'/api/account/me')return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,id:'usr_'+ 'a'.repeat(20),phone:'09120000000'})});
+      if(url===BASE+'/api/admin/whoami')return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,admin:true})});
+      if(url.startsWith(BASE+'/api/'))return route.fulfill({status:503,contentType:'application/json',body:'{}'});
+      return url.startsWith(BASE) ? route.continue() : route.abort();
+    });
     await page.addInitScript(() => {
       // Only suppress first-run overlays, retaining fresh application defaults.
       if(window.top !== window) return;
-      localStorage.setItem('noorestan_v14', JSON.stringify({_v:15,settings:{onboarded:true},gate:'guest'}));
+      localStorage.setItem('noorestan_v14', JSON.stringify({_v:15,settings:{onboarded:true},gate:'user',userToken:'a'.repeat(64),userTokenExp:Date.now()+3600000}));
     });
     await page.goto(BASE,{waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>Session.user());
     await page.evaluate(()=>{Splash.hide();Onboarding.close(true);Gate.close();});
     await page.waitForTimeout(900);
     return page;
@@ -48,12 +56,12 @@ function ok(name, value, detail){
       await p.setViewportSize({width,height});
       for(const screen of ['home','settings','records','online','shop','collection','missions','admin']){
         await p.evaluate(screen=>{
-          UI.closeModal();
+          UI.closeModal();Session.role='user';Session.layout();
           if(screen==='settings'||screen==='records'){Router.go('me');Me.tab=screen;Me.render();}
           else if(screen==='shop') Shop.open();
           else if(screen==='collection') Collection.open();
           else if(screen==='missions') Missions.open();
-          else if(screen==='admin'){Store.set('isAdmin',true);Router.go('admin');Admin.currentTab='users';Admin.renderTab();}
+          else if(screen==='admin'){Store.set('adminToken','b'.repeat(64));Store.set('adminTokenExp',Date.now()+3600000);Session.role='admin';Session.layout();Router.go('admin');Admin.currentTab='users';Admin.renderTab();}
           else Router.go(screen);
           Store.update(d=>d.quran.readSize=54);Fonts.apply(Store.get('fonts'));
         },screen);
@@ -67,7 +75,7 @@ function ok(name, value, detail){
       }
     }
     await p.setViewportSize({width:390,height:844});
-    await p.evaluate(()=>{UI.closeModal();Router.go('home');HomeCarousel.show(0);document.querySelector('#toasts').innerHTML='';});
+    await p.evaluate(()=>{Session.role='user';Session.layout();UI.closeModal();Router.go('home');HomeCarousel.show(0);document.querySelector('#toasts').innerHTML='';});
     await p.screenshot({path:`tmp/acceptance/home-${theme}.png`,animations:'disabled'});
     await p.evaluate(()=>Shop.open());
     await p.screenshot({path:`tmp/acceptance/shop-${theme}.png`,animations:'disabled'});
@@ -105,7 +113,7 @@ function ok(name, value, detail){
       return {src:f.src,left:r.left,right:r.right,width:innerWidth,inside:r.left>=s.left && r.right<=s.right,scroll:getComputedStyle(f.parentElement).overflow};
     });
     ok(`embed parent bounds ${width}x${height}`,bounds.inside&&bounds.left>=0&&bounds.right<=width&&bounds.src.endsWith('?embed=true'),bounds);
-    await p.evaluate(()=>Router.go('home'));
+    await p.evaluate(async()=>{Router.go('home');await AyahEmbed.exiting;});
     ok('leaving game removes cross-origin frame',await p.locator('#ayahFrame').count()===0);
   }
   // Complete the preserved OFFLINE fallback, not the inaccessible remote Arena game.

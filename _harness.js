@@ -92,6 +92,7 @@ global.crypto = require('crypto').webcrypto;
 global.__lateErrs = [];
 const reportLate = e => {
   global.__lateErrs.push(e);
+  process.exitCode=1;
   process.stderr.write('\n⚠️ استثنای بی‌گیر (harness): ' +
     ((e && e.stack) || String(e)) + '\n');
 };
@@ -101,5 +102,5 @@ process.on('unhandledRejection', reportLate);
 const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 if(!m) throw new Error('تگ <script> در index.html پیدا نشد');
-const test = fs.readFileSync(__dirname + '/_tests.js', 'utf8');
+const test = fs.readFileSync(__dirname + (process.env.LEGACY_TESTS === '1' ? '/_tests.js' : '/_phase2-regression-tests.js'), 'utf8');
 eval(m[1] + '\n;\n' + test);

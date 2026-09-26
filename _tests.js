@@ -1925,9 +1925,9 @@ section('سرویس‌ورکر');
   ok('صفحهٔ آفلاین پیش‌ذخیره می‌شود', /const OFFLINE = '\.\/offline\.html'/.test(src) && src.includes('OFFLINE,'));
   /* نسخهٔ کش باید تک‌شماره و جاری باشد؛ هر چهار نام با هم جلو می‌روند،
      وگرنه `activate` یکی را نگه می‌دارد و بقیه را پاک می‌کند. */
-  ok('نسخهٔ کش ۲۰ است و هر چهار نام با هم',
-     /noorestan-20/.test(src) && /noorestan-shell-20/.test(src) &&
-     /noorestan-media-20/.test(src) && /noorestan-text-20/.test(src) &&
+  ok('نسخهٔ کش ۲۱ است و هر چهار نام با هم',
+     /noorestan-21/.test(src) && /noorestan-shell-21/.test(src) &&
+     /noorestan-media-21/.test(src) && /noorestan-text-21/.test(src) &&
      !/noorestan-17/.test(src));
   ok('واپس‌رویِ ناوبری اول پوسته، بعد صفحهٔ آفلاین است', (() => {
     const i = src.indexOf('async function navFallback');
@@ -3672,7 +3672,7 @@ section('تصاویر — هیچ درخواستی به فایلی که نیست 
   const readme = fs.readFileSync(__dirname + '/assets/README.md', 'utf8');
   ok('README دیگر آیکنِ webp/jpg وعده نمی‌دهد',
      !/icons\/icon-(192|512)\.(webp|jpg)/.test(readme) && !/maskable-512\.jpg/.test(readme));
-  ok('README نسخهٔ کش را ۲۰ می‌گوید', /noorestan-20/.test(readme) && !/noorestan-17/.test(readme));
+  ok('README نسخهٔ کش را ۲۱ می‌گوید', /noorestan-21/.test(readme) && !/noorestan-17/.test(readme));
   ok('README واپس‌رویِ srcset را انکار می‌کند', /srcset\*\*? نیست|در `srcset` نیست/.test(readme) ||
      /واپس‌رویِ خودکار بین دو\s*\n?\s*پسوند \*\*در `srcset` نیست\*\*/.test(readme));
 

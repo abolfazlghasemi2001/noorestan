@@ -25,10 +25,10 @@
    پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-20';
-const SHELL = 'noorestan-shell-20';
-const MEDIA = 'noorestan-media-20';
-const TEXT  = 'noorestan-text-20';
+const CACHE = 'noorestan-22';
+const SHELL = 'noorestan-shell-22';
+const MEDIA = 'noorestan-media-22';
+const TEXT  = 'noorestan-text-22';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -40,6 +40,8 @@ const SHELL_PAGE = './index.html';
 const PRECACHE = [
   './',
   SHELL_PAGE,
+  './assets/styles/sanctuary.css',
+  './assets/images/sanctuary-court.svg',
   './manifest.json',
   OFFLINE,
   './assets/images/icons/icon.svg',
@@ -119,6 +121,7 @@ function isMedia(req, url){
 function storable(res){
   if(!res || res.status !== 200) return false;
   if(res.type === 'opaque' || res.type === 'opaqueredirect') return false;
+  if(/no-store|private/i.test(res.headers?.get('Cache-Control')||''))return false;
   return true;
 }
 
@@ -213,6 +216,8 @@ self.addEventListener('fetch', e => {
   let url;
   try{ url = new URL(req.url); }catch(err){ return; }
   if(url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  // نشست و برگشت درگاه همیشه مستقیم به سرور می‌روند، نه کش یا صفحهٔ آفلاین.
+  if(url.origin===location.origin&&url.pathname.startsWith('/api/'))return;
 
   /* ۰) صوت و ویدئو — بی هیچ رهگیری. باید پیش از همهٔ شاخه‌ها باشد،
         وگرنه شاخهٔ ۱ (نشانی‌های بی‌پسوند روی دامنهٔ قاریان) یا شاخهٔ ۴
