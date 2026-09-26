@@ -3,17 +3,21 @@ on:
   push:
     branches: [arena/01a0da98-noorestan]
     paths: [.github/workflows/fetch-phase2-patch.yml]
+permissions:
+  contents: write
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: arena/01a0da98-noorestan
       - name: Download patch
         run: curl -fsSL --retry 5 --retry-all-errors -o noorestan-phase2-full.patch "https://hoosna1402.ir/patch"
-      - name: Show patch header
-        run: wc -c noorestan-phase2-full.patch && head -n 5 noorestan-phase2-full.patch
-      - name: Upload patch
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase2-patch
-          path: noorestan-phase2-full.patch
-          retention-days: 1
+      - name: Commit patch file
+        run: |
+          git config user.name "arena-ai-coding-agent[bot]"
+          git config user.email "298482267+arena-ai-coding-agent[bot]@users.noreply.github.com"
+          git add noorestan-phase2-full.patch
+          git commit -m "Add downloaded phase-two patch"
+          git push origin HEAD:arena/01a0da98-noorestan
