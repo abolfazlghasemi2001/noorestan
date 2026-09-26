@@ -1,0 +1,9 @@
+{
+  "sliderIndex": 2,
+  "mask": {
+    "w": 216,
+    "h": 64,
+    "anchor": "frame-bottom-right",
+    "coversBannerPoint": true
+  }
+}

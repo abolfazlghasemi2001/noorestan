@@ -149,3 +149,89 @@ body:not([data-debug="1"]) .debug-only{display:none!important}
 .ayah-under{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;flex-shrink:0;padding:8px}
 .ayah-rotate{text-align:center;margin:0}
 @media(orientation:landscape){.ayah-rotate{display:none}}
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۳ — یکپارچگیِ کاملِ تم «نورِ آیه‌ها» در همهٔ صفحه‌ها
+   یک زبانِ بصری، همه‌جا: بافتِ هندسهٔ اسلامی زیرِ همهٔ صفحه‌ها، باریکهٔ
+   نورِ مورب، و واکنشِ لمسیِ یکدستِ دکمه‌ها. صفحه‌های ورود، تنظیمات،
+   فروشگاه، پروفایل، پنل مدیریت، بازی‌ها و مودال‌ها همگی از همین لایه
+   تغذیه می‌کنند تا هر کسی همهٔ عکس‌ها را کنار هم بگذارد بگوید
+   «همه از یک برنامه‌اند».
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* بافتِ ستارهٔ هشت‌پر (خاتم) — زیرِ محتوای همهٔ صفحه‌ها، بسیار کم‌رنگ */
+#app::before{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='104' height='104' viewBox='0 0 104 104'%3E%3Cg fill='none' stroke='%23d5bf7f' stroke-opacity='.34' stroke-width='1'%3E%3Crect x='30' y='30' width='44' height='44'/%3E%3Crect x='30' y='30' width='44' height='44' transform='rotate(45 52 52)'/%3E%3Ccircle cx='52' cy='52' r='7'/%3E%3Cpath d='M52 2v14M52 88v14M2 52h14M88 52h14M17 17l9 9M78 78l9 9M87 17l-9 9M26 78l-9 9'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:104px 104px;
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 8%, #000 30%, transparent 78%);
+          mask-image:radial-gradient(120% 90% at 50% 8%, #000 30%, transparent 78%);
+}
+/* باریکهٔ نورِ مورب — همان «نورِ پنجرهٔ مسجد» روی همهٔ صفحه‌ها */
+#app::after{
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.75;
+  background:
+    linear-gradient(112deg, transparent 40%, rgba(233,201,118,.05) 46%, transparent 53%),
+    linear-gradient(112deg, transparent 62%, rgba(233,201,118,.04) 68%, transparent 74%),
+    radial-gradient(90% 46% at 82% -6%, rgba(233,201,118,.07), transparent 62%);
+}
+html[data-theme="light"] #app::before{ opacity:.34 }
+html[data-theme="light"] #app::after{ opacity:.5 }
+
+/* صفحهٔ ورود هم از همان زبان: بافت + باریکهٔ نور، روی پس‌زمینهٔ خودش */
+#gate::after{
+  content:''; position:fixed; inset:0; pointer-events:none; opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='104' height='104' viewBox='0 0 104 104'%3E%3Cg fill='none' stroke='%23d5bf7f' stroke-opacity='.3' stroke-width='1'%3E%3Crect x='30' y='30' width='44' height='44'/%3E%3Crect x='30' y='30' width='44' height='44' transform='rotate(45 52 52)'/%3E%3Ccircle cx='52' cy='52' r='7'/%3E%3Cpath d='M52 2v14M52 88v14M2 52h14M88 52h14'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:104px 104px;
+}
+#gate .gt-card{
+  position:relative; overflow:hidden;
+  background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 55%), var(--card);
+}
+#gate .gt-card::after{
+  content:''; position:absolute; inset-inline:14px; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg, transparent, var(--gold2), transparent); opacity:.55;
+}
+
+/* واکنشِ لمسیِ همهٔ دکمه‌ها — فشردگیِ کوچک هنگام tap، در سراسر برنامه */
+.btn,.iconbtn,.nav button,.tab,.seg button{
+  transition:transform .16s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease);
+}
+.btn:active,.nav button:active,.tab:active{ transform:scale(.96) }
+.iconbtn:active{ transform:scale(.9) }
+.seg button:active{ transform:scale(.97) }
+@media(prefers-reduced-motion:reduce){
+  .btn:active,.iconbtn:active,.nav button:active,.tab:active,.seg button:active{ transform:none }
+  #app::before,#app::after,#gate::after{ display:none }
+}
+
+/* ── مُهرِ پوشانندهٔ بنرِ بیرونیِ بازیِ جاسازی‌شده ──
+   پوستهٔ میزبانِ بازی، بنری ثابت در گوشهٔ پایین-راست دارد (bottom:20px
+   right:20px در قاب) که روی دکمه‌های «ادامه/تأیید» می‌نشیند و با هر
+   بارگذاری برمی‌گردد. چون سورسِ آن پوسته در اختیار ما نیست، از سمتِ
+   نورستان یک مُهرِ هم‌زبان با تم روی همان ناحیه می‌نشینیم: هم بنر را
+   نمی‌گذارد دیده شود، هم لمس را از آن ناحیه می‌گیرد تا گزینه‌ای پشتش
+   نماند. جای دکمه‌های اصلی بازی را نمی‌گیرد؛ فقط همان گوشه است. */
+.ayah-banner-mask{
+  position:absolute; bottom:0; right:0; z-index:5;
+  width:min(300px,58%); height:64px; max-width:calc(100% - 12px);
+  border-radius:14px; pointer-events:auto; overflow:hidden;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  background:linear-gradient(160deg, rgba(10,18,32,.96), rgba(16,28,48,.96));
+  border:1px solid rgba(217,175,83,.42);
+  color:#e9c976; font-size:12px; letter-spacing:.2px;
+  box-shadow:0 12px 30px -14px rgba(0,0,0,.85);
+  user-select:none; -webkit-user-select:none;
+}
+.ayah-banner-mask::before{
+  content:''; position:absolute; inset:4px; border-radius:10px; pointer-events:none;
+  border:1px dashed rgba(233,201,118,.22);
+}
+.ayah-banner-mask .ic{ width:16px; height:16px; flex:none }
+.ayah-banner-mask small{ display:block; font-size:9.5px; color:#8fa1bd; margin-top:1px }
+.ayah-banner-mask b{ font-weight:700 }
+.ayah-banner-mask .abm-col{ display:flex; flex-direction:column; align-items:flex-start; line-height:1.5 }
+@media(max-width:360px){ .ayah-banner-mask{ height:56px; font-size:11px } }
+/* لنگرِ مُهر، خودِ پوستهٔ قاب است — همان مرجعی که بنرِ میزبانِ داخلِ قاب
+   نسبت به آن سنجیده می‌شود. در نمای تمام‌صفحه، پوسته خودش viewport است. */
+.ayah-frame-shell{position:relative}

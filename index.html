@@ -1649,6 +1649,76 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 #gate .btn:disabled{ opacity:.45; cursor:not-allowed }
 @media(prefers-reduced-motion:reduce){ #gate.leaving{ animation:none; opacity:0 } }
 
+/* ═══════════════ صفحهٔ ورودِ مدیر — طراحیِ کاملاً مجزا (#alog) ═══════════════
+   این صفحه عمداً شبیه Gate نیست: شبِ کامل، افقِ مسجد و هلال، و مُهرِ
+   طلاییِ «ن» — تا از لحظهٔ نخست روشن باشد این‌جا نورستانِ عادی نیست.
+   تنها از نشانیِ مستقیمِ #admin باز می‌شود و در رابطِ کاربرِ عادی
+   هیچ نشانه‌ای از آن نیست. */
+#alog{
+  position:fixed; inset:0; z-index:9000; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 18px
+          calc(24px + env(safe-area-inset-bottom,0px));
+  color:#eef2f8; text-align:center;
+  background:linear-gradient(180deg,#050a13 0%,#0a1322 46%,#0e1a2e 100%);
+}
+#alog.leaving{ animation:gateOut .24s ease forwards }
+/* آسمان: ستاره‌های چشمک‌زن + افقِ مسجد */
+#alog .al-sky{ position:fixed; inset:0; pointer-events:none; overflow:hidden }
+#alog .al-star{ position:absolute; display:block; width:3px; height:3px; border-radius:50%;
+  background:#e9d9a8; opacity:.55; animation:sk-twinkle 3.2s var(--ease) infinite }
+#alog .al-star.s1{ left:14%; top:14% } #alog .al-star.s2{ left:26%; top:30%; animation-delay:.9s }
+#alog .al-star.s3{ left:70%; top:12%; animation-delay:1.4s } #alog .al-star.s4{ left:84%; top:26%; animation-delay:.4s }
+#alog .al-star.s5{ left:55%; top:22%; animation-delay:2s } #alog .al-star.s6{ left:38%; top:9%; animation-delay:1.1s }
+#alog .al-skyline{ position:absolute; inset-inline:0; bottom:0; width:100%; height:34vh; opacity:.9 }
+/* مُهرِ مدیر: دایرهٔ طلایی با نبضِ آرام نور */
+#alog .al-seal{
+  width:88px; height:88px; margin:0 auto 14px; border-radius:50%;
+  display:grid; place-items:center; position:relative;
+  background:radial-gradient(circle at 32% 26%, #f6e3ae, #d9af53 58%, #b3873a);
+  color:#1b2334; font-family:var(--f-disp); font-size:40px;
+  box-shadow:0 14px 34px -12px rgba(217,175,83,.55), inset 0 -3px 6px rgba(0,0,0,.22);
+  animation:al-pulse 4.2s var(--ease) infinite;
+}
+#alog .al-seal::before{
+  content:''; position:absolute; inset:6px; border-radius:50%;
+  border:1px dashed rgba(27,35,52,.45);
+}
+@keyframes al-pulse{
+  0%,100%{ box-shadow:0 14px 34px -12px rgba(217,175,83,.45), inset 0 -3px 6px rgba(0,0,0,.22) }
+  50%{ box-shadow:0 18px 44px -10px rgba(233,201,118,.7), inset 0 -3px 6px rgba(0,0,0,.22) }
+}
+#alog h2{ font-family:var(--f-disp); font-size:23px; color:#fff; margin-bottom:4px }
+#alog .al-sub{ font-size:12.5px; color:#93a3ba; line-height:1.9; margin-bottom:18px }
+#alog .al-card{
+  width:100%; max-width:360px; text-align:right;
+  background:rgba(16,26,43,.86); border:1px solid #2b3a55; border-radius:20px;
+  padding:18px 16px; box-shadow:0 24px 60px -24px rgba(0,0,0,.8);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  animation:sk-entrance .45s var(--ease) both;
+}
+#alog .al-card label{ font-size:12px; color:#c6d2e4; display:block; margin-bottom:8px }
+#alog .al-card .inp{
+  width:100%; background:#0b1424; border:1px solid #31415f; color:#fff;
+  border-radius:12px; padding:12px 14px; font-size:15px; letter-spacing:.14em;
+  transition:border-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+#alog .al-card .inp:focus{ outline:none; border-color:var(--gold,#d9af53);
+  box-shadow:0 0 0 3px rgba(217,175,83,.18) }
+#alog .al-card .btn{ margin-top:12px }
+#alog .al-card .btn[type=submit]{
+  background:linear-gradient(135deg,#f2d596,#d9af53); color:#171e2d; font-weight:700;
+}
+#alog .al-card .btn:disabled{ opacity:.45; cursor:not-allowed }
+#alog .al-msg{ min-height:20px; font-size:11.5px; color:#93a3ba; line-height:1.9; margin-top:8px }
+#alog .al-msg.error{ color:#f2a4b2 }
+#alog .al-foot{ font-size:10.5px; color:#5b6b85; margin-top:14px }
+@media(prefers-reduced-motion:reduce){
+  #alog .al-seal, #alog .al-star{ animation:none }
+  #alog.leaving{ animation:none; opacity:0 }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    فاز ۲ — صفحهٔ ورودِ بازطراحی‌شده
    ساختار از فایلِ مرجع آمد، ولی سه چیز عوض شد:
@@ -2045,9 +2115,18 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 }
 /* ═══════════════ بنر چرخشی خانه (Swiper) ═══════════════ */
 .home-slider{position:relative;margin:0 0 24px;border-radius:26px;isolation:isolate;border:1px solid var(--line);background:#102139;color:#f4f6fb;box-shadow:var(--sh);touch-action:pan-y pinch-zoom;overflow:hidden}
-.promo-panels{display:grid}
-.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .55s var(--ease),visibility .55s;min-height:300px;padding:30px 32px 64px;gap:20px}
-.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto}
+.promo-panels{display:grid;transition:transform .42s var(--ease)}
+.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transform:scale(.968);transition:opacity .55s var(--ease),visibility .55s,transform .6s var(--ease);min-height:300px;padding:30px 32px 64px;gap:20px;will-change:opacity,transform}
+.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:none}
+/* گذارِ جهت‌دار: اسلایدِ تازه از سمتِ جهتِ حرکت وارد می‌شود — راست (اسلاید بعد) یا چپ (قبلی) */
+.home-slider[data-dir="1"] .promo-panel.is-active{animation:promoNext .58s var(--ease)}
+.home-slider[data-dir="-1"] .promo-panel.is-active{animation:promoPrev .58s var(--ease)}
+@keyframes promoNext{from{opacity:.25;transform:translateX(38px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes promoPrev{from{opacity:.25;transform:translateX(-38px) scale(.985)}to{opacity:1;transform:none}}
+/* حالتِ کشیدن: گذارها خاموش تا کارت ۱:۱ انگشت را دنبال کند */
+.home-slider.dragging{cursor:grabbing}
+.home-slider.dragging .promo-panel,.home-slider.dragging .promo-panels{transition:none}
+.home-slider.dragging .promo-panel{pointer-events:none}
 .promo-copy{position:relative;z-index:1;flex:1;min-width:0}
 .promo-kicker{display:inline-flex;align-items:center;gap:7px;color:#eed79d;font-size:12px;letter-spacing:.1px;margin-bottom:12px}
 .promo-copy h2{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:clamp(26px,4vw,38px);line-height:1.5;color:#fff;margin-bottom:6px}
@@ -2107,7 +2186,7 @@ html[data-theme="light"] .hero{background:radial-gradient(ellipse at 10% 0%,#ece
 html[data-theme="light"] .ayah-stage{--txt:#edf3fd;--mut:#bbcada;--gold:#f5d27d;--grn:#66dfba;color:var(--txt)}
 html[data-theme="light"] .promo-kicker{color:#eed79d}
 html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .promo-go:focus-visible{outline-color:#fff}
-@media(prefers-reduced-motion:reduce){.promo-panel,.slider-dots button::after{transition:none}.streak-warn .swe,.shimmer,.skeleton{animation:none!important}.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:none}}
+@media(prefers-reduced-motion:reduce){.promo-panel{transform:none;transition:opacity .3s linear,visibility .3s linear}.home-slider[data-dir] .promo-panel.is-active{animation:none}.promo-panels{transition:none}.slider-dots button::after{transition:none}.streak-warn .swe,.shimmer,.skeleton{animation:none!important}.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:none}}
 
 /* ═══════════════ بازی «نور آیه‌ها» ═══════════════ */
 .ayah-stage{position:relative;overflow:hidden;border:1px solid rgba(245,196,81,.28);border-radius:26px;min-height:470px;padding:22px;background:linear-gradient(#071323 0 42%,#102433 43% 64%,#14231e 65%);box-shadow:0 24px 55px rgba(0,0,0,.34);isolation:isolate}
@@ -2561,6 +2640,40 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 <div id="gate" class="hide" role="dialog" aria-modal="true" aria-label="ورود به نورستان">
   <div class="gt-amb" aria-hidden="true"><i></i><i></i></div>
   <div class="gt-in" id="gateBox"></div>
+</div>
+
+<!-- ── ورودِ مدیر: صفحه‌ای کاملاً مجزا ──
+     این صفحه با Gate هم‌خانواده نیست: مارک‌آپ، کلاس‌ها و طراحیِ خودش را
+     دارد و تنها از نشانیِ مستقیمِ «#admin» باز می‌شود. در نسخهٔ کاربرِ
+     عادی هیچ عنصرِ قابل‌کلیکی به این‌جا نمی‌رسد. -->
+<div id="alog" class="hide" role="dialog" aria-modal="true" aria-label="ورود مدیریت نورستان">
+  <div class="al-sky" aria-hidden="true">
+    <i class="al-star s1"></i><i class="al-star s2"></i><i class="al-star s3"></i>
+    <i class="al-star s4"></i><i class="al-star s5"></i><i class="al-star s6"></i>
+    <svg class="al-skyline" viewBox="0 0 800 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="alSil" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0c1626"/><stop offset="1" stop-color="#060b14"/>
+        </linearGradient>
+      </defs>
+      <path fill="url(#alSil)" d="M0 220 V170 h60 v-22 h14 v22 h30 v-40 q28 -34 56 0 v40 h44 v-18 h18 v-30 q4 -10 8 0 v30 h20 v18 h60 v-52 q34 -46 68 0 v52 h50 v-26 h16 v-20 q3 -8 6 0 v20 h18 v26 h58 v-44 q30 -40 60 0 v44 h46 v-20 h20 v20 h40 v-30 h16 v30 h60 q10 0 10 8 v42 Z"/>
+      <circle cx="652" cy="52" r="20" fill="#e9c976" opacity=".9"/>
+      <circle cx="660" cy="46" r="18" fill="#0a1220"/>
+    </svg>
+  </div>
+  <div class="al-in">
+    <div class="al-seal" aria-hidden="true"><span>ن</span></div>
+    <h2>مدیریت نورستان</h2>
+    <p class="al-sub">این مسیر تنها برای مدیر سامانه است و از نشانیِ مستقیم باز می‌شود.</p>
+    <form class="al-card" id="alogForm" autocomplete="off">
+      <label for="adminPassword">رمز مدیریت</label>
+      <input class="inp" id="adminPassword" type="password" autocomplete="current-password" dir="ltr" placeholder="••••••••">
+      <button class="btn w" id="adminSignIn" type="submit">گشودن پنل مدیریت</button>
+      <p id="adminMessage" class="al-msg" role="status"></p>
+      <button class="btn gh w" id="adminBack" type="button">بازگشت به نورستان</button>
+    </form>
+    <p class="al-foot">نورستان · ورود مدیریت با تأخیرِ تدریجی محافظت می‌شود</p>
+  </div>
 </div>
 
 
@@ -3942,12 +4055,11 @@ const Router = {
     U.$$('.screen').forEach(s => s.classList.remove('active'));
     const el = U.$('#' + this.screens[name]);
     if(el) el.classList.add('active');
-    /* پنل مدیریت دکمه‌ای در نوار پایین ندارد؛ چون از «حساب» باز می‌شود،
-       همان‌جا روشن می‌ماند تا کاربر جای خودش را گم نکند. */
+    /* پنل مدیریت نوارِ ناوبریِ کاربر را اصلاً نمی‌بیند (Session.layout
+       نوار را برای مدیر پنهان می‌کند)، پس قاعده‌ای برایش لازم نیست. */
     U.$$('.nav button').forEach(b => b.classList.toggle('on',
       b.dataset.nav === name ||
-      (name === 'room'  && b.dataset.nav === 'online') ||
-      (name === 'admin' && b.dataset.nav === 'me')));
+      (name === 'room'  && b.dataset.nav === 'online')));
     Icon.hydrate(U.$('#nav'));
     HomeCarousel.schedule();
     window.scrollTo({ top: 0, behavior: FX.reduced ? 'auto' : 'smooth' });
@@ -4030,7 +4142,7 @@ const UI = {
   },
   observeShell(){
     if(typeof MutationObserver === 'undefined' || this._shellObserver) return;
-    const roots = U.$$('#s-home,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar');
+    const roots = U.$$('#s-home,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar,#pgBody');
     const queued = new Set(); let pending = false;
     this._shellObserver = new MutationObserver(records => {
       records.forEach(r => { const root = roots.find(x => x.contains(r.target)); if(root) queued.add(root); });
@@ -11128,6 +11240,14 @@ function selfTest(){
     ok('کد OTP پنج‌رقمی است', OTP.LEN === 5);
     ok('تولید کد محلی وجود ندارد', typeof OTP.code === 'undefined');
     ok('ورود مهمان وجود ندارد', typeof Gate.guest === 'undefined');
+    /* فاز ۳: ورودِ مدیر از رابطِ کاربرِ عادی کاملاً جداست. */
+    ok('در نسخهٔ کاربر هیچ نشانه‌ای از ورود مدیریت نیست', (() => {
+      /* جست‌وجوی واقعیِ سند، نه استاب: عنصری با این شناسه‌ها نباید وجود داشته باشد. */
+      const q = sel => { const e = document.querySelector(sel); return !!(e && e.id === sel.slice(1)); };
+      return !q('#setAdmin') && !q('#pfAdmin') && !q('#gtAdminLink');
+    })());
+    ok('صفحهٔ ورودِ مدیر کاملاً مجزاست و قفلِ نمایی دارد',
+       !!U.$('#alog') && typeof Admin.passFail === 'function' && typeof AdminLogin.paintLock === 'function');
     ok('انقضای کد دو دقیقه است', OTP.TTL_MS === 120000);
     ok('سقف تلاش در سرور سه بار است', OTP.MAX_TRIES === 3);
     ok('بی سرویس، ورود پیامکی غیرفعال است', SMS.mode() !== 'unavailable' || !SMS.ready());
@@ -11172,6 +11292,8 @@ const HomeCarousel = {
     this.ready = true; this.root = root;
     this.slides = U.$$('.promo-panel', root);
     this.dots = U.$$('[data-dot]', root);
+    this.track = U.$('.promo-panels', root);
+    let origin = null;
     const open = action => {
       Sound.click();
       if(action === 'ayahlight') AyahEmbed.open();
@@ -11191,20 +11313,75 @@ const HomeCarousel = {
     root.addEventListener('mouseleave', () => this.pause('hover', false));
     root.addEventListener('focusin', () => this.pause('focus', true));
     root.addEventListener('focusout', e => { if(!root.contains(e.relatedTarget)) this.pause('focus', false); });
-    let origin = null;
+    /* ── کشیدنِ زنده: کارت انگشت/ماوس را دنبال می‌کند ──
+       سه چیز هم‌زمان می‌شود: مسیرِ کل به اندازهٔ جابه‌جایی می‌لغزد،
+       اسلایدِ همسایه به نسبتِ پیشرفت روشن می‌شود، و در رهاکردن، سرعتِ
+       آخرِ حرکت تصمیم می‌گیرد که به اسلایدِ بعد برود یا به جایش فنر
+       شود (inertia ملایم). با prefers-reduced-motion همه‌چیز به همان
+       رفتارِ آستانه‌ایِ ساده برمی‌گردد. */
+    this.drag = null;
     root.addEventListener('pointerdown', e => {
       if(e.button !== 0) return;
-      origin = { x:e.clientX, y:e.clientY, id:e.pointerId };
       this.pause('touch', true);
+      if(FX.reduced){
+        origin = { x:e.clientX, y:e.clientY, id:e.pointerId };
+        return;
+      }
+      this.drag = { id:e.pointerId, x0:e.clientX, y0:e.clientY, dx:0, dy:0,
+                    t0:U.now(), lastX:e.clientX, lastT:U.now(), vx:0, locked:false, dead:false };
+      try{ root.setPointerCapture(e.pointerId); }catch(err){}
+      root.classList.add('dragging');
+    });
+    root.addEventListener('pointermove', e => {
+      const d = this.drag;
+      if(!d || e.pointerId !== d.id) return;
+      d.dx = e.clientX - d.x0; d.dy = e.clientY - d.y0;
+      const dt = Math.max(1, U.now() - d.lastT);
+      d.vx = (e.clientX - d.lastX) / dt; d.lastX = e.clientX; d.lastT = U.now();
+      /* اگر حرکت عمودی غالب بود، این کشیدن نیست — اسکرولِ صفحه است. */
+      if(!d.locked){
+        if(Math.abs(d.dy) > 12 && Math.abs(d.dy) > Math.abs(d.dx)){ d.dead = true; root.classList.remove('dragging'); this.resetDrag(); return; }
+        if(Math.abs(d.dx) > 6) d.locked = true;
+      }
+      if(!d.locked) return;
+      const w = root.clientWidth || 320;
+      const prog = Math.min(1, Math.abs(d.dx) / (w * .55));
+      const dir = d.dx > 0 ? 1 : -1;                       // راست ⇒ اسلاید بعد
+      const neighbor = this.slides[(this.index + dir + this.slides.length) % this.slides.length];
+      this.track.style.transform = `translateX(${d.dx.toFixed(1)}px)`;
+      if(neighbor && neighbor !== this.slides[this.index]){
+        neighbor.style.visibility = 'visible';
+        neighbor.style.opacity = prog.toFixed(3);
+        neighbor.style.transform = `translateX(${((dir > 0 ? 1 : -1) * w * .18 * (1 - prog)).toFixed(1)}px) scale(${(.968 + .032 * prog).toFixed(3)})`;
+      }
     });
     const release = e => {
-      if(!origin || (e.pointerId != null && e.pointerId !== origin.id)) return;
-      const dx = e.clientX - origin.x, dy = e.clientY - origin.y;
-      if(e.type !== 'pointercancel' && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
-        this.show(this.index + (dx > 0 ? 1 : -1));
-        this.suppressClickUntil = Date.now() + 500;
+      const d = this.drag;
+      if(!d || (e.pointerId != null && e.pointerId !== d.id)) return;
+      this.drag = null;
+      root.classList.remove('dragging');
+      if(FX.reduced){
+        const dx = e.clientX - (origin ? origin.x : 0), dy = e.clientY - (origin ? origin.y : 0);
+        if(e.type !== 'pointercancel' && Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){
+          this.show(this.index + (dx > 0 ? 1 : -1));
+          this.suppressClickUntil = Date.now() + 500;
+        }
+        origin = null;
+        this.pause('touch', false);
+        return;
       }
-      origin = null;
+      const flick = Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
+      const commit = !d.dead && e.type !== 'pointercancel' &&
+                     d.locked && (Math.abs(d.dx) > 60 || flick) && Math.abs(d.dx) > Math.abs(d.dy);
+      const dir = d.dx > 0 ? 1 : -1;
+      if(commit){
+        this.show(this.index + dir);
+        this.suppressClickUntil = Date.now() + 500;
+      }else{
+        /* فنرِ ملایم به جای خود — transform مسیر با گذارِ CSS صفر می‌شود */
+        this.track.style.transform = '';
+        if(d.locked) this.suppressClickUntil = Date.now() + 260;
+      }
       this.pause('touch', false);
     };
     window.addEventListener('pointerup', release);
@@ -11226,11 +11403,20 @@ const HomeCarousel = {
     b.setAttribute('aria-pressed', String(stopped));
     b.disabled = FX.reduced;
   },
-  show(i){
+  show(i, dir){
     if(!this.slides?.length) return;
+    const prev = this.index;
     this.index = (i + this.slides.length) % this.slides.length;
+    /* جهتِ گذار: اسلایدِ تازه از سمتِ درست وارد شود (راست ⇒ بعدی).
+       در بار نخست جهت نیست — فقط محوِ آرام. */
+    if(dir === undefined && this.ready) dir = this.index > prev || (prev === this.slides.length - 1 && this.index === 0) ? 1 : -1;
+    if(this.root){
+      if(dir) this.root.dataset.dir = String(dir); else delete this.root.dataset.dir;
+    }
     this.slides.forEach((slide, n) => {
       const on = n === this.index;
+      /* اثرِ زندهٔ کشیدن پاک می‌شود؛ حالت از کلاس می‌آید */
+      slide.style.opacity = ''; slide.style.transform = ''; slide.style.visibility = '';
       slide.classList.toggle('is-active', on);
       slide.inert = !on;
       slide.setAttribute('aria-hidden', String(!on));
@@ -11239,6 +11425,11 @@ const HomeCarousel = {
       d.classList.toggle('on', n === this.index);
       d.setAttribute('aria-current', String(n === this.index));
     });
+  },
+  /* بازگرداندنِ اثرِ زندهٔ کشیدن — مثلاً وقتی کشیدن به اسکرولِ عمودی می‌بازد */
+  resetDrag(){
+    if(this.track) this.track.style.transform = '';
+    this.slides?.forEach(s => { s.style.opacity = ''; s.style.transform = ''; s.style.visibility = ''; });
   },
   pause(reason, on){ on ? this.pauses.add(reason) : this.pauses.delete(reason); this.schedule(); },
   schedule(){
@@ -11254,10 +11445,20 @@ const AyahEmbed = {
  open(){
   if(!Session.user())return Gate.open();Router.go('play');
   U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='برای نمایش بهتر، گوشی را افقی نگه دار';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
-  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
+  /* ── مجوزهای قاب: فقط همان که واقعاً لازم است ──
+     «fullscreen» برای نمای تمام‌صفحهٔ خودِ بازی؛ صدا با نخستین لمسِ
+     کاربر باز می‌شود، پس «autoplay» هم لازم نیست. هیچ دوربین، میکروفن،
+     موقعیت یا سنسوری به این قاب داده نمی‌شود.
+     ── مُهرِ پوشاننده (۴.۱) ──
+     پوستهٔ میزبان بازی، بنر ثابتِ گوشهٔ پایین-راست دارد که با هر
+     بارگذاری برمی‌گردد و روی دکمه‌های ادامه/تأیید می‌نشیند. تا وقتی
+     سورسِ آن پوسته در اختیار ما نباشد، همین مُهرِ هم‌زبانِ تم، هم بنر را
+     می‌پوشاند و هم لمسِ آن ناحیه را می‌گیرد تا هیچ گزینه‌ای پشتش پنهان
+     نماند. */
+  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="ayah-banner-mask" id="ayahBannerMask" role="presentation">'+Icon.of('mosque')+'<span class="abm-col"><b>نورِ آیه‌ها</b><small>نسخهٔ صحنِ نورانی</small></span></div></div>'+
     '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">نمای افقی / تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
     '<p class="tiny ayah-rotate" role="status">اگر گوشی نچرخید، آن را دستی افقی کن. قفل جهت در همهٔ مرورگرها پشتیبانی نمی‌شود.</p></div>'+
-    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد.</p>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد. مُهرِ گوشهٔ پایین، بنرِ میزبانِ بیرونی را می‌پوشاند تا چیزی از دید و لمس پنهان نشود.</p>'+
     '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین آفلاین</button></div>';
   U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
   U.$('#ayahExpand').onclick=()=>this.landscape();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
@@ -11270,6 +11471,7 @@ const AyahEmbed = {
   if(!U.$('#ayahFrame')){try{screen.orientation?.unlock();}catch(e){}}
  },
  cleanup(){
+  U.$('#ayahBannerMask')?.remove();   /* مُهرِ پوشاننده هم با قاب جمع می‌شود */
   const frame=U.$('#ayahFrame'),shell=frame?.closest('#ayahGame');if(frame){frame.remove();try{screen.orientation?.unlock();}catch(e){}
    this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(shell&&document.fullscreenElement===shell)return document.exitFullscreen?.().catch(()=>{});});
   }
@@ -11873,8 +12075,9 @@ function renderOnline(){
   netStateChip();
   /* ── میزبانِ خودمان ──
      وقتی همین صفحه را سرورِ نورستان سرو کرده، آدرس را از قبل پر کن و
-     برچسب را بگو، تا کاربر نفهمد «چیزی را باید دستی وارد کند». */
-  U.$('#mahfelNotice').textContent=Net.status==='online'?'محفل متصل است.':Net.status==='connecting'?'در حال اتصال…':'محفل در دسترس نیست. اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت، از پشتیبانی بخواه اتصال سرور را بررسی کند.';
+     برچسب را بگو، تا کاربر نفهمد «چیزی را باید دستی وارد کند».
+     بی سرور هیچ جایگزینِ محلی وجود ندارد — فقط پیامِ روشن. */
+  U.$('#mahfelNotice').textContent=Net.status==='online'?'محفل متصل است.':Net.status==='connecting'?'در حال اتصال…':'برای استفاده از محفل، اتصال به سرور لازم است. این صفحه را از نشانیِ سرورِ نورستان باز کن و اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت، از پشتیبانی بخواه اتصال سرور را بررسی کند.';
   const peers = Net.peerList();
   const me = [{ name: Store.get('playerName'), me: true, score: Store.get('score'), level: Store.get('level') }];
   const all = [...me, ...peers];
@@ -12130,7 +12333,7 @@ const Me = {
           })()}
         </div>
 
-        <p><button class="btn gh sm" id="pfAdmin">ورود مدیریت</button><button class="btn gh sm" id="pfLogout">خروج از حساب</button><button class="btn gh sm" id="pfPurchases">خریدها و رسیدها</button></p>
+        <p><button class="btn gh sm" id="pfLogout">خروج از حساب</button><button class="btn gh sm" id="pfPurchases">خریدها و رسیدها</button></p>
         <div class="card mt14">
           <b style="font-size:13px">${Icon.of('id-card')} شناسنامه</b>
           <div class="sep"></div>
@@ -12177,12 +12380,8 @@ const Me = {
          پنهان‌کردنِ ناامنی است، و خودِ پنل هم همین را می‌گوید. */
       U.$('#pfLogout').onclick=()=>Session.logout();
       U.$('#pfPurchases').onclick=()=>PaidAccount.open();
-      const pa = U.$('#pfAdmin');
-      if(pa) pa.onclick = () => {
-        Sound.click();
-        if(Session.admin()) Router.go('admin');
-        else Gate.open('admin');
-      };
+      /* ورودِ مدیریت از پروفایل برداشته شد: هیچ عنصرِ قابل‌کلیکی در نسخهٔ
+         کاربرِ عادی به مدیریت نمی‌رسد؛ تنها مسیر، نشانیِ مستقیمِ #admin است. */
       U.$$('.adm-id').forEach(el => el.onclick = async () => {
         const t = el.dataset.copy;
         if(!t) return;
@@ -12328,11 +12527,6 @@ const Me = {
             <button class="btn gh sm" id="setNight">${Icon.of('moon')} تکرار شبانه</button>
             <button class="btn gh sm debug-only" id="setSelfTest">🧪 selfTest</button>
           </div>
-          <label class="lbl">${Icon.of('shield')} مدیریت</label>
-          <button class="btn gh w" id="setAdmin">${Icon.of('crown')} پنل مدیریت</button>
-          <p style="font-size:11.5px;color:var(--mut);margin:8px 0 0">
-            این کلید عمداً پنهان نیست: پنهان‌کردنِ نشانی، امنیت نیست.
-            سدِ واقعی همان رمز است، نه پیدا نبودنِ دکمه.</p>
           <label class="lbl">${Icon.of('headphones')} تلاوت قرآن</label>
           <div class="row" style="gap:8px;flex-wrap:wrap">
             <button class="btn gh" id="setQuran" style="flex:1">${U.esc(RECITERS[U.clamp(q.reciter, 0, RECITERS.length - 1)].name)}</button>
@@ -12423,10 +12617,9 @@ const Me = {
       U.$('#setNight').onclick = () => NightRepeat.modal();
       Install.wire();
       SMS.wire();
-      /* مدیریت از نوار پایین برداشته شد و این‌جا نشست: نوار پایین برای
-         کارهای روزمره است، پنل مدیریت برای گاه‌به‌گاه. نشانی‌اش پنهان
-         نیست — پنهان‌کردن امنیت نیست؛ دروازه همان رمز است. */
-      U.$('#setAdmin').onclick = () => Router.go('admin');
+      /* ورودِ مدیریت از تنظیمات هم برداشته شد: در نسخهٔ کاربرِ عادی هیچ
+         عنصری به پنل مدیریت نمی‌رسد. تنها مسیر، نشانیِ مستقیمِ «#admin»
+         است که فقط بیرون از برنامه دانسته می‌شود. */
       U.$('#setSelfTest').onclick = () => {
         const r = selfTest();
         UI.modal(`<h3>🧪 selfTest</h3>
@@ -13079,29 +13272,18 @@ async confirmServer(){
   render(){
     const d = Store.data;
     if(!Session.admin()){
-      /* ── این‌جا هیچ رمزی سنجیده و هیچ رمزی ساخته نمی‌شود ──
-         پیش‌تر همین شاخه یک فرمِ «ساختن رمز مدیر» می‌کاشت، و چون
-         `#setAdmin` در تنظیمات هم بی‌واسطه به همین صفحه می‌آورد، هر کاربری
-         — از جمله مهمان — با یک ضربه می‌توانست برای خودش رمزِ مدیر بسازد و
-         مدیر شود. یعنی نصبِ تازه، برای هر کسی که اول رسیده بود، باز بود.
-
-         حالا این‌جا فقط یک اعلان است و یک دکمه که به *یک* دروازه می‌رود.
-         رمزها همه در `Gate` سنجیده و ساخته می‌شوند؛ یک جا، نه دو جا. */
-      const remote = this.onServer();
+      /* این شاخه در جریانِ عادی هرگز اجرا نمی‌شود: قبل از رسمِ صفحهٔ
+         مدیریت، Session.allow('admin') هر که مدیر نبود را به صفحهٔ ورودِ
+         مجزای مدیر (AdminLogin → #alog) می‌فرستد. این‌جا فقط یک نگهبانِ
+         دوم است: هیچ فرمی نمی‌کشد، فقط به همان دروازهٔ یکتا می‌فرستد. */
       U.$('#adminGate').innerHTML = `
         <div class="card">
-          <b>${Icon.of('lock')} پنل مدیریت</b>
+          <b>${Icon.of('lock')} پنل مدیریت قفل است</b>
           <p style="color:var(--mut);font-size:12px;margin-top:6px">
-            برای دیدنِ پنل باید رمزِ مدیر را بزنی.
-            ${remote ? 'رمز روی سرور سنجیده می‌شود.' : ''}</p>
-          <div class="sep"></div>
-          <button class="btn w" id="admGoGate">${Icon.of('crown')} ورود مدیر</button>
-          <button class="btn gh w" id="admGoHome" style="margin-top:10px">‹ بازگشت</button>
+            برای دیدنِ پنل، از صفحهٔ ورودِ مدیریت وارد شو.</p>
         </div>`;
       U.$('#adminMain').classList.add('hide');
-      const go = U.$('#admGoGate'), back = U.$('#admGoHome');
-      if(go) go.onclick = () => { Sound.click(); Gate.open('admin'); };
-      if(back) back.onclick = () => Router.go('home');
+      AdminLogin.open();
       return;
     }
     U.$('#adminGate').innerHTML = '<button class="btn gh" id="adminExit">خروج از مدیریت</button>';
@@ -15136,7 +15318,8 @@ const Gate = {
   el(){return U.$('#gate');},canLogin(){return SMS.ready();},
   whyNot(){return 'ورود پیامکی اکنون در دسترس نیست. اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیر. پیشرفت قبلی‌ات محفوظ است.';},
   open(at='phone',auto=false){
-    if(at==='admin')return AdminLogin.open();
+    /* مدیریت از این‌جا راه ندارد: در Gate فقط ورودِ پیامکیِ کاربر جریان
+       دارد. صفحهٔ مدیر تنها از نشانیِ مستقیمِ #admin زنده می‌شود. */
     this.auto=auto;this.step=at==='code'?'code':'phone';this.shown=true;
     this.el()?.classList.remove('hide','leaving');Session.layout();this.paint();return true;
   },
@@ -15146,17 +15329,23 @@ const Gate = {
   sync(){if(this.shown&&!AdminLogin.shown&&this.step==='phone')this.paint();},
   msg(text){const e=U.$('#gtMsg');if(e)e.textContent=text;},
   paint(){
-    this.stop();AdminLogin.shown=false;const box=U.$('#gateBox');if(!box)return;
+    this.stop();
+    /* Gate و صفحهٔ مدیر رقیبِ یکدیگرند: رسمِ ورودِ کاربر، صفحهٔ مدیر را
+       می‌بندد — هرگز هر دو هم‌زمان باز نیستند. */
+    AdminLogin.shown=false;U.$('#alog')?.classList.add('hide');
+    const box=U.$('#gateBox');if(!box)return;
     const migration=Store.get('guestMigration');
     if(this.step==='phone'){
       box.innerHTML=`<h2>به نورستان خوش آمدی</h2><p class="gt-sub">برای ادامه، با شمارهٔ موبایل خودت وارد شو.</p>
       ${migration&&!migration.claimed?'<p class="gt-note">ورود مهمان برداشته شده؛ امتیاز، نشان‌ها و پیشرفت این دستگاه پاک نشده‌اند و پس از تأیید شماره به حسابت متصل می‌شوند. پیش از ورود می‌توانی نسخهٔ شخصی بگیری.</p><button class="btn gh w" id="gtExport">دریافت پیشرفت قبلی</button>':''}
       <div class="gt-card"><label for="gtPhone">شمارهٔ موبایل</label><input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${U.esc(this.phone||Store.get('phone')||'')}">
       <button class="btn w" id="gtSend" style="margin-top:14px" ${this.canLogin()?'':'disabled'}>دریافت کد پیامکی</button><p class="gt-msg" id="gtMsg" role="status">${this.canLogin()?'':this.whyNot()}</p>
-      <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div><a href="#admin" id="gtAdminLink" class="gt-foot">ورود مدیریت</a>`;
+      <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div>`;
       U.$('#gtSend').onclick=()=>this.send();U.$('#gtPhone').onkeydown=e=>{if(e.key==='Enter')this.send();};
       U.$('#gtRefresh').onclick=async()=>{await SMS.probe();this.sync();};
-      U.$('#gtAdminLink').onclick=e=>{e.preventDefault();AdminLogin.open();};
+      /* نکتهٔ امنیتی: در این صفحه هیچ نشانه‌ای از ورودِ مدیریت نیست —
+         نه لینک، نه دکمه، نه متن. تنها مسیرِ مدیر، نشانیِ مستقیمِ «#admin»
+         است که بیرون از برنامه دانسته می‌شود. */
       const exp=U.$('#gtExport');if(exp)exp.onclick=()=>PersonalData.download();
     }else{
       box.innerHTML=`<h2>کد پیامکی را وارد کن</h2><p class="gt-sub" dir="ltr">${U.esc(SMS.faPhone(this.phone))}</p><div class="gt-card"><label for="gtCode">کد پنج‌رقمی</label><input class="inp" id="gtCode" inputmode="numeric" autocomplete="one-time-code" maxlength="5" dir="ltr"><button class="btn w" id="gtOk">تأیید و ورود</button><p id="gtMsg" class="gt-msg" role="status"></p><p id="gtLeft"></p><button class="btn gh w" id="gtAgain">ارسال دوباره</button><button class="btn gh w" id="gtEdit">تغییر شماره</button></div>`;
@@ -15179,24 +15368,93 @@ const Gate = {
     catch(e){this.msg('بررسی کد ممکن نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
   }
 };
+/* ── ورودِ مدیر — صفحه‌ای کاملاً مجزا از Gate ──
+   سه قاعده:
+     ۱) هیچ عنصری در نسخهٔ کاربرِ عادی به این‌جا راه ندارد؛ تنها ورودی،
+        نشانیِ مستقیمِ «#admin» است (همچنین بازکردنِ دوبارهٔ همان نشانی).
+     ۲) طراحیِ این صفحه به Gate تعلق ندارد — مارک‌آپ و کلاس‌هایش (#alog)
+        از پیش در سند هستند و این‌جا فقط زنده می‌شوند.
+     ۳) سنجشِ رمز از Admin.tryPass می‌گذرد؛ همان‌جا قفلِ نمایی (شمارندهٔ
+        ناموفق + تأخیرِ تصاعدی) اعمال می‌شود و این‌جا بازگشتِ آن را با
+        شمارشِ معکوس نشان می‌دهد. */
 const AdminLogin = {
-  shown:false,busy:false,
+  shown:false,busy:false,tid:null,
+  el(){return U.$('#alog');},
   open(){
-    Gate.stop();Gate.shown=true;this.shown=true;
+    Gate.stop();Gate.shown=false;this.shown=true;
     try{history.replaceState({screen:'admin'},'','#admin');}catch(e){}
-    U.$('#gate')?.classList.remove('hide','leaving');
-    U.$('#gateBox').innerHTML=`<h2>مدیریت نورستان</h2><p class="gt-sub">این ورودی فقط برای مدیر سامانه است.</p><div class="gt-card"><label for="adminPassword">رمز مدیریت</label><input class="inp" id="adminPassword" type="password" autocomplete="current-password" dir="ltr"><button class="btn w" id="adminSignIn">ورود مدیریت</button><p id="adminMessage" class="gt-msg" role="status"></p><button class="btn gh w" id="adminBack">بازگشت به ورود کاربران</button></div>`;
-    U.$('#adminSignIn').onclick=()=>this.submit();U.$('#adminPassword').onkeydown=e=>{if(e.key==='Enter')this.submit();};
-    U.$('#adminBack').onclick=()=>{this.shown=false;history.replaceState({},'','#home');if(Session.user()){Gate.close();Router.go('home',true);}else Gate.open();};
+    const el=this.el();if(!el)return true;
+    el.classList.remove('hide','leaving');
+    Session.layout();
+    U.$('#adminMessage').textContent='';
+    U.$('#adminMessage').classList.remove('error');
+    /* اتصالِ فرم: با preventDefault، سابمیتِ بومی (بارگذاریِ دوبارهٔ صفحه)
+       می‌خوابد و هر دو راه — دکمه و Enter — از همان submitِ ما می‌گذرد. */
+    const form=U.$('#alogForm');
+    if(form) form.onsubmit = e => { e.preventDefault(); this.submit(); };
+    const back=U.$('#adminBack');
+    if(back) back.onclick = () => { try{Sound.click();}catch(e){} this.back(); };
+    this.paintLock();
+    Icon.hydrate(el);
+    try{ U.$('#adminPassword').focus({preventScroll:true}); }catch(e){}
     return true;
   },
+  /* پیامِ قفل: تا کدام ثانیه باید صبر کرد */
+  lockWait(){return Math.max(0,((Store.get('adminAttempts')||{}).until||0)-U.now());},
+  paintLock(){
+    const msg=U.$('#adminMessage'),btn=U.$('#adminSignIn');
+    if(!msg||!btn)return;
+    const wait=this.lockWait();
+    if(this.tid)Timers.clear(this.tid);this.tid=null;
+    if(wait>0){
+      btn.disabled=true;
+      msg.classList.add('error');
+      msg.textContent='ورود موقتاً قفل شد — '+U.fa(Math.ceil(wait/1000))+' ثانیه صبر کن';
+      this.tid=Timers.every(()=>{const w=this.lockWait();if(w<=0){Timers.clear(this.tid);this.tid=null;btn.disabled=false;msg.textContent='می‌توانی دوباره تلاش کن.';return;}msg.textContent='ورود موقتاً قفل شد — '+U.fa(Math.ceil(w/1000))+' ثانیه صبر کن';},1000,'sys');
+    }else if(!this.busy){ btn.disabled=false; }
+  },
+  close(){
+    this.shown=false;
+    if(this.tid){Timers.clear(this.tid);this.tid=null;}
+    const el=this.el();
+    if(el){el.classList.add('leaving');setTimeout(()=>el.classList.add('hide'),FX.reduced?0:240);}
+    const inp=U.$('#adminPassword');if(inp)inp.value='';
+  },
+  /* خروج از این صفحه: به نورستانِ عادی برمی‌گردیم — این یک «خروج» است
+     نه یک راه ورود؛ در نسخهٔ کاربر هیچ نشانی از این صفحه دیده نمی‌شود. */
+  back(){
+    this.close();
+    try{history.replaceState({screen:'home'},'','#home');}catch(e){}
+    if(Session.user()){Gate.close();Router.go('home',true);}
+    else{Router.go('home',true);Gate.open('phone',true);}
+  },
   async submit(){
-    if(this.busy)return;this.busy=true;const input=U.$('#adminPassword'),button=U.$('#adminSignIn');button.disabled=true;
-    try{const r=await Admin.tryPass(input.value);input.value='';if(!r.ok){U.$('#adminMessage').textContent=r.why;return;}
-      this.shown=false;Gate.close();Router.go('admin',true);Net.connect(Host.defaultUrl());
-    }catch(e){U.$('#adminMessage').textContent='ورود ممکن نشد؛ اتصال را بررسی کن.';}finally{this.busy=false;button.disabled=false;}
+    if(this.busy)return;this.busy=true;
+    const input=U.$('#adminPassword'),button=U.$('#adminSignIn'),msg=U.$('#adminMessage');
+    if(button)button.disabled=true;
+    if(msg){msg.classList.remove('error');msg.textContent='در حال بررسی…';}
+    try{
+      const r=await Admin.tryPass(input?input.value:'');
+      if(input)input.value='';
+      if(!r.ok){
+        if(msg){msg.classList.add('error');msg.textContent=r.why;}
+        FX.shake(U.$('#alog .al-card'));
+        Sound.buzz&&Sound.buzz();
+        this.paintLock();
+        return;
+      }
+      this.close();
+      Gate.close();
+      Session.layout();
+      Sound.chime&&Sound.chime();
+      Router.go('admin',true);
+      Net.connect(Host.defaultUrl());
+    }catch(e){
+      if(msg){msg.classList.add('error');msg.textContent='ورود ممکن نشد؛ اتصال را بررسی کن.';}
+    }finally{this.busy=false;if(button&&!this.lockWait())button.disabled=false;}
   }
 };
+
 
 
 /* ─────────────────── 21. INIT ─────────────────── */

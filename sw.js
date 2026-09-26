@@ -25,10 +25,10 @@
    پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-22';
-const SHELL = 'noorestan-shell-22';
-const MEDIA = 'noorestan-media-22';
-const TEXT  = 'noorestan-text-22';
+const CACHE = 'noorestan-23';
+const SHELL = 'noorestan-shell-23';
+const MEDIA = 'noorestan-media-23';
+const TEXT  = 'noorestan-text-23';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */

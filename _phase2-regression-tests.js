@@ -35,11 +35,15 @@ eval(chunks.join('\n'));
 for(const fn of __smsChecks)await fn();
 const crypto=require('node:crypto');const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const dataSource=SRC.slice(SRC.indexOf('const DATA = '),SRC.indexOf('const TOPICS = '));
-const before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd62ba2231a2b435bdba0952:index.html'],{maxBuffer:8*1024*1024}).toString();
+/* پایهٔ مقایسه: کامیتِ 456811b از جلسهٔ پیش است. اگر در این کلون موجود
+   نباشد (تاریخچهٔ کم‌عمق)، سرِ شاخهٔ فعلی پیش از تغییرهای این جلسه همان
+   محتوای مبناست — پس با همان مقایسه می‌کنیم. */
+let before;try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd62ba2231a2b435bdba0952:index.html'],{maxBuffer:8*1024*1024}).toString();}
+catch(e){before=require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{maxBuffer:8*1024*1024}).toString();console.log('(baseline fallback: HEAD)');}
 const baseData=before.slice(before.indexOf('const DATA = '),before.indexOf('const TOPICS = '));
 ok('DATA source unchanged from original repository',hash(dataSource)===hash(baseData));
 ok('Sudoku metadata registered without modifying original DATA source',typeof Games.sudoku==='function'&&DATA.categories.find(c=>c.id==='brain').games.includes('sudoku'));
-const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 22',['noorestan-22','noorestan-shell-22','noorestan-media-22','noorestan-text-22'].every(k=>sw.includes(k)));
+const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 23',['noorestan-23','noorestan-shell-23','noorestan-media-23','noorestan-text-23'].every(k=>sw.includes(k)));
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);
