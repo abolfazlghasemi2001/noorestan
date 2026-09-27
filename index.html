@@ -2150,6 +2150,205 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 @media(prefers-reduced-motion:reduce){#homeSlider .promo-panel,#homeSlider .promo-scene,#homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}}
 html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSlider .promo-scene,html[data-motion="off"] #homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}
 
+/* ═══════════════ کاروسلِ دسته‌ها (CategoryCarousel) ═══════════════
+   سه تصمیم که پیش از خواندنِ کد باید روشن باشد:
+
+   ۱) هیچ عددِ جابه‌جایی این‌جا hardcode نشده. کنترل‌کننده `offsetLeft` هر
+      اسلاید را نسبت به اسلایدِ نخست اندازه می‌گیرد و قرینه‌اش را به
+      `transform` می‌دهد. نتیجه: هم در `direction:rtl` درست است (اسلایدِ ۰
+      راست‌ترین است و بقیه به چپ می‌روند، پس track باید به *راست* بلغزد)
+      و هم با عرض و فاصلهٔ متغیر.
+   ۲) فقط `transform`، `opacity`، `filter`، `border-color` و `visibility`
+      گذار می‌گیرند — هرگز width/height/top/left، و `box-shadow` در فهرستِ
+      گذار نیست (انیمیشنِ سایه یعنی رنگ‌آمیزیِ دوبارهٔ هر فریم).
+   ۳) کم‌حرکتی — هم ترجیحِ سیستم‌عامل، هم تنظیمِ درون‌برنامهٔ
+      `html[data-motion="off"]` — گذارها، عمق و محوکردن را خاموش می‌کند.
+      در آن حالت کاروسل به «یک کارتِ قابلِ رفتن با نقطه/کلید/کشیدن»
+      تبدیل می‌شود و حرکتِ خودکار هرگز تایمر نمی‌گیرد. */
+.category-carousel{position:relative;margin:0 0 6px}
+.carousel-viewport{position:relative;overflow:hidden;padding:12px 0 20px;touch-action:pan-y pinch-zoom}
+/* `perspective` روی خودِ track است، نه روی جد: `.carousel-viewport` به
+   خاطرِ `overflow:hidden` ناچار transform-style:flat می‌شود و زنجیرهٔ
+   سه‌بعدی را قطع می‌کند. با گذاشتنِ پرسپکتیو روی track، هر `.slide`
+   (فرزندِ بی‌واسطه) عمقِ `translateZ` را درست می‌گیرد. */
+.carousel-track{display:flex;gap:12px;padding:0 4px;perspective:1200px;transition:transform 800ms var(--ease);cursor:grab}
+.category-carousel.dragging .carousel-track{transition:none;will-change:transform;cursor:grabbing}
+.category-carousel.dragging .slide{transition:none;pointer-events:none}
+
+.slide{
+  flex:0 0 78%;min-width:0;position:relative;overflow:hidden;text-align:right;
+  border-radius:24px;padding:24px 20px;border:1px solid var(--line);
+  /* زمینهٔ طلایی با color-mix تا در هر پوسته همان طلاییِ خودِ پوسته باشد؛
+     اگر مرورگری color-mix نداند، اعلامِ نخست (var(--card)) برجا می‌ماند. */
+  background:var(--card);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 9%,transparent),transparent 52%),var(--card);
+  contain:layout paint;
+  /* حالتِ پیش‌فرض = اسلایدِ دور: بیرون از قاب، پس دیده نمی‌شود و رنگ هم
+     نمی‌خورد. `visibility` در فهرستِ گذار است تا هنگامِ پنهان‌شدن در پایانِ
+     گذار خاموش شود و هنگامِ آشکارشدن بی‌درنگ روشن. */
+  opacity:0;visibility:hidden;transform:scale(.85) translateZ(-80px);
+  transition:transform 600ms var(--ease),opacity 600ms ease,filter 600ms ease,border-color 300ms ease,visibility 600ms
+}
+.slide.is-far{opacity:.35;visibility:visible;transform:scale(.85) translateZ(-80px);filter:blur(2.5px)}
+.slide.is-prev,.slide.is-next{opacity:.72;visibility:visible;transform:scale(.92) translateZ(-40px);filter:blur(1.5px)}
+.slide.is-active{
+  opacity:1;visibility:visible;filter:none;transform:scale(1) translateZ(0);
+  border-color:var(--gold);
+  box-shadow:0 18px 34px -18px rgba(0,0,0,.6),0 0 0 1px color-mix(in srgb,var(--gold) 22%,transparent) inset
+}
+/* درخششِ طلایی که نشانگر را دنبال می‌کند (--mx/--my را کنترل‌کننده می‌نویسد) */
+.slide::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--gold) 16%,transparent),transparent 62%);
+  opacity:0;transition:opacity 400ms ease
+}
+.slide.is-active:hover::before,.slide.is-active:focus-within::before{opacity:1}
+/* خطِ طلاییِ بالای کارتِ فعال */
+.slide::after{
+  content:"";position:absolute;top:0;left:20%;right:20%;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:0;transition:opacity 400ms ease
+}
+.slide.is-active::after{opacity:1}
+
+/* تایپوگرافیِ کارت */
+.slide .slide-icon{display:block;margin-bottom:12px;color:var(--gold);filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+.slide .slide-icon>.ic,.slide .slide-icon>.glyph-token>.ic{width:32px;height:32px}
+.slide .slide-title{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:19px;line-height:1.5;color:var(--gold);margin-bottom:6px}
+.slide .slide-desc{font-size:13px;color:var(--mut);line-height:1.9;margin-bottom:14px}
+.slide .slide-rec{display:block;margin-bottom:12px;font-size:11px;color:var(--gold);opacity:.9}
+.slide .slide-cta{
+  display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;
+  padding:10px 16px;border-radius:12px;background:var(--grad);color:var(--ink);
+  font-size:13px;font-weight:700;font-family:inherit;min-height:44px;
+  transition:transform 200ms var(--ease)
+}
+.slide .slide-cta:hover{transform:translateX(-4px)}
+.slide .slide-cta .ic{width:15px;height:15px;transform:rotate(180deg)}
+.slide .badge{top:14px;left:14px}
+
+/* نقطه‌های ناوبری */
+.carousel-dots{display:flex;gap:6px;justify-content:center;align-items:center;direction:rtl;margin-top:12px;padding:0 40px}
+.carousel-dots .dot{
+  width:8px;height:8px;padding:0;border:0;border-radius:50%;background:var(--line);
+  cursor:pointer;transition:width 300ms var(--ease),background 300ms ease
+}
+.carousel-dots .dot.active{width:24px;background:var(--gold)}
+.carousel-dots .dot:hover:not(.active){background:var(--gold2)}
+/* ناحیهٔ لمسِ بزرگ‌تر از خودِ نقطه، بی آنکه فاصلهٔ دیداری عوض شود */
+.carousel-dots .dot{position:relative}
+.carousel-dots .dot::before{content:"";position:absolute;inset:-11px -5px}
+.carousel-dots:focus-visible,.carousel-dots .dot:focus-visible,.carousel-nav:focus-visible,.slide .slide-cta:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* دکمه‌های ناوبری — فقط جایی که نشانگرِ واقعی هست (نه لمس) */
+.carousel-nav{
+  position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  border-radius:50%;background:var(--card2);border:1px solid var(--line);color:var(--gold);
+  cursor:pointer;display:none;place-items:center;z-index:3;font-size:19px;line-height:1;
+  transition:background 200ms ease,color 200ms ease,border-color 200ms ease
+}
+.carousel-nav:hover{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.carousel-nav.prev{right:6px}
+.carousel-nav.next{left:6px}
+@media(hover:hover) and (pointer:fine){.carousel-nav{display:grid}}
+
+/* گزارشِ زندهٔ صفحه‌خوان — دیده نمی‌شود، خوانده می‌شود */
+.carousel-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ── آمارِ سریعِ خانه: ردیفِ افقیِ اسکرول‌شدنی ── */
+.stats-row{
+  display:flex;gap:10px;overflow-x:auto;padding:0 4px 12px;margin-bottom:16px;
+  scrollbar-width:none;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch
+}
+.stats-row::-webkit-scrollbar{display:none;width:0;height:0}
+.stat-card{
+  flex:0 0 auto;scroll-snap-align:start;min-width:88px;padding:14px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  border-radius:18px;background:var(--card);border:1px solid var(--line);
+  transition:transform 200ms var(--ease),border-color 200ms ease
+}
+.stat-card:hover{transform:translateY(-4px);border-color:var(--gold)}
+.stat-card .stat-icon{color:var(--gold);display:block}
+.stat-card .stat-icon>.ic,.stat-card .stat-icon>.glyph-token>.ic{width:22px;height:22px}
+.stat-card .stat-value{font-size:18px;font-weight:800;color:var(--gold);line-height:1.5}
+.stat-card .stat-label{font-size:10.5px;color:var(--mut);white-space:nowrap}
+
+/* ── کارتِ «ادامهٔ یادگیری» ── */
+.continue-card{
+  position:relative;overflow:hidden;padding:20px;margin-bottom:18px;
+  border-radius:24px;border:1px solid var(--gold);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 12%,transparent),var(--card) 62%)
+}
+.continue-card::before{
+  content:"";position:absolute;top:-50%;right:-50%;width:200%;height:200%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--gold) 15%,transparent),transparent 60%);
+  animation:continuePulse 4s ease-in-out infinite
+}
+@keyframes continuePulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:.8}}
+.continue-card>*{position:relative}
+.continue-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.continue-head .ci{color:var(--gold);flex:none}
+.continue-head .ci>.ic,.continue-head .ci>.glyph-token>.ic{width:22px;height:22px}
+.continue-head b{font-size:13.5px}
+.continue-head .sp{flex:1}
+.continue-title{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:18px;line-height:1.6;margin-bottom:2px}
+.continue-sub{font-size:12px;color:var(--mut);line-height:1.9}
+.continue-progress{height:6px;border-radius:3px;margin:12px 0;overflow:hidden;background:color-mix(in srgb,var(--gold) 15%,transparent)}
+/* نوار با `transform:scaleX` پر می‌شود، نه با `width`: گذارِ عرض یعنی
+   چیدمانِ دوباره در هر فریم، و قواعدِ خودِ برنامه هم width/height را
+   ممنوع کرده‌اند. مبدأ از راست است چون صفحه RTL است. */
+.continue-progress .fill{
+  position:relative;height:100%;width:100%;border-radius:3px;background:var(--fill);
+  transform:scaleX(0);transform-origin:right center;
+  transition:transform 800ms var(--ease)
+}
+/* برقِ روی نوار: background-position جابه‌جا می‌شود، نه سایه و نه اندازه */
+.continue-progress .fill::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  background-size:220% 100%;animation:continueShine 2.4s ease-in-out infinite
+}
+@keyframes continueShine{from{background-position:180% 0}to{background-position:-80% 0}}
+.continue-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.continue-pct{font-size:11.5px;color:var(--mut)}
+
+/* ── پیشنهادِ امروز ── */
+.today-card{
+  position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;
+  padding:18px;margin-bottom:20px;border-radius:22px;border:1px dashed var(--line);
+  background:var(--card);transition:border-color 300ms ease
+}
+.today-card:hover{border-color:var(--gold)}
+.today-card .ti{flex:none;color:var(--gold)}
+.today-card .ti>.ic,.today-card .ti>.glyph-token>.ic{width:30px;height:30px}
+.today-card .tc{flex:1;min-width:0}
+.today-card .tc b{display:block;font-size:14px;margin-bottom:3px}
+.today-card .tc small{display:block;font-size:11.5px;color:var(--mut);line-height:1.8}
+.today-card .btn{flex:none}
+
+/* ── جداکنندهٔ بخش‌های خانه ── */
+.cat-divider{height:1px;margin:6px 4px 22px;background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
+
+/* ── کم‌حرکتیِ کاروسلِ دسته‌ها ──
+   گذار و عمق و محوکردن خاموش؛ اسلایدها با opacity دیده/پنهان می‌شوند و
+   حرکتِ خودکار هم تایمر نمی‌گیرد (در خودِ کنترل‌کننده). */
+@media(prefers-reduced-motion:reduce){
+  .category-carousel,.carousel-track,.slide{perspective:none;transform:none!important;transition:none!important;filter:none!important}
+  .slide{opacity:0;visibility:hidden}
+  .slide.is-active,.slide.is-prev,.slide.is-next,.slide.is-far{opacity:1;visibility:visible}
+  .slide.is-prev,.slide.is-next,.slide.is-far{display:none}
+  .slide.is-active::before,.continue-card::before,.continue-progress .fill::after{animation:none!important;opacity:0}
+  .continue-progress .fill,.carousel-dots .dot,.slide .slide-cta,.stat-card{transition:none}
+}
+html[data-motion="off"] .category-carousel,html[data-motion="off"] .carousel-track,html[data-motion="off"] .slide{perspective:none;transform:none!important;transition:none!important;filter:none!important}
+html[data-motion="off"] .slide{opacity:0;visibility:hidden}
+html[data-motion="off"] .slide.is-active,html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{opacity:1;visibility:visible}
+html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{display:none}
+html[data-motion="off"] .slide.is-active::before,html[data-motion="off"] .continue-card::before,html[data-motion="off"] .continue-progress .fill::after{animation:none!important;opacity:0}
+html[data-motion="off"] .continue-progress .fill,html[data-motion="off"] .carousel-dots .dot,html[data-motion="off"] .slide .slide-cta,html[data-motion="off"] .stat-card{transition:none}
+/* صفحهٔ باریک: کارت کمی باریک‌تر تا همسایه بیشتر دیده شود */
+@media(max-width:360px){.slide{flex-basis:82%;padding:20px 16px;border-radius:20px}.slide .slide-title{font-size:17px}}
+
 /* پرداختِ صحن نور: سطح‌های آرام، لبهٔ طلایی و قوس معماری */
 .hero{border-radius:28px 28px 18px 18px;border-color:var(--line);background:radial-gradient(ellipse at 10% 0%,var(--glow1),transparent 65%),var(--glass)}
 .hero::after{content:'';position:absolute;inset:16px auto 0 5%;width:160px;border:1px solid var(--gold);border-bottom:0;border-radius:120px 120px 0 0;opacity:.08;pointer-events:none}
@@ -2275,7 +2474,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
     <div class="art-hero" id="homeArt"></div>
     <div class="hero foyer">
       <div class="foyer-copy">
-        <div class="foyer-eyebrow">به صحنِ نورستان خوش آمدی</div>
+        <div class="foyer-eyebrow" id="homeHello">به صحنِ نورستان خوش آمدی</div>
         <h1>هر روز،<br><em>روشن‌تر از دیروز.</em></h1>
         <p>اینجا جایی برای آرام گرفتن، آموختن و با هم بازی کردن است. امروزت را با یک آیه روشن کن.</p>
         <div class="foyer-actions">
@@ -2325,10 +2524,41 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
       </div><button id="slidePause" class="slider-pause" aria-label="توقف حرکت خودکار"><i data-ic="pause"></i></button></div>
     </section>
 
-    <!-- نوار «ادامهٔ خواندن» و مأموریت‌های امروز -->
-    <div id="homeResume"></div>
     <!-- هشدار زنجیره: فقط وقتی زنجیره‌ای هست و امروز بازی نشده -->
     <div id="homeWarn"></div>
+
+    <!-- ── آمارِ سریع ──
+         ردیفِ افقیِ اسکرول‌شدنی. شناسه‌های `stStar/stScore/stDone/stBadge`
+         همان‌های نسخهٔ پیشین‌اند تا `updateHomeStats()` بی‌تغییر کار کند؛
+         فقط `stStreak` تازه است. کلاسِ `.stat` هم نگه داشته شده تا
+         قاعده‌های هاله/هاورِ مشترکِ `.tile, .stat` از کار نیفتند. -->
+    <div class="stats stats-row" id="homeQuickStats" aria-label="آمار سریع">
+      <div class="stat stat-card"><span class="stat-icon"><i data-ic="star"></i></span><b class="stat-value" id="stStar">۰</b><span class="stat-label">ستاره</span></div>
+      <div class="stat stat-card"><span class="stat-icon"><i data-ic="trophy"></i></span><b class="stat-value" id="stScore">۰</b><span class="stat-label">امتیاز</span></div>
+      <div class="stat stat-card"><span class="stat-icon"><i data-ic="medal"></i></span><b class="stat-value" id="stBadge">۰</b><span class="stat-label">نشان</span></div>
+      <div class="stat stat-card"><span class="stat-icon"><i data-ic="check"></i></span><b class="stat-value" id="stDone">۰</b><span class="stat-label">کامل</span></div>
+      <div class="stat stat-card" data-tip="روزهای پیوسته‌ای که چالش روزانه را کامل کرده‌ای"><span class="stat-icon"><i data-ic="flame"></i></span><b class="stat-value" id="stStreak">۰</b><span class="stat-label">زنجیره</span></div>
+    </div>
+
+    <!-- ── ادامهٔ یادگیری ──
+         کارتِ ویژه با نوارِ پیشرفت؛ `ContinueCard.render()` پرش می‌کند. -->
+    <div id="homeResume"></div>
+
+    <div class="cat-divider" role="presentation"></div>
+
+    <!-- ── دسته‌ها ──
+         هر دسته یک کاروسلِ زنده است (`.category-carousel`) که
+         `renderHome()` می‌کشد و `initAllCarousels()` راهش می‌اندازد. -->
+    <div id="cats"></div>
+
+    <!-- ── پیشنهادِ امروز ──
+         اگر چالشِ روزانه مانده باشد همان را پیشنهاد می‌دهد، وگرنه یک
+         بازیِ قطعی بر اساسِ تاریخ (همهٔ دستگاه‌ها یک پیشنهادِ یکسان). -->
+    <div id="homeSuggest"></div>
+
+    <!-- آیهٔ روز — هر روز یک آیه، ثابت برای همهٔ دستگاه‌ها -->
+    <div id="daily"></div>
+
     <div class="card" id="homeMissCard" style="margin-bottom:14px">
       <div class="row" style="margin-bottom:10px">
         <b style="font-size:13px"><i data-ic="target"></i> مأموریت‌های امروز</b>
@@ -2338,18 +2568,6 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
       </div>
       <div class="miss-list" id="homeMiss"></div>
     </div>
-
-    <div class="stats">
-      <div class="stat"><b id="stStar">۰</b><span><i data-ic="star"></i> ستاره</span></div>
-      <div class="stat"><b id="stScore">۰</b><span><i data-ic="trophy"></i> امتیاز</span></div>
-      <div class="stat"><b id="stDone">۰</b><span><i data-ic="check"></i> کامل</span></div>
-      <div class="stat"><b id="stBadge">۰</b><span><i data-ic="medal"></i> نشان</span></div>
-    </div>
-
-    <!-- آیهٔ روز — هر روز یک آیه، ثابت برای همهٔ دستگاه‌ها -->
-    <div id="daily"></div>
-
-    <div id="cats"></div>
   </section>
 
   <section class="screen" id="s-online">
@@ -4067,6 +4285,12 @@ const Router = {
       (name === 'room'  && b.dataset.nav === 'online')));
     Icon.hydrate(U.$('#nav'));
     HomeCarousel.schedule();
+    /* کاروسل‌های دسته‌ها هم با همان دروازه: صفحه که `.active` شد دوباره
+       اندازه می‌گیرند و تایمرشان از سر می‌گیرد؛ صفحهٔ دیگر که فعال شد
+       تایمرشان می‌خوابد. این پیش از قلابِ صفحه اجرا می‌شود، پس اگر
+       `renderHome()` محتوای `#cats` را عوض نکند (چیزی تغییر نکرده باشد)
+       کاروسلِ موجود سرِ جای خودش می‌ماند و بی‌جهت از نو ساخته نمی‌شود. */
+    try{ if(typeof Carousels !== 'undefined') Carousels.refresh(); }catch(e){}
     window.scrollTo({ top: 0, behavior: FX.reduced ? 'auto' : 'smooth' });
     /* گذار نرم صفحه + جهش آیکن نوار پایین */
     try{ FX.view(name); }catch(e){}
@@ -11441,6 +11665,418 @@ const HomeCarousel = {
   }
 };
 
+/* ─────────────────── 10.99b کاروسلِ دسته‌ها ───────────────────
+   این جزء پیش‌تر در برنامه وجود نداشت؛ گزارشِ باگ از «CategoryCarousel»
+   حرف می‌زد ولی در کد فقط `HomeCarousel` (بنر سه‌اسلایدیِ خانه) بود.
+   پس «حرکت نمی‌کند» در واقع «وجود ندارد» بود. این‌جا همان نام و همان
+   قراردادی ساخته می‌شود که گزارش انتظارش را داشت:
+
+     el.__carousel                    → نمونهٔ زنده روی هر گره
+     .carousel-track / .slide         → ساختارِ DOM
+     Timers.after(…, 'page')          → تایمر (نه `Timers.set` که وجود ندارد)
+
+   سه تفاوتِ عمدی با الگوی پیشنهادیِ گزارش، که هر سه اندازه‌گیری‌شده‌اند:
+
+   ۱) جابه‌جایی از `offsetLeft` خوانده می‌شود، نه `-index*(width+gap)`.
+      صفحه RTL است: اسلایدِ ۰ راست‌ترین است و بقیه به چپ می‌روند، پس
+      فرمولِ چپ‌به‌راست، کاروسل را به سمتِ *خالی* هل می‌داد.
+   ۲) یک شنوندهٔ `pointermove` داریم که هم کشیدن را می‌برد هم درخششِ
+      نشانگر را؛ پشت یک rAF، تا هر حرکتِ ماوس دو بار style recalc نسازد.
+   ۳) تایمر از گونهٔ `page` است، پس با هر تغییر صفحه خودکار پاک می‌شود
+      و نمونهٔ مرده نمی‌تواند روی صفحهٔ دیگر شلیک کند. */
+class CategoryCarousel {
+  constructor(el, options = {}){
+    this.el = el;
+    this.opts = Object.assign({ autoplay: 5000, pauseOnHover: true }, options || {});
+    this.track = el.querySelector ? el.querySelector('.carousel-track') : null;
+    this.slides = U.$$('.slide', el);
+    this.dotsWrap = el.querySelector ? el.querySelector('.carousel-dots') : null;
+    this.statusEl = el.querySelector ? el.querySelector('.carousel-status') : null;
+    this.current = 0;
+    this.timer = null;
+    this.pauses = new Set();
+    this.drag = null;
+    this.destroyed = false;
+    /* فرونشاندنِ کلیکِ پس از کشیدن، با ساعتِ خودِ برنامه (`U.now`) نه
+       `Date.now` مستقیم — هم با بقیهٔ زمان‌بندیِ این کلاس یکی است، هم
+       آزمونِ DOMِ ساختگی می‌تواند زمان را جلو ببرد و «پس از فرونشستن
+       دوباره کار می‌کند» را واقعاً بسنجد. */
+    this.suppressClickUntil = 0;
+    this._glowQueued = false;
+    this._w = null;                                // آخرین عرضِ اندازه‌گیری‌شده
+    this.rtl = CategoryCarousel.isRtl(el);
+    el.__carousel = this;
+    this.setupDots();
+    this.bindNav();
+    this.bindPointer();
+    this.bindHover();
+    this.bindKeyboard();
+    this.setActive(0, { smooth: false });
+    this.schedule();
+  }
+  get paused(){ return this.pauses.size > 0; }
+  get count(){ return this.slides.length; }
+  get autoplayMs(){ const n = Number(this.opts.autoplay); return n > 0 ? n : 0; }
+
+  /* RTL از خودِ گره خوانده می‌شود، نه از حدس: پوسته می‌تواند `dir` را
+     عوض کند و کاروسل باید همان‌جا درست بماند. */
+  static isRtl(el){
+    try{ if(typeof getComputedStyle === 'function') return getComputedStyle(el).direction === 'rtl'; }catch(e){}
+    try{
+      const d = document.dir || (document.documentElement && document.documentElement.getAttribute('dir')) || 'rtl';
+      return String(d).toLowerCase() === 'rtl';
+    }catch(e){ return true; }
+  }
+
+  wrap(i){ const n = this.slides.length; return n ? ((i % n) + n) % n : 0; }
+
+  /* فاصلهٔ فیزیکیِ اسلایدِ i از اسلایدِ ۰. در RTL منفی است. اگر صفحه
+     پنهان باشد (display:none) همه‌چیز صفر است و صفر برمی‌گردانیم؛
+     `refresh()` پس از آشکارشدن دوباره اندازه می‌گیرد. */
+  stepOf(i){
+    const s = this.slides[i], first = this.slides[0];
+    if(!s || !first) return 0;
+    if(!s.offsetWidth && !first.offsetWidth) return 0;
+    return (s.offsetLeft || 0) - (first.offsetLeft || 0);
+  }
+
+  visible(){
+    if(this.destroyed || !this.el || !this.el.isConnected) return false;
+    const screen = this.el.closest ? this.el.closest('.screen') : null;
+    if(screen && screen.classList && !screen.classList.contains('active')) return false;
+    return !!(this.el.offsetWidth || this.el.offsetHeight);
+  }
+
+  setupDots(){
+    const n = this.slides.length;
+    if(!this.dotsWrap) return;
+    /* نقطه‌ها از پیش در مارک‌آپ هستند تا بی‌JS هم کاروسل خالی نماند؛
+       این‌جا شمارشان با اسلایدها یکی می‌شود. */
+    if(this.dotsWrap.querySelectorAll('.dot').length !== n){
+      this.dotsWrap.innerHTML = this.slides.map((_, i) =>
+        `<button type="button" class="dot" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"></button>`).join('');
+    }
+    this.dotsWrap.hidden = n < 2;
+    this.dotsWrap.addEventListener('click', e => {
+      if(this.destroyed) return;
+      const dot = e.target && e.target.closest ? e.target.closest('.dot') : null;
+      if(!dot) return;
+      Sound.click();
+      this.go(+dot.dataset.i);
+    });
+    this.paintDots();
+  }
+
+  paintDots(){
+    if(!this.dotsWrap) return;
+    U.$$('.dot', this.dotsWrap).forEach((d, i) => {
+      d.classList.toggle('active', i === this.current);
+      d.setAttribute('aria-current', i === this.current ? 'true' : 'false');
+    });
+  }
+
+  bindNav(){
+    const p = this.el.querySelector ? this.el.querySelector('.carousel-nav.prev') : null;
+    const x = this.el.querySelector ? this.el.querySelector('.carousel-nav.next') : null;
+    if(p) p.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current - 1); };
+    if(x) x.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current + 1); };
+  }
+
+  bindKeyboard(){
+    if(!this.el.setAttribute) return;
+    this.el.setAttribute('tabindex', '0');
+    this.el.addEventListener('keydown', e => {
+      if(this.destroyed || e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if(this.slides.length < 2) return;
+      e.preventDefault();
+      /* در RTL فلشِ چپ یعنی «جلو» — همان قراردادِ اسلایدرِ بنرِ خانه. */
+      this.go(this.current + (this.rtl ? (e.key === 'ArrowLeft' ? 1 : -1)
+                                       : (e.key === 'ArrowLeft' ? -1 : 1)));
+    });
+  }
+
+  bindHover(){
+    if(!this.opts.pauseOnHover) return;
+    this.el.addEventListener('pointerenter', e => { if(e.pointerType !== 'touch') this.pause('hover', true); });
+    this.el.addEventListener('pointerleave', () => this.pause('hover', false));
+    this.el.addEventListener('focusin', () => this.pause('focus', true));
+    this.el.addEventListener('focusout', e => {
+      if(!(this.el.contains && this.el.contains(e.relatedTarget))) this.pause('focus', false);
+    });
+  }
+
+  /* ── کشیدنِ زنده + درخششِ نشانگر، در یک شنونده ──
+     پیش از قفلِ افقی، هیچ transform نوشته نمی‌شود؛ پس لمسِ عمودی همان
+     اسکرولِ صفحه می‌ماند. بعد از قفل، فقط `translateX` مسیر و `opacity`
+     دو اسلاید نوشته می‌شود — هیچ width/height/filter/box-shadow نه. */
+  bindPointer(){
+    const root = this.el;
+    const onDown = e => {
+      if(this.destroyed || this.drag || this.slides.length < 2) return;
+      if(e.button !== 0 || e.isPrimary === false) return;
+      if(e.target && e.target.closest && e.target.closest('.carousel-dots,.carousel-nav')) return;
+      this.pause('touch', true);
+      this.drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0,
+                    t0: U.now(), lastX: e.clientX, lastT: U.now(), vx: 0,
+                    locked: false, dead: false, base: -this.stepOf(this.current) };
+    };
+    const onMove = e => {
+      if(this.destroyed) return;
+      const d = this.drag;
+      if(!d || d.dead || e.pointerId !== d.id){ this.glow(e); return; }
+      d.dx = e.clientX - d.x0; d.dy = e.clientY - d.y0;
+      const dt = Math.max(1, U.now() - d.lastT);
+      d.vx = (e.clientX - d.lastX) / dt; d.lastX = e.clientX; d.lastT = U.now();
+      if(!d.locked){
+        /* حرکتِ عمودیِ غالب یعنی اسکرولِ صفحه، نه کشیدنِ کاروسل */
+        if(Math.abs(d.dy) > 12 && Math.abs(d.dy) > Math.abs(d.dx)){
+          d.dead = true; this.resetDrag(); this.pause('touch', false); return;
+        }
+        if(Math.abs(d.dx) > 6){
+          d.locked = true;
+          try{ root.setPointerCapture(e.pointerId); }catch(err){}
+          if(!FX.reduced) root.classList.add('dragging');
+        }
+      }
+      if(!d.locked || FX.reduced || !this.track) return;
+      this.track.style.transform = `translateX(${(d.base + d.dx).toFixed(1)}px)`;
+      /* همسایه‌ای که دارد وارد می‌شود روشن و کارتِ فعال کمی محو می‌شود؛
+         چون کلاسِ `.dragging` گذارِ اسلایدها را خاموش کرده، این مقدارها
+         ۱:۱ با انگشت می‌آیند. */
+      const dir = (this.rtl ? d.dx : -d.dx) > 0 ? 1 : -1;
+      const prog = Math.min(1, Math.abs(d.dx) / Math.max(1, (root.clientWidth || 320) * .55));
+      const nb = this.slides[this.wrap(this.current + dir)];
+      const act = this.slides[this.current];
+      if(nb && nb !== act){ nb.style.visibility = 'visible'; nb.style.opacity = (0.72 + 0.28 * prog).toFixed(3); }
+      if(act) act.style.opacity = (1 - 0.28 * prog).toFixed(3);
+    };
+    const release = e => {
+      const d = this.drag;
+      if(this.destroyed || !d || (e && e.pointerId != null && e.pointerId !== d.id)) return;
+      this.drag = null;
+      root.classList.remove('dragging');
+      try{ root.releasePointerCapture(d.id); }catch(err){}
+      const cancelled = !!e && (e.type === 'pointercancel' || e.type === 'lostpointercapture' || e.type === 'blur');
+      /* اینرسی: سرعتِ لحظهٔ آخر، به شرطی که کهنه نباشد (<۱۰۰ms) */
+      const flick = !FX.reduced && U.now() - d.lastT < 100 && Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
+      const eff = this.rtl ? d.dx : -d.dx;                       // مثبت ⇒ اسلایدِ بعد
+      const commit = !d.dead && !cancelled && d.locked &&
+                     (Math.abs(d.dx) > 60 || flick) && Math.abs(d.dx) > Math.abs(d.dy);
+      this.resetDrag();
+      if(commit){
+        this.go(this.current + (eff > 0 ? 1 : -1));
+        this.suppressClickUntil = U.now() + 500;
+      }else{
+        this.setActive(this.current, { smooth: true });          // فنر به جای خود
+        if(d.locked) this.suppressClickUntil = U.now() + 260;
+      }
+      this.pause('touch', false);
+    };
+    this._release = release;
+    root.addEventListener('pointerdown', onDown);
+    root.addEventListener('pointermove', onMove);
+    /* کلیکِ کارتِ فعال بازی را باز می‌کند — ولی نه اگر تازه کشیده باشیم */
+    root.addEventListener('click', e => {
+      if(this.destroyed || U.now() < this.suppressClickUntil) { if(e && e.preventDefault) e.preventDefault(); return; }
+      const slide = e.target && e.target.closest ? e.target.closest('.slide') : null;
+      if(!slide || !slide.dataset || !slide.dataset.game) return;
+      const g = slide.dataset.game;
+      Sound.click();
+      if(Games[g]) Games[g](); else UI.toast('به زودی...', '');
+    });
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+    root.addEventListener('lostpointercapture', release);
+  }
+
+  /* درخششِ شعاعی که نشانگر را دنبال می‌کند؛ پشت rAF تا یک‌بار در فریم بنویسد */
+  glow(e){
+    if(FX.reduced || !e || e.pointerType === 'touch' || this._glowQueued) return;
+    const x = e.clientX, y = e.clientY;
+    this._glowQueued = true;
+    FX.raf(() => {
+      this._glowQueued = false;
+      if(this.destroyed) return;
+      const s = this.slides[this.current];
+      if(!s || !s.getBoundingClientRect) return;
+      const b = s.getBoundingClientRect();
+      if(!b.width || !b.height) return;
+      s.style.setProperty('--mx', (((x - b.left) / b.width) * 100).toFixed(1) + '%');
+      s.style.setProperty('--my', (((y - b.top) / b.height) * 100).toFixed(1) + '%');
+    });
+  }
+
+  setActive(index, opts = {}){
+    const n = this.slides.length;
+    if(!n) return;
+    this.current = this.wrap(index);
+    this._w = this.el.clientWidth || this._w;
+    const smooth = opts.smooth !== false && !FX.reduced;
+    if(!FX.reduced && this.track){
+      const base = -this.stepOf(this.current);
+      this.track.style.transition = smooth ? '' : 'none';
+      /* `translateX(0px)` نه `translateX(0.0px)`: مرورگر مقدارِ inline را
+         نرمال می‌کند و هر دو یکی خوانده می‌شوند، ولی در کنسول (و در آزمونِ
+         DOMِ ساختگی) همان رشته‌ای می‌ماند که نوشته‌ایم. صفرِ صریح، یعنی
+         «کنترل‌کننده این‌جا بوده» — نه «کسی transform ننوشته». */
+      this.track.style.transform = base ? `translateX(${base.toFixed(1)}px)` : 'translateX(0px)';
+      /* «none» را یک فریم بعد برمی‌گردانیم: این جهش بی‌انیمیشن می‌ماند،
+         ولی جابه‌جاییِ بعدی دوباره گذارِ ۸۰۰ms می‌گیرد. */
+      if(!smooth && !this.drag) FX.raf(() => { if(this.track && !this.drag && !this.destroyed) this.track.style.transition = ''; });
+    }else if(this.track){
+      /* کم‌حرکتی: CSS خودش transform را !important صفر می‌کند؛ ما فقط
+         اثرِ زندهٔ کشیدن را پاک می‌کنیم تا چیزی نیمه‌کاره نماند. */
+      this.track.style.transition = '';
+      this.track.style.transform = '';
+    }
+    this.slides.forEach((s, i) => {
+      let d = i - this.current;
+      if(d > n / 2) d -= n;
+      if(d < -n / 2) d += n;
+      const on = d === 0;
+      s.style.opacity = ''; s.style.visibility = ''; s.style.transform = '';
+      s.classList.toggle('is-active', on);
+      s.classList.toggle('is-prev', d === -1);
+      s.classList.toggle('is-next', d === 1);
+      s.classList.toggle('is-far', Math.abs(d) === 2);
+      /* کارت‌های غیرفعال از ترتیبِ Tab و از کلیک بیرون می‌روند تا محتوای
+         پنهان، قابلِ تمرکز نماند (همان کاری که بنرِ خانه می‌کند). */
+      s.inert = !on;
+      if(s.setAttribute){
+        s.setAttribute('aria-hidden', String(!on));
+        s.setAttribute('aria-label', `${U.fa(i + 1)} از ${U.fa(n)}`);
+      }
+    });
+    this.paintDots();
+    if(this.statusEl) this.statusEl.textContent = `اسلاید ${U.fa(this.current + 1)} از ${U.fa(n)}`;
+  }
+
+  resetDrag(){
+    if(this.track) this.track.style.transform = '';
+    this.slides.forEach(s => { s.style.opacity = ''; s.style.visibility = ''; s.style.transform = ''; });
+  }
+
+  next(){ this.go(this.current + 1); }
+  prev(){ this.go(this.current - 1); }
+  show(i){ this.setActive(i); }
+  /* رفتنِ دستی: تایمرِ حرکتِ خودکار از سر می‌گیرد تا بلافاصله بعدش نپرد */
+  go(i){
+    this.setActive(i);
+    this.pauses.delete('user');
+    this.schedule(true);                           // کاربر رفته است ⇒ پنج ثانیهٔ کامل
+  }
+
+  pause(reason, on){ on ? this.pauses.add(reason) : this.pauses.delete(reason); this.schedule(); }
+  stopTimer(){ if(this.timer != null){ Timers.clear(this.timer); this.timer = null; } }
+  startAutoplay(){ this.schedule(true); }
+  stopAutoplay(){ this.stopTimer(); }
+
+  /* آیا شمارشِ جاریِ حرکتِ خودکار واقعاً زنده است؟
+     `this.timer != null` کافی نیست: `Timers.clearPage()` با هر تغییرِ صفحه
+     تایمرهای گونهٔ page را بی‌صدا پاک می‌کند و شناسه در `this.timer`
+     می‌ماند. خودِ `Timers.page` فهرستِ زنده‌هاست، پس از آن می‌پرسیم. */
+  timerAlive(){
+    if(this.timer == null) return false;
+    try{
+      if(Timers.page && Timers.page.has) return Timers.page.has(this.timer);
+      if(Timers.sys && Timers.sys.has) return Timers.sys.has(this.timer);
+    }catch(e){}
+    return true;
+  }
+
+  /* `restart` فقط از راهِ کاربر می‌آید (نقطه، کلید، کشیدن، دکمهٔ ناوبری).
+     بی آن، یک رویدادِ `resize` — یا هر `refresh()` دیگر — شمارشِ پنج‌ثانیه‌ای
+     را از صفر می‌انداخت و اگر پشتِ سر هم تکرار می‌شد، حرکتِ خودکار *هرگز*
+     تیک نمی‌خورد. این دقیقاً همان چیزی است که در اندازه‌گیری دیدیم:
+     عکسِ بریدهٔ مرورگر رویدادِ resize می‌ساخت و ۵ کاروسل، ۳ بار در ثانیه
+     تایمرشان را از نو می‌گرفتند. */
+  schedule(restart){
+    if(restart) this.stopTimer();
+    let blocked = this.destroyed || !this.autoplayMs || this.slides.length < 2 ||
+                  FX.reduced || this.paused || !this.visible();
+    if(!blocked){ try{ blocked = typeof document !== 'undefined' && !!document.hidden; }catch(e){} }
+    if(blocked){ this.stopTimer(); return; }
+    if(this.timerAlive()) return;                  // شمارشِ جاری دست‌نخورده می‌ماند
+    this.timer = Timers.after(() => {
+      this.timer = null;
+      if(this.destroyed) return;
+      this.setActive(this.current + 1);
+      this.schedule();
+    }, this.autoplayMs, 'page');
+  }
+
+  /* اندازه‌گیریِ دوباره: پس از آشکارشدنِ صفحه، تغییرِ اندازه و بارشدنِ قلم.
+     اگر عرض عوض نشده، هیچ سبکی بازنویسی نمی‌شود — فقط وضعیتِ تایمر. */
+  refresh(){
+    if(this.destroyed) return;
+    this.rtl = CategoryCarousel.isRtl(this.el);
+    if(!this.visible()){ this.stopTimer(); return; }
+    const w = this.el.clientWidth || 0;
+    if(w !== this._w){
+      this._w = w;
+      this.setActive(this.current, { smooth: false });
+    }
+    this.schedule();
+  }
+
+  destroy(){
+    if(this.destroyed) return;
+    this.destroyed = true;
+    this.stopTimer();
+    try{
+      window.removeEventListener('pointerup', this._release);
+      window.removeEventListener('pointercancel', this._release);
+      window.removeEventListener('blur', this._release);
+    }catch(e){}
+    if(this.el && this.el.__carousel === this) this.el.__carousel = null;
+    Carousels.forget(this);
+  }
+}
+
+/* ثبتِ زندهٔ نمونه‌ها. `renderHome()` هر بار `#cats` را از نو می‌کشد، پس
+   گره‌های کهنه از DOM می‌افتند؛ بی این پاک‌سازی، هر بارِ خانه سه
+   شنوندهٔ `pointerup` روی window به جا می‌ماند و تایمرهای مرده هم
+   سرِ جای خودشان می‌ماندند. */
+const Carousels = {
+  list: new Set(),
+  bound: false,
+  forget(c){ this.list.delete(c); },
+  init(){
+    for(const c of [...this.list]) if(!c.el || !c.el.isConnected || c.destroyed) c.destroy();
+    let made = 0;
+    U.$$('.category-carousel').forEach(el => {
+      if(el.__carousel && !el.__carousel.destroyed){ el.__carousel.refresh(); return; }
+      el.__carousel = null;
+      try{ this.list.add(new CategoryCarousel(el, { autoplay: 5000, pauseOnHover: true })); made++; }
+      catch(e){ console.warn('category carousel', e); }
+    });
+    this.bindGlobal();
+    return made;
+  },
+  refresh(){ for(const c of [...this.list]) { try{ c.refresh(); }catch(e){} } },
+  destroyAll(){ for(const c of [...this.list]) c.destroy(); },
+  bindGlobal(){
+    if(this.bound) return;
+    this.bound = true;
+    try{ document.addEventListener('visibilitychange', () => this.refresh()); }catch(e){}
+    let rt = null;
+    try{
+      window.addEventListener('resize', () => {
+        if(rt) clearTimeout(rt);
+        rt = setTimeout(() => { rt = null; this.refresh(); }, 160);
+      });
+    }catch(e){}
+    /* قلم که دیر بار شود، عرضِ کارت‌ها عوض می‌شود و جابه‌جاییِ اندازه‌گیری‌شده
+       کهنه می‌ماند؛ یک‌بار پس از آماده‌شدنِ قلم‌ها دوباره اندازه می‌گیریم. */
+    try{ if(document.fonts && document.fonts.ready && document.fonts.ready.then) document.fonts.ready.then(() => this.refresh()); }catch(e){}
+  }
+};
+
+/* نامِ سراسریِ خواسته‌شده در گزارشِ باگ — همان `Carousels.init()` است.
+   چون اعلامِ تابع است، روی `window` هم می‌نشیند و از کنسول دیده می‌شود. */
+function initAllCarousels(){ return Carousels.init(); }
+
 const AyahEmbed = {
  URL:'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
  open(){
@@ -11891,6 +12527,14 @@ function updateHomeStats(){
     FX.countUp(el, val, 800);
   };
   set('#stStar', star); set('#stScore', d.score); set('#stDone', done); set('#stBadge', badge);
+  set('#stStreak', Streak.count());
+  /* خوش‌آمدِ شخصی: نام از حسابِ خودِ کاربر می‌آید. با `textContent`
+     نوشته می‌شود، نه innerHTML — نام، ورودیِ کاربر است. */
+  const hel = U.$('#homeHello');
+  if(hel){
+    const nm = String(Store.get('playerName') || '').trim();
+    hel.textContent = nm ? `👋 سلام، ${nm}` : 'به صحنِ نورستان خوش آمدی';
+  }
   U.icLabel(U.$('#cRole'), Session.admin() ? 'crown' : 'user', Session.admin() ? 'مدیر' : 'کاربر');
   const co = U.$('#cCoins');
   if(co) U.icLabel(co, 'coin', U.fa(Wallet.get()));
@@ -11928,22 +12572,196 @@ function updateHomeStats(){
     const mo = U.$('#missOpen');
     if(mo && !mo.onclick) mo.onclick = () => Missions.open();
   }
-  /* نوار «ادامهٔ خواندن» */
-  const hr = U.$('#homeResume');
-  if(hr){
-    hr.innerHTML = Bookmarks.bar();
-    const g = U.$('#bmGo');
-    if(g) g.onclick = () => {
-      const r = Bookmarks.resumeAt(); if(!r) return;
-      Store.update(x => { x.quran.surah = r.s; x.quran.ayah = r.a; });
-      ReaderUI.open(r.s, r.a); Recite.playSurah(r.s, r.a);
-    };
-  }
+  /* کارتِ «ادامهٔ یادگیری» و «پیشنهادِ امروز».
+     هر دو کلیدِ مقایسه دارند، پس اگر داده عوض نشده DOM دست‌نخورده می‌ماند
+     و گذارِ نوارِ پیشرفت هر بارِ تازه‌سازی از سر پخش نمی‌شود.
+     `Bookmarks.bar()` سرِ جای خودش در صفحهٔ قرآن (#qResume) باقی است. */
+  try{ ContinueCard.render(); }catch(e){ console.warn('continue card', e); }
+  try{ Suggestion.render(); }catch(e){ console.warn('suggestion', e); }
   updateHomeStats._first = false;
   updateHearts();
 }
 updateHomeStats._first = true;
 updateHomeStats._pct = 0;
+
+/* ── برچسبِ گوشهٔ کارتِ بازی ──
+   همان چهار رشتهٔ template literal که پیش‌تر در renderHome بودند؛ بیرون
+   آمدند تا هم اسلایدِ کاروسل و هم کاشیِ قدیمی یک برچسب داشته باشند.
+   `${…}` داخل رشتهٔ تک‌کوتیشنی هرگز درج نمی‌شود و کوتیشنِ داخلیِ
+   `Glyph.of('🔥')` رشته را از هم می‌پاشد. */
+function gameTagHtml(gm){
+  return gm.tag === 'hot' ? `<span class="badge">${Glyph.of('🔥')} داغ</span>`
+       : gm.tag === 'new' ? `<span class="badge p">${Glyph.of('✨')} جدید</span>`
+       : gm.tag === 'net' ? `<span class="badge g">${Glyph.of('🌐')} شبکه</span>`
+       : gm.tag === 'ir'  ? `<span class="badge">${Glyph.of('🇮🇷')} ایران</span>` : '';
+}
+
+/* بازی‌هایی که در کاروسلِ یک دسته جا می‌شوند.
+   اگر دسته از سقف بزرگ‌تر بود، «داغ» و بعد «تازه» جلو می‌افتند و بقیه به
+   همان ترتیبِ خودِ فهرست می‌آیند — ترتیب *قطعی* است تا بین دو رندر
+   جابه‌جا نشود (ترتیبِ وابسته به آمار، هر بار خانه را عوض می‌کرد و
+   کاربر جایی را که دیروز دیده بود گم می‌کرد).
+   هیچ موردی گم نمی‌شود: دکمهٔ «همه» در سرِ دسته به صفحهٔ 🎮 می‌برد که
+   فهرستِ کاملِ بازی‌ها آن‌جاست. */
+const CAROUSEL_MAX = 6;
+function carouselPicks(games, max = CAROUSEL_MAX){
+  const list = games.filter(g => DATA.GAMES[g]);
+  if(list.length <= max) return list;
+  const rank = g => { const t = DATA.GAMES[g].tag; return t === 'hot' ? 0 : t === 'new' ? 1 : 2; };
+  return list.map((g, i) => ({ g, i, r: rank(g) }))
+             .sort((a, b) => a.r - b.r || a.i - b.i)
+             .slice(0, max).map(o => o.g);
+}
+
+/* بازی‌هایی که «شروع» برایشان درست نیست — صفحه‌اند، نه دورِ بازی */
+const OPEN_NOT_PLAY = new Set(['stats','badges','leaderboard','settings','bookmarks',
+  'reciters','friends','missions','collection','profile','shop','onboarding','daily']);
+function slideCtaText(g){
+  if(g === 'recite') return 'رفتن به تلاوت';
+  if(g === 'online-lobby') return 'رفتن به محفل';
+  return OPEN_NOT_PLAY.has(g) ? 'باز کن' : 'شروع';
+}
+
+/* زیرنویسِ زندهٔ بعضی بازی‌ها — همان منطقِ نسخهٔ کاشی */
+function slideSubText(g, d){
+  const gm = DATA.GAMES[g];
+  if(g === 'daily'){
+    const st = DailyChallenge.status();
+    return st.done ? `امروز انجام شد • زنجیره ${U.fa(st.streak)} روز` : 'امروز انجام نشده — جایزه بگیر';
+  }
+  if(g === 'surah') return `${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)} سوره کامل شده`;
+  return gm.desc;
+}
+
+function slideHtml(g, i, n, d){
+  const gm = DATA.GAMES[g];
+  const rec = Progress.recordLabel(g);
+  const first = i === 0;
+  /* اسلایدِ نخست از همان مارک‌آپ `is-active` دارد: اگر JS به هر دلیلی
+     نرسد، خانه کاروسلِ خالی نشان نمی‌دهد — همان یک کارت دیده می‌شود. */
+  return `<article class="slide${first ? ' is-active' : ''}" data-game="${g}"
+      role="group" aria-roledescription="اسلاید" aria-label="${U.fa(i + 1)} از ${U.fa(n)}"${first ? '' : ' inert aria-hidden="true"'}>
+    ${gameTagHtml(gm)}
+    <span class="slide-icon">${Glyph.of(gm.icon)}</span>
+    <h3 class="slide-title">${U.esc(gm.name)}</h3>
+    <p class="slide-desc">${U.esc(slideSubText(g, d))}</p>
+    ${rec !== '' && rec != null ? `<span class="slide-rec">${Glyph.of('🏅')} رکورد: ${U.fa(rec)}</span>` : ''}
+    <button type="button" class="slide-cta">${slideCtaText(g)} ${Icon.of('back')}</button>
+  </article>`;
+}
+
+function catCarouselHtml(cat, d){
+  const games = cat.games.filter(g => DATA.GAMES[g]);
+  const picks = carouselPicks(games);
+  const n = picks.length || 1;
+  return `
+    <div class="cat">
+      <div class="cat-head">
+        <div class="cat-ico">${Glyph.of(cat.icon)}</div>
+        <div><h2>${U.esc(cat.title)}</h2><p>${U.esc(cat.desc)}</p></div>
+        <span class="cat-cnt">${U.fa(games.length)} مورد</span>
+        ${games.length > picks.length ? `<button type="button" class="btn gh sm" data-cat-all="${cat.id}" data-tip="فهرست کاملِ بازی‌ها">همه</button>` : ''}
+      </div>
+      <div class="category-carousel" data-cat="${cat.id}" role="group" aria-roledescription="کاروسل" aria-label="${U.esc(cat.title)}">
+        <div class="carousel-viewport">
+          <div class="carousel-track">${picks.map((g, i) => slideHtml(g, i, picks.length, d)).join('')}</div>
+        </div>
+        <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
+        <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
+        <div class="carousel-dots" aria-label="انتخاب اسلاید">${
+          picks.map((_, i) => `<button type="button" class="dot${i === 0 ? ' active' : ''}" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('')}</div>
+        <p class="carousel-status" role="status" aria-live="polite">اسلاید ۱ از ${U.fa(picks.length)}</p>
+      </div>
+    </div>`;
+}
+
+/* ── کارتِ «ادامهٔ یادگیری» ──
+   همان دادهٔ `Bookmarks.resumeAt()` که پیش‌تر یک نوارِ باریک بود، حالا
+   کارتِ ویژهٔ خانه است با نوارِ پیشرفتِ سوره. نوار با `scaleX` پر می‌شود
+   (نه `width`) و یک فریم بعد از درج، تا گذارِ ۸۰۰ms دیده شود. */
+const ContinueCard = {
+  render(){
+    const el = U.$('#homeResume');
+    if(!el) return;
+    const r = Bookmarks.resumeAt();
+    if(!r || !r.s){ el.innerHTML = ''; el.dataset.k = ''; return; }
+    const key = `${r.s}:${r.a}:${Bookmarks.list.length}`;
+    if(el.dataset.k === key) return;                 // همان جای پیشین است
+    el.dataset.k = key;
+    const su = QURAN[r.s - 1];
+    const total = (su && su.count) ? su.count : 1;
+    const pct = Math.max(1, Math.min(100, Math.round((r.a / total) * 100)));
+    const marked = Bookmarks.list.length > 0;
+    el.innerHTML = `<div class="continue-card">
+      <div class="continue-head">
+        <span class="ci">${Glyph.of('📖')}</span><b>ادامهٔ یادگیری</b>
+        <span class="sp"></span>
+        <span class="chip wr">${U.fa(pct)}٪ از سوره</span>
+      </div>
+      <div class="continue-title">سورهٔ ${U.esc(su ? su.name : '')}، آیهٔ ${U.fa(r.a)}</div>
+      <div class="continue-sub">${U.esc(marked ? 'آخرین نشانهٔ تو' : 'آخرین جای خوانده‌شده')}</div>
+      <div class="continue-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${pct}" aria-label="پیشرفت در سوره"><i class="fill"></i></div>
+      <div class="continue-row">
+        <button type="button" class="btn sm" id="bmGo">${Glyph.of('▶')} ادامه</button>
+        <span class="continue-pct">آیهٔ ${U.fa(r.a)} از ${U.fa(total)}</span>
+      </div>
+    </div>`;
+    const fill = U.$('.fill', el);
+    if(fill) FX.raf(() => { try{ fill.style.transform = `scaleX(${(pct / 100).toFixed(4)})`; }catch(e){} });
+    const g = U.$('#bmGo', el);
+    if(g) g.onclick = () => {
+      const rr = Bookmarks.resumeAt(); if(!rr) return;
+      Sound.click();
+      Store.update(x => { x.quran.surah = rr.s; x.quran.ayah = rr.a; });
+      ReaderUI.open(rr.s, rr.a); Recite.playSurah(rr.s, rr.a);
+    };
+  }
+};
+
+/* ── پیشنهادِ امروز ──
+   دو حالت: چالشِ روزانه مانده ⇒ همان (با جایزهٔ واقعیِ همان روز)، وگرنه
+   یک بازیِ *قطعی بر اساسِ تاریخ* — همهٔ دستگاه‌ها در یک روز یک پیشنهادِ
+   یکسان می‌بینند، همان قراردادی که «آیهٔ روز» دارد. */
+const Suggestion = {
+  POOL: ['surah','ayahlight','recite','memory','match','speed','quiz','meaning',
+         'scramble','iran','hadith','imams','dua','nahj','tree','exam'],
+  pick(){
+    const st = DailyChallenge.status();
+    if(!st.done){
+      const streak = Streak.base() + 1;
+      return { kind: 'daily', streak, reward: 75 + Math.min(streak, 7) * 5 };
+    }
+    const pool = this.POOL.filter(g => DATA.GAMES[g]);
+    if(!pool.length) return null;
+    const rng = U.seedRand('sg' + U.today());
+    return { kind: 'game', game: pool[Math.floor(rng() * pool.length) % pool.length] };
+  },
+  render(){
+    const el = U.$('#homeSuggest');
+    if(!el) return;
+    const p = this.pick();
+    if(!p){ el.innerHTML = ''; el.dataset.k = ''; return; }
+    const key = p.kind === 'daily' ? `daily:${p.streak}` : `game:${p.game}`;
+    if(el.dataset.k === key) return;
+    el.dataset.k = key;
+    if(p.kind === 'daily'){
+      el.innerHTML = `<div class="today-card">
+        <span class="ti">${Glyph.of('🌙')}</span>
+        <span class="tc"><b>چالش روزانه</b><small>+${U.fa(p.reward)} امتیاز و زنجیرهٔ ${U.fa(p.streak)} روز — پنج پرسش که برای همه یکسان است</small></span>
+        <button type="button" class="btn sm" id="sgGo">شروع</button></div>`;
+      const b = U.$('#sgGo', el); if(b) b.onclick = () => { Sound.click(); DailyChallenge.open(); };
+      return;
+    }
+    const gm = DATA.GAMES[p.game];
+    el.innerHTML = `<div class="today-card">
+      <span class="ti">${Glyph.of(gm.icon)}</span>
+      <span class="tc"><b>پیشنهادِ امروز: ${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
+      <button type="button" class="btn sm" id="sgGo">${slideCtaText(p.game)}</button></div>`;
+    const b = U.$('#sgGo', el);
+    if(b) b.onclick = () => { Sound.click(); if(Games[p.game]) Games[p.game](); else UI.toast('به زودی...', ''); };
+  }
+};
 
 function renderHome(){
   const catsEl = U.$('#cats');
@@ -11956,70 +12774,45 @@ function renderHome(){
     art.onclick = () => { Sound.page(); Router.go('quran'); };
     art.style.cursor = 'pointer';
   }
-  /* هشدار زنجیره و کارت فروشگاه، بالای دسته‌ها — ولی نه هر بار که تازه
-     می‌شود، چون انیمیشن ورودش تکرار می‌شود و چشم را می‌زند. */
+  /* هشدار زنجیره، بالای دسته‌ها — ولی نه هر بار که تازه می‌شود، چون
+     انیمیشن ورودش تکرار می‌شود و چشم را می‌زند. */
   const warnEl = U.$('#homeWarn');
   if(warnEl){
     const html = Streak.warn();
     if(warnEl.dataset.h !== html){ warnEl.dataset.h = html; warnEl.innerHTML = html; Streak.wire(warnEl); }
   }
-  catsEl.innerHTML = DATA.categories.map(cat => {
-    const games = cat.games.filter(g => DATA.GAMES[g]);
-    return `
-      <div class="cat">
-        <div class="cat-head">
-          <div class="cat-ico">${Glyph.of(cat.icon)}</div>
-          <div><h2>${U.esc(cat.title)}</h2><p>${U.esc(cat.desc)}</p></div>
-          <span class="cat-cnt">${U.fa(games.length)} مورد</span>
-        </div>
-        <div class="grid">
-          ${games.map(g => {
-            const gm = DATA.GAMES[g];
-            /* این چهار رشته باید template literal باشند، نه رشتهٔ تک‌کوتیشنی:
-               `${…}` داخل `'…'` هرگز درج نمی‌شود و کوتیشنِ داخلیِ
-               `Glyph.of('🔥')` رشته را از هم می‌پاشد. */
-            const tag = gm.tag === 'hot' ? `<span class="badge">${Glyph.of('🔥')} داغ</span>`
-                      : gm.tag === 'new' ? `<span class="badge p">${Glyph.of('✨')} جدید</span>`
-                      : gm.tag === 'net' ? `<span class="badge g">${Glyph.of('🌐')} شبکه</span>`
-                      : gm.tag === 'ir'  ? `<span class="badge">${Glyph.of('🇮🇷')} ایران</span>` : '';
-            let sub = gm.desc;
-            if(g === 'daily'){
-              const st = DailyChallenge.status();
-              sub = st.done ? `✅ امروز انجام شد • زنجیره ${U.fa(st.streak)} روز` : 'امروز انجام نشده — جایزه بگیر';
-            }
-            if(g === 'surah') sub = `${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)} سوره کامل شده`;
-            return `<div class="tile" data-game="${g}">${tag}
-              <span class="ti">${Glyph.of(gm.icon)}</span><b>${U.esc(gm.name)}</b><small>${U.esc(sub)}</small></div>`;
-          }).join('')}
-        </div>
-      </div>`;
-  }).join('');
-  U.$$('.tile[data-game]').forEach(t => t.onclick = () => {
-    const g = t.dataset.game;
-    if(Games[g]) Games[g](); else UI.toast('به زودی...', '');
-  });
+  /* ── دسته‌ها به شکلِ کاروسل ──
+     مقایسهٔ HTML پیش از بازنویسی دو کار می‌کند: نخست، اگر پیشرفتی عوض
+     نشده DOM دست‌نخورده می‌ماند و کاروسل سرِ همان اسلایدی می‌ماند که
+     کاربر رهایش کرده بود؛ دوم، شنونده‌های window بی‌دلیل زیاد نمی‌شوند.
+     `renderHome` هر بارِ خانه صدا زده می‌شود، پس بی این مقایسه هر ورود
+     به خانه یک کاروسلِ تازه با تایمرِ تازه می‌ساخت. */
+  const html = DATA.categories.map(cat => catCarouselHtml(cat, d)).join('');
+  const changed = renderHome._catsHtml !== html;
+  if(catsEl && changed){
+    renderHome._catsHtml = html;
+    catsEl.innerHTML = html;
+    U.$$('[data-cat-all]', catsEl).forEach(b => b.onclick = () => { Sound.click(); Launcher.open(); });
+  }
+  /* کاروسل‌ها پس از آن‌که صفحه `.active` شد راه می‌افتند (Router._render
+     پیش از این قلاب اجرا شده)، وگرنه همهٔ اندازه‌ها صفر خوانده می‌شوند. */
+  try{ initAllCarousels(); }catch(e){ console.warn('carousels', e); }
+
   U.$('#cGames').textContent = U.fa(Object.keys(DATA.GAMES)
     .filter(g => !['stats','badges','leaderboard','settings','daily','online-lobby'].includes(g)).length);
 
-  /* ── پویانمایی خانه: ورود پله‌ای، تیلت سه‌بعدی، کِن‌بارنز ── */
+  /* ── پویانمایی خانه: ورود پله‌ای و کِن‌بارنز ──
+     روی اسلایدهای کاروسل تیلت سه‌بعدی *نمی‌گذاریم*: FX.tilt مقدارِ
+     `transform` را inline می‌نویسد و همان مقدار، کلاس‌های is-active/
+     is-prev/is-next را بی‌اثر می‌کرد — یعنی عمقِ کاروسل می‌شکست. */
   try{
     const hero = U.$('#homeArt');
     if(hero){
       const inner = hero.querySelector('svg');
       if(inner) inner.classList.add('ken');                  // نمای سربرگ آرام بزرگ می‌شود
     }
-    /* کارت‌ها یکی‌یکی، هر ۵۰ میلی‌ثانیه یکی */
-    U.$$('#cats .cat').forEach((cat, ci) => {
-      FX.stagger(cat.querySelector('.grid'), '.tile', 50);
-      const tiles = cat.querySelectorAll('.tile[data-game]');
-      tiles.forEach((t, i) => {
-        if(FX.reduced) return;
-        t.style.setProperty('--i', i);
-        t.classList.add('tilt');
-        FX.tilt(t, 7);
-      });
-    });
-    FX.stagger(U.$('#s-home .stats'), '.stat', 60);
+    if(changed) FX.stagger(catsEl, '.cat', 70);
+    FX.stagger(U.$('#homeQuickStats'), '.stat-card', 60);
   }catch(e){ console.warn('home anim', e); }
 }
 
