@@ -1,0 +1,95 @@
+{
+  "base": "daafa3cc742c1b38f120f12bfabaf7a747ad9313",
+  "port": 8830,
+  "at": "2026-09-27T11:14:26.497Z",
+  "diagnose": {
+    "before": {
+      "label": "before",
+      "check1": {
+        "typeofCategoryCarousel": "undefined",
+        "typeofHomeCarousel": "object",
+        "typeofInitAllCarousels": "undefined",
+        "typeofInitCarousels": "undefined"
+      },
+      "check2": [],
+      "check2Count": 0,
+      "check3": {
+        "trackFound": false,
+        "transformNow": "(no .carousel-track in DOM)",
+        "current": null
+      },
+      "check4": "(no .carousel-track — nothing to measure)",
+      "homeSlider": {
+        "panels": 3,
+        "dots": 3,
+        "activeIndex": 0,
+        "ready": null,
+        "index": null,
+        "timer": null,
+        "pauses": [],
+        "homeScreenActive": true
+      },
+      "autoplay": {
+        "ms": 5600,
+        "before": {
+          "carouselTrack": null,
+          "carouselIdx": null,
+          "homeIdx": null,
+          "homeActive": 0
+        },
+        "after": {
+          "carouselTrack": null,
+          "carouselIdx": null,
+          "homeIdx": null,
+          "homeActive": 1
+        },
+        "changed": true
+      },
+      "consoleErrors": []
+    },
+    "after": {
+      "label": "after",
+      "check1": {
+        "typeofCategoryCarousel": "undefined",
+        "typeofHomeCarousel": "object",
+        "typeofInitAllCarousels": "undefined",
+        "typeofInitCarousels": "undefined"
+      },
+      "check2": [],
+      "check2Count": 0,
+      "check3": {
+        "trackFound": false,
+        "transformNow": "(no .carousel-track in DOM)",
+        "current": null
+      },
+      "check4": "(no .carousel-track — nothing to measure)",
+      "homeSlider": {
+        "panels": 3,
+        "dots": 3,
+        "activeIndex": 0,
+        "ready": null,
+        "index": null,
+        "timer": null,
+        "pauses": [],
+        "homeScreenActive": true
+      },
+      "autoplay": {
+        "ms": 5600,
+        "before": {
+          "carouselTrack": null,
+          "carouselIdx": null,
+          "homeIdx": null,
+          "homeActive": 0
+        },
+        "after": {
+          "carouselTrack": null,
+          "carouselIdx": null,
+          "homeIdx": null,
+          "homeActive": 1
+        },
+        "changed": true
+      },
+      "consoleErrors": []
+    }
+  }
+}
