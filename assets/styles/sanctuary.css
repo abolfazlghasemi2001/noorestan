@@ -141,14 +141,26 @@ body:not([data-debug="1"]) .debug-only{display:none!important}
 #adminExit{margin:16px 0}
 #gtExport{margin-bottom:16px}
 #pgRestart{margin-bottom:12px}
+/* ── بازیِ «نورِ آیه‌ها»: قابِ عمودی، نه نوارِ افقیِ ۱۶/۹ ──
+   این‌جا `aspect-ratio:16/9` نشسته بود؛ یعنی قابِ بازی یک نوارِ پهنِ
+   افقی می‌شد وسطِ برنامه‌ای که کلِ ساختارش عمودی است — بازی کوچک و
+   ستون‌بسته دیده می‌شد و کاربر مجبور بود گوشی را بچرخاند. حالا نسبت
+   رها شده و همان قاعدهٔ عمودیِ index.html ارتفاع را می‌دهد.
+
+   مهم: این‌جا `height` نوشته نمی‌شود. این گزینش از `.ayah-frame-shell`
+   خاص‌تر است، پس هر `height`ی این‌جا رویِ قاعدهٔ عمودیِ index.html
+   می‌نشست و دوباره ارتفاع را قطعی می‌کرد. فقط `flex:none` لازم است تا
+   `flex-basis:0` جای `height` را نگیرد (پیش‌تر `flex:1` بود). */
 .ayah-game{background:var(--bg);display:flex;flex-direction:column;gap:10px;padding:8px;border-radius:18px}
-.ayah-game .ayah-frame-shell{width:100%;aspect-ratio:16/9;min-height:0;height:auto;flex:1}
+.ayah-game .ayah-frame-shell{width:100%;aspect-ratio:auto;min-height:0;flex:none}
 .ayah-game:fullscreen{width:100vw;height:100dvh;border-radius:0;overflow:auto}
-.ayah-game:fullscreen .ayah-frame-shell{aspect-ratio:auto;min-height:0}
+/* در تمام‌صفحه، قاب تا زیرِ دکمه‌ها کش می‌آید — همان حالتِ عمودی، بلندتر. */
+.ayah-game:fullscreen .ayah-frame-shell{aspect-ratio:auto;min-height:0;height:calc(100dvh - 132px)}
 .ayah-game .ayah-frame-shell iframe{width:100%;height:100%;min-height:0}
 .ayah-under{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;flex-shrink:0;padding:8px}
-.ayah-rotate{text-align:center;margin:0}
-@media(orientation:landscape){.ayah-rotate{display:none}}
+/* راهنمای حالتِ عمودی؛ در هر جهتی خوانده می‌شود (پیش‌تر در افقی پنهان
+   می‌شد، چون متنش «گوشی را بچرخان» بود و در افقی بی‌معنا می‌شد). */
+.ayah-orient{text-align:center;margin:0}
 
 /* ═══════════════════════════════════════════════════════════════════
    فاز ۳ — یکپارچگیِ کاملِ تم «نورِ آیه‌ها» در همهٔ صفحه‌ها

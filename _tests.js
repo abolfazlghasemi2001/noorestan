@@ -5618,6 +5618,36 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
   ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
 
+  /* ── حالتِ عمودی — بازگشتِ بازی به قابِ عمودی ──
+     این‌ها دقیقاً همان چیزهایی‌ست که یک‌بار از دست رفت: قاب به نوارِ
+     افقیِ ۱۶/۹ بدل شد و بازشدنِ صفحه خودش تمام‌صفحه می‌گرفت و جهت را
+     روی «افقی» قفل می‌کرد. تا وقتی این سنجش‌ها سبزند، آن حالت برنمی‌گردد.
+     قاعدهٔ قاب در `assets/styles/sanctuary.css` است، نه در index.html. */
+  const cssSanct = fs.readFileSync(__dirname + '/assets/styles/sanctuary.css', 'utf8');
+  ok('قابِ بازی نوارِ افقیِ ۱۶/۹ نیست',
+     !/\.ayah-game \.ayah-frame-shell\{[^}]*aspect-ratio:16\/9/.test(cssSanct) &&
+     /\.ayah-game \.ayah-frame-shell\{[^}]*aspect-ratio:auto/.test(cssSanct));
+  ok('ارتفاعِ قاب عمودی و از خودِ صفحه حساب می‌شود',
+     /\.ayah-frame-shell\{[^}]*clamp\(420px,calc\(100dvh - 170px\),900px\)/.test(SRC));
+  ok('در قابِ عمودی `flex-basis` مِیلَکِ `height` نمی‌شود',
+     /\.ayah-game \.ayah-frame-shell\{[^}]*flex:none/.test(cssSanct));
+  ok('هیچ‌جا جهتِ صفحه قفل نمی‌شود',
+     !/orientation\.lock/.test(SRC) && !/orientation\.unlock/.test(SRC) &&
+     !/orientation\.lock/.test(cssSanct));
+  ok('بازشدنِ بازی خودش تمام‌صفحه نمی‌گیرد', /this\.pending=Promise\.resolve\(\)/.test(SRC));
+  ok('راهنمای «گوشی را افقی کن» رفته',
+     !/افقی نگه دار/.test(SRC) && !/دستی افقی کن/.test(SRC) &&
+     /class="tiny ayah-orient"/.test(SRC));
+  ok('مانیفست هم عمودی است',
+     JSON.parse(fs.readFileSync(__dirname + '/manifest.json', 'utf8')).orientation === 'portrait-primary');
+  ok('تمام‌صفحه فقط با خواستِ کاربر و بی قفلِ جهت',
+     /async expand\(\)\{/.test(SRC) && /landscape\(\)\{ return this\.expand\(\); \}/.test(SRC) &&
+     /paintExpand\(\)/.test(SRC));
+  ok('دیر رسیدنِ قابِ بیرونی راهنمای جایگزین می‌گیرد',
+     /watch\(\)\{/.test(SRC) && /#ayahFrameStatus\.slow\{/.test(SRC) &&
+     /U\.\$\('#ayahOffline'\)\?\.classList\.add\('ok'\)/.test(SRC));
+  ok('آیکنِ جفتِ تمام‌صفحه ثبت شده', !!Icon.REG.expand && !!Icon.REG.collapse);
+
 }
 
 section('بازگشت‌ناپذیریِ اصلاحات نسخهٔ ۲۰');

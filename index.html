@@ -2378,11 +2378,31 @@ h1>.ic,h2>.ic,h3>.ic,h1>i>.ic{display:inline-block;vertical-align:middle}
 .ayah-embed-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
 .ayah-embed-tools>.tiny{flex-basis:100%;line-height:1.9}
 .ayah-stars{display:flex;justify-content:center;gap:6px}.ayah-stars .ic{width:32px;height:32px}.ayah-stars>.ic{fill:currentColor}.ayah-stars .unearned{opacity:.3}
-.ayah-frame-shell{width:100%;min-width:0;height:850px;height:max(720px,calc(100dvh - 100px));border:1px solid var(--line);border-radius:18px;background:#081323;overflow:auto}
-.ayah-frame-shell iframe{display:block;width:100%;height:100%;min-height:720px;border:0}
-.ayah-frame-shell:fullscreen{height:100dvh;border:0;border-radius:0;overflow:auto}
-.ayah-frame-shell:fullscreen iframe{min-height:100%;height:100%}
-@media(orientation:landscape) and (max-height:550px){.ayah-frame-shell{height:760px}}
+/* ── قابِ بازی «نورِ آیه‌ها» — حالتِ عمودی ──
+   پیش‌تر ارتفاع ثابتِ ۸۵۰/۷۲۰ بود و صفحه در بازشدن خودش را تمام‌صفحه و
+   افقی می‌کرد. حالا ارتفاع از خودِ صفحه حساب می‌شود: `dvh` واحدِ واقعیِ
+   گوشی است و نوارِ آدرس هم در آن حساب می‌شود، پس قاب دقیقاً همان‌قدر
+   جا می‌گیرد که مانده. خطِ نخستِ `height` برای مرورگرهای کهنه است. */
+.ayah-frame-shell{width:100%;min-width:0;height:520px;height:clamp(420px,calc(100dvh - 170px),900px);border:1px solid var(--line);border-radius:18px;background:#081323;overflow:hidden}
+.ayah-frame-shell iframe{display:block;width:100%;height:100%;border:0}
+.ayah-frame-shell:fullscreen{height:100dvh;border:0;border-radius:0}
+.ayah-frame-shell:fullscreen iframe{height:100%}
+/* گوشیِ کوتاه یا صفحهٔ چرخیدهٔ افقی: قاب جمع می‌شود تا دکمه‌های زیرش گم
+   نشوند. کفِ ۱۹۰px همان کفِ `AyahEmbed.fit` است؛ اگر اندازه‌گیریِ JS هم
+   کار نکند، قابِ CSS هم از جا نمی‌زند. */
+@media(orientation:landscape) and (max-height:560px){.ayah-frame-shell{height:clamp(190px,calc(100dvh - 130px),760px)}}
+/* در گوشیِ افقی و کوتاه (ارتفاعِ کمتر از ۵۶۰)، سربرگِ چسبانِ برنامه و
+   «شروع دوباره»ی سرصفحه جمع می‌شوند تا قابِ عمودی جا بماند و ردیفِ
+   دکمه‌ها بی‌اسکرول دیده شود. هر دو کارشان در ردیفِ زیرِ قاب هم هست،
+   پس چیزی از دست نمی‌رود. `data-ayah` فقط تا وقتی این صفحه باز است
+   روی `html` می‌ماند، پس بقیهٔ صفحه‌ها دست‌نخورده‌اند. */
+@media(orientation:landscape) and (max-height:560px){
+  html[data-ayah="1"] .top{display:none}
+  html[data-ayah="1"] .phead{display:none}
+  html[data-ayah="1"] #pgRestart{display:none}
+}
+/* دیر رسیدنِ قابِ بازی (اینترنت/میزبان): پیام رنگ می‌گیرد تا چشم آن را بگیرد. */
+#ayahFrameStatus.slow{color:var(--txt);border-inline-start:3px solid var(--gold);padding-inline-start:10px}
 html[data-theme="light"] .top{background:var(--float1);color:var(--txt)}
 html[data-theme="light"] #bgArt{opacity:.035}
 html[data-theme="light"] #modal .box{background:#fffdf8;border-color:var(--line)}
@@ -3264,6 +3284,10 @@ const Icon = {
     search: { d:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>' },
     hourglass: { d:'<path d="M6 3h12M6 21h12M7 3v4l10 10v4M17 3v4L7 17v4"/>' },
     expand: { d:'<path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/>' },
+    /* جفتِ `expand`: «خروج از تمام‌صفحه». بی آن، دکمه در حالتِ
+       تمام‌صفحه همان آیکنِ ورود را نشان می‌داد و کاربر نمی‌فهمید
+       وضعیت عوض شده. */
+    collapse: { d:'<path d="M9 4v5H4m11-5v5h5M9 20v-5H4m11 5v-5h5"/>' },
     lab: { d:'<path d="M9 3h6M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3M7 15h10"/>' },
     repeat: { d:'<path d="M4 9a8 8 0 0 1 14-3l2 2m0-5v5h-5M20 15a8 8 0 0 1-14 3l-2-2m0 5v-5h5"/>' },
     home:   { d:'<path d="M3.6 10.9 12 3.5l8.4 7.4"/><path d="M5.9 9.7V20a1 1 0 0 0 1 1h10.2a1 1 0 0 0 1-1V9.7"/><path d="M10 21v-5.5h4V21"/>' },
@@ -12079,9 +12103,20 @@ function initAllCarousels(){ return Carousels.init(); }
 
 const AyahEmbed = {
  URL:'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
+ /* ── حالتِ عمودی (portrait) ──
+    پیش‌تر بازشدنِ این صفحه، قاب را تمام‌صفحه می‌کرد و بعد جهتِ صفحه را
+    روی «افقی» قفل می‌کرد. مانیفستِ خودِ نورستان `portrait-primary` است،
+    پس این دو قفل با هم می‌جنگیدند: روی بیشترِ اندرویدها نتیجه «قفلِ
+    بی‌اثر» بود و کاربر راهنمای «گوشی را بچرخان» می‌دید، و در PWAِ
+    نصب‌شده صفحه کج می‌ماند. حالا:
+      • قاب عمودی است — ارتفاع از `100dvh` می‌آید (قاعدهٔ عمودیِ
+        index.html) و نسبتِ ۱۶/۹ در `sanctuary.css` برداشته شده،
+      • هیچ قفلِ جهتی در کار نیست،
+      • «تمام‌صفحه» فقط با خواستِ کاربر اجرا می‌شود و جهت را عوض نمی‌کند.
+    خودِ بازیِ بیرونی دست‌نخورده است؛ فقط قابش این‌جا عمودی شده. */
  open(){
   if(!Session.user())return Gate.open();Router.go('play');
-  U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='برای نمایش بهتر، گوشی را افقی نگه دار';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
+  U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='نمایش عمودی — بازی و تمرین با آیات قرآن';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
   /* ── مجوزهای قاب: فقط همان که واقعاً لازم است ──
      «fullscreen» برای نمای تمام‌صفحهٔ خودِ بازی؛ صدا با نخستین لمسِ
      کاربر باز می‌شود، پس «autoplay» هم لازم نیست. هیچ دوربین، میکروفن،
@@ -12093,24 +12128,110 @@ const AyahEmbed = {
      می‌پوشاند و هم لمسِ آن ناحیه را می‌گیرد تا هیچ گزینه‌ای پشتش پنهان
      نماند. */
   U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="ayah-banner-mask" id="ayahBannerMask" role="presentation">'+Icon.of('mosque')+'<span class="abm-col"><b>نورِ آیه‌ها</b><small>نسخهٔ صحنِ نورانی</small></span></div></div>'+
-    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">نمای افقی / تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
-    '<p class="tiny ayah-rotate" role="status">اگر گوشی نچرخید، آن را دستی افقی کن. قفل جهت در همهٔ مرورگرها پشتیبانی نمی‌شود.</p></div>'+
-    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد. مُهرِ گوشهٔ پایین، بنرِ میزبانِ بیرونی را می‌پوشاند تا چیزی از دید و لمس پنهان نشود.</p>'+
+    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
+    '<p class="tiny ayah-orient" role="status">بازی در حالت عمودی اجرا می‌شود؛ چرخاندنِ گوشی لازم نیست. «تمام‌صفحه» ارتفاع را بیشتر می‌کند و جهتِ صفحه را عوض نمی‌کند.</p></div>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. اگر قاب خالی ماند، «تمرین آفلاین» همین بازی را بدون اینترنت اجرا می‌کند. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد. مُهرِ گوشهٔ پایین، بنرِ میزبانِ بیرونی را می‌پوشاند تا چیزی از دید و لمس پنهان نشود.</p>'+
     '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین آفلاین</button></div>';
   U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
-  U.$('#ayahExpand').onclick=()=>this.landscape();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
-  this.pending=this.landscape();
+  U.$('#ayahExpand').onclick=()=>this.expand();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  /* iOS برای عنصرهای معمولی تمام‌صفحه نمی‌دهد؛ دکمهٔ بی‌اثر نشان نمی‌دهیم. */
+  if(!U.$('#ayahGame')?.requestFullscreen) U.$('#ayahExpand').hidden=true;
+  /* نشانِ «این صفحه بازی است» — قاعده‌های افقیِ کوتاه با همین نشان
+     محدود می‌شوند تا سربرگِ برنامه فقط این‌جا جمع شود. */
+  document.documentElement.setAttribute('data-ayah','1');
+  this.onFs=()=>{ this.paintExpand(); this.fit(); };
+  document.addEventListener('fullscreenchange',this.onFs);
+  this.bindFit();
+  this.fit();
+  this.watch();
+  this.pending=Promise.resolve();
  },
- async landscape(){
-  const shell=U.$('#ayahGame');if(!shell)return;
-  try{if(!document.fullscreenElement&&shell.requestFullscreen)await shell.requestFullscreen();if(document.fullscreenElement===shell&&screen.orientation?.lock)await screen.orientation.lock('landscape');}
-  catch(e){/* در Safari و مرورگرهای بدون قفل جهت، راهنمای چرخاندن باقی می‌ماند. */}
-  if(!U.$('#ayahFrame')){try{screen.orientation?.unlock();}catch(e){}}
+ /* ── اندازه‌گیریِ قاب ──
+    ارتفاعِ CSS یک حدس است (کلamp)؛ این‌جا از روی ارتفاعِ واقعیِ سربرگ،
+    ردیفِ دکمه‌ها و نوارِ پایین حساب می‌شود. چرا لازم است؟ نوارِ پایین
+    شناور است و روی محتوا می‌نشیند؛ با ارتفاعِ حدسی، دکمه‌های بازی زیرِ
+    نوار می‌رفتند و کاربر باید اسکرول می‌کرد تا «تمام‌صفحه» را ببیند.
+    بی این تابع هم چیزی نمی‌شکند — همان حدسِ CSS می‌مانَد. */
+ fit(){
+  const shell=U.$('#ayahFrameShell'); if(!shell) return;
+  const box=U.$('#ayahGame');
+  /* در تمام‌صفحه، قاعدهٔ CSS حاکم است؛ ارتفاعِ درون‌خطی پاک می‌شود تا
+     قاب تا ته صفحه کش بیاید. */
+  if(box&&document.fullscreenElement===box){ shell.style.height=''; return; }
+  const row=U.$('.ayah-under'), nav=U.$('#nav');
+  const navBox=(nav&&nav.getBoundingClientRect&&getComputedStyle(nav).display!=='none')?nav.getBoundingClientRect():null;
+  const top=Math.max(0,shell.getBoundingClientRect().top);
+  const rowH=row?row.getBoundingClientRect().height:0;
+  /* سقفِ جا = بالای نوارِ پایین؛ اگر نوار پنهان است (نشستِ مدیر)، ته صفحه. */
+  const limit=navBox&&navBox.height?navBox.top:window.innerHeight;
+  /* کفِ ارتفاع در گوشیِ افقیِ کوتاه کمتر است؛ وگرنه قاب از جا می‌زند و
+     ردیفِ دکمه‌ها می‌رود زیرِ نوارِ شناور. */
+  const floor=window.innerHeight<560?190:320;
+  shell.style.height=Math.max(floor,Math.round(limit-top-rowH-14))+'px';
  },
+ bindFit(){
+  this.onResize=()=>{ if(this._fitT) return; this._fitT=Timers.after(()=>{ this._fitT=null; this.fit(); },180); };
+  window.addEventListener('resize',this.onResize);
+  window.addEventListener('orientationchange',this.onResize);
+  /* ردیفِ دکمه‌ها با عرضِ صفحه و آماده‌شدنِ قلم می‌شکند؛ هر بار که
+     ارتفاعش عوض شد، قاب دوباره اندازه می‌گیرد. بی این، ردیفِ دومِ
+     دکمه‌ها زیرِ نوارِ شناورِ پایین می‌رفت — همان باگی که این
+     اندازه‌گیری برای رفعش نوشته شد. */
+  if(typeof ResizeObserver==='function'&&U.$('.ayah-under')){
+   this.ro=new ResizeObserver(()=>this.fit());
+   this.ro.observe(U.$('.ayah-under'));
+  }
+  /* یک اندازه‌گیریِ دوم پس از نشستنِ چیدمان و قلم‌ها. */
+  Timers.after(()=>{ if(U.$('#ayahFrameShell')) this.fit(); },400);
+ },
+ /* قابِ بیرونی زیرِ نظر است: تا رویدادِ `load` نرسیده، پس از چند ثانیه
+    راهنمای جایگزین رنگ می‌گیرد. محتوای قابِ بیگانه خواندنی نیست، پس
+    تنها علامتی که در دست داریم همین رویداد است. */
+ watch(){
+  const frame=U.$('#ayahFrame'),note=U.$('#ayahFrameStatus');
+  if(!frame)return;
+  this.loaded=false;
+  frame.addEventListener('load',()=>{ this.loaded=true; note?.classList.remove('slow'); });
+  this.slowTimer=Timers.after(()=>{
+   if(this.loaded)return;
+   note?.classList.add('slow');
+   U.$('#ayahOffline')?.classList.add('ok');   /* تمرین آفلاین می‌شود کنشِ اصلی */
+  },7000);
+ },
+ /* تمام‌صفحه — عمداً بدونِ هیچ قفلِ جهتی. */
+ async expand(){
+  const box=U.$('#ayahGame');
+  if(!box||!box.requestFullscreen)return;
+  try{
+   if(document.fullscreenElement===box) await document.exitFullscreen?.();
+   else await box.requestFullscreen();
+  }catch(e){
+   UI.toast('تمام‌صفحه در این مرورگر ممکن نشد؛ ارتفاع بازی همین‌قدر می‌ماند.','');
+  }
+  this.paintExpand();
+ },
+ /* برچسبِ دکمه با وضعیت می‌چرخد تا معلوم باشد در تمام‌صفحه‌ایم یا نه. */
+ paintExpand(){
+  const on=document.fullscreenElement===U.$('#ayahGame'),btn=U.$('#ayahExpand');
+  if(btn) U.icLabel(btn, on?'collapse':'expand', on?'خروج از تمام‌صفحه':'تمام‌صفحه');
+ },
+ /* نامِ کهنهٔ همین کار. بیرون از این فایل با همین نام صدا زده می‌شد؛
+    حالا فقط تمام‌صفحه می‌کند و جهتِ صفحه را دست نمی‌زند. */
+ landscape(){ return this.expand(); },
  cleanup(){
   U.$('#ayahBannerMask')?.remove();   /* مُهرِ پوشاننده هم با قاب جمع می‌شود */
-  const frame=U.$('#ayahFrame'),shell=frame?.closest('#ayahGame');if(frame){frame.remove();try{screen.orientation?.unlock();}catch(e){}
-   this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(shell&&document.fullscreenElement===shell)return document.exitFullscreen?.().catch(()=>{});});
+  if(this.slowTimer){ Timers.clear(this.slowTimer); this.slowTimer=null; }
+  if(this.onFs){ document.removeEventListener('fullscreenchange',this.onFs); this.onFs=null; }
+  if(this.onResize){
+   window.removeEventListener('resize',this.onResize);
+   window.removeEventListener('orientationchange',this.onResize);
+   this.onResize=null;
+  }
+  if(this.ro){ try{ this.ro.disconnect(); }catch(e){} this.ro=null; }
+  document.documentElement.removeAttribute('data-ayah');
+  const box=U.$('#ayahGame'),frame=U.$('#ayahFrame');
+  if(frame){frame.remove();
+   this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(box&&document.fullscreenElement===box)return document.exitFullscreen?.().catch(()=>{});});
   }
   U.$('#pgProgWrap')?.classList.remove('hide');
  }
