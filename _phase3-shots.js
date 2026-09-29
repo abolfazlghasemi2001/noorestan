@@ -6,10 +6,9 @@
      ۱) عکسِ «قبل» از نسخهٔ HEAD (worktree موقت) و عکسِ «بعد» از نسخهٔ
         فعلی — از همان صفحه‌ها، همان ویوپورت، همان شرایط.
      ۲) گیفِ اسلایدرِ خانه در حالِ حرکتِ خودکار (فقط نسخهٔ بعد).
-     ۳) شاهدِ مُهرِ پوشانندهٔ بنر: پوستهٔ میزبانِ بازی با یک شبیه‌سازِ
-        محلیِ همان بنر بازسازی می‌شود (درخواستِ arena.site در مرورگرِ
-        آزمون رهگیری و به صفحهٔ محلی هدایت می‌شود) تا معلوم شود مُهر،
-        بنرِ گوشهٔ پایین-راست را می‌پوشاند و دکمه‌های اصلی بازی آزادند.
+     ۳) شاهدِ نبودِ لایهٔ پوشاننده: بازیِ embed با شبیه‌سازِ محلیِ پوسته
+        باز می‌شود تا مطمئن شویم نورستان دیگر کارتِ خودش را روی محتوا
+        نمی‌گذارد و گزینه‌های میزبان را پنهان نمی‌کند.
 
    اجرا:
      node _phase3-shots.js
@@ -342,11 +341,11 @@ async function sliderGif(browser, root, port, mockPort){
   return idxLog;
 }
 
-/* ═══════════ شاهدِ مُهرِ پوشانندهٔ بنر ═══════════ */
-async function bannerMaskProof(browser, root, port, mockPort){
+/* ═══════════ شاهدِ نبودِ لایهٔ پوشاننده ═══════════ */
+async function ayahOverlayProof(browser, root, port, mockPort){
   const dir = OUT;
   const base = `http://127.0.0.1:${port}/index.html`;
-  console.log('\n── شاهدِ مُهرِ پوشانندهٔ بنر (شبیه‌سازِ محلیِ پوسته)');
+  console.log('\n── نبودِ کارتِ پوشاننده در بازیِ embed (شبیه‌سازِ محلیِ پوسته)');
   const page = await newPage(browser);
   await page.setRequestInterception(true);
   page.on('request', req => {
@@ -356,31 +355,16 @@ async function bannerMaskProof(browser, root, port, mockPort){
   await loginBySms(page, base, mockPort);
   await page.evaluate(() => { try{ AyahEmbed.open(); }catch(e){ console.warn(e); } });
   await sleep(1800);
-  /* تمام‌صفحه‌شدن در هدلس ممکن است رد شود؛ مُهر را روی خودِ قاب سنجیده‌ایم
-     چون بنرِ میزبان هم نسبت به قاب سنجیده می‌شود. */
-  await shot(page, dir, '11-banner-mask');
-  const maskInfo = await page.evaluate(() => {
-    const m = document.querySelector('#ayahBannerMask');
-    const f = document.querySelector('#ayahFrame');
-    const banner = f && f.contentDocument ? f.contentDocument.querySelector('.floating-banner') : null;
-    if(!m || !f) return null;
-    const r = m.getBoundingClientRect(), fr = f.getBoundingClientRect();
-    /* بنرِ واقعیِ پوسته اگر در قاب بود، کجاشدنش را نسبت به قاب می‌سنجیم */
-    let coversBannerPoint = null;
-    if(banner){
-      const br = banner.getBoundingClientRect();
-      const bx = fr.left + br.right - 60, by = fr.top + br.bottom - 24;
-      coversBannerPoint = bx >= r.left && bx <= r.right && by >= r.top && by <= r.bottom;
-    }else{
-      const bx = fr.right - 60, by = fr.bottom - 30;
-      coversBannerPoint = bx >= r.left && bx <= r.right && by >= r.top && by <= r.bottom;
-    }
-    return { w: Math.round(r.width), h: Math.round(r.height),
-             anchor: 'frame-bottom-right', coversBannerPoint };
-  });
-  console.log('  · هندسهٔ مُهر:', JSON.stringify(maskInfo));
+  await shot(page, dir, '11-ayah-no-overlay');
+  const info = await page.evaluate(() => ({
+    iframePresent:!!document.querySelector('#ayahFrame'),
+    /* قاب عمداً cross-origin است؛ این شاهد فقط می‌سنجد که صفحهٔ والد
+       دیگر روی آن لایهٔ پوشاننده‌ای نمی‌گذارد. */
+    blockingOverlay:!!document.querySelector('#ayahBannerMask,.ayah-banner-mask')
+  }));
+  console.log('  · وضعیتِ قاب:', JSON.stringify(info));
   await page.ctx.close();
-  return maskInfo;
+  return info;
 }
 
 /* ═══════════ اجرا ═══════════ */
@@ -413,7 +397,7 @@ async function bannerMaskProof(browser, root, port, mockPort){
     if(!hasFlag('skip-after')) reports.after = await suite(browser, 'after', ROOT, afterPort, mock.port);
     if(!hasFlag('skip-gif') && !hasFlag('skip-mask')){
       reports.sliderIndex = await sliderGif(browser, ROOT, afterPort, mock.port);
-      reports.mask = await bannerMaskProof(browser, ROOT, afterPort, mock.port);
+      reports.ayahOverlay = await ayahOverlayProof(browser, ROOT, afterPort, mock.port);
     }
   } finally {
     fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(reports, null, 2));

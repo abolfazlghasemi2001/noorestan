@@ -2227,8 +2227,9 @@ html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSl
 .slide .slide-cta .ic{width:15px;height:15px;transform:rotate(180deg)}
 .slide .badge{top:14px;left:14px}
 
-/* نقطه‌های ناوبری */
-.carousel-dots{display:flex;gap:6px;justify-content:center;align-items:center;direction:rtl;margin-top:12px;padding:0 40px}
+/* نقطه‌ها، شمارِ اسلاید و مکثِ چرخش خودکار */
+.carousel-controls{display:flex;align-items:center;justify-content:center;gap:10px;min-height:38px;margin-top:8px;direction:rtl}
+.carousel-dots{display:flex;gap:6px;justify-content:center;align-items:center;direction:rtl;margin:0;padding:0}
 .carousel-dots .dot{
   width:8px;height:8px;padding:0;border:0;border-radius:50%;background:var(--line);
   cursor:pointer;transition:width 300ms var(--ease),background 300ms ease
@@ -2238,19 +2239,30 @@ html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSl
 /* ناحیهٔ لمسِ بزرگ‌تر از خودِ نقطه، بی آنکه فاصلهٔ دیداری عوض شود */
 .carousel-dots .dot{position:relative}
 .carousel-dots .dot::before{content:"";position:absolute;inset:-11px -5px}
-.carousel-dots:focus-visible,.carousel-dots .dot:focus-visible,.carousel-nav:focus-visible,.slide .slide-cta:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.carousel-toggle{
+  flex:none;width:36px;height:36px;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--gold);
+  cursor:pointer;transition:background 200ms ease,color 200ms ease,border-color 200ms ease
+}
+.carousel-toggle .ic{width:15px;height:15px}
+.carousel-toggle:hover:not(:disabled){background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.carousel-toggle:disabled{opacity:.45;cursor:not-allowed}
+.carousel-dots:focus-visible,.carousel-dots .dot:focus-visible,.carousel-nav:focus-visible,.carousel-toggle:focus-visible,.slide .slide-cta:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 
-/* دکمه‌های ناوبری — فقط جایی که نشانگرِ واقعی هست (نه لمس) */
+/* فلش‌ها در لمس هم دیده می‌شوند تا راهِ دیدنِ کارت‌های دیگر روشن باشد. */
 .carousel-nav{
   position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
   border-radius:50%;background:var(--card2);border:1px solid var(--line);color:var(--gold);
-  cursor:pointer;display:none;place-items:center;z-index:3;font-size:19px;line-height:1;
-  transition:background 200ms ease,color 200ms ease,border-color 200ms ease
+  cursor:pointer;display:grid;place-items:center;z-index:3;font-size:19px;line-height:1;opacity:.82;
+  transition:background 200ms ease,color 200ms ease,border-color 200ms ease,opacity 200ms ease
 }
-.carousel-nav:hover{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.carousel-nav:hover{background:var(--gold);color:var(--ink);border-color:var(--gold);opacity:1}
 .carousel-nav.prev{right:6px}
 .carousel-nav.next{left:6px}
-@media(hover:hover) and (pointer:fine){.carousel-nav{display:grid}}
+@media(hover:hover) and (pointer:fine){
+  .carousel-nav{opacity:0}
+  .category-carousel:hover .carousel-nav,.category-carousel:focus-within .carousel-nav{opacity:.95}
+}
 
 /* گزارشِ زندهٔ صفحه‌خوان — دیده نمی‌شود، خوانده می‌شود */
 .carousel-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
@@ -2338,14 +2350,14 @@ html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSl
   .slide.is-active,.slide.is-prev,.slide.is-next,.slide.is-far{opacity:1;visibility:visible}
   .slide.is-prev,.slide.is-next,.slide.is-far{display:none}
   .slide.is-active::before,.continue-card::before,.continue-progress .fill::after{animation:none!important;opacity:0}
-  .continue-progress .fill,.carousel-dots .dot,.slide .slide-cta,.stat-card{transition:none}
+  .continue-progress .fill,.carousel-dots .dot,.carousel-toggle,.slide .slide-cta,.stat-card{transition:none}
 }
 html[data-motion="off"] .category-carousel,html[data-motion="off"] .carousel-track,html[data-motion="off"] .slide{perspective:none;transform:none!important;transition:none!important;filter:none!important}
 html[data-motion="off"] .slide{opacity:0;visibility:hidden}
 html[data-motion="off"] .slide.is-active,html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{opacity:1;visibility:visible}
 html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{display:none}
 html[data-motion="off"] .slide.is-active::before,html[data-motion="off"] .continue-card::before,html[data-motion="off"] .continue-progress .fill::after{animation:none!important;opacity:0}
-html[data-motion="off"] .continue-progress .fill,html[data-motion="off"] .carousel-dots .dot,html[data-motion="off"] .slide .slide-cta,html[data-motion="off"] .stat-card{transition:none}
+html[data-motion="off"] .continue-progress .fill,html[data-motion="off"] .carousel-dots .dot,html[data-motion="off"] .carousel-toggle,html[data-motion="off"] .slide .slide-cta,html[data-motion="off"] .stat-card{transition:none}
 /* صفحهٔ باریک: کارت کمی باریک‌تر تا همسایه بیشتر دیده شود */
 @media(max-width:360px){.slide{flex-basis:82%;padding:20px 16px;border-radius:20px}.slide .slide-title{font-size:17px}}
 
@@ -2417,16 +2429,17 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 .ayah-stage::before{content:"";position:absolute;left:50%;top:60px;width:250px;height:190px;transform:translateX(-50%);border-radius:130px 130px 15px 15px;background:radial-gradient(circle at 50% 20%,rgba(245,196,81,.28),transparent 57%),linear-gradient(90deg,transparent 7%,rgba(245,196,81,.14) 8% 10%,transparent 11% 89%,rgba(245,196,81,.14) 90% 92%,transparent 93%);border-top:2px solid rgba(245,196,81,.28);opacity:.75;z-index:-1}
 .ayah-stage::after{content:"";position:absolute;inset:auto -10% -28% -10%;height:58%;z-index:-2;transform:perspective(400px) rotateX(60deg);background:repeating-linear-gradient(90deg,rgba(245,196,81,.08) 0 1px,transparent 1px 48px),repeating-linear-gradient(0deg,rgba(245,196,81,.07) 0 1px,transparent 1px 48px)}
 .ayah-lanterns{position:absolute;inset:16px 18px auto;display:flex;justify-content:space-between;color:var(--gold);opacity:.7;font-size:25px;pointer-events:none}.ayah-lanterns i{font-style:normal;filter:drop-shadow(0 0 10px var(--gold));animation:lantern 3s ease-in-out infinite alternate}@keyframes lantern{to{transform:translateY(7px) rotate(3deg);opacity:1}}
-.ayah-setup{text-align:center;position:relative;z-index:1}.ayah-mark{font-size:64px;filter:drop-shadow(0 0 20px rgba(245,196,81,.25));margin:10px}.ayah-setup h2{font-size:25px;margin-bottom:6px}.ayah-setup>p{color:var(--mut);font-size:13px;line-height:1.9}
-.ayah-options{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:22px 0 12px}.ayah-opt{padding:13px 8px;border:1px solid var(--line);background:rgba(8,13,24,.76);border-radius:15px;cursor:pointer;text-align:center;transition:.2s}.ayah-opt:hover,.ayah-opt.on{border-color:var(--gold);background:rgba(245,196,81,.12);transform:translateY(-2px)}.ayah-opt b{display:block;font-size:13px;margin-top:4px}.ayah-opt small{color:var(--mut);font-size:11px}
-.ayah-speed{display:flex;justify-content:center;gap:8px;margin:12px 0 18px;flex-wrap:wrap}.ayah-speed button{border:1px solid var(--line);background:rgba(8,13,24,.75);padding:7px 12px;border-radius:99px;cursor:pointer;font-size:11px}.ayah-speed button.on{border-color:var(--grn);color:var(--grn);background:rgba(47,211,155,.1)}
+.ayah-setup{text-align:center;position:relative;z-index:1}.ayah-mark{font-size:64px;filter:drop-shadow(0 0 20px rgba(245,196,81,.25));margin:10px}.ayah-setup h2{font-size:25px;margin-bottom:6px}.ayah-setup>p{color:var(--mut);font-size:13px;line-height:1.9}.ayah-setting-label{font-weight:700;color:var(--mut);margin-top:8px}
+.ayah-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0 12px}.ayah-opt{min-width:0;min-height:104px;padding:12px 8px;border:1px solid var(--line);background:rgba(8,13,24,.76);border-radius:15px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .2s,border-color .2s,background .2s}.ayah-opt>span{min-height:25px;display:grid;place-items:center}.ayah-opt:hover,.ayah-opt.on{border-color:var(--gold);background:rgba(245,196,81,.12);transform:translateY(-2px)}.ayah-opt b{display:block;font-size:13px;line-height:1.45;margin-top:4px;overflow-wrap:anywhere}.ayah-opt small{color:var(--mut);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.ayah-speed{display:flex;justify-content:center;gap:8px;margin:8px 0 14px;flex-wrap:wrap}.ayah-speed button{border:1px solid var(--line);background:rgba(8,13,24,.75);padding:7px 12px;border-radius:99px;cursor:pointer;font-size:11px}.ayah-speed button.on{border-color:var(--grn);color:var(--grn);background:rgba(47,211,155,.1)}
+.ayah-setup-actions{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.ayah-setup-actions #ayahStart{min-width:180px}.ayah-setup-actions #ayahExternal{min-height:44px}
 .ayah-head{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-bottom:22px}.ayah-head .sp{flex:1}.ayah-time{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(8,13,24,.8);border:2px solid var(--gold);font-weight:800}.ayah-time.danger{border-color:var(--red);color:var(--red);animation:ayahPulse .7s infinite alternate}
 .ayah-board{position:relative;z-index:1;text-align:center}.ayah-board .question{font-size:12px;color:var(--gold);margin-bottom:12px}.ayah-text{font-family:var(--f-quran);font-size:clamp(24px,6vw,35px);line-height:2.1;margin:8px auto 16px;max-width:720px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
 .ayah-answer{min-height:74px;border:1px dashed rgba(245,196,81,.45);border-radius:18px;padding:12px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(8,13,24,.48);margin-bottom:13px}.word-chip,.ayah-choice{border:1px solid rgba(245,196,81,.35);background:rgba(18,35,52,.92);color:var(--txt);border-radius:13px;padding:10px 13px;cursor:pointer;line-height:1.6;transition:.18s;font-family:var(--f-quran);font-size:17px}.word-chip:hover,.ayah-choice:hover{transform:translateY(-2px);border-color:var(--gold)}.word-chip.used{opacity:.23;pointer-events:none}.word-chip.picked{background:rgba(245,196,81,.15)}
 .ayah-pool,.ayah-choices{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0}.ayah-choice{font-family:var(--f-ui);font-size:13px;min-width:120px}.ayah-choice.good{background:rgba(47,211,155,.2);border-color:var(--grn)}.ayah-choice.bad{background:rgba(255,95,109,.18);border-color:var(--red)}
 .ayah-feedback{min-height:58px;margin-top:13px;padding:10px 14px;border-radius:14px;background:rgba(8,13,24,.58);font-size:12px;line-height:1.8;color:var(--mut)}.ayah-feedback.ok{color:var(--grn);border:1px solid rgba(47,211,155,.3)}.ayah-feedback.err{color:#ff9da5;border:1px solid rgba(255,95,109,.3)}.ayah-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}.ayah-result{text-align:center;position:relative;z-index:1;padding-top:35px}.ayah-score{font-size:56px;color:var(--gold);font-weight:800;margin:14px}.ayah-stars{font-size:33px;letter-spacing:6px}
 @keyframes ayahPulse{to{transform:scale(1.07);box-shadow:0 0 18px rgba(255,95,109,.38)}}
-@media(max-width:520px){.ayah-stage{padding:17px;min-height:500px}.ayah-options{grid-template-columns:1fr}.ayah-opt{display:grid;grid-template-columns:35px 1fr;align-items:center;text-align:right;padding:9px 12px}.ayah-opt b{margin:0}.ayah-opt small{grid-column:2}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
+@media(max-width:520px){.ayah-stage{padding:16px;min-height:0}.ayah-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}.ayah-opt{min-height:104px;padding:8px 5px}.ayah-opt b{font-size:11px;margin-top:3px}.ayah-opt small{font-size:9px;line-height:1.35}.ayah-setup h2{font-size:21px}.ayah-setup-desc{font-size:12px!important}.ayah-speed{gap:5px;margin:7px 0 10px}.ayah-speed button{padding:6px 8px;font-size:10px}.ayah-setup-actions{flex-direction:column;align-items:stretch}.ayah-setup-actions .btn{width:100%}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(max-width:350px){.ayah-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.ayah-opt{min-height:112px;padding:7px 3px}.ayah-opt b{font-size:10px}.ayah-opt small{font-size:8px;line-height:1.25}.ayah-setup h2{font-size:19px}.ayah-speed button{padding:5px 6px;font-size:9px}.ayah-mark{font-size:44px}}@media(max-width:520px) and (max-height:700px){.ayah-stage{padding:10px}.ayah-mark,.ayah-setup-desc{display:none}.ayah-setup h2{font-size:18px;margin-bottom:2px}.ayah-setting-label{margin-top:4px}.ayah-options{gap:4px;margin:5px 0}.ayah-opt{min-height:88px;padding:6px 4px}.ayah-opt small{font-size:9px;line-height:1.2}.ayah-speed{gap:4px;margin:4px 0 6px}.ayah-speed button{padding:4px 5px;font-size:9px}.ayah-setup-actions{flex-direction:row;align-items:stretch;gap:5px;margin-top:4px}.ayah-setup-actions .btn{width:auto}.ayah-setup-actions #ayahStart{min-width:0;flex:1}.ayah-setup-actions #ayahExternal{min-height:40px}}@media(max-width:350px) and (max-height:620px){.ayah-stage{padding:8px}.ayah-mark,.ayah-setup-desc{display:none}.ayah-setup h2{font-size:18px;margin-bottom:2px}.ayah-setting-label{margin-top:4px}.ayah-options{gap:4px;margin:5px 0}.ayah-opt{min-height:68px;padding:4px 2px}.ayah-opt b{font-size:10px}.ayah-opt small{display:block;font-size:9px;line-height:1.15}.ayah-speed{gap:3px;margin:4px 0 6px}.ayah-speed button{padding:4px 4px;font-size:9px}.ayah-setup-actions{flex-direction:row;align-items:stretch;gap:5px;margin-top:4px}.ayah-setup-actions .btn{width:auto}.ayah-setup-actions #ayahStart{min-width:0;flex:1}.ayah-setup-actions #ayahExternal{min-height:40px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
 
 </style>
 <link rel="stylesheet" href="assets/styles/sanctuary.css">
@@ -11548,7 +11561,7 @@ const HomeCarousel = {
     this.track = U.$('.promo-panels', root);
     const open = action => {
       Sound.click();
-      if(action === 'ayahlight') AyahEmbed.open();
+      if(action === 'ayahlight') AyahLight.open();
       else if(action === 'quran') Router.go('quran');
       else DailyChallenge.open();
     };
@@ -11690,14 +11703,13 @@ const HomeCarousel = {
 };
 
 /* ─────────────────── 10.99b کاروسلِ دسته‌ها ───────────────────
-   این جزء پیش‌تر در برنامه وجود نداشت؛ گزارشِ باگ از «CategoryCarousel»
-   حرف می‌زد ولی در کد فقط `HomeCarousel` (بنر سه‌اسلایدیِ خانه) بود.
-   پس «حرکت نمی‌کند» در واقع «وجود ندارد» بود. این‌جا همان نام و همان
-   قراردادی ساخته می‌شود که گزارش انتظارش را داشت:
+   کاروسلِ دسته‌ها از قبل در برنامه بود و autoplay پنج‌ثانیه‌ای داشت.
+   این‌جا همان رفتار حفظ می‌شود و مکثِ دستی/کم‌حرکتی/hover، محدودیتِ
+   viewport و دکمه‌های لمسی به آن افزوده شده‌اند. قراردادِ نمونه:
 
      el.__carousel                    → نمونهٔ زنده روی هر گره
      .carousel-track / .slide         → ساختارِ DOM
-     Timers.after(…, 'page')          → تایمر (نه `Timers.set` که وجود ندارد)
+     Timers.after(…, 'page')          → تایمرِ وابسته به صفحه
 
    سه تفاوتِ عمدی با الگوی پیشنهادیِ گزارش، که هر سه اندازه‌گیری‌شده‌اند:
 
@@ -11716,11 +11728,17 @@ class CategoryCarousel {
     this.slides = U.$$('.slide', el);
     this.dotsWrap = el.querySelector ? el.querySelector('.carousel-dots') : null;
     this.statusEl = el.querySelector ? el.querySelector('.carousel-status') : null;
+    this.autoplayToggle = el.querySelector ? el.querySelector('.carousel-toggle') : null;
     this.current = 0;
     this.timer = null;
     this.pauses = new Set();
     this.drag = null;
     this.destroyed = false;
+    /* چرخه فقط وقتی می‌چرخد که همین دسته واقعاً به دیدِ کاربر رسیده باشد.
+       در مرورگرهای کهنه، visible() با هندسهٔ viewport واپس‌روی می‌کند. */
+    this.inView = typeof IntersectionObserver === 'function' ? false : true;
+    this._usesViewportFallback = typeof IntersectionObserver !== 'function';
+    this.visibilityObserver = null;
     /* فرونشاندنِ کلیکِ پس از کشیدن، با ساعتِ خودِ برنامه (`U.now`) نه
        `Date.now` مستقیم — هم با بقیهٔ زمان‌بندیِ این کلاس یکی است، هم
        آزمونِ DOMِ ساختگی می‌تواند زمان را جلو ببرد و «پس از فرونشستن
@@ -11732,9 +11750,11 @@ class CategoryCarousel {
     el.__carousel = this;
     this.setupDots();
     this.bindNav();
+    this.bindAutoplay();
     this.bindPointer();
     this.bindHover();
     this.bindKeyboard();
+    this.observeVisibility();
     this.setActive(0, { smooth: false });
     this.schedule();
   }
@@ -11750,6 +11770,26 @@ class CategoryCarousel {
       const d = document.dir || (document.documentElement && document.documentElement.getAttribute('dir')) || 'rtl';
       return String(d).toLowerCase() === 'rtl';
     }catch(e){ return true; }
+  }
+
+  observeVisibility(){
+    if(typeof IntersectionObserver !== 'function') return;
+    try{
+      this.visibilityObserver = new IntersectionObserver(entries => {
+        if(this.destroyed) return;
+        const entry = entries.find(e => e.target === this.el);
+        if(!entry) return;
+        /* حداقل بخشی از خودِ کاروسل باید دیده شود؛ بیرونِ viewport تایمر
+           نمی‌چرخد و اسلایدها هنگام رسیدنِ کاربر به دسته از نو دیده می‌شوند. */
+        this.inView = !!entry.isIntersecting && entry.intersectionRatio >= .12;
+        this.schedule();
+      }, { threshold: [0, .12] });
+      this.visibilityObserver.observe(this.el);
+    }catch(e){
+      this.visibilityObserver = null;
+      this._usesViewportFallback = true;
+      this.inView = true;
+    }
   }
 
   wrap(i){ const n = this.slides.length; return n ? ((i % n) + n) % n : 0; }
@@ -11768,11 +11808,19 @@ class CategoryCarousel {
     if(this.destroyed || !this.el || !this.el.isConnected) return false;
     const screen = this.el.closest ? this.el.closest('.screen') : null;
     if(screen && screen.classList && !screen.classList.contains('active')) return false;
-    return !!(this.el.offsetWidth || this.el.offsetHeight);
+    if(this.inView === false) return false;
+    const sized = !!(this.el.offsetWidth || this.el.offsetHeight);
+    if(!sized) return false;
+    if(this._usesViewportFallback && typeof window.innerHeight === 'number' && this.el.getBoundingClientRect){
+      const r = this.el.getBoundingClientRect();
+      if(r.bottom <= 0 || r.top >= window.innerHeight) return false;
+    }
+    return true;
   }
 
   setupDots(){
     const n = this.slides.length;
+    if(this.autoplayToggle) this.autoplayToggle.hidden = n < 2;
     if(!this.dotsWrap) return;
     /* نقطه‌ها از پیش در مارک‌آپ هستند تا بی‌JS هم کاروسل خالی نماند؛
        این‌جا شمارشان با اسلایدها یکی می‌شود. */
@@ -11791,6 +11839,29 @@ class CategoryCarousel {
     this.paintDots();
   }
 
+  bindAutoplay(){
+    if(!this.autoplayToggle) return;
+    this.autoplayToggle.onclick = () => {
+      if(this.destroyed || FX.reduced || this.slides.length < 2) return;
+      this.pause('user', !this.pauses.has('user'));
+    };
+    this.paintAutoplay();
+  }
+
+  paintAutoplay(){
+    const b = this.autoplayToggle;
+    if(!b) return;
+    const reduced = FX.reduced;
+    const stopped = reduced || this.pauses.has('user');
+    const label = reduced ? 'چرخش خودکار با تنظیمِ کم‌حرکتی خاموش است'
+                  : stopped ? 'ادامهٔ چرخش خودکار' : 'توقف چرخش خودکار';
+    b.innerHTML = Icon.of(stopped ? 'play' : 'pause');
+    b.setAttribute('aria-label', label);
+    b.setAttribute('title', label);
+    b.setAttribute('aria-pressed', String(stopped));
+    b.disabled = reduced || this.slides.length < 2;
+  }
+
   paintDots(){
     if(!this.dotsWrap) return;
     U.$$('.dot', this.dotsWrap).forEach((d, i) => {
@@ -11802,8 +11873,8 @@ class CategoryCarousel {
   bindNav(){
     const p = this.el.querySelector ? this.el.querySelector('.carousel-nav.prev') : null;
     const x = this.el.querySelector ? this.el.querySelector('.carousel-nav.next') : null;
-    if(p) p.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current - 1); };
-    if(x) x.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current + 1); };
+    if(p){ p.hidden = this.slides.length < 2; p.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current - 1); }; }
+    if(x){ x.hidden = this.slides.length < 2; x.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current + 1); }; }
   }
 
   bindKeyboard(){
@@ -11987,11 +12058,15 @@ class CategoryCarousel {
   /* رفتنِ دستی: تایمرِ حرکتِ خودکار از سر می‌گیرد تا بلافاصله بعدش نپرد */
   go(i){
     this.setActive(i);
-    this.pauses.delete('user');
-    this.schedule(true);                           // کاربر رفته است ⇒ پنج ثانیهٔ کامل
+    /* ناوبری دستی شمارش را تازه می‌کند؛ مکثِ صریحِ کاربر را دست نمی‌زند. */
+    this.schedule(true);
   }
 
-  pause(reason, on){ on ? this.pauses.add(reason) : this.pauses.delete(reason); this.schedule(); }
+  pause(reason, on){
+    on ? this.pauses.add(reason) : this.pauses.delete(reason);
+    this.paintAutoplay();
+    this.schedule();
+  }
   stopTimer(){ if(this.timer != null){ Timers.clear(this.timer); this.timer = null; } }
   startAutoplay(){ this.schedule(true); }
   stopAutoplay(){ this.stopTimer(); }
@@ -12035,6 +12110,7 @@ class CategoryCarousel {
   refresh(){
     if(this.destroyed) return;
     this.rtl = CategoryCarousel.isRtl(this.el);
+    this.paintAutoplay();
     if(!this.visible()){ this.stopTimer(); return; }
     const w = this.el.clientWidth || 0;
     if(w !== this._w){
@@ -12048,6 +12124,7 @@ class CategoryCarousel {
     if(this.destroyed) return;
     this.destroyed = true;
     this.stopTimer();
+    if(this.visibilityObserver){ try{ this.visibilityObserver.disconnect(); }catch(e){} this.visibilityObserver = null; }
     try{
       window.removeEventListener('pointerup', this._release);
       window.removeEventListener('pointercancel', this._release);
@@ -12091,6 +12168,29 @@ const Carousels = {
         rt = setTimeout(() => { rt = null; this.refresh(); }, 160);
       });
     }catch(e){}
+    /* واپس‌روی برای مرورگری که IntersectionObserver ندارد: در اسکرول،
+       کاروسلِ نزدیکِ دید دوباره سنجیده می‌شود. */
+    try{
+      if(typeof IntersectionObserver !== 'function'){
+        let st = null;
+        window.addEventListener('scroll', () => {
+          if(st) return;
+          st = setTimeout(() => { st = null; this.refresh(); }, 120);
+        }, { passive:true });
+      }
+    }catch(e){}
+    /* تنظیمِ کم‌حرکتی ممکن است زنده عوض شود؛ خاموش/روشن‌شدن باید همان لحظه
+       روی تایمر و دکمهٔ مکثِ همهٔ کاروسل‌ها اثر بگذارد. */
+    try{
+      const media = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+      const motionChanged = () => this.refresh();
+      media?.addEventListener?.('change', motionChanged);
+      if(media && !media.addEventListener) media.addListener?.(motionChanged);
+      if(typeof MutationObserver === 'function' && document.documentElement){
+        this.motionObserver = new MutationObserver(motionChanged);
+        this.motionObserver.observe(document.documentElement, { attributes:true, attributeFilter:['data-motion'] });
+      }
+    }catch(e){}
     /* قلم که دیر بار شود، عرضِ کارت‌ها عوض می‌شود و جابه‌جاییِ اندازه‌گیری‌شده
        کهنه می‌ماند؛ یک‌بار پس از آماده‌شدنِ قلم‌ها دوباره اندازه می‌گیریم. */
     try{ if(document.fonts && document.fonts.ready && document.fonts.ready.then) document.fonts.ready.then(() => this.refresh()); }catch(e){}
@@ -12117,21 +12217,15 @@ const AyahEmbed = {
  open(){
   if(!Session.user())return Gate.open();Router.go('play');
   U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='نمایش عمودی — بازی و تمرین با آیات قرآن';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
-  /* ── مجوزهای قاب: فقط همان که واقعاً لازم است ──
-     «fullscreen» برای نمای تمام‌صفحهٔ خودِ بازی؛ صدا با نخستین لمسِ
-     کاربر باز می‌شود، پس «autoplay» هم لازم نیست. هیچ دوربین، میکروفن،
-     موقعیت یا سنسوری به این قاب داده نمی‌شود.
-     ── مُهرِ پوشاننده (۴.۱) ──
-     پوستهٔ میزبان بازی، بنر ثابتِ گوشهٔ پایین-راست دارد که با هر
-     بارگذاری برمی‌گردد و روی دکمه‌های ادامه/تأیید می‌نشیند. تا وقتی
-     سورسِ آن پوسته در اختیار ما نباشد، همین مُهرِ هم‌زبانِ تم، هم بنر را
-     می‌پوشاند و هم لمسِ آن ناحیه را می‌گیرد تا هیچ گزینه‌ای پشتش پنهان
-     نماند. */
-  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="ayah-banner-mask" id="ayahBannerMask" role="presentation">'+Icon.of('mosque')+'<span class="abm-col"><b>نورِ آیه‌ها</b><small>نسخهٔ صحنِ نورانی</small></span></div></div>'+
+  /* مجوزهای قاب به حداقل لازم محدود است: تمام‌صفحه فقط با خواستِ کاربر؛
+     صدا با نخستین لمس باز می‌شود و هیچ دوربین/میکروفن/موقعیت داده نمی‌شود.
+     روی قاب هیچ لایهٔ پوشاننده‌ای نمی‌گذاریم تا گزینه‌ها و دکمه‌های بازی
+     پشتِ یک کارتِ میزبان پنهان نشوند. */
+  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها — نسخهٔ برخط" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
     '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
     '<p class="tiny ayah-orient" role="status">بازی در حالت عمودی اجرا می‌شود؛ چرخاندنِ گوشی لازم نیست. «تمام‌صفحه» ارتفاع را بیشتر می‌کند و جهتِ صفحه را عوض نمی‌کند.</p></div>'+
-    '<p class="tiny" id="ayahFrameStatus" role="status">بازی خارجی به اینترنت نیاز دارد. اگر قاب خالی ماند، «تمرین آفلاین» همین بازی را بدون اینترنت اجرا می‌کند. حالت دونفرهٔ آنلاین هنوز در دسترس نیست؛ اتصال آن به پشتیبانی خود بازی نیاز دارد. مُهرِ گوشهٔ پایین، بنرِ میزبانِ بیرونی را می‌پوشاند تا چیزی از دید و لمس پنهان نشود.</p>'+
-    '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین آفلاین</button></div>';
+    '<p class="tiny" id="ayahFrameStatus" role="status">نسخهٔ برخط به اینترنت نیاز دارد. برای دیدنِ همهٔ حالت‌های بازی و انتخاب زمان، «تمرین با گزینه‌ها» را بزن؛ این نسخه داخل نورستان و بدون اینترنت اجرا می‌شود. حالت دونفرهٔ برخط به پشتیبانی خودِ بازی نیاز دارد.</p>'+
+    '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین با گزینه‌ها</button></div>';
   U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
   U.$('#ayahExpand').onclick=()=>this.expand();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
   /* iOS برای عنصرهای معمولی تمام‌صفحه نمی‌دهد؛ دکمهٔ بی‌اثر نشان نمی‌دهیم. */
@@ -12219,7 +12313,6 @@ const AyahEmbed = {
     حالا فقط تمام‌صفحه می‌کند و جهتِ صفحه را دست نمی‌زند. */
  landscape(){ return this.expand(); },
  cleanup(){
-  U.$('#ayahBannerMask')?.remove();   /* مُهرِ پوشاننده هم با قاب جمع می‌شود */
   if(this.slowTimer){ Timers.clear(this.slowTimer); this.slowTimer=null; }
   if(this.onFs){ document.removeEventListener('fullscreenchange',this.onFs); this.onFs=null; }
   if(this.onResize){
@@ -12260,25 +12353,42 @@ const AyahLight = {
   lanterns(){ return `<div class="ayah-lanterns" aria-hidden="true"><i>${Icon.of('sparkle')}</i><i>${Icon.of('sparkle')}</i></div>`; },
   open(){
     Timers.clearPage(); Router.go('play');
+    RoundControl.clear();
     U.$('#pgTitle').textContent = '🕌 نورِ آیه‌ها';
-    U.$('#pgSub').textContent = 'بازی و تمرین با آیات قرآن';
-    U.$('#pgBar').innerHTML = ''; U.prog(0, {cap:'آیه'});
+    U.$('#pgSub').textContent = 'حالت بازی و زمان را همین‌جا انتخاب کن';
+    U.$('#pgBar').innerHTML = ''; U.$('#pgProgWrap').classList.add('hide');
     U.$('#pgBody').innerHTML = `<div class="ayah-stage">${this.lanterns()}<div class="ayah-setup">
       <div class="ayah-mark">﷽</div><h2>با آیات قرآن بازی کن</h2>
-      <p>حالت تمرین و زمان هر پرسش را انتخاب کن. ترجمه پس از هر پاسخ نمایش داده می‌شود.</p>
+      <p class="ayah-setup-desc">یکی از سه حالت و زمان هر پرسش را انتخاب کن؛ همهٔ گزینه‌ها در همین صفحه دیده می‌شوند.</p>
+      <div class="tiny ayah-setting-label">حالت بازی</div>
       <div class="ayah-options" role="radiogroup" aria-label="حالت بازی">
-        <button class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" data-am="order"><span>${Glyph.of('🧩')}</span><b>ترتیب آیه</b><small>کلمات را به ترتیب درست بچین</small></button>
-        <button class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" data-am="missing"><span>${Glyph.of('🔎')}</span><b>کلمهٔ گمشده</b><small>جای خالی آیه را کامل کن</small></button>
-        <button class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" data-am="surah"><span>${Glyph.of('📖')}</span><b>شناخت سوره</b><small>آیه از کدام سوره است؟</small></button>
+        <button type="button" class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" tabindex="${this.mode==='order'?0:-1}" data-am="order"><span>${Glyph.of('🧩')}</span><b>ترتیب آیه</b><small>کلمات را مرتب کن</small></button>
+        <button type="button" class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" tabindex="${this.mode==='missing'?0:-1}" data-am="missing"><span>${Glyph.of('🔎')}</span><b>کلمهٔ گمشده</b><small>جای خالی را پُر کن</small></button>
+        <button type="button" class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" tabindex="${this.mode==='surah'?0:-1}" data-am="surah"><span>${Glyph.of('📖')}</span><b>شناخت سوره</b><small>نام سوره را پیدا کن</small></button>
       </div>
-      <div class="tiny">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
-        <button class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
-      </div><button class="btn ok" id="ayahStart">شروع تمرین ←</button>
-      <div class="tiny" style="margin-top:15px">بهترین امتیاز: <b>${U.fa(Progress.recordLabel('ayahlight') || 0)}</b> · ۱۵ آیه در بانک · ۱۰ پرسش در هر دور</div>
+      <div class="tiny ayah-setting-label">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
+        <button type="button" class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button type="button" class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button type="button" class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
+      </div>
+      <div class="ayah-setup-actions"><button type="button" class="btn ok" id="ayahStart">شروع تمرین ←</button><button type="button" class="btn gh sm" id="ayahExternal">بازی برخط</button></div>
+      <div class="tiny" style="margin-top:12px">بهترین امتیاز: <b>${U.fa(Progress.recordLabel('ayahlight') || 0)}</b> · ۱۵ آیه در بانک · ۱۰ پرسش در هر دور</div>
     </div></div>`;
-    U.$$('[data-am]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.mode=b.dataset.am; U.$$('[data-am]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-checked',String(on)); }); Sound.tick(); });
+    U.$$('[data-am]', U.$('#pgBody')).forEach((b,i,all) => {
+      b.onclick = () => {
+        this.mode=b.dataset.am;
+        all.forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-checked',String(on)); x.tabIndex=on?0:-1; });
+        Sound.tick();
+      };
+      b.onkeydown = e => {
+        if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+        e.preventDefault();
+        const delta = ['ArrowLeft','ArrowDown'].includes(e.key) ? 1 : -1;
+        const next = all[(i + delta + all.length) % all.length];
+        next.click(); next.focus();
+      };
+    });
     U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); Sound.tick(); });
     U.$('#ayahStart').onclick = () => this.start();
+    U.$('#ayahExternal').onclick = () => { Sound.click(); AyahEmbed.open(); };
   },
   start(){
     Stats.track('ayahlight'); Combo.reset();
@@ -12292,6 +12402,7 @@ const AyahLight = {
   },
   paintTime(){ const e=U.$('#ayahTime'); if(e){ e.textContent=U.fa(Math.max(0,this.left)); e.classList.toggle('danger',this.left<=7); } },
   render(){
+    U.$('#pgProgWrap')?.classList.remove('hide');
     const q=this.qs[this.i]; if(!q){ this.finish(); return; }
     this.locked=false; this.picked=[];
     U.prog(this.i/this.qs.length*100,{cur:this.i+1,total:this.qs.length,cap:'آیه'});
@@ -12341,7 +12452,9 @@ const AyahLight = {
 
 /* ─────────────────── 11. GAME REGISTRY ─────────────────── */
 const Games = {
-  ayahlight: () => AyahEmbed.open(),
+  /* مسیرِ اصلی، بازیِ درون‌برنامه‌ای است تا سه حالت و زمان پیش از شروع
+     جلوی چشم کاربر باشند؛ نسخهٔ embed از صفحهٔ انتخاب حالت در دسترس است. */
+  ayahlight: () => AyahLight.open(),
   recite:    () => Router.go('quran'),
   surah:     () => SurahEngine.start(),
   scramble:  () => ScrambleEngine.start(),
@@ -12789,8 +12902,11 @@ function catCarouselHtml(cat, d){
         </div>
         <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
         <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
-        <div class="carousel-dots" aria-label="انتخاب اسلاید">${
-          picks.map((_, i) => `<button type="button" class="dot${i === 0 ? ' active' : ''}" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('')}</div>
+        <div class="carousel-controls">
+          <button type="button" class="carousel-toggle" aria-label="توقف چرخش خودکار" aria-pressed="false" title="توقف چرخش خودکار">${Icon.of('pause')}</button>
+          <div class="carousel-dots" role="group" aria-label="انتخاب اسلاید">${
+            picks.map((_, i) => `<button type="button" class="dot${i === 0 ? ' active' : ''}" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('')}</div>
+        </div>
         <p class="carousel-status" role="status" aria-live="polite">اسلاید ۱ از ${U.fa(picks.length)}</p>
       </div>
     </div>`;
