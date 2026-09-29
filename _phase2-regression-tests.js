@@ -44,8 +44,8 @@ const baseData=before.slice(before.indexOf('const DATA = '),before.indexOf('cons
 ok('DATA source unchanged from original repository',hash(dataSource)===hash(baseData));
 ok('Sudoku metadata registered without modifying original DATA source',typeof Games.sudoku==='function'&&DATA.categories.find(c=>c.id==='brain').games.includes('sudoku'));
 /* نسخهٔ کشِ سرویس‌ورکر با هر تغییرِ پوسته/دارایی‌ها یکی جلو می‌رود تا
-   نصب‌های قبلی پوستهٔ تازه را بگیرند (نسخهٔ ۲۴: قابِ عمودیِ «نورِ آیه‌ها»). */
-const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 24',['noorestan-24','noorestan-shell-24','noorestan-media-24','noorestan-text-24'].every(k=>sw.includes(k)));
+   نصب‌های قبلی پوستهٔ تازه را بگیرند (نسخهٔ ۲۵: قابِ عمودی و گزینه‌های تازهٔ «نورِ آیه‌ها»). */
+const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 25',['noorestan-25','noorestan-shell-25','noorestan-media-25','noorestan-text-25'].every(k=>sw.includes(k)));
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);

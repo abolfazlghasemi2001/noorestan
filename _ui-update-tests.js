@@ -104,10 +104,10 @@ function ok(name, value, detail){
     const a=document.querySelector('#ib').getBoundingClientRect(),b=document.querySelector('#miniQ').getBoundingClientRect();return a.bottom<=b.top;
   }));
   await p.evaluate(()=>{Recite.cur=null;Recite.state='idle';QuranUI.syncMini();Install.hide();});
-  // Parent frame remains in its container, including rotation. Cross-origin content is NOT asserted here.
+  // Optional external frame remains contained, including rotation. The main game now opens AyahLight directly.
   for(const [width,height] of [[320,568],[390,844],[844,390],[1440,1000]]){
     await p.setViewportSize({width,height});
-    await p.evaluate(()=>{UI.closeModal();Games.ayahlight();});
+    await p.evaluate(()=>{UI.closeModal();AyahEmbed.open();});
     const bounds=await p.evaluate(()=>{
       const f=document.querySelector('#ayahFrame'),r=f.getBoundingClientRect(),s=f.parentElement.getBoundingClientRect();
       return {src:f.src,left:r.left,right:r.right,width:innerWidth,inside:r.left>=s.left && r.right<=s.right,scroll:getComputedStyle(f.parentElement).overflow};
@@ -116,7 +116,7 @@ function ok(name, value, detail){
     await p.evaluate(async()=>{Router.go('home');await AyahEmbed.exiting;});
     ok('leaving game removes cross-origin frame',await p.locator('#ayahFrame').count()===0);
   }
-  // Complete the preserved OFFLINE fallback, not the inaccessible remote Arena game.
+  // Complete the primary in-app game (all modes are visible before it starts).
   for(const size of [{width:390,height:844},{width:1440,height:1000}]){
     await p.setViewportSize(size);
     for(const mode of ['order','missing','surah']){
@@ -149,9 +149,13 @@ function ok(name, value, detail){
   while(Date.now()-start<observation){await auto.waitForTimeout(4600);indices.push(await auto.evaluate(()=>HomeCarousel.index));}
   ok('carousel advances continuously in real time',indices.length>=3&&new Set(indices).size===3,{milliseconds:Date.now()-start,samples:indices});
   const area=await auto.locator('#homeSlider').boundingBox();
-  await auto.dispatchEvent('#homeSlider','pointerdown',{pointerId:99,pointerType:'touch',button:0,clientX:area.x+40,clientY:area.y+80});
+  // PointerEventInit defaults isPrimary to false for a synthetic pointer id;
+  // real first-touch pointers are primary and the application intentionally ignores secondary pointers.
+  await auto.dispatchEvent('#homeSlider','pointerdown',{pointerId:99,pointerType:'touch',isPrimary:true,button:0,clientX:area.x+40,clientY:area.y+80});
+  const touchPaused=await auto.evaluate(()=>HomeCarousel.pauses.has('touch')&&HomeCarousel.timer===null);
   let held=await auto.evaluate(()=>HomeCarousel.index);await auto.waitForTimeout(5200);
-  ok('touch hold pauses advance',held===await auto.evaluate(()=>HomeCarousel.index));
+  const touchAfter=await auto.evaluate(()=>HomeCarousel.index);
+  ok('touch hold pauses advance',touchPaused&&held===touchAfter,{touchPaused,indexBefore:held,indexAfter:touchAfter});
   await auto.dispatchEvent('#homeSlider','pointercancel',{pointerId:99,pointerType:'touch',clientX:area.x+40,clientY:area.y+80});
   ok('pointer cancellation releases pause',await auto.evaluate(()=>!HomeCarousel.pauses.has('touch')));
   await auto.locator('#homeSlider').hover();

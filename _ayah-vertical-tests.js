@@ -103,9 +103,72 @@ const box = () => {
   await page.evaluate(() => { Splash.hide(); Onboarding.close(true); Gate.close(); });
   await page.waitForTimeout(500);
 
-  /* ── مسیرِ واقعیِ کاربر: دکمهٔ بنرِ خانه ── */
+  /* ── مسیرِ واقعیِ کاربر: گزینه‌های اصلی باید پیش از قابِ بیرونی دیده شوند ── */
   await page.evaluate(() => { Router.go('home'); HomeCarousel.show(0); });
   await page.click('[data-slide-action="ayahlight"]');
+  await page.waitForSelector('.ayah-setup');
+  const setup = await page.evaluate(() => {
+    const modes = [...document.querySelectorAll('[data-am]')].map(b => {
+      const r = b.getBoundingClientRect(), s = getComputedStyle(b);
+      return { mode:b.dataset.am, visible:s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0,
+               inViewport:r.top >= 0 && r.bottom <= innerHeight };
+    });
+    const times = [...document.querySelectorAll('[data-sec]')].map(b => {
+      const r = b.getBoundingClientRect(), s = getComputedStyle(b);
+      return { seconds:b.dataset.sec, visible:s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0,
+               inViewport:r.top >= 0 && r.bottom <= innerHeight };
+    });
+    return { modes, times, hasFrame:!!document.querySelector('#ayahFrame'), start:!!document.querySelector('#ayahStart'),
+             external:!!document.querySelector('#ayahExternal') };
+  });
+  ok('مسیر اصلی، هر سه حالت بازی را بی‌نیاز از iframe نشان می‌دهد',
+     setup.modes.length === 3 && setup.modes.every(x => x.visible) && !setup.hasFrame, setup);
+  ok('سه زمانِ پرسش و دکمهٔ شروع هم در صفحهٔ انتخاب‌اند',
+     setup.times.length === 3 && setup.times.every(x => x.visible) && setup.start && setup.external, setup);
+  ok('در موبایل، انتخاب‌ها در همان viewport جا می‌شوند',
+     setup.modes.every(x => x.inViewport) && setup.times.every(x => x.inViewport), setup);
+  await page.screenshot({ path: 'tmp/acceptance/ayah-options-390.png', animations: 'disabled' });
+
+  /* روی گوشیِ ۳۲۰×۵۶۸ تزئینات جمع می‌شوند تا حالت‌ها، توضیحِ کوتاه، زمان‌ها
+     و دو کنش زیرِ نوارِ ثابت نمانند. */
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.waitForTimeout(160);
+  const compact = await page.evaluate(() => {
+    const nav = document.querySelector('#nav'), nr = nav.getBoundingClientRect();
+    const bound = el => { const r=el.getBoundingClientRect(); return {top:Math.round(r.top),bottom:Math.round(r.bottom),inside:r.top>=0&&r.bottom<=nr.top+1}; };
+    return {
+      modes:[...document.querySelectorAll('[data-am]')].map(b=>({mode:b.dataset.am,...bound(b),description:bound(b.querySelector('small'))})),
+      times:[...document.querySelectorAll('[data-sec]')].map(b=>({seconds:b.dataset.sec,...bound(b)})),
+      start:bound(document.querySelector('#ayahStart')),
+      external:bound(document.querySelector('#ayahExternal')),
+      progressHidden:document.querySelector('#pgProgWrap').classList.contains('hide'),
+      navTop:Math.round(nr.top)
+    };
+  });
+  ok('در ۳۲۰×۵۶۸ سه حالت، سه زمان و دکمه‌ها بالای نوارِ ثابت دیده می‌شوند',
+     compact.modes.length===3&&compact.modes.every(x=>x.inside&&x.description.inside)&&compact.times.length===3&&compact.times.every(x=>x.inside)&&compact.start.inside&&compact.external.inside&&compact.progressHidden,
+     compact);
+  await page.screenshot({ path: 'tmp/acceptance/ayah-options-320.png', animations: 'disabled' });
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.waitForTimeout(160);
+  const compact360 = await page.evaluate(() => {
+    const nav=document.querySelector('#nav'), nr=nav.getBoundingClientRect();
+    const bound=el=>{const r=el.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),inside:r.top>=0&&r.bottom<=nr.top+1};};
+    return {
+      modes:[...document.querySelectorAll('[data-am]')].map(b=>({mode:b.dataset.am,...bound(b),description:bound(b.querySelector('small'))})),
+      times:[...document.querySelectorAll('[data-sec]')].map(b=>({seconds:b.dataset.sec,...bound(b)})),
+      start:bound(document.querySelector('#ayahStart')), external:bound(document.querySelector('#ayahExternal')),
+      progressHidden:document.querySelector('#pgProgWrap').classList.contains('hide'), navTop:Math.round(nr.top)
+    };
+  });
+  ok('در ۳۶۰×۶۴۰ همهٔ حالت‌ها، توضیح‌ها و زمان‌ها بالای نوار جا می‌شوند',
+     compact360.modes.length===3&&compact360.modes.every(x=>x.inside&&x.description.inside)&&compact360.times.length===3&&compact360.times.every(x=>x.inside)&&compact360.start.inside&&compact360.external.inside&&compact360.progressHidden,
+     compact360);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(160);
+
+  /* نسخهٔ embed اختیاری است؛ آن را جداگانه می‌آزماییم. */
+  await page.click('#ayahExternal');
   await page.waitForSelector('#ayahFrame');
   await page.waitForTimeout(900);
 
@@ -116,7 +179,8 @@ const box = () => {
     sub: document.querySelector('#pgSub').textContent,
     expand: document.querySelector('#ayahExpand').textContent.trim(),
     src: document.querySelector('#ayahFrame').getAttribute('src'),
-    orient: !!document.querySelector('.ayah-orient')
+    orient: !!document.querySelector('.ayah-orient'),
+    blockingMask: !!document.querySelector('#ayahBannerMask,.ayah-banner-mask')
   }));
 
   ok('قابِ بازی عمودی است (بلندتر از پهن)', m.frame.h > m.frame.w, m.frame);
@@ -136,6 +200,7 @@ const box = () => {
   ok('راهنمای چرخاندنِ گوشی نیست', extra.orient);
   ok('برچسبِ دکمه «تمام‌صفحه» است', extra.expand === 'تمام\u200cصفحه', extra.expand);
   ok('قاب همان بازیِ embed را می‌آورد', extra.src === EMBED, extra.src);
+  ok('هیچ کارتِ پوشاننده روی بازی یا گزینه‌هایش نیست', !extra.blockingMask, extra.blockingMask);
   await page.screenshot({ path: 'tmp/acceptance/ayah-vertical-390.png', animations: 'disabled' });
 
   /* ── تمام‌صفحه با خواستِ کاربر، بی قفلِ جهت ── */
@@ -194,6 +259,8 @@ const box = () => {
     ? undefined : route.fallback());
   await page.evaluate(() => { Router.go('home'); HomeCarousel.show(0); });
   await page.click('[data-slide-action="ayahlight"]');
+  await page.waitForSelector('.ayah-setup');
+  await page.click('#ayahExternal');
   await page.waitForSelector('#ayahFrame');
   const slow = await page.waitForFunction(() => !!document.querySelector('#ayahFrameStatus')?.classList.contains('slow'),
                                           null, { timeout: 13000 }).then(() => true).catch(() => false);

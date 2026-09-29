@@ -164,17 +164,18 @@ function makeCarousel({ slides = 4, width = 300, gap = 12, clientWidth = 390, wi
   const track = node({ classes: ['carousel-track'], children: slideNodes, clientWidth });
   const viewport = node({ classes: ['carousel-viewport'], children: [track], clientWidth });
   const dots = node({ classes: ['carousel-dots'], children: [] });
+  const autoplayToggle = node({ tagName: 'BUTTON', classes: ['carousel-toggle'] });
   const status = node({ classes: ['carousel-status'] });
   const navPrev = node({ tagName: 'BUTTON', classes: ['carousel-nav', 'prev'] });
   const navNext = node({ tagName: 'BUTTON', classes: ['carousel-nav', 'next'] });
   const root = node({
     classes: ['category-carousel'], dataset: { cat: 'brain' },
-    children: [viewport, navPrev, navNext, ...(withDots ? [dots] : []), status],
+    children: [viewport, navPrev, navNext, ...(withDots ? [dots] : []), autoplayToggle, status],
     clientWidth, offsetWidth: clientWidth, offsetHeight: 280, isConnected: connected,
     attrs: { 'data-cat': 'brain' }
   });
   const screen = node({ classes: ['screen', 'active'], children: [root] });
-  return { root, track, viewport, dots, status, navPrev, navNext, slides: slideNodes, screen };
+  return { root, track, viewport, dots, autoplayToggle, status, navPrev, navNext, slides: slideNodes, screen };
 }
 
 const openedGames = [];
@@ -231,6 +232,8 @@ assert.equal(typeof CC, 'function', '۱ — CategoryCarousel باید تابع �
   const inst = new CC(c.root, { autoplay: 5000 });
   assert.equal(c.root.__carousel, inst, '۲ — نمونه باید روی el.__carousel بنشیند');
   assert.equal(inst.current, 0);
+  assert.equal(c.autoplayToggle.attrs['aria-label'], 'توقف چرخش خودکار', '۲ — کنترلِ مکث برای کاربر دیده و برچسب‌گذاری می‌شود');
+  assert.equal(c.autoplayToggle.attrs['aria-pressed'], 'false');
   assert.equal(c.track.style.transform, 'translateX(0px)', '۳ — اسلایدِ ۰ یعنی جابه‌جاییِ صفرِ صریح');
   assert.ok(c.slides[0]._classes.has('is-active'), '۳ — اسلایدِ ۰ فعال است');
   assert.equal(c.slides[0].inert, false);
@@ -275,8 +278,23 @@ assert.equal(typeof CC, 'function', '۱ — CategoryCarousel باید تابع �
   c.root.fire('keydown', { key: 'ArrowRight', preventDefault(){} });
   assert.equal(inst.current, 2, '۸ — در RTL فلشِ راست یعنی اسلایدِ پیشین');
 
+  /* کنترلِ صریحِ مکث: اجازه می‌دهد کاربر کارت‌ها را بخواند؛ انتخاب دستی
+     شمارش را تازه می‌کند ولی مکثِ صریح را ناخواسته لغو نمی‌کند. */
+  c.autoplayToggle.onclick();
+  assert.equal(inst.timer, null, '۸ — دکمهٔ مکث تایمر را متوقف می‌کند');
+  assert.equal(c.autoplayToggle.attrs['aria-pressed'], 'true');
+  const pausedAt = inst.current;
+  inst.go(inst.current + 1);
+  assert.equal(inst.current, (pausedAt + 1) % inst.count);
+  assert.equal(inst.timer, null, '۸ — ناوبری دستی مکثِ انتخاب‌شده را حفظ می‌کند');
+  c.autoplayToggle.onclick();
+  assert.ok(inst.timer != null, '۸ — ادامهٔ خودکار با همان دکمه کار می‌کند');
+  const resumedAt = inst.current;
+  Timers2.advance(5000);
+  assert.equal(inst.current, (resumedAt + 1) % inst.count);
+
   /* گزارشِ زندهٔ صفحه‌خوان */
-  assert.ok(/۳/.test(c.status.textContent), '۸ — وضعیت برای صفحه‌خوان نوشته می‌شود');
+  assert.equal(c.status.textContent, `اسلاید ${ctx2.U.fa(inst.current + 1)} از ${ctx2.U.fa(inst.count)}`, '۸ — وضعیتِ اسلاید زنده به‌روز است');
 
   inst.destroy();
 }
@@ -313,6 +331,12 @@ assert.equal(typeof CC, 'function', '۱ — CategoryCarousel باید تابع �
   assert.equal(inst.timer, null, '۱۳ — صفحهٔ غیرفعال تایمر نمی‌گیرد');
   c.screen._classes.add('active'); inst.schedule(true);
   assert.ok(inst.timer != null, '۱۳ — فعال‌شدنِ صفحه تایمر را برمی‌گرداند');
+
+  /* بیرونِ viewport، تایمر نمی‌چرخد؛ با رسیدن کاربر تازه شروع می‌شود. */
+  inst.inView = false; inst.schedule(true);
+  assert.equal(inst.timer, null, '۱۳ — کاروسلِ خارج از دید تایمر نمی‌گیرد');
+  inst.inView = true; inst.schedule();
+  assert.ok(inst.timer != null, '۱۳ — با دیده‌شدن دوباره تایمر شروع می‌شود');
   inst.destroy();
 }
 
@@ -322,6 +346,7 @@ assert.equal(typeof CC, 'function', '۱ — CategoryCarousel باید تابع �
   const c = makeCarousel(); carouselsInDoc.push(c.root);
   const inst = new CC(c.root, { autoplay: 5000 });
   assert.equal(inst.timer, null, '۱۴ — کم‌حرکتی یعنی بدون حرکتِ خودکار');
+  assert.equal(c.autoplayToggle.disabled, true, '۱۴ — دکمه هم وضعیتِ کم‌حرکتی را اعلام می‌کند');
   assert.equal(c.track.style.transform, '', '۱۴ — کم‌حرکتی transform نمی‌نویسد (CSS خودش صفر می‌کند)');
   inst.go(2);
   assert.equal(inst.current, 2, '۱۴ — ولی رفتنِ دستی کار می‌کند');
@@ -432,6 +457,8 @@ assert.equal(typeof CC, 'function', '۱ — CategoryCarousel باید تابع �
   const oi = new CC(one.root, { autoplay: 5000 });
   assert.equal(oi.timer, null, '۲۴ — کاروسلِ تک‌اسلاید حرکتِ خودکار ندارد');
   assert.equal(one.dots.hidden, true, '۲۴ — و نقطه‌هایش پنهان است');
+  assert.equal(one.autoplayToggle.hidden, true, '۲۴ — دکمهٔ چرخشِ بی‌معنا هم پنهان است');
+  assert.equal(one.navPrev.hidden, true, '۲۴ — فلش‌های ناوبری هم پنهان‌اند');
   [b.root.__carousel, c2.root.__carousel, oi].forEach(x => x.destroy());
 }
 

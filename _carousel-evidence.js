@@ -282,6 +282,11 @@ async function diagnose(page, label){
 
 /* چک ۳ِ واقعی: پنج ثانیه صبر و دوباره اندازه‌گیری */
 async function diagnoseAutoplay(page, ms = 5600){
+  /* حرکت خودکار فقط روی دستهٔ دیده‌شده مجاز است؛ پیش از سنجش، اولی را
+     به viewport می‌آوریم تا نتیجهٔ «تایمر خارج از دید متوقف است» با خرابی
+     کاروسل اشتباه نشود. */
+  await page.evaluate(() => document.querySelector('.category-carousel')?.scrollIntoView({ block:'center', behavior:'instant' }));
+  await sleep(250);
   const before = await page.evaluate(() => {
     const t = document.querySelector('.carousel-track');
     const h = document.querySelector('#homeSlider');
@@ -371,6 +376,7 @@ async function motionState(page){
   return await page.evaluate(() => ({
     hidden: document.hidden,
     vis: document.visibilityState,
+    scrollY: Math.round(window.scrollY),
     reduced: (typeof FX !== 'undefined' && FX.reduced) || null,
     dataMotion: document.documentElement.getAttribute('data-motion'),
     homeActive: !!document.querySelector('#s-home')?.classList.contains('active'),
@@ -383,6 +389,8 @@ async function motionState(page){
       timer: (e.__carousel?.timer ?? null) != null,
       pauses: e.__carousel ? [...e.__carousel.pauses] : null,
       visible: e.__carousel?.visible() ?? null,
+      inView: e.__carousel?.inView ?? null,
+      rootTop: Math.round(e.getBoundingClientRect().top),
       slides: e.__carousel?.count ?? null,
       transform: e.querySelector('.carousel-track')?.style.transform || ''
     }))
@@ -559,7 +567,12 @@ async function clipOf(page, sel, pad = 8){
         console.log(`  · ایندکسِ اسلایدر: ${i0} → ${i1}`);
       }
 
-      /* ۲) حرکتِ خودکارِ کاروسلِ دسته‌ها */
+      /* ۲) حرکتِ خودکارِ کاروسلِ دسته‌ها — فقط پس از آوردنش به viewport */
+      await page.evaluate(() => document.querySelector('.category-carousel')?.scrollIntoView({ block:'center', behavior:'instant' }));
+      /* نشانگرِ ضبطِ بنر ممکن است روی کاروسل مانده باشد و مکثِ hover را فعال کند؛
+         از کادر دورش می‌بریم تا واقعاً autoplay را ثبت کنیم. */
+      await page.mouse.move(1, 1);
+      await sleep(300);
       const catClip = await clipOf(page, '.category-carousel');
       console.log('  · کادرِ کاروسل:', JSON.stringify(catClip), 'ویوپورت:', JSON.stringify(await page.evaluate(() => ({
         vw: window.innerWidth, vh: window.innerHeight, sy: window.scrollY,
@@ -575,8 +588,12 @@ async function clipOf(page, sel, pad = 8){
         const s1 = await page.evaluate(() => [...document.querySelectorAll('.category-carousel')].map(e => e.__carousel?.current ?? null));
         report.stateAfterCategoryGif = await motionState(page);
         console.log('  · پس از گیفِ کاروسل:', JSON.stringify(report.stateAfterCategoryGif));
-        report.categoryAutoplay = { currentBefore: s0, currentAfter: s1, moved: JSON.stringify(s0) !== JSON.stringify(s1) };
-        console.log(`  · current کاروسل‌ها: ${JSON.stringify(s0)} → ${JSON.stringify(s1)}`);
+        report.categoryAutoplay = {
+          currentBefore: s0, currentAfter: s1,
+          primaryCarouselMoved: s0[0] !== s1[0],
+          moved: JSON.stringify(s0) !== JSON.stringify(s1)
+        };
+        console.log(`  · current کاروسل‌ها: ${JSON.stringify(s0)} → ${JSON.stringify(s1)}؛ نخستین دسته: ${s0[0]} → ${s1[0]} ${s0[0] !== s1[0] ? '✅' : '❌'}`);
 
         /* ۳) کشیدن با اشاره‌گر — ضبط هم‌زمان با خودِ کشیدن.
            پیش از اندازه‌گیری، کاروسل را دوباره وسطِ ویوپورت می‌آوریم و
@@ -599,7 +616,7 @@ async function clipOf(page, sel, pad = 8){
         const c0 = await page.evaluate(() => document.querySelector('.category-carousel').__carousel?.current);
         /* حرکتِ خودکار را می‌خوابانیم تا تنها چیزی که در گیف می‌جنبد، انگشتِ ماست */
         await page.evaluate(() => {
-          document.querySelectorAll('.category-carousel').forEach(e => e.__carousel?.pause?.(true));
+          document.querySelectorAll('.category-carousel').forEach(e => e.__carousel?.pause?.('user', true));
         });
         const STEPS = 22, TRAVEL = box.width * .62;
         const startX = box.x + box.width * .78;

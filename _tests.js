@@ -5617,6 +5617,19 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
   ok('اسلایدر بومی هر ۵۰۰۰ میلی‌ثانیه پیش می‌رود', /5000, 'sys'/.test(SRC));
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
   ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
+  ok('ورودِ اصلیِ نور آیه‌ها مستقیم گزینه‌های درون‌برنامه‌ای را نشان می‌دهد',
+     /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) && /data-slide-action="ayahlight"/.test(SRC));
+  ok('هر سه حالت و هر سه زمان پیش از شروع در صفحهٔ انتخاب هستند',
+     ['data-am="order"','data-am="missing"','data-am="surah"','data-sec="45"','data-sec="30"','data-sec="18"'].every(x => SRC.includes(x)) && SRC.includes('id="ayahStart"'));
+  ok('بازیِ برخط اختیاری و از صفحهٔ گزینه‌ها قابل دسترسی است',
+     SRC.includes('id="ayahExternal"') && /id="ayahExternal"[\s\S]{0,80}بازی برخط/.test(SRC));
+  ok('کارتِ پوشانندهٔ پایینِ iframe حذف شده است',
+     !SRC.includes('ayahBannerMask') && !SRC.includes('ayah-banner-mask') &&
+     !fs.readFileSync(__dirname + '/assets/styles/sanctuary.css','utf8').includes('ayah-banner-mask'));
+  ok('کاروسلِ دسته‌ها خودکار می‌چرخد و در viewport فعال می‌شود',
+     /new CategoryCarousel\(el, \{ autoplay: 5000/.test(SRC) && /observeVisibility\(\)/.test(SRC) && /IntersectionObserver/.test(SRC));
+  ok('کاربر می‌تواند چرخش دسته‌ها را مکث یا ازسرگیری کند',
+     SRC.includes('class="carousel-toggle"') && SRC.includes('aria-pressed="false"') && /pause\('user', !this\.pauses\.has\('user'\)\)/.test(SRC));
 
   /* ── حالتِ عمودی — بازگشتِ بازی به قابِ عمودی ──
      این‌ها دقیقاً همان چیزهایی‌ست که یک‌بار از دست رفت: قاب به نوارِ
