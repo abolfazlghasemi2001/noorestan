@@ -12,6 +12,11 @@ global.document = { querySelector:()=>el(), querySelectorAll:()=>[], createEleme
   removeEventListener(){},
   activeElement:null,
   documentElement:{ setAttribute(){}, getAttribute(){ return null; },
+    /* `removeAttribute` هم مانند `setAttribute` در هر مرورگری هست؛ نبودنش
+       در این استاب باعث می‌شد پرچمِ `data-ayah` (که صفحهٔ بازی را در
+       گوشیِ افقیِ کوتاه جمع می‌کند) در هارنس استثنا بدهد و کلِ سنجش‌ها
+       پیش از رسیدن به گزارش بایستند. */
+    removeAttribute(){},
     style:{ setProperty(){}, getPropertyValue(){ return ''; }, removeProperty(){} } },
   body: el(), execCommand(){ return true; }, hidden:false };
 /* شنونده‌ها ثبت می‌شوند تا بشود رویدادها را دستی انداخت. بی این، رفتار
