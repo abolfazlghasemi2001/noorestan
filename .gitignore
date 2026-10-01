@@ -35,3 +35,5 @@ archive/
 # خروجی خامِ اجرای تست‌ها — نه ورودی است نه سند. سندِ واقعی همان
 # _tests.js و _servertest.js است که خودشان خوانا و قابلِ اجرااند.
 _o.txt
+index.html.bak-*
+screenshots/*.gif
