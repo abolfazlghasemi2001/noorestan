@@ -8246,7 +8246,7 @@ const Host = {
       /* سرور روی خودِ خاستگاه upgrade را می‌پذیرد. افزودنِ بی‌دلیل `/ws`
          پشت بعضی reverse proxyها 404 می‌داد و با قرارداد عمومیِ نشانیِ
          برنامه هم نمی‌خواند؛ مسیر ریشه در اجرای مستقیم و پروکسی کار می‌کند. */
-      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
     }catch(e){ return ''; }
   },
 
