@@ -1,43 +1,37 @@
-/* نورستان — پوستهٔ مشترک بازی‌های مستقل (games/) */
+/* نورستان — پوستهٔ مشترک بازی‌های مستقل (games/) — توکن‌ها در tokens.css */
+@import url('tokens.css');
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
 @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
-:root{
-  --bg:#070b18;--bg2:#0e1530;--card:rgba(255,255,255,.06);--edge:rgba(255,255,255,.12);
-  --gold:#f5c96a;--gold2:#ffdf91;--grad:linear-gradient(135deg,#f5c96a,#ffb347 55%,#ff8a5c);
-  --grn:#3ddc97;--red:#ff5d73;--mut:#9aa5c4;--txt:#eef1ff;
-  --ease:cubic-bezier(.22,1,.36,1);--bounce:cubic-bezier(.34,1.56,.64,1);
-  --f-ui:'Vazirmatn',system-ui,sans-serif;--f-q:'Amiri','Traditional Arabic',serif;
-}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{font-family:var(--f-ui);color:var(--txt);background:radial-gradient(1200px 700px at 80% -10%,#24306b 0%,transparent 60%),radial-gradient(900px 600px at -10% 110%,#3a1f4f 0%,transparent 55%),var(--bg);overflow-x:hidden;min-height:100dvh}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.07;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cpath d='M40 4l9 27h28l-23 17 9 28-23-17-23 17 9-28L3 31h28z' fill='none' stroke='%23f5c96a' stroke-width='1'/%3E%3C/svg%3E")}
-.wrap{max-width:560px;margin:0 auto;padding:16px 16px 28px;position:relative;z-index:1}
+.wrap{max-width:560px;margin:0 auto;padding:var(--sp-4) var(--sp-4) 28px;position:relative;z-index:1}
 .top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.top a,.btn-ghost{color:var(--mut);text-decoration:none;font-size:14px;border:1px solid var(--edge);padding:8px 12px;border-radius:12px;background:var(--card);cursor:pointer;font-family:inherit}
+.top a,.btn-ghost{color:var(--mut);text-decoration:none;font-size:14px;border:1px solid var(--edge);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);background:var(--card);cursor:pointer;font-family:inherit}
 .title{font-weight:800;font-size:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;flex:1}
-.hud{display:flex;gap:8px;margin-bottom:12px}
-.chip{flex:1;background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:8px 10px;text-align:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.hud{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3)}
+.chip{flex:1;background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:var(--sp-2) 10px;text-align:center;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .chip b{display:block;font-size:18px;color:var(--gold2)}
 .chip small{color:var(--mut);font-size:11px}
-.card{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid var(--edge);border-radius:22px;padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);position:relative;overflow:hidden}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid var(--edge);border-radius:var(--r-lg);padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--sh-2);position:relative;overflow:hidden}
 .card::after{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:var(--grad);opacity:.8}
-.btn{font-family:inherit;border:0;border-radius:16px;padding:14px 18px;font-size:16px;font-weight:700;cursor:pointer;color:#1b1206;background:var(--grad);box-shadow:0 10px 30px rgba(245,170,80,.35);transition:transform .2s var(--bounce),filter .2s}
+.btn{font-family:inherit;border:0;border-radius:var(--r-md);padding:14px 18px;font-size:16px;font-weight:700;cursor:pointer;color:#1b1206;background:var(--grad);box-shadow:var(--sh-gold);transition:transform .2s var(--bounce),filter .2s}
 .btn:active{transform:scale(.96)}
 .btn[disabled]{filter:grayscale(1) brightness(.6);cursor:not-allowed}
-.hearts{display:flex;gap:4px;justify-content:center}
-.hearts i{width:18px;height:18px;display:inline-block;background:var(--red);clip-path:path('M9 16.5 7.7 15.3C3.1 11.2 0 8.4 0 5 0 2.2 2.2 0 5 0c1.6 0 3.1.7 4 1.9C9.9.7 11.4 0 13 0c2.8 0 5 2.2 5 5 0 3.4-3.1 6.2-7.7 10.3z');transition:transform .3s var(--bounce),opacity .3s}
+.hearts{display:flex;gap:var(--sp-1);justify-content:center}
+.hearts i{width:18px;height:18px;display:inline-block;background:var(--red);clip-path:path('M9 16.5 7.7 15.3C3.1 11.2 0 8.4 0 5 0 2.2 2.2 0 5 0c1.6 0 3.1.7 4 1.9C9.9.7 11.4 0 13 0c2.8 0 5 2.2 5 5 0 3.4-3.1 6.2-7.7 10.3z');transition:transform var(--dur-2) var(--bounce),opacity var(--dur-2)}
 .hearts i.off{opacity:.18;transform:scale(.8)}
-.hearts i.break{animation:hb .5s}
+.hearts i.break{animation:hb var(--dur-3)}
 @keyframes hb{30%{transform:scale(1.4) rotate(-12deg)}60%{transform:scale(.7) rotate(10deg)}}
 .shake{animation:shk .42s}
 @keyframes shk{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
 .pop{animation:pp .45s var(--bounce)}
 @keyframes pp{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
 #fx{position:fixed;inset:0;pointer-events:none;z-index:50}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);opacity:0;background:rgba(14,21,48,.95);border:1px solid var(--edge);padding:10px 16px;border-radius:14px;font-size:13px;color:var(--txt);transition:all .35s var(--ease);z-index:60;max-width:92vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);opacity:0;background:rgba(14,21,48,.95);border:1px solid var(--edge);padding:10px var(--sp-4);border-radius:14px;font-size:13px;color:var(--txt);transition:all .35s var(--ease);z-index:60;max-width:92vw;text-align:center}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-.overlay{position:fixed;inset:0;background:rgba(5,8,20,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+.overlay{position:fixed;inset:0;background:rgba(5,8,20,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:70;padding:var(--sp-5)}
 .overlay.on{display:flex}
 .overlay .card{max-width:420px;width:100%;text-align:center}
 .big{font-size:44px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin:6px 0}
