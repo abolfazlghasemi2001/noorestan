@@ -4,32 +4,44 @@
 - New `assets/styles/motion.css`: single source for easing curves (`--ease-calm`, `--ease-light`,
   `--ease-bounce`, `--ease-smooth`, `--ease-expo-out`, `--ease-back-out`, plus the existing
   carousel `--ease-carousel` and button `--ease-press`), duration scale (`--dur-instant` → `--dur-epic`),
-  stagger and movement sizes.
-- Loaded via `@import` at the top of `sanctuary.css`, so `index.html` is untouched in this step.
+  stagger and movement sizes. Names do not collide with `index.html`'s own `--ease` / `--bounce`.
+- Loaded via `@import` at the top of `sanctuary.css`.
 - `prefers-reduced-motion` **and** `html[data-motion="off"]` collapse every duration to 1ms
   (not 0, so `transitionend`/`animationend` still fire) and zero every lift/scale.
-- `sanctuary.css` touch feedback now reads the tokens, each with a fallback equal to the previous
-  hard-coded value, so behaviour is unchanged if `motion.css` fails to load.
-- The in-app motion switch (`data-motion="off"`) now also removes the press-scale, which previously
-  only respected the OS setting.
+- `sanctuary.css` touch feedback reads the tokens, each with a fallback equal to the previous value.
+- The in-app motion switch now also removes the press-scale.
 
-## Step 2: splash
-- New `assets/motion/splash.js` (self-contained, injects its own markup) + splash styles in `motion.css`.
-- Sequence: backdrop fade → lantern-arch mark scales in with glow → 12 orbiting gold particles
-  (staggered) → «نورستان» rises in → shimmer sweep → fade + 1.03 scale out.
-- Min 1.3s, max 2.4s (+0.45s exit). Tap / key / tab-hidden dismisses immediately.
-- Shown once per session (`sessionStorage['nr-splash-seen']`).
-- Never built under `prefers-reduced-motion`, `data-motion="off"`, `navigator.webdriver`
-  (keeps `_shots*.js` / automation clean) or `?nosplash`.
-- Animates transform + opacity only; one infinite CSS rotation that is removed with the node; no rAF loop.
-- Dispatches `window` event `nr:splash-done` for later onboarding/hero choreography.
+## Step 2: upgrade the existing Splash + Onboarding (patch, not pushed)
+A standalone `splash.js` was briefly added and then removed: `index.html` already has a richer
+`Splash` (mushaf art, basmala, canvas dust, gyro parallax, iris/curtain exit). It is upgraded in place.
 
-### Manual integration (index.html is too large to edit via the GitHub API)
-1. `index.html`, immediately after the opening `<body ...>` tag:
-   `<script src="./assets/motion/splash.js"></script>` (synchronous on purpose, to cover first paint).
-2. `sw.js`: add `'./assets/styles/motion.css'` and `'./assets/motion/splash.js'` to `PRECACHE`,
-   bump the four cache names from `-25` to `-26`.
+Delivered as `motion-step2-splash-onboarding.patch` (apply with `git apply`, +100 / −21 lines,
+verified to apply cleanly on main @1480ade and to pass `node --check` on the inline script).
+
+Splash
+- Full sequence only on the first load of a session (`sessionStorage['nr-splash-seen']`);
+  same-session reloads get a ≤900ms version.
+- Hard cap lowered from 5.2s to 3.2s.
+- Lighter on small/low-core devices: 26 stars instead of 52, 22 canvas particles instead of 46.
+- Progress bar fills with `transform:scaleX` (origin right for RTL) instead of `width`.
+- `.sp-title` had an infinite `background-position` animation that was invisible (a later rule drops
+  `background-size`) but repainted every frame; disabled.
+- Stagger easings moved to `cubic-bezier(.16,1,.3,1)` (= `--ease-light`).
+- `Splash.hide()`, ids and the Gate → Onboarding hand-off are unchanged.
+
+Onboarding
+- Direction-aware slide in RTL (next enters from the left, previous from the right).
+- Outgoing slide fades + slides out as a decorative ghost; `paint()` stays synchronous so tests and
+  `_shots` that click `#onbNext` every 320ms keep working.
+- Staggered entry of art → title → text.
+- Emoji art replaced by the app's own SVG icons (`mosque`, `gamepad`, `book`, `medal`) with emoji fallback;
+  `art` field kept on every slide.
+- Breathing glow behind the art, gentle icon float, soft "breath" on the final «شروع کن» button.
+- Touch swipe (RTL: swipe right = next), ignores mouse and vertical scrolls.
+- All of it off under reduced motion and `data-motion="off"`.
+
+### Still manual
+- `sw.js`: precache `./assets/styles/motion.css`, bump caches `-25` → `-26`.
 
 ## Not verified
-- No browser/device run, no `_harness.js` run. Needs `node _harness.js` + an Incognito check
-  (with and without OS reduced-motion) before merging to `main`.
+- No browser/device run and no `_harness.js` / `_tests.js` run from here. Run both before merging.
