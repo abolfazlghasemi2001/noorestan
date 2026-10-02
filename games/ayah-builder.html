@@ -29,11 +29,12 @@
 .lvl{display:flex;gap:8px;justify-content:center;margin:14px 0}
 .lvl button{flex:1}
 .lvl button.sel{border-color:var(--gold);color:var(--gold2)}
+.lvl button small{display:block;font-size:10px;letter-spacing:1px;color:var(--gold2);min-height:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><a href="./">→ بازی‌ها</a><div class="title">آیه‌ساز</div><button class="btn-ghost" id="mute">🔊</button></div>
+  <div class="top"><a href="./">→ بازی‌ها</a><div class="title">آیه‌ساز</div><button class="btn-ghost" id="mute" aria-label="صدا">🔊</button></div>
   <div class="hud">
     <div class="chip"><b id="score">۰</b><small>امتیاز</small></div>
     <div class="chip"><b id="round">۰/۰</b><small>مرحله</small></div>
@@ -53,19 +54,12 @@
   <div class="big">آیه‌ساز</div>
   <p class="mut">واژه‌های آیه به هم ریخته‌اند. پیش از تمام شدن زمان، به ترتیبِ درست بچینشان.<br>هر چه سریع‌تر و پیاپی‌تر، امتیاز بیشتر. متن آیه‌ها از مرجعِ عثمانیِ خودِ نورستان خوانده می‌شود.</p>
   <div class="lvl" id="lvl">
-    <button class="btn-ghost sel" data-l="1">🌱 آسان</button>
-    <button class="btn-ghost" data-l="2">🌿 متوسط</button>
-    <button class="btn-ghost" data-l="3">🔥 دشوار</button>
+    <button class="btn-ghost sel" data-l="1">🌱 آسان<small></small></button>
+    <button class="btn-ghost" data-l="2">🌿 متوسط<small></small></button>
+    <button class="btn-ghost" data-l="3">🔥 دشوار<small></small></button>
   </div>
-  <button class="btn" id="go" style="width:100%">شروع</button>
+  <button class="btn" id="go" style="width:100%" disabled>در حال بارگذاری…</button>
   <p class="mut" id="bestTxt" style="margin-top:10px"></p>
-</div></div>
-
-<div class="overlay" id="end"><div class="card">
-  <div class="mut" id="endTitle">پایان</div>
-  <div class="big" id="endScore">۰</div>
-  <p class="mut" id="endInfo"></p>
-  <div class="row"><button class="btn" id="again">دوباره</button><a class="btn-ghost" href="./" style="display:flex;align-items:center;justify-content:center">بازی‌ها</a></div>
 </div></div>
 
 <script src="common.js"></script>
@@ -73,8 +67,9 @@
 (() => {
   const SURAH = {1:'فاتحه',2:'بقره',3:'آل عمران',4:'نساء',5:'مائده',24:'نور',33:'احزاب',59:'حشر',96:'علق',97:'قدر',99:'زلزله',102:'تکاثر',103:'عصر',107:'ماعون',108:'کوثر',109:'کافرون',110:'نصر',112:'اخلاص',113:'فلق',114:'ناس'};
   const LV = { 1: { maxTiles: 5, rounds: 8, secPer: 4.5 }, 2: { maxTiles: 7, rounds: 10, secPer: 3.4 }, 3: { maxTiles: 10, rounds: 12, secPer: 2.6 } };
+  const LV_NAME = { 1: 'آسان', 2: 'متوسط', 3: 'دشوار' };
   const MARK = /^[\u06D6-\u06ED\u06DE\u06E9]+$/;
-  let hiddenAt = 0, BANK = [], lv = 1, Q = [], qi = 0, score = 0, life = 3, combo = 0, best = 0, cur = null, need = 0, tEnd = 0, tTotal = 0, raf = 0, solvedN = 0, mistakes = 0;
+  let hiddenAt = 0, BANK = [], lv = 1, Q = [], qi = 0, score = 0, life = 3, combo = 0, cur = null, need = 0, tEnd = 0, tTotal = 0, raf = 0, solvedN = 0, mistakes = 0, over = true;
 
   const el = G.$;
   const prep = (key, text) => {
@@ -100,10 +95,14 @@
     } catch {
       BANK = [];
     }
-    if (!BANK.length) { el('#go').disabled = true; el('#bestTxt').textContent = 'مرجع آیه‌ها بارگذاری نشد. بازی را از روی سرور باز کن، نه از file://'; }
-    else showBest();
+    if (!BANK.length) { el('#go').textContent = 'شروع'; el('#bestTxt').textContent = 'مرجع آیه‌ها بارگذاری نشد. بازی را از روی سرور باز کن، نه از file://'; }
+    else { el('#go').disabled = false; el('#go').textContent = 'شروع'; showBest(); }
   };
-  const showBest = () => { const b = G.best('ayahbuilder_' + lv).best; el('#bestTxt').textContent = b ? `رکوردِ این سطح: ${G.fa(b)}` : ''; };
+  const showBest = () => {
+    const b = G.best('ayahbuilder_' + lv).best;
+    el('#bestTxt').textContent = b ? `رکوردِ این سطح: ${G.fa(b)}` : '';
+    [...el('#lvl').children].forEach(x => { const n = G.stars('ayahbuilder_' + x.dataset.l); x.querySelector('small').textContent = n ? '★'.repeat(n) : ''; });
+  };
 
   const hud = (broke = false) => {
     el('#score').textContent = G.fa(score);
@@ -112,18 +111,20 @@
   };
 
   const start = () => {
+    if (!BANK.length) return;
     const L = LV[lv];
     // آسان: آیه‌های کوتاه‌تر جلوترند
     const pool = G.shuffle(BANK).sort((x, y) => lv === 1 ? x.words.length - y.words.length : 0);
     Q = pool.slice(0, Math.min(L.rounds, pool.length));
     if (lv !== 1) Q = G.shuffle(Q);
-    qi = 0; score = 0; life = 3; combo = 0; solvedN = 0; mistakes = 0;
-    el('#start').classList.remove('on'); el('#end').classList.remove('on');
+    qi = 0; score = 0; life = 3; combo = 0; solvedN = 0; mistakes = 0; over = false;
+    el('#start').classList.remove('on');
     next();
   };
 
   const next = () => {
     cancelAnimationFrame(raf);
+    if (over) return;
     if (qi >= Q.length || life <= 0) return finish();
     cur = Q[qi];
     const L = LV[lv];
@@ -157,7 +158,7 @@
   };
 
   const pick = (b, t) => {
-    if (b.classList.contains('placed')) return;
+    if (over || b.classList.contains('placed') || need >= cur.tiles.length) return;
     if (t === cur.tiles[need]) {
       G.sfx.tap(); need++;
       b.classList.remove('hint');
@@ -183,7 +184,7 @@
     G.burst(r.left + r.width / 2, r.top + r.height / 2, 36);
     G.sfx.ok(); G.buzz(25);
     showCombo();
-    el('#slot').innerHTML = `<div class="done pop" style="width:100%">${cur.full}</div>`;
+    el('#slot').innerHTML = `<div class="done pop" style="width:100%">${G.esc(cur.full)}</div>`;
     G.toast(`+${G.fa(gain)}  ${combo > 1 ? '🔥 ترکیبِ ' + G.fa(combo) : ''}`, 1400);
     qi++; hud();
     setTimeout(next, 1700);
@@ -191,10 +192,12 @@
 
   const timeout = () => {
     cancelAnimationFrame(raf);
+    if (over || !cur || need >= cur.tiles.length) return; // جلوگیری از دوبار شمردن (رد شو + پایان زمان)
+    need = cur.tiles.length;
     life--; combo = 0; showCombo();
     G.sfx.bad(); G.buzz([80, 40, 80]);
     hud(true);
-    el('#slot').innerHTML = `<div class="done pop" style="width:100%;color:var(--mut)">${cur.full}</div>`;
+    el('#slot').innerHTML = `<div class="done pop" style="width:100%;color:var(--mut)">${G.esc(cur.full)}</div>`;
     el('#pool').innerHTML = '';
     G.toast('⏱ زمان تمام شد — پاسخ درست را ببین', 1600);
     qi++;
@@ -204,33 +207,46 @@
   const showCombo = () => { const c = el('#combo'); if (combo > 1) { c.textContent = `🔥 ×${G.fa(combo)}`; c.classList.remove('on'); void c.offsetWidth; c.classList.add('on'); } else c.classList.remove('on'); };
 
   const hint = () => {
-    if (!cur || need >= cur.tiles.length) return;
+    if (over || !cur || need >= cur.tiles.length) return;
     if (score < 50) return G.toast('برای راهنما دست‌کم ۵۰ امتیاز لازم است');
-    score -= 50; hud();
     const want = cur.tiles[need];
     const b = [...el('#pool').children].find(x => x.textContent === want && !x.classList.contains('placed'));
-    if (b) { b.classList.add('hint'); G.sfx.tap(); }
+    if (!b || b.classList.contains('hint')) return; // راهنمای تکراری امتیاز نمی‌سوزاند
+    score -= 50; hud();
+    b.classList.add('hint'); G.sfx.tap();
+  };
+
+  const starsFor = () => {
+    if (!Q.length) return 0;
+    const ratio = solvedN / Q.length;
+    if (ratio === 1 && mistakes === 0 && life === 3) return 3;
+    if (ratio >= .8 && life > 0) return 2;
+    return ratio >= .5 ? 1 : 0;
   };
 
   const finish = () => {
     cancelAnimationFrame(raf);
-    const r = G.best('ayahbuilder_' + lv, score);
-    el('#endTitle').textContent = life > 0 ? 'آفرین! همهٔ آیه‌ها را چیدی' : 'جان‌ها تمام شد';
-    el('#endScore').textContent = G.fa(score);
-    el('#endInfo').innerHTML = `${G.fa(solvedN)} آیه از ${G.fa(Q.length)} · ${G.fa(mistakes)} اشتباه<br>${r.isNew ? '🏆 رکورد تازه!' : 'رکورد: ' + G.fa(r.best)}`;
-    el('#end').classList.add('on');
-    if (r.isNew || life > 0) { G.sfx.win(); G.confetti(); }
+    if (over) return;
+    over = true; cur = null;
+    G.result({
+      key: 'ayahbuilder_' + lv,
+      game: 'آیه‌ساز',
+      title: life > 0 ? 'آفرین! همهٔ آیه‌ها را چیدی' : 'جان‌ها تمام شد',
+      score,
+      stars: starsFor(),
+      lines: [`${G.fa(solvedN)} آیه از ${G.fa(Q.length)} · ${G.fa(mistakes)} اشتباه`, `سطحِ ${LV_NAME[lv]}`],
+      onAgain: () => { el('#start').classList.add('on'); showBest(); },
+    });
   };
 
   el('#lvl').onclick = e => { const b = e.target.closest('button'); if (!b) return; lv = +b.dataset.l; [...el('#lvl').children].forEach(x => x.classList.toggle('sel', x === b)); showBest(); };
   el('#go').onclick = start;
-  el('#again').onclick = () => { el('#end').classList.remove('on'); el('#start').classList.add('on'); showBest(); };
   el('#hint').onclick = hint;
-  el('#skip').onclick = () => { if (cur && need < cur.tiles.length) timeout(); };
+  el('#skip').onclick = () => { if (!over && cur && need < cur.tiles.length) timeout(); };
   const mb = el('#mute'); const sm = () => mb.textContent = G.muted() ? '🔇' : '🔊'; sm();
   mb.onclick = () => { try { localStorage.setItem('noorestan_g_mute', G.muted() ? '0' : '1'); } catch {} sm(); };
   document.addEventListener('visibilitychange', () => {
-    const live = cur && need < cur.tiles.length && !el('#end').classList.contains('on') && !el('#start').classList.contains('on');
+    const live = !over && cur && need < cur.tiles.length && !el('#start').classList.contains('on');
     if (document.hidden) { cancelAnimationFrame(raf); hiddenAt = performance.now(); }
     else if (live && hiddenAt) { tEnd += performance.now() - hiddenAt; hiddenAt = 0; tick(); } // زمانِ پس‌زمینه حساب نمی‌شود
   });
