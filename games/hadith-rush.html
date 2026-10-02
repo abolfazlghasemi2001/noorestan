@@ -15,7 +15,7 @@
 .arena{position:relative;height:min(46vh,380px);margin-top:12px;border-radius:22px;overflow:hidden;border:1px solid var(--edge);background:linear-gradient(180deg,rgba(36,48,107,.35),rgba(7,11,24,.6))}
 .arena::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),rgba(255,255,255,.05) calc(25% - 1px) 25%)}
 .floor{position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,transparent,var(--red),transparent);opacity:.6}
-.orb{position:absolute;top:0;width:calc(25% - 10px);margin:0 5px;padding:10px 4px;border-radius:18px;text-align:center;font-family:var(--f-q);font-size:19px;line-height:1.6;color:#fff;cursor:pointer;user-select:none;background:radial-gradient(120% 120% at 50% 0%,rgba(255,223,145,.35),rgba(122,162,255,.18) 60%,rgba(255,255,255,.05));border:1px solid rgba(255,223,145,.45);box-shadow:0 0 22px rgba(245,201,106,.25),inset 0 1px 0 rgba(255,255,255,.25);will-change:transform;word-break:break-word}
+.orb{position:absolute;top:0;width:calc(25% - 10px);margin:0 5px;padding:10px 4px;border-radius:18px;text-align:center;font-family:var(--f-q);font-size:19px;line-height:1.6;color:#fff;cursor:pointer;user-select:none;touch-action:none;background:radial-gradient(120% 120% at 50% 0%,rgba(255,223,145,.35),rgba(122,162,255,.18) 60%,rgba(255,255,255,.05));border:1px solid rgba(255,223,145,.45);box-shadow:0 0 22px rgba(245,201,106,.25),inset 0 1px 0 rgba(255,255,255,.25);will-change:transform;word-break:break-word}
 .orb.hit{animation:hit .45s var(--ease) forwards}
 @keyframes hit{to{transform:var(--t) scale(1.6);opacity:0;filter:brightness(2)}}
 .orb.miss{animation:miss .45s forwards;border-color:var(--red);background:rgba(255,93,115,.3)}
@@ -30,7 +30,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><a href="./">→ بازی‌ها</a><div class="title">باران حکمت</div><button class="btn-ghost" id="mute">🔊</button></div>
+  <div class="top"><a href="./">→ بازی‌ها</a><div class="title">باران حکمت</div><button class="btn-ghost" id="mute" aria-label="صدا">🔊</button></div>
   <div class="hud">
     <div class="chip"><b id="score">۰</b><small>امتیاز</small></div>
     <div class="chip"><b id="level">۱</b><small>سطح</small></div>
@@ -53,27 +53,28 @@
   <p class="mut" id="bestTxt" style="margin-top:10px"></p>
 </div></div>
 
-<div class="overlay" id="end"><div class="card">
-  <div class="mut">باران بند آمد</div>
-  <div class="big" id="endScore">۰</div>
-  <p class="mut" id="endInfo"></p>
-  <div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="again" style="flex:1">دوباره</button><a class="btn-ghost" href="./" style="flex:1;display:flex;align-items:center;justify-content:center">بازی‌ها</a></div>
-</div></div>
-
 <script src="common.js"></script>
 <script src="../hadith-bank.js"></script>
 <script>
 (() => {
   const el = G.$;
-  // فقط حدیث‌هایی که واژهٔ کلیدی‌شان واقعاً در متن پیدا می‌شود (بی‌اعراب سنجیده می‌شود)
+  const PUNCT = /^[\s.،؛:!؟?«»()\[\]"']+|[\s.،؛:!؟?«»()\[\]"']+$/g;
+  /* فقط حدیث‌هایی که واژهٔ کلیدی‌شان واقعاً در متن پیدا می‌شود (بی‌اعراب سنجیده می‌شود).
+     نکته: گزینهٔ درست از خودِ متن برداشته می‌شود، نه از key — پیش‌تر اعرابِ key
+     با متن فرق داشت (مثل «مُنْتَهَى» در برابر «مُنتَهَى») و گوی درست با واژه‌ای
+     که پس از پاسخ آشکار می‌شد یکی به نظر نمی‌رسید. گزینهٔ غلطی هم که بی‌اعراب
+     با پاسخ یکی باشد کنار می‌رود تا دو گوی «درست» نبارد. */
   const BANK = (typeof HADITH_BANK !== 'undefined' ? HADITH_BANK : []).map(h => {
     const words = h.ar.split(/\s+/), nk = G.norm(h.key);
     const idx = words.findIndex(w => G.norm(w) === nk);
-    if (idx < 0 || !h.wrong || h.wrong.length < 3) return null;
-    return { ...h, words, idx };
+    if (idx < 0) return null;
+    const answer = words[idx].replace(PUNCT, '');
+    const wrong = (h.wrong || []).filter(w => G.norm(w) !== nk);
+    if (wrong.length < 3) return null;
+    return { ...h, words, idx, answer, wrong };
   }).filter(Boolean);
 
-  let hard = false, score = 0, life = 3, combo = 0, level = 1, right = 0, total = 0, speed = 0, orbs = [], cur = null, raf = 0, last = 0, busy = false, deck = [], hiddenAt = 0;
+  let hard = false, score = 0, life = 3, combo = 0, level = 1, right = 0, total = 0, speed = 0, orbs = [], cur = null, raf = 0, last = 0, busy = false, deck = [], hiddenAt = 0, over = true, timer = 0;
 
   const hud = (broke = false) => {
     el('#score').textContent = G.fa(score);
@@ -81,29 +82,32 @@
     el('#combo').textContent = '×' + G.fa(1 + Math.floor(combo / 3));
     G.hearts(el('#hearts'), life, 3, broke);
   };
-  const showBest = () => { const b = G.best('hadithrush').best; el('#bestTxt').textContent = b ? `رکورد: ${G.fa(b)}` : ''; };
+  const showBest = () => { const b = G.best('hadithrush').best, s = G.stars('hadithrush'); el('#bestTxt').textContent = b ? `رکورد: ${G.fa(b)} ${'★'.repeat(s)}` : ''; };
   if (!BANK.length) { el('#go').disabled = true; el('#bestTxt').textContent = 'بانک حدیث بارگذاری نشد.'; } else showBest();
+
+  const later = (fn, ms) => { clearTimeout(timer); timer = setTimeout(fn, ms); };
 
   const start = () => {
     hard = el('#hard').checked;
-    score = 0; life = 3; combo = 0; level = 1; right = 0; total = 0;
+    score = 0; life = 3; combo = 0; level = 1; right = 0; total = 0; over = false;
     deck = G.shuffle(BANK);
-    el('#start').classList.remove('on'); el('#end').classList.remove('on');
+    el('#start').classList.remove('on');
     hud(); round();
   };
 
   const round = () => {
     clear();
+    if (over) return;
     if (life <= 0) return finish();
     if (!deck.length) deck = G.shuffle(BANK);
     cur = deck.pop(); busy = false; total++;
-    const w = cur.words.slice(); w[cur.idx] = '<u>&nbsp;؟&nbsp;</u>';
+    const w = cur.words.map(G.esc); w[cur.idx] = '<u>&nbsp;؟&nbsp;</u>';
     el('#ar').innerHTML = w.join(' ');
     el('#ar').classList.remove('pop'); void el('#ar').offsetWidth; el('#ar').classList.add('pop');
     el('#fa').textContent = hard ? 'ترجمه در حالت استاد پنهان است' : cur.fa;
     el('#fa').style.opacity = hard ? .5 : 1;
     el('#src').textContent = '';
-    const opts = G.shuffle([cur.key, ...cur.wrong.slice(0, 3)]);
+    const opts = G.shuffle([cur.answer, ...G.shuffle(cur.wrong).slice(0, 3)]);
     const H = el('#arena').clientHeight;
     speed = H / (7.5 * Math.pow(.88, level - 1)); // پیکسل بر ثانیه — هر سطح ۱۲٪ تندتر
     opts.forEach((t, lane) => {
@@ -111,7 +115,7 @@
       o.className = 'orb'; o.textContent = t;
       o.style.right = (lane * 25) + '%';
       const y = -60 - Math.random() * 90;
-      const rec = { o, t, y, ok: t === cur.key, dead: false };
+      const rec = { o, t, y, ok: t === cur.answer, dead: false };
       o.style.transform = `translateY(${y}px)`;
       o.onpointerdown = e => { e.preventDefault(); tap(rec); };
       el('#arena').appendChild(o);
@@ -135,7 +139,7 @@
   };
 
   const tap = r => {
-    if (busy || r.dead) return;
+    if (over || busy || r.dead) return;
     if (r.ok) {
       busy = true; cancelAnimationFrame(raf);
       combo++; right++;
@@ -151,12 +155,12 @@
       reveal(true);
       if (right % 5 === 0) levelUp();
       hud();
-      setTimeout(round, 1500);
+      later(round, 1500);
     } else {
       r.dead = true; r.o.classList.add('miss');
       combo = 0; life--; G.sfx.bad(); G.buzz(70);
       G.reshake(el('#board')); hud(true);
-      if (life <= 0) { busy = true; cancelAnimationFrame(raf); reveal(false); setTimeout(finish, 1600); }
+      if (life <= 0) { busy = true; cancelAnimationFrame(raf); reveal(false); later(finish, 1600); }
     }
   };
 
@@ -166,11 +170,11 @@
     r.o.classList.add('reveal');
     G.reshake(el('#arena')); hud(true);
     reveal(false);
-    setTimeout(life > 0 ? round : finish, 1900);
+    later(life > 0 ? round : finish, 1900);
   };
 
   const reveal = ok => {
-    const w = cur.words.slice(); w[cur.idx] = `<u style="border-color:${ok ? 'var(--grn)' : 'var(--red)'}">${cur.words[cur.idx]}</u>`;
+    const w = cur.words.map(G.esc); w[cur.idx] = `<u style="border-color:${ok ? 'var(--grn)' : 'var(--red)'}">${G.esc(cur.words[cur.idx])}</u>`;
     el('#ar').innerHTML = w.join(' ');
     el('#fa').textContent = cur.fa; el('#fa').style.opacity = 1;
     el('#src').textContent = '📚 ' + cur.src;
@@ -184,22 +188,28 @@
 
   const clear = () => { cancelAnimationFrame(raf); orbs.forEach(r => r.o.remove()); orbs = []; };
 
+  const starsFor = () => level >= 4 ? 3 : level >= 3 ? 2 : right >= 3 ? 1 : 0;
+
   const finish = () => {
-    clear();
-    const r = G.best('hadithrush', score);
-    el('#endScore').textContent = G.fa(score);
-    el('#endInfo').innerHTML = `${G.fa(right)} پاسخ درست از ${G.fa(total)} · سطحِ ${G.fa(level)}${hard ? ' · حالت استاد' : ''}<br>${r.isNew ? '🏆 رکورد تازه!' : 'رکورد: ' + G.fa(r.best)}`;
-    el('#end').classList.add('on');
-    if (r.isNew) { G.sfx.win(); G.confetti(); }
+    if (over) return;
+    over = true; clearTimeout(timer); clear();
+    G.result({
+      key: 'hadithrush',
+      game: 'باران حکمت',
+      title: 'باران بند آمد',
+      score,
+      stars: starsFor(),
+      lines: [`${G.fa(right)} پاسخ درست از ${G.fa(total)} · سطحِ ${G.fa(level)}${hard ? ' · حالت استاد' : ''}`],
+      onAgain: () => { el('#start').classList.add('on'); showBest(); },
+    });
   };
 
   el('#go').onclick = start;
-  el('#again').onclick = () => { el('#end').classList.remove('on'); el('#start').classList.add('on'); showBest(); };
   const mb = el('#mute'); const sm = () => mb.textContent = G.muted() ? '🔇' : '🔊'; sm();
   mb.onclick = () => { try { localStorage.setItem('noorestan_g_mute', G.muted() ? '0' : '1'); } catch {} sm(); };
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { cancelAnimationFrame(raf); hiddenAt = 1; }
-    else if (hiddenAt && orbs.length && !busy) { hiddenAt = 0; last = performance.now(); raf = requestAnimationFrame(loop); }
+    else if (hiddenAt) { hiddenAt = 0; if (!over && orbs.length && !busy) { last = performance.now(); raf = requestAnimationFrame(loop); } }
   });
 })();
 </script>
