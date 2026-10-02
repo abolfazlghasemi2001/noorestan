@@ -1,9 +1,10 @@
-/* نورستان — ابزار مشترک بازی‌های مستقل: صدا، لرزش، ذرات، رکورد، رقم فارسی */
+/* نورستان — ابزار مشترک بازی‌های مستقل: صدا، لرزش، ذرات، رکورد، رقم فارسی، صفحهٔ نتیجهٔ سینمایی */
 const G = (() => {
   const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
   const $ = s => document.querySelector(s);
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const muted = () => { try { return localStorage.getItem('noorestan_g_mute') === '1'; } catch { return false; } };
+  const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
   let ac = null;
   const tone = (f = 440, d = .12, type = 'sine', v = .18, delay = 0) => {
     if (muted()) return;
@@ -21,6 +22,8 @@ const G = (() => {
     bad: () => { tone(220, .2, 'sawtooth', .08); tone(160, .25, 'sawtooth', .07, .06); },
     win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, .25, 'sine', .14, i * .09)),
     lvl: () => [440, 554, 659, 880].forEach((f, i) => tone(f, .18, 'triangle', .12, i * .06)),
+    tick: () => tone(1200, .03, 'square', .04),
+    star: i => { tone(880 + i * 220, .22, 'sine', .15); tone(1320 + i * 220, .3, 'triangle', .08, .05); },
   };
   const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
   // ذرات
@@ -42,7 +45,7 @@ const G = (() => {
     if (parts.length) requestAnimationFrame(loop); else running = false;
   };
   const burst = (x, y, n = 26, colors = ['#f5c96a', '#ffdf91', '#ffb347', '#fff'], star = true) => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (calm()) return;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 5;
       parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, g: .14, s: 4 + Math.random() * 6, c: colors[i % colors.length], life: 50 + Math.random() * 30, max: 80, rot: Math.random() * 6, vr: (Math.random() - .5) * .3, star });
@@ -53,8 +56,15 @@ const G = (() => {
   const best = (key, v) => {
     const k = 'noorestan_g_' + key + '_best';
     let b = 0; try { b = +localStorage.getItem(k) || 0; } catch {}
-    if (v != null && v > b) { try { localStorage.setItem(k, v); } catch {} return { best: v, isNew: true }; }
-    return { best: b, isNew: false };
+    if (v != null && v > b) { try { localStorage.setItem(k, v); } catch {} return { best: v, isNew: true, prev: b }; }
+    return { best: b, isNew: false, prev: b };
+  };
+  /* بهترین ستارهٔ هر بازی؛ کارت‌های فهرست بازی‌ها از همین می‌خوانند */
+  const stars = (key, v) => {
+    const k = 'noorestan_g_' + key + '_stars';
+    let b = 0; try { b = +localStorage.getItem(k) || 0; } catch {}
+    if (v != null && v > b) { try { localStorage.setItem(k, v); } catch {} return v; }
+    return b;
   };
   let tt;
   const toast = (msg, ms = 2200) => { let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); } t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), ms); };
@@ -62,6 +72,114 @@ const G = (() => {
   const reshake = el => { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); };
   // نرمال‌سازی عربی برای مقایسهٔ بی‌اعراب
   const norm = s => String(s).replace(/[\u064B-\u065F\u0670\u0640\u06D6-\u06ED]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/[ىي]/g, 'ي').replace(/ة/g, 'ه').replace(/[^\u0621-\u064A]/g, '');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ── پل امتیاز به برنامهٔ اصلی ──────────────────────────────────────
+     بازی‌های games/ صفحهٔ جدا هستند و به Progress.award در index.html
+     دسترسی ندارند. پس نتیجه در صفِ noorestan_g_pending می‌نشیند و اگر
+     بازی داخل iframe باز شده باشد، یک postMessage هم به والد می‌رود.
+     برنامهٔ اصلی صف را می‌خواند، سکه می‌دهد و خالی‌اش می‌کند. */
+  const report = (game, score, starsN) => {
+    const item = { game, score, stars: starsN, at: Date.now() };
+    try {
+      const q = JSON.parse(localStorage.getItem('noorestan_g_pending') || '[]');
+      q.push(item); localStorage.setItem('noorestan_g_pending', JSON.stringify(q.slice(-50)));
+    } catch {}
+    try { if (window.parent && window.parent !== window) window.parent.postMessage({ t: 'noorestan:game-result', ...item }, location.origin); } catch {}
+  };
+
+  /* ── صفحهٔ نتیجهٔ سینمایی ───────────────────────────────────────────
+     شمارش امتیاز با صدای تیک، ۰ تا ۳ ستاره با پرش، مقایسهٔ میله‌ای با
+     رکورد پیشین و هم‌رسانیِ تصویری (کارت ۱۰۸۰×۱۳۵۰). با reduced-motion
+     همه‌چیز بی‌انیمیشن و فوری نشان داده می‌شود. */
+  const countUp = (node, to, ms, onTick) => new Promise(res => {
+    if (calm() || to <= 0) { node.textContent = fa(to); return res(); }
+    const t0 = performance.now(); let lastTick = 0;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3), v = Math.round(to * e);
+      node.textContent = fa(v);
+      if (now - lastTick > 55 && p < 1) { lastTick = now; onTick && onTick(); }
+      if (p < 1) requestAnimationFrame(step); else res();
+    };
+    requestAnimationFrame(step);
+  });
+  const wait = ms => new Promise(r => setTimeout(r, calm() ? 0 : ms));
+
+  const shareCard = async o => {
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    const bg = x.createLinearGradient(0, 0, W, H); bg.addColorStop(0, '#24306b'); bg.addColorStop(.55, '#0b1026'); bg.addColorStop(1, '#3a1f4f');
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    x.globalAlpha = .08; x.strokeStyle = '#f5c96a'; x.lineWidth = 2;
+    for (let i = 0; i < 40; i++) { const cx = (i * 197) % W, cy = (i * 311) % H; x.beginPath(); for (let k = 0; k < 10; k++) { const r = k % 2 ? 14 : 34, a = k * Math.PI / 5; x.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } x.closePath(); x.stroke(); }
+    x.globalAlpha = 1; x.textAlign = 'center'; x.direction = 'rtl';
+    const font = (w, s) => `${w} ${s}px Vazirmatn, Tahoma, sans-serif`;
+    const gold = x.createLinearGradient(0, 0, W, 0); gold.addColorStop(0, '#ffdf91'); gold.addColorStop(1, '#f5a623');
+    x.fillStyle = '#c9d1f5'; x.font = font(700, 44); x.fillText('نورستان', W / 2, 150);
+    x.fillStyle = gold; x.font = font(900, 84); x.fillText(o.game, W / 2, 270);
+    for (let i = 0; i < 3; i++) {
+      const cx = W / 2 + (1 - i) * 170, cy = 470, on = i < o.stars;
+      x.beginPath(); for (let k = 0; k < 10; k++) { const r = k % 2 ? 36 : 82, a = -Math.PI / 2 + k * Math.PI / 5; x.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } x.closePath();
+      x.fillStyle = on ? gold : 'rgba(255,255,255,.12)'; x.fill();
+    }
+    x.fillStyle = gold; x.font = font(900, 220); x.fillText(fa(o.score), W / 2, 820);
+    x.fillStyle = '#c9d1f5'; x.font = font(700, 46); x.fillText('امتیاز', W / 2, 900);
+    if (o.isNew) { x.fillStyle = '#3ddc97'; x.font = font(800, 52); x.fillText('🏆 رکورد تازه!', W / 2, 1010); }
+    x.fillStyle = 'rgba(201,209,245,.75)'; x.font = font(500, 36); x.fillText((o.lines || []).join(' · '), W / 2, 1110);
+    x.fillStyle = 'rgba(245,201,106,.8)'; x.font = font(700, 34); x.fillText('تو هم بازی کن: ' + location.host, W / 2, 1260);
+    const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const file = new File([blob], 'noorestan-result.png', { type: 'image/png' });
+    const text = `در «${o.game}» نورستان ${fa(o.score)} امتیاز گرفتم ${'⭐'.repeat(o.stars)}`;
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('تصویر نتیجه ذخیره شد');
+  };
+
+  let resEl = null;
+  const result = async o => {
+    /* o = { key, game, title, score, stars(0..3), lines:[...], onAgain } */
+    const rec = best(o.key, o.score);
+    stars(o.key, o.stars);
+    report(o.key, o.score, o.stars);
+    if (!resEl) { resEl = document.createElement('div'); resEl.className = 'overlay res'; resEl.id = 'result'; document.body.appendChild(resEl); }
+    const max = Math.max(o.score, rec.prev, 1);
+    resEl.innerHTML = `<div class="card res-card">
+      <div class="mut res-title">${esc(o.title)}</div>
+      <div class="res-stars">${[0, 1, 2].map(i => `<i data-s="${i}"></i>`).join('')}</div>
+      <div class="big res-score" id="resScore">۰</div>
+      <div class="res-new" id="resNew">🏆 رکورد تازه!</div>
+      <div class="res-cmp">
+        <div class="res-bar"><span>این بار</span><b><i id="barNow"></i></b><em>${fa(o.score)}</em></div>
+        <div class="res-bar prev"><span>رکورد پیشین</span><b><i id="barPrev"></i></b><em>${rec.prev ? fa(rec.prev) : '—'}</em></div>
+      </div>
+      <p class="mut res-lines">${(o.lines || []).map(esc).join('<br>')}</p>
+      <div class="res-row">
+        <button class="btn" id="resAgain">دوباره</button>
+        <button class="btn-ghost" id="resShare">📤 هم‌رسانی</button>
+        <a class="btn-ghost" href="./">بازی‌ها</a>
+      </div>
+    </div>`;
+    resEl.querySelector('#resAgain').onclick = () => { resEl.classList.remove('on'); o.onAgain && o.onAgain(); };
+    resEl.querySelector('#resShare').onclick = () => shareCard({ ...o, isNew: rec.isNew }).catch(() => toast('هم‌رسانی ممکن نشد'));
+    resEl.classList.add('on');
+    await wait(350);
+    await countUp(resEl.querySelector('#resScore'), o.score, 1300, sfx.tick);
+    const prevW = rec.prev / max * 100, nowW = o.score / max * 100;
+    resEl.querySelector('#barPrev').style.width = prevW + '%';
+    resEl.querySelector('#barNow').style.width = nowW + '%';
+    for (let i = 0; i < o.stars; i++) {
+      await wait(280);
+      const s = resEl.querySelector(`[data-s="${i}"]`); s.classList.add('on');
+      sfx.star(i); buzz(18);
+      const r = s.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 18);
+    }
+    if (rec.isNew && o.score > 0) { await wait(250); resEl.querySelector('#resNew').classList.add('on'); sfx.win(); confetti(); }
+    return rec;
+  };
+
   document.addEventListener('DOMContentLoaded', () => { document.body.appendChild(cv); fit(); });
-  return { fa, $, shuffle, sfx, buzz, burst, confetti, best, toast, hearts, reshake, norm, muted };
+  return { fa, $, shuffle, sfx, buzz, burst, confetti, best, stars, toast, hearts, reshake, norm, muted, esc, result, report };
 })();
