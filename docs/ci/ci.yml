@@ -1,0 +1,60 @@
+# نورستان — CI
+# ❗ این فایل را به .github/workflows/ci.yml منتقل کن:
+#    git mv docs/ci/ci.yml .github/workflows/ci.yml
+#    (توکن ClickUp Brain مجوز نوشتن مستقیم در .github/workflows را ندارد.)
+#
+# روی هر PR و هر push به main:
+#   ۱) سینتکس همهٔ اسکریپت‌ها با node --check
+#   ۲) هارنس تست (_harness.js → _phase2-regression-tests.js)
+#   ۳) اسکن secret روی کل تاریخچه با gitleaks (کلید textbee و هر کلید دیگری)
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: سینتکس + هارنس
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: node --check روی همهٔ اسکریپت‌ها
+        run: |
+          shopt -s nullglob
+          fail=0
+          for f in *.js games/*.js tests/*.js; do
+            node --check "$f" || { echo "❌ $f"; fail=1; }
+          done
+          bash -n start.sh || fail=1
+          exit $fail
+      - name: هارنس تست
+        run: node _harness.js
+      - name: تست‌های tests/
+        run: |
+          shopt -s nullglob
+          for f in tests/*.test.js; do echo "▶ $f"; node "$f"; done
+
+  secrets:
+    name: اسکن secret (کل تاریخچه)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
