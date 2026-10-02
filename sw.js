@@ -38,10 +38,10 @@
    پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-25';
-const SHELL = 'noorestan-shell-25';
-const MEDIA = 'noorestan-media-25';
-const TEXT  = 'noorestan-text-25';
+const CACHE = 'noorestan-26';
+const SHELL = 'noorestan-shell-26';
+const MEDIA = 'noorestan-media-26';
+const TEXT  = 'noorestan-text-26';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -54,6 +54,7 @@ const PRECACHE = [
   './',
   SHELL_PAGE,
   './assets/styles/sanctuary.css',
+  './assets/styles/motion.css',
   './assets/images/sanctuary-court.svg',
   './manifest.json',
   OFFLINE,

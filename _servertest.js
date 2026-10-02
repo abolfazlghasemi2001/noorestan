@@ -220,7 +220,9 @@ const cleanup = () => {
   const health = await fetch(`http://127.0.0.1:${PORT}/health`).then(r => r.json()).catch(() => null);
   ok('/health پاسخ می‌دهد', health?.ok === true, JSON.stringify(health));
   ok('نسخه گزارش می‌شود', health?.version === '15.0');
-  ok('ظرفیت روم ۸ بازیکن + تماشاچی اعلام می‌شود', health?.spectators === 0 && (await fetch(`http://127.0.0.1:${PORT}/api/rooms`).then(r => r.json())).maxPlayers === 8);
+  ok('تماشاچی در سلامت گزارش می‌شود', health?.spectators === 0);
+  const roomsAnon = await fetch(`http://127.0.0.1:${PORT}/api/rooms`).then(async r => ({ st: r.status, j: await r.json().catch(() => null) }));
+  ok('🔒 فهرست روم بی‌ورود ۴۰۱ و JSON می‌دهد', roomsAnon.st === 401 && roomsAnon.j && roomsAnon.j.success === false, JSON.stringify(roomsAnon));
   const page = await fetch(`http://127.0.0.1:${PORT}/`).then(r => r.text()).catch(() => '');
   ok('صفحه برنامه سرو می‌شود', page.includes('نورستان') && page.includes('<script>'), 'len=' + page.length);
   const bad = await fetch(`http://127.0.0.1:${PORT}/../../etc/passwd`).then(r => r.status).catch(() => 0);

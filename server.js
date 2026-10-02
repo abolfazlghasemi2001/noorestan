@@ -71,7 +71,11 @@ function sha1B64(s){ return crypto.createHash('sha1').update(String(s)).digest('
 function now(){ return Date.now(); }
 function code6(){ return String(Math.floor(100000 + Math.random() * 900000)); }
 /* حذف نویسه‌های کنترلی (۰x00–0x1F و 0x7F) و بریدن به طول مجاز */
-function clampStr(v, n){ return String(v ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, n); }
+function clampStr(v, n){
+  /* فقط مقدارهای ساده؛ شیءِ دست‌کاری‌شده (مثلاً {"toString":null}) پیش‌تر
+     String() را می‌ترکاند و کلِ پیام بی‌پاسخ می‌ماند. */
+  if(v == null || (typeof v !== 'string' && typeof v !== 'number' && typeof v !== 'boolean')) return '';
+  return String(v).replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, n); }
 function ts(){ return new Date().toTimeString().slice(0, 8); }
 function log(...a){ console.log(`[${ts()}]`, ...a); }
 
@@ -142,17 +146,27 @@ function snapshot(){
 }
 
 let saveTimer = null;
+/* نوشتنِ اتمی: اول فایلِ موقت، fsync، بعد rename. پیش‌تر قطعِ برق یا kill
+   وسطِ نوشتن، JSONِ نیمه‌کاره می‌گذاشت و بارِ بعد همهٔ داده‌ها خالی بالا می‌آمد. */
+function writeDataAtomic(){
+  const tmp = DATA_FILE + '.tmp';
+  const fd = fs.openSync(tmp, 'w', 0o600);
+  try{ fs.writeFileSync(fd, JSON.stringify(snapshot(), null, 2)); fs.fsyncSync(fd); }
+  finally{ fs.closeSync(fd); }
+  try{ if(fs.existsSync(DATA_FILE)) fs.copyFileSync(DATA_FILE, DATA_FILE + '.bak'); }catch(_){}
+  fs.renameSync(tmp, DATA_FILE);
+}
 function saveData(immediate){
   if(immediate){
     if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
-    try{ fs.writeFileSync(DATA_FILE, JSON.stringify(snapshot(), null, 2)); }
+    try{ writeDataAtomic(); }
     catch(e){ log('⚠️ ذخیره ناموفق:', e.message); }
     return;
   }
   if(saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    try{ fs.writeFileSync(DATA_FILE, JSON.stringify(snapshot(), null, 2)); }
+    try{ writeDataAtomic(); }
     catch(e){ log('⚠️ ذخیره ناموفق:', e.message); }
   }, 800);
 }
@@ -181,7 +195,7 @@ function parseFrames(buf){
     const payload = Buffer.from(buf.subarray(p, p + len));
     if(masked) for(let i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
     off = p + len;
-    frames.push({ fin, opcode, payload });
+    frames.push({ fin, opcode, payload, masked, rsv: (b0 & 0x70) !== 0 });
   }
   return { frames, rest: buf.subarray(off) };
 }
@@ -214,7 +228,9 @@ function sendRaw(c, env){
   if(!c || c.sock.destroyed || !c.ready) return;
   if(!c.known && !['welcome','auth:error'].includes(env.t))return;
   const payload = JSON.stringify(envelope(env));
-  if(payload.length > LIMITS.msgBytes){ log('⚠️ پیام بزرگ حذف شد'); return; }
+  if(Buffer.byteLength(payload, 'utf8') > LIMITS.msgBytes * 4){ log('⚠️ پیام بزرگ حذف شد'); return; }
+  /* فشارِ برگشتی: گیرنده‌ای که نمی‌خواند، بافرِ خروجی را بی‌پایان پر می‌کرد */
+  if(c.sock.writableLength > 1024 * 1024){ if(c.closeClient) c.closeClient('گیرندهٔ کند'); else c.sock.destroy(); return; }
   try{ c.sock.write(encodeFrame(payload)); }catch(e){ /* سوکت مرده */ }
 }
 
@@ -681,7 +697,9 @@ function handleMessage(c, msg){
       const target = direct;
       if(!target) return;
       const p = pendingFriends.get(target.id);
-      if(p && p.toId === c.id) pendingFriends.delete(target.id);
+      /* بی درخواستِ زنده، پذیرش معنا ندارد (پیش‌تر دوستیِ یک‌طرفه جعل می‌شد) */
+      if(!p || p.toId !== c.id || now() - p.at > 120000) return;
+      pendingFriends.delete(target.id);
       linkFriends(c.name, target.name);
       sendTo(target.id, { t: 'friend:ok', from: c.id, name: c.name });
       sendRaw(c, { t: 'friends', to: c.id, list: friendListFor(c) });
@@ -705,8 +723,10 @@ function handleMessage(c, msg){
       break;
 
     case 'lb:put': {
-      const name = clampStr(msg.name, LIMITS.nameLen) || c.name;
-      const score = Math.max(0, Math.min(1e9, +msg.score || 0));
+      /* نام از هویتِ خودِ اتصال می‌آید، نه از پیام؛ وگرنه هر کس می‌توانست
+         به نامِ دیگری امتیاز بنشاند. */
+      const name = c.name;
+      const score = Number.isFinite(msg.score) ? Math.max(0, Math.min(1e9, Math.floor(msg.score))) : 0;
       const ex = leaderboard.find(l => l.name === name);
       if(ex) { ex.score = Math.max(ex.score, score); ex.at = now(); }
       else leaderboard.push({ name, score, at: now() });
@@ -1379,7 +1399,19 @@ function adminPruneSessions(){
 }
 
 /* ─────────────── هندلر upgrade ─────────────── */
-const server = http.createServer(handleHttp);
+const server = http.createServer((req, res) => {
+  /* مرزِ خطا برای هر درخواست: پیش‌تر یک JSONِ دست‌کاری‌شده استثنای
+     ناهمگام می‌انداخت و درخواست بی‌پاسخ آویزان می‌ماند. */
+  Promise.resolve().then(() => handleHttp(req, res)).catch(err => {
+    log('⚠️ خطای درخواست HTTP:', err && err.message);
+    if(res.headersSent){ try{ res.destroy(); }catch(_){} return; }
+    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ success: false, error: 'درخواست نامعتبر است' }));
+  });
+});
+server.requestTimeout = 30000;
+server.headersTimeout = 15000;
+server.keepAliveTimeout = 5000;
 
 server.on('upgrade', (req, sock) => {
   const origin = req.headers.origin;
@@ -1432,16 +1464,41 @@ server.on('upgrade', (req, sock) => {
     }
     buffer = parsed.rest;
     for(const f of parsed.frames){
-      if(f.opcode === 0x8){ closeClient('کلاینت بست'); return; }
+      /* RFC 6455: فریمِ کلاینت باید ماسک‌دار باشد، بیت‌های RSV صفر، و
+         فریمِ کنترلی تکه‌نشده و ≤۱۲۵ بایت. */
+      if(!f.masked || f.rsv || ((f.opcode & 0x8) && (!f.fin || f.payload.length > 125))){
+        try{ sock.write(encodeFrame(Buffer.from([0x03, 0xEA]), 0x8)); }catch(_){}
+        closeClient('فریمِ نامعتبر'); return;
+      }
+      if(f.opcode === 0x8){
+        /* دست‌دادنِ بستن: همان کد را برمی‌گردانیم تا کلاینت تمیز ببندد */
+        try{ sock.write(encodeFrame(f.payload.subarray(0, 2), 0x8)); }catch(_){}
+        closeClient('کلاینت بست'); return;
+      }
       if(f.opcode === 0x9){ try{ sock.write(encodeFrame(f.payload, 0xA)); }catch(e){} continue; }
       if(f.opcode === 0xA){ c.lastSeen = now(); continue; }
-      if(f.opcode !== 0x1) continue;             // فقط متن
-      const text = f.payload.toString('utf8');
-      if(text.length > LIMITS.msgBytes){ c.sock.destroy(); return; }
+      let data;
+      if(f.opcode === 0x0){                       // ادامهٔ پیامِ تکه‌تکه
+        if(!c.frag){ closeClient('ادامه بی‌آغاز'); return; }
+        c.frag.push(f.payload);
+        c.fragBytes += f.payload.length;
+        if(c.fragBytes > LIMITS.msgBytes){ closeClient('پیام بزرگ'); return; }
+        if(!f.fin) continue;
+        data = Buffer.concat(c.frag); c.frag = null; c.fragBytes = 0;
+      } else if(f.opcode === 0x1){
+        if(c.frag){ closeClient('پیامِ تکه‌تکهٔ ناتمام'); return; }
+        if(!f.fin){ c.frag = [f.payload]; c.fragBytes = f.payload.length; continue; }
+        data = f.payload;
+      } else continue;                            // باینری پشتیبانی نمی‌شود
+      if(data.length > LIMITS.msgBytes){ closeClient('پیام بزرگ'); return; }   // بایت، نه نویسه
       let msg;
-      try{ msg = JSON.parse(text); }catch(e){ continue; }
-      if(msg.ns !== NS) continue;                            // فقط پیام‌های همین برنامه
-      handleMessage(c, msg);
+      try{ msg = JSON.parse(data.toString('utf8')); }catch(e){ continue; }
+      if(!msg || typeof msg !== 'object' || msg.ns !== NS) continue;   // فقط پیام‌های همین برنامه
+      try{ handleMessage(c, msg); }
+      catch(err){
+        log(`⚠️ پیامِ نامعتبر از ${c.id}:`, err && err.message);
+        sendRaw(c, { t: 'error', to: c.id, error: 'پیام نامعتبر' });
+      }
     }
   });
 
@@ -1463,6 +1520,13 @@ server.on('upgrade', (req, sock) => {
 });
 
 /* ─────────────── HTTP ─────────────── */
+const zlib = require('zlib');
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Permissions-Policy': 'camera=(), geolocation=(), interest-cohort=()'
+};
 const MIME = {
   '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8',
   '.css':'text/css; charset=utf-8', '.json':'application/json; charset=utf-8',
@@ -1502,7 +1566,7 @@ async function handleHttp(req, res){
   }
   if(p === '/api/leaderboard' || p === '/api/rooms'){
     const token=(req.headers.authorization||'').replace(/^Bearer /,'');
-    if(!userTokenGet(token)){res.writeHead(401);return res.end('ورود لازم است');}
+    if(!userTokenGet(token)){res.writeHead(401,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':ALLOW_ORIGIN});return res.end(JSON.stringify({success:false,error:'ورود لازم است'}));}
     res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
     return res.end(JSON.stringify(p.endsWith('rooms')?{rooms:roomList()}:leaderboard));
   }
@@ -1605,7 +1669,7 @@ async function handleHttp(req, res){
     /* سد پیش از ساختِ کد: بی آن، هر درخواست یک کد و یک پیامک می‌ساخت و
        شمارندهٔ تلاش‌ها را پر می‌کرد. */
     const lim = smsAllow(phone, clientIp(req));
-    if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
+    if(!lim.ok){ log(`🚫 پیامک رد شد (${maskPhone(phone)}): ${lim.why}`); return no(429, lim.why); }
 
     const code = otpCode();
     const salt = otpSalt();
@@ -1616,7 +1680,7 @@ async function handleHttp(req, res){
     const stamp = out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️';
     /* شماره در لاگ می‌ماند (برای پیگیری)، ولی خودِ کد هرگز — نه اینجا، نه در
        هیچ لاگ دیگری. */
-    log(`${stamp} کد تأیید → ${phone} · ${out.state}` +
+    log(`${stamp} کد تأیید → ${maskPhone(phone)} · ${out.state}` +
         (out.state === 'sent' ? (out.id ? ' · ' + out.id : '') : ' — ' + out.error));
 
     /* ارسال نشد ⇒ کد هم نباید بماند. وگرنه کدی در حافظه می‌ماند که کاربر
@@ -1668,10 +1732,10 @@ async function handleHttp(req, res){
       st.tries = (st.tries || 0) + 1;
       if(st.tries >= OTP_MAX_TRIES){
         otps.delete(phone);
-        log(`🚫 کدِ تأیید سه بار اشتباه (${phone}) — کد سوخت`);
+        log(`🚫 کدِ تأیید سه بار اشتباه (${maskPhone(phone)}) — کد سوخت`);
         return no(429, 'سه بار اشتباه — کد سوخت، کد تازه بگیر', { burned: true });
       }
-      log(`⚠️ کدِ تأیید اشتباه (${phone}) — ${OTP_MAX_TRIES - st.tries} تلاش مانده`);
+      log(`⚠️ کدِ تأیید اشتباه (${maskPhone(phone)}) — ${OTP_MAX_TRIES - st.tries} تلاش مانده`);
       return no(401, `کد اشتباه است — ${OTP_MAX_TRIES - st.tries} تلاش مانده`,
                 { left: OTP_MAX_TRIES - st.tries });
     }
@@ -1732,11 +1796,11 @@ async function handleHttp(req, res){
     const message = smsTestMessage(), kind = 'آزمایشی';
 
     const lim = smsAllow(phone, clientIp(req));
-    if(!lim.ok){ log(`🚫 پیامک رد شد (${phone}): ${lim.why}`); return no(429, lim.why); }
+    if(!lim.ok){ log(`🚫 پیامک رد شد (${maskPhone(phone)}): ${lim.why}`); return no(429, lim.why); }
 
     const out = await smsSend(phone, message);
     const stamp = out.state === 'sent' ? '📨' : out.state === 'pending' ? '⏳' : '⚠️';
-    log(`${stamp} پیامک ${kind} → ${phone} · ${out.state}` +
+    log(`${stamp} پیامک ${kind} → ${maskPhone(phone)} · ${out.state}` +
         (out.state === 'sent' ? (out.id ? ' · ' + out.id : '') : ' — ' + out.error));
 
     /* «نمی‌دانیم» با «نشد» یکی نیست. برای pending کد ۲۰۲ می‌فرستیم، نه ۵۰۲، تا
@@ -1786,10 +1850,42 @@ function serveFile(full, res){
      · manifest.json، چون مسیر آیکن‌ها و نام برنامه از آن می‌آید. */
   const base = path.basename(full).toLowerCase();
   const fresh = ext === '.html' || base === 'sw.js' || base === 'manifest.json';
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream',
-                       'Cache-Control': fresh ? 'no-cache' : 'public, max-age=3600' });
+  let st;
+  try{ st = fs.statSync(full); }catch(e){ res.writeHead(404); return res.end(); }
+  const etag = `W/"${st.size.toString(16)}-${Math.trunc(st.mtimeMs).toString(16)}"`;
+  const head = {
+    ...SECURITY_HEADERS,
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Cache-Control': fresh ? 'no-cache' : 'public, max-age=86400',
+    'ETag': etag, 'Last-Modified': st.mtime.toUTCString(), 'Vary': 'Accept-Encoding'
+  };
+  const req = res.req;
+  if(req && req.headers['if-none-match'] === etag){ res.writeHead(304, head); return res.end(); }
+  /* فشرده‌سازی: index.html حدود ۱٫۱ مگابایت است؛ با gzip به‌حدود یک‌پنجم
+     می‌رسد. نتیجه با همان ETag در حافظه نگه داشته می‌شود. */
+  const ae = String((req && req.headers['accept-encoding']) || '');
+  if(COMPRESSIBLE.has(ext) && st.size > 1024 && st.size < 8 * 1024 * 1024){
+    const enc = /\bbr\b/.test(ae) ? 'br' : (/\bgzip\b/.test(ae) ? 'gzip' : '');
+    if(enc){
+      const key = full + '|' + enc;
+      let hit = gzCache.get(key);
+      if(!hit || hit.etag !== etag){
+        const raw = fs.readFileSync(full);
+        const body = enc === 'br'
+          ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 } })
+          : zlib.gzipSync(raw, { level: 9 });
+        hit = { etag, body }; gzCache.set(key, hit);
+      }
+      res.writeHead(200, { ...head, 'Content-Encoding': enc, 'Content-Length': hit.body.length });
+      return res.end(req.method === 'HEAD' ? undefined : hit.body);
+    }
+  }
+  res.writeHead(200, { ...head, 'Content-Length': st.size });
+  if(req && req.method === 'HEAD') return res.end();
   fs.createReadStream(full).pipe(res);
 }
+const COMPRESSIBLE = new Set(['.html','.js','.css','.json','.svg','.webmanifest','.txt','.md','.map']);
+const gzCache = new Map();
 
 /* ─────────────── حلقه‌های دوره‌ای ─────────────── */
 setInterval(() => {
@@ -1826,6 +1922,15 @@ setInterval(() => {
     const live = list.filter(x => t - x < ADMIN_TRY_MS);
     if(live.length) adminTries.set(ip, live); else adminTries.delete(ip);
   }
+  /* بقیهٔ نگاشت‌های نرخ هم با کلیدِ نامطمئن (IP/شماره) پر می‌شدند و هرگز
+     کوچک نمی‌شدند. */
+  const prune = (map, ttl) => { for(const [k, list] of map){
+    const live = Array.isArray(list) ? list.filter(x => t - x < ttl) : [];
+    if(live.length) map.set(k, live); else map.delete(k); } };
+  prune(verifyByIp, 3600000);
+  prune(smsByIp, 3600000);
+  prune(smsByPhone, SMS_LIMIT.perPhoneMs);
+  for(const [ip, st] of adminBackoff) if(!st || t > (st.until || 0) + ADMIN_TRY_MS) adminBackoff.delete(ip);
 }, 60000);
 
 /* پیشنهادهای دوستی کهنه (بیش از ۲ دقیقه) پاک می‌شوند */
@@ -1878,10 +1983,22 @@ server.listen(PORT, HOST, () => {
   console.log('');
 });
 
-process.on('SIGINT', () => {
-  console.log('\n💾 ذخیره داده‌ها...');
-  saveData(true);
-  log('👋 خاموش شد');
-  process.exit(0);
-});
-process.on('uncaughtException', e => log('❌ خطای پیش‌بینی‌نشده:', e.message));
+/* خاموشیِ آرام: systemd/Docker سیگنالِ SIGTERM می‌فرستند که پیش‌تر اصلاً
+   شنیده نمی‌شد و آخرین تغییرها ذخیره نمی‌شدند. */
+let shuttingDown = false;
+function shutdown(sig){
+  if(shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n💾 ${sig} — ذخیره داده‌ها...`);
+  for(const cl of [...clients.values()]){
+    try{ cl.sock.write(encodeFrame(Buffer.from([0x03, 0xE9]), 0x8)); }catch(_){}
+    try{ cl.closeClient && cl.closeClient('خاموشی سرور'); }catch(_){}
+  }
+  try{ saveData(true); }catch(_){}
+  server.close(() => { log('👋 خاموش شد'); process.exit(0); });
+  setTimeout(() => process.exit(0), 4000).unref();
+}
+process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('uncaughtException', e => log('❌ خطای پیش‌بینی‌نشده:', e && e.stack || e));
+process.on('unhandledRejection', e => log('❌ وعدهٔ ردشده:', e && e.message || e));

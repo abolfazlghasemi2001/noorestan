@@ -1,0 +1,60 @@
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان — توکن‌های حرکت (فاز ۲ موشن، مرحلهٔ ۱)
+
+   یک منبع برای همهٔ منحنی‌ها و زمان‌ها. هر انیمیشنِ تازه فقط از این‌ها
+   استفاده می‌کند؛ عددِ خامِ cubic-bezier یا ms در کدِ جدید نمی‌آید.
+   این فایل از بالای sanctuary.css با @import بار می‌شود، پس به
+   index.html دست نمی‌زند.
+
+   نام‌ها عمداً با --ease و --bounceِ خودِ index.html تداخل ندارند.
+
+   خاموش‌کردن: هم prefers-reduced-motion و هم html[data-motion="off"]
+   همهٔ زمان‌ها را به 1ms و همهٔ جابه‌جایی‌ها را به صفر می‌برند. عمداً
+   1ms است نه 0، تا رویدادهای transitionend/animationend همچنان شلیک
+   شوند و منطقی که به آن‌ها تکیه دارد گیر نکند.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  /* ── منحنی‌ها ── */
+  --ease-calm:cubic-bezier(.25,.46,.45,.94);        /* محو و ورودهای آرام */
+  --ease-light:cubic-bezier(.16,1,.3,1);            /* ورودِ عناصر، بازشدنِ پنل */
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);       /* لحظه‌های بازیگوش: امتیاز، نشان */
+  --ease-smooth:cubic-bezier(.4,0,.2,1);            /* تغییرِ حالتِ UI: رنگ، حاشیه، سایه */
+  --ease-expo-out:cubic-bezier(.19,1,.22,1);        /* گذارِ صفحه */
+  --ease-back-out:cubic-bezier(.175,.885,.32,1.275);/* پاپ‌آپ، توست */
+  --ease-carousel:cubic-bezier(.22,1,.36,1);        /* همان منحنیِ تثبیت‌شدهٔ کاروسلِ فاز ۱ */
+  --ease-press:cubic-bezier(.2,.8,.2,1);            /* فشردنِ دکمه؛ هم‌راستا با offline.html */
+
+  /* ── زمان‌ها ── */
+  --dur-instant:100ms;
+  --dur-fast:200ms;
+  --dur-normal:300ms;
+  --dur-slow:500ms;
+  --dur-slower:800ms;
+  --dur-epic:1200ms;
+  --dur-press:160ms;
+
+  /* ── فاصلهٔ پلکانی (stagger) ── */
+  --stagger:80ms;
+  --stagger-slow:100ms;
+
+  /* ── اندازهٔ حرکت ── */
+  --lift:-2px;
+  --press-scale:.96;
+  --press-scale-soft:.97;
+  --press-scale-icon:.9;
+}
+
+@media (prefers-reduced-motion:reduce){
+  :root{
+    --dur-instant:1ms; --dur-fast:1ms; --dur-normal:1ms; --dur-slow:1ms;
+    --dur-slower:1ms; --dur-epic:1ms; --dur-press:1ms;
+    --stagger:0ms; --stagger-slow:0ms;
+    --lift:0px; --press-scale:1; --press-scale-soft:1; --press-scale-icon:1;
+  }
+}
+html[data-motion="off"]{
+  --dur-instant:1ms; --dur-fast:1ms; --dur-normal:1ms; --dur-slow:1ms;
+  --dur-slower:1ms; --dur-epic:1ms; --dur-press:1ms;
+  --stagger:0ms; --stagger-slow:0ms;
+  --lift:0px; --press-scale:1; --press-scale-soft:1; --press-scale-icon:1;
+}

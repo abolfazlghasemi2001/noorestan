@@ -2443,6 +2443,7 @@ html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .p
 
 </style>
 <link rel="stylesheet" href="assets/styles/sanctuary.css">
+<link rel="stylesheet" href="assets/styles/polish.css">
 </head>
 
 <body>
@@ -3916,7 +3917,16 @@ const Store = {
   },
 
   save(){
-    try{ localStorage.setItem(this.KEY, JSON.stringify(this.data)); }catch(e){}
+    try{ localStorage.setItem(this.KEY, JSON.stringify(this.data)); this._saveWarned = false; return true; }
+    catch(e){
+      /* حافظهٔ پر یا حالتِ خصوصی: بی‌صدا رد شدن یعنی پیشرفت با بستنِ
+         برنامه گم می‌شد و کاربر خبر نداشت. یک‌بار هشدار می‌دهیم. */
+      if(!this._saveWarned){
+        this._saveWarned = true;
+        try{ console.warn('Store.save failed', e); UI.toast('⚠️ حافظهٔ مرورگر پر است؛ پیشرفت ذخیره نشد. از «داده‌های من» پشتیبان بگیر.', 'err', 5000); }catch(_){}
+      }
+      return false;
+    }
   },
   get(k){ return this.data[k]; },
   set(k, v){ this.data[k] = v; this.save(); },
@@ -4438,6 +4448,11 @@ const UI = {
        `textContent` نوشته می‌شود، چون پیام‌ها از دادهٔ سرور و نام کاربر
        می‌آیند و `innerHTML` راهِ تزریق می‌شد. */
     let body = String(msg == null ? '' : msg);
+    /* همان پیام اگر هنوز روی صفحه است، دوباره ساخته نشود؛ فقط زمانش تازه شود */
+    for(const old of box.children){
+      if(old._msg === body && !old.classList.contains('out')){ old._renew && old._renew(); return; }
+    }
+    el._msg = body;
     const g = Glyph.lead(body);
     if(g){ el.appendChild(Glyph.el(g.emoji)); body = g.rest; }
     const tx = document.createElement('span');
@@ -4462,6 +4477,7 @@ const UI = {
     };
     x.onclick = close;
     t = setTimeout(close, ms);
+    el._renew = () => { if(done) return; clearTimeout(t); t = setTimeout(close, ms); };
   },
   /* ── پنجرهٔ جستن ──
      سه چیز را با هم نگه می‌دارد: نمایش، تاریخچه، و تمرکز.
@@ -5345,7 +5361,20 @@ const Recite = {
       }, { once: true });
     }
     const p = a.play();
-    if(p && p.catch) p.catch(() => this.onError());
+    if(p && p.catch) p.catch(err => this.playRejected(err));
+  },
+  /* ردِ play() همیشه خرابیِ منبع نیست: سیاستِ پخشِ خودکارِ مرورگر
+     (NotAllowedError) یا قطعِ عمدی (AbortError) را نباید با «منبع خراب»
+     یکی گرفت، وگرنه منبعِ سالم کنار گذاشته می‌شد. */
+  playRejected(err){
+    const n = err && err.name;
+    if(n === 'AbortError') return;
+    if(n === 'NotAllowedError'){
+      this.set('paused');
+      UI.toast('▶️ برای شروعِ تلاوت یک بار دکمهٔ پخش را بزن', '', 3000);
+      return;
+    }
+    this.onError();
   },
   onError(){
     // منبع دیگری را امتحان کن؛ اگر همه شکست خوردند، پیام روشن بده
@@ -5406,7 +5435,20 @@ const Recite = {
     U.$('#qStat').innerHTML = '<b style="color:var(--red)">اتصال به منبع صدا ممکن نشد</b>';
   },
   onEnded(){
-    if(this.repeatLeft > 0){ this.repeatLeft--; this.el.currentTime = 0; this.el.play().catch(() => this.onError()); return; }
+    /* شمارنده‌های «۱۰ آیه بشنو» و «یک سوره بخوان» — پیش‌تر هیچ‌جا زیاد
+       نمی‌شدند و این دو مأموریت (و مأموریتِ هفتگیِ خواندن) هرگز پر نمی‌شد. */
+    try{
+      const c = this.cur;
+      if(c){
+        const last = QURAN[c.s - 1] && c.a === QURAN[c.s - 1].count;
+        Store.update(d => {
+          d.stats.listened = (d.stats.listened || 0) + 1;
+          if(last) d.stats.readSurahs = (d.stats.readSurahs || 0) + 1;
+        });
+        if(typeof Missions !== 'undefined') Missions.refresh(true);
+      }
+    }catch(e){}
+    if(this.repeatLeft > 0){ this.repeatLeft--; this.el.currentTime = 0; this.el.play().catch(err => this.playRejected(err)); return; }
     const next = this.queue.shift();
     if(next && Store.get('quran').autoNext !== false){ this.play(next.s, next.a, { source: this.srcIdx }); return; }
     this.set('idle');
@@ -5417,7 +5459,7 @@ const Recite = {
   toggle(){
     const a = this.init();
     if(this.state === 'playing' || this.state === 'loading'){ a.pause(); this.set('paused'); return; }
-    if(a.src && this.cur){ a.play().then(() => this.set('playing')).catch(() => this.onError()); return; }
+    if(a.src && this.cur){ a.play().then(() => this.set('playing')).catch(err => this.playRejected(err)); return; }
     const q = Store.get('quran');
     this.play(q.surah || 1, q.ayah || 1);
   },
@@ -5864,7 +5906,11 @@ const ReaderUI = {
     this.loading = true; this.err = '';
     U.$('#readBody').innerHTML = '<div class="card" style="text-align:center;color:var(--mut)">⏳ در حال آوردن متن سوره…</div>';
     let d = null;
+    const seq = this._seq = (this._seq || 0) + 1;
     try{ d = await QText.surah(s); }catch(e){ d = null; }
+    /* اگر در این فاصله سورهٔ دیگری باز شده، پاسخِ کهنه را دور بریز؛ وگرنه
+       متنِ سورهٔ قبلی زیرِ عنوانِ سورهٔ تازه می‌نشست. */
+    if(seq !== this._seq || s !== this.s) return;
     this.loading = false;
     if(!d){
       this.data = null;
@@ -9620,7 +9666,7 @@ const EsmFamilEngine = {
     const s = this.state;
     if(msg.phase === 'round'){
       s.letter = msg.letter; s.round = msg.round; s.total = msg.total || 3;
-      s.phase = 'round'; s.submitted = false; s.results = null;
+      s.phase = 'round'; s.submitted = false; s.results = null; s.resultPaid = false;
       this.render();
     } else if(msg.phase === 'waiting'){
       UI.toast(`⏳ ${U.fa(msg.got)} از ${U.fa(msg.total)} پاسخ دادند`, '');
@@ -9768,7 +9814,8 @@ const EsmFamilEngine = {
       ${Net.room?.isHost ? `<button class="btn ok w" id="efNext" style="margin-top:12px">▶️ دور بعد</button>` : ''}`;
     /* تنها جایِ دادنِ امتیاز در حالت آنلاین. `checkLevelUp` هم لازم است:
        پیش‌تر XP اضافه می‌شد ولی سطح هرگز بالا نمی‌رفت. */
-    if(mine && mine.score){
+    if(mine && mine.score && !s.resultPaid){
+      s.resultPaid = true;   // بستهٔ تکراری/اتصالِ دوباره نباید دوباره امتیاز بدهد
       Store.update(d => { d.score += mine.score; d.xp += mine.score; });
       checkLevelUp(); Sound.play(true); confetti(24);
     }
@@ -10233,12 +10280,21 @@ const NightRepeat = {
     const c = this.conf();
     if(!c.on) return;
     if(U.now() >= (c.until || 0)){ this.stop(); return; }
+    /* تا رسیدنِ ساعتِ «از» صبر کن؛ پیش‌تر ساعتِ شروع نادیده گرفته می‌شد و
+       پخش همان لحظه (حتی ظهر) آغاز می‌شد. */
+    if(!this.inWindow()) return;
     if(!Recite.cur && !Recite.stoppedManually){
       /* اگر پخش ایستاده، سورهٔ انتخابی را از اول شروع کن */
       const q = Store.get('quran');
       try{ Recite.playSurah(U.clamp(q.surah || 1, 1, 114), q.ayah || 1); }catch(e){}
     }
     Recite.applyPrefs();
+  },
+  inWindow(){
+    const c = this.conf();
+    const h = new Date().getHours() + new Date().getMinutes() / 60;
+    const from = c.from ?? 22, to = c.to ?? 6;
+    return from > to ? (h >= from || h < to) : (h >= from && h < to);
   },
   /* ضریب صدا بر پایهٔ نزدیکی به پایان — در دقیقهٔ آخر به صفر می‌رسد */
   fadeFactor(){
@@ -10256,12 +10312,12 @@ const NightRepeat = {
   },
   modal(){
     const c = this.conf();
-    const hr = v => `<option value="${v}" ${Math.abs((c[v] ?? 0) - v) < .01 ? 'selected' : ''}>${U.fa(v)}</option>`;
+    const hr = key => v => `<option value="${v}" ${Math.abs((c[key] ?? (key === 'to' ? 6 : 22)) - v) < .01 ? 'selected' : ''}>${U.fa(v)}</option>`;
     UI.modal(`<h3>${Icon.of('moon')} تکرار شبانه</h3>
       <div class="tiny" style="margin:9px 0 13px">قرآن آرام پخش می‌شود و صدایش در دقیقه‌های آخر خودبه‌خود کم می‌شود تا خوابت نبرد.</div>
       <div class="night-row">
-        <label>از ساعت <select id="nFrom">${[20,21,22,23,0].map(hr).join('')}</select></label>
-        <label>تا ساعت <select id="nTo">${[4,5,6,7].map(hr).join('')}</select></label>
+        <label>از ساعت <select id="nFrom">${[20,21,22,23,0].map(hr('from')).join('')}</select></label>
+        <label>تا ساعت <select id="nTo">${[4,5,6,7].map(hr('to')).join('')}</select></label>
       </div>
       <div class="night-row mt10">
         <label>محو صدا در <input type="number" id="nFade" min="1" max="90" value="${U.fa(c.fade || 20)}"> دقیقهٔ آخر</label>
@@ -11697,7 +11753,7 @@ const HomeCarousel = {
   schedule(){
     if(this.timer) Timers.clear(this.timer);
     this.timer = null;
-    if(!this.ready || FX.reduced || this.pauses.size || document.hidden || !U.$('#s-home')?.classList.contains('active')) return;
+    if(!this.ready || FX.reduced || this.pauses.size || document.hidden || !U.$('#s-home')?.classList.contains('active') || U.$('#modal.on,#onb.on,#gate:not(.hide),#alog:not(.hide)')) return;
     this.timer = Timers.after(() => { this.show(this.index + 1); this.schedule(); }, 5000, 'sys');
   }
 };
@@ -11808,6 +11864,7 @@ class CategoryCarousel {
     if(this.destroyed || !this.el || !this.el.isConnected) return false;
     const screen = this.el.closest ? this.el.closest('.screen') : null;
     if(screen && screen.classList && !screen.classList.contains('active')) return false;
+    if(U.$('#modal.on,#onb.on,#gate:not(.hide),#alog:not(.hide)')) return false;   // زیرِ پنجره/دروازه نچرخد
     if(this.inView === false) return false;
     const sized = !!(this.el.offsetWidth || this.el.offsetHeight);
     if(!sized) return false;
@@ -12691,7 +12748,12 @@ const DailyChallenge = {
     const rng = U.seedRand('nc' + U.today());
     const pool = [...DATA.quiz, ...DATA.meaning];
     const qs = pool.filter((_, i) => rng() < 0.25).slice(0, 5);
-    while(qs.length < 5) qs.push(U.rand(pool));
+    /* پرکردنِ کمبود هم باید با همان بذر باشد و بی تکرار؛ Math.random سؤال‌های
+       «یکسان برای همه» را بینِ دستگاه‌ها متفاوت می‌کرد. */
+    for(let guard = 0; qs.length < 5 && guard < 500; guard++){
+      const q = pool[Math.floor(rng() * pool.length)];
+      if(q && !qs.includes(q)) qs.push(q);
+    }
     QuizEngine.start({
       qs, count: 5, title: '🌙 چالش روزانه', game: 'daily',
       sub: `جایزه امروز: ۷۵ امتیاز • زنجیره فعلی ${U.fa(st.streak)} روز`,
@@ -13142,7 +13204,12 @@ function renderOnline(){
       <span class="chip ${full ? 'off' : 'on'}">${full ? '👁 تماشا' : 'ورود'}</span>
     </div>`;
   }).join('') : '<div class="empty">هنوز رومی ساخته نشده — خودت بساز!</div>';
-  U.$$('#rooms .item[data-code]').forEach(el => el.onclick = () => Net.joinRoom(el.dataset.code));
+  U.$$('#rooms .item[data-code]').forEach(el => {
+      const join = () => Net.joinRoom(el.dataset.code);
+      el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.onclick = join;
+      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); join(); } };
+    });
 
   const board = Net.board.length ? Net.board : Store.get('leaderboard');
   U.$('#lbCnt').textContent = U.fa(board.length);
@@ -14873,7 +14940,7 @@ const Share = {
 /* ─────────────────── 20. THEME ─────────────────── */
 function applyTheme(t){
   document.documentElement.setAttribute('data-theme', t || 'dark');
-  const colors = { dark: '#0b1120', ocean: '#03101a', forest: '#05100b', royal: '#080f20', light: '#f7f3ea' };
+  const colors = { dark: '#0b1120', ocean: '#03101a', forest: '#05100b', royal: '#080f20', desert: '#171008', light: '#f7f3ea' };
   const meta = document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute('content', colors[t] || colors.dark);
 }
@@ -14946,7 +15013,13 @@ const Theme = {
       </div>`;
   },
   wire(box){
-    U.$$('[data-th]', box || document).forEach(el => el.onclick = () => { this.set(el.dataset.th); });
+    U.$$('[data-th]', box || document).forEach(el => {
+      const pick = () => this.set(el.dataset.th);
+      el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.setAttribute('aria-pressed', String(el.classList.contains('on')));
+      el.onclick = pick;
+      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } };
+    });
     const a = U.$('#thAmb', box || document); if(a) a.onclick = () => { this.ambient(); a.textContent = Store.get('settings').ambient ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'; };
     const m = U.$('#thMotion', box || document);
     if(m) m.onclick = () => {
@@ -15000,7 +15073,7 @@ const Avatar = {
     const c = this.color();
     return `<span class="ava ${size} ${ring ? 'ring' : ''}" ` +
            `style="border-color:${c};background:linear-gradient(150deg,${c}33,var(--card2))">` +
-           `${this.emoji()}</span>`;
+           `${U.esc(this.emoji())}</span>`;
   },
   set(emoji){ Store.update(d => d.profile.emoji = String(emoji).slice(0, 8)); Sound.tick(); },
   setColor(i){ Store.update(d => d.profile.color = U.clamp(Math.floor(i) || 0, 0, this.COLORS.length - 1)); Sound.tick(); },
@@ -15021,6 +15094,11 @@ const Avatar = {
       U.$$('[data-ac]', box).forEach(el => el.onclick = () => { this.setColor(el.dataset.ac); UI.closeModal(); this.pick(); });
       const a = U.$('#avAuto', box); if(a) a.onclick = () => { this.auto(); UI.closeModal(); this.pick(); };
       const dn = U.$('#avDone', box); if(dn) dn.onclick = () => { UI.closeModal(); Me.render(); };
+      /* انتخاب با صفحه‌کلید/سوئیچ هم ممکن باشد */
+      U.$$('.ava-pick', box).forEach(el => {
+        el.setAttribute('role', 'button'); el.tabIndex = 0;
+        el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); el.click(); } };
+      });
     });
   }
 };
@@ -15229,7 +15307,7 @@ const Streak = {
   wire(host){
     U.$$('[data-streak]', host || document).forEach(b => b.onclick = () => {
       if(b.dataset.streak === 'freeze'){
-        if(Wallet.spend(80, 'یخِ زنجیره')) this.freeze();
+        if(Wallet.spend(80, 'یخِ زنجیره') && !this.freeze()) Wallet.refund(80);   // یخ نخورد ⇒ سکه برگردد
       } else DailyChallenge.open();
       try{ renderHome(); }catch(e){}
     });
@@ -15319,6 +15397,8 @@ const Onboarding = {
   go(i){ this.i = U.clamp(Math.floor(+i) || 0, 0, this.SLIDES.length - 1); this.paint(); },
   next(){ if(this.i >= this.SLIDES.length - 1) this.done(); else this.go(this.i + 1); },
   done(){
+    /* دوبار‌لمسِ دکمهٔ آخر، done را دوبار صدا می‌زد و دو پیامِ خوش‌آمد روی هم می‌نشست */
+    if(!U.$('#onb.on')) return;
     this.close(true);
     Sound.fanfare(); Haptic.success();
     UI.toast('🌸 خوش آمدی! هر وقت خواستی از پروفایل دوباره ببین', 'ok', 2800);
