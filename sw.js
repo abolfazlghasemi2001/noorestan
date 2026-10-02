@@ -36,12 +36,20 @@
    نسخهٔ ۱۹: بازی «نور آیه‌ها» و بنر چرخشی Swiper به پوسته افزوده شد.
    بالا رفتن نسخه لازم است تا نصب‌های قبلی، index.html تازه را به‌جای
    پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
+
+   نسخهٔ ۲۷: بازی‌های مستقلِ games/ (آیه‌ساز، باران حکمت) آفلاین شدند.
+   کشِ جدای GAMES دارند و از «اول کش، تازه‌سازی پس‌زمینه» سرو می‌شوند:
+   بار اول از شبکه، از آن به بعد فوری از کش و نسخهٔ تازه بی‌صدا برای
+   باز کردنِ بعدی جایگزین می‌شود — پس کاربرِ قدیمی هرگز نمی‌شکند و
+   نسخهٔ کهنه هم بیش از یک بار دیده نمی‌شود. داده‌های بازی
+   (hadith-bank.js و _quran-ref.json) هم در همین کش‌اند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-26';
-const SHELL = 'noorestan-shell-26';
-const MEDIA = 'noorestan-media-26';
-const TEXT  = 'noorestan-text-26';
+const CACHE = 'noorestan-27';
+const SHELL = 'noorestan-shell-27';
+const MEDIA = 'noorestan-media-27';
+const TEXT  = 'noorestan-text-27';
+const GAMES = 'noorestan-games-27';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -87,8 +95,25 @@ const OPTIONAL = [
      فهرستش کن. */
 ];
 
+/* بازی‌های مستقل — پیش‌ذخیرهٔ اختیاری؛ نبود هر کدام نصب را نمی‌شکند */
+const GAME_FILES = [
+  './games/',
+  './games/index.html',
+  './games/common.css',
+  './games/common.js',
+  './games/tokens.css',
+  './games/ayah-builder.html',
+  './games/hadith-rush.html',
+  './games/art/ayah-builder.svg',
+  './games/art/hadith-rush.svg',
+  './hadith-bank.js',
+  './_quran-ref.json'
+];
+const isGameData = p => /\/hadith-bank\.js$|\/_quran-ref\.json$/.test(p);
+
 const MAX_MEDIA = 120;      // حداکثر شمار فایل رسانه‌ای در کش
 const MAX_TEXT  = 260;      // حداکثر پاسخ متنی (سوره‌ها) در کش
+const MAX_GAMES = 60;       // حداکثر فایل بازی در کش
 
 /* ── رسانه (صوت/ویدئو): کامل واگذار به مرورگر ──────────────────────
    چرا این شاخه پیش از همه می‌آید و چرا هیچ respondWith ندارد؟
@@ -154,13 +179,16 @@ self.addEventListener('install', e => {
     const opt = await caches.open(CACHE);
     await Promise.all(OPTIONAL.map(u =>
       opt.add(new Request(u, { cache: 'reload' })).catch(() => null)));
+    const games = await caches.open(GAMES);
+    await Promise.all(GAME_FILES.map(u =>
+      games.add(new Request(u, { cache: 'reload' })).catch(() => null)));
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    const keep = new Set([CACHE, SHELL, MEDIA, TEXT]);
+    const keep = new Set([CACHE, SHELL, MEDIA, TEXT, GAMES]);
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k)));
     if(self.registration.navigationPreload)
@@ -180,9 +208,9 @@ async function trim(name, max){
   }catch(e){}
 }
 
-async function staleWhileRevalidate(req, name, max){
+async function staleWhileRevalidate(req, name, max, opts){
   const c = await caches.open(name);
-  const hit = await c.match(req);
+  const hit = await c.match(req, opts);
   const net = fetch(req).then(res => {
     if(storable(res)) c.put(req, res.clone()).then(() => trim(name, max)).catch(() => {});
     return res;
@@ -237,6 +265,14 @@ self.addEventListener('fetch', e => {
         وگرنه شاخهٔ ۱ (نشانی‌های بی‌پسوند روی دامنهٔ قاریان) یا شاخهٔ ۴
         (CDN) آن را می‌قاپد. */
   if(isMedia(req, url)) return;
+
+  /* ۰.۵) بازی‌های مستقل games/ و داده‌هایشان — اول کش، تازه‌سازی پس‌زمینه.
+        پیش از شاخهٔ رفت‌وبرگشت می‌آید تا صفحهٔ بازی آفلاین هم باز شود و
+        به‌جایش پوستهٔ index.html برنگردد. ignoreSearch برای ‎?v=…‎ است. */
+  if(url.origin === location.origin && (/\/games\//.test(url.pathname) || isGameData(url.pathname))){
+    e.respondWith(staleWhileRevalidate(req, GAMES, MAX_GAMES, { ignoreSearch: true }));
+    return;
+  }
 
   /* ۱) رفت‌وبرگشت صفحه‌ها — اول شبکه، بی‌شبکه پوسته از کش */
   if(req.mode === 'navigate'){
