@@ -13,9 +13,23 @@
 - The in-app motion switch (`data-motion="off"`) now also removes the press-scale, which previously
   only respected the OS setting.
 
-## Not done in this step
-- `sw.js` precache / cache bump (currently `noorestan-25`). `motion.css` is served from the
-  `/assets/` stale-while-revalidate branch, so it caches on first online load; the precache entry and
-  bump to 26 land with the next step that edits `index.html`.
-- Hard-coded easings inside `index.html` are not yet migrated (file too large to edit via the GitHub API).
-- No browser/device run, no `_harness.js` run. Needs `node _harness.js` + a visual check before merge.
+## Step 2: splash
+- New `assets/motion/splash.js` (self-contained, injects its own markup) + splash styles in `motion.css`.
+- Sequence: backdrop fade → lantern-arch mark scales in with glow → 12 orbiting gold particles
+  (staggered) → «نورستان» rises in → shimmer sweep → fade + 1.03 scale out.
+- Min 1.3s, max 2.4s (+0.45s exit). Tap / key / tab-hidden dismisses immediately.
+- Shown once per session (`sessionStorage['nr-splash-seen']`).
+- Never built under `prefers-reduced-motion`, `data-motion="off"`, `navigator.webdriver`
+  (keeps `_shots*.js` / automation clean) or `?nosplash`.
+- Animates transform + opacity only; one infinite CSS rotation that is removed with the node; no rAF loop.
+- Dispatches `window` event `nr:splash-done` for later onboarding/hero choreography.
+
+### Manual integration (index.html is too large to edit via the GitHub API)
+1. `index.html`, immediately after the opening `<body ...>` tag:
+   `<script src="./assets/motion/splash.js"></script>` (synchronous on purpose, to cover first paint).
+2. `sw.js`: add `'./assets/styles/motion.css'` and `'./assets/motion/splash.js'` to `PRECACHE`,
+   bump the four cache names from `-25` to `-26`.
+
+## Not verified
+- No browser/device run, no `_harness.js` run. Needs `node _harness.js` + an Incognito check
+  (with and without OS reduced-motion) before merging to `main`.
