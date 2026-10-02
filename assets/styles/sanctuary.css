@@ -1,4 +1,6 @@
 /* Phase 2: a shared courtyard-inspired skin; no gameplay or identity state here. */
+/* توکن‌های حرکت (فاز ۲ موشن). @import باید پیش از هر قاعده‌ای بیاید. */
+@import url("motion.css");
 :root{--court-line:rgba(213,189,127,.2);--court-shadow:0 20px 60px -32px #0009;--court-glow:rgba(204,184,114,.09)}
 html[data-theme="dark"],html[data-theme="royal"]{
  --bg:#071b1e;--bg2:#0a2427;--card:#0e2b2d;--card2:#163537;--line:#304c49;
@@ -205,14 +207,23 @@ html[data-theme="light"] #app::after{ opacity:.5 }
   background:linear-gradient(90deg, transparent, var(--gold2), transparent); opacity:.55;
 }
 
-/* واکنشِ لمسیِ همهٔ دکمه‌ها — فشردگیِ کوچک هنگام tap، در سراسر برنامه */
+/* واکنشِ لمسیِ همهٔ دکمه‌ها — فشردگیِ کوچک هنگام tap، در سراسر برنامه.
+   فاز ۲ موشن: زمان‌ها و منحنی‌ها از توکن‌های motion.css می‌آیند؛ مقدارِ
+   پس از ویرگول، واپس‌روی است اگر motion.css بار نشده باشد (همان مقدارِ
+   پیشین، پس رفتار عوض نمی‌شود). */
 .btn,.iconbtn,.nav button,.tab,.seg button{
-  transition:transform .16s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease);
+  transition:transform var(--dur-press,.16s) var(--ease-press,var(--ease)),
+             box-shadow var(--dur-normal,.25s) var(--ease-smooth,var(--ease)),
+             background var(--dur-normal,.25s) var(--ease-smooth,var(--ease)),
+             border-color var(--dur-normal,.25s) var(--ease-smooth,var(--ease));
 }
-.btn:active,.nav button:active,.tab:active{ transform:scale(.96) }
-.iconbtn:active{ transform:scale(.9) }
-.seg button:active{ transform:scale(.97) }
+.btn:active,.nav button:active,.tab:active{ transform:scale(var(--press-scale,.96)) }
+.iconbtn:active{ transform:scale(var(--press-scale-icon,.9)) }
+.seg button:active{ transform:scale(var(--press-scale-soft,.97)) }
 @media(prefers-reduced-motion:reduce){
   .btn:active,.iconbtn:active,.nav button:active,.tab:active,.seg button:active{ transform:none }
   #app::before,#app::after,#gate::after{ display:none }
 }
+/* سوییچِ «حرکت خاموش» داخلِ برنامه هم همان اثرِ لمسی را برمی‌دارد. */
+html[data-motion="off"] .btn:active,html[data-motion="off"] .iconbtn:active,html[data-motion="off"] .nav button:active,
+html[data-motion="off"] .tab:active,html[data-motion="off"] .seg button:active{ transform:none }
