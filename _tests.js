@@ -4013,7 +4013,8 @@ section('بازی‌ها — قفل‌های بازمانده و پاداشِ چ
        `${before} → ${Store.get('score')}`);
     before = Store.get('score');
     EsmFamilEngine.renderResults([other, mine]);
-    ok('و رندرِ دوبارهٔ نتایج امتیاز را تکرار نمی‌کند', Store.get('score') === before + 30,
+    /* عنوانِ این سنجش درست بود ولی شرطش پرداختِ دوباره را «سبز» می‌کرد */
+    ok('و رندرِ دوبارهٔ نتایج امتیاز را تکرار نمی‌کند', Store.get('score') === before,
        `${before} → ${Store.get('score')}`);
 
     /* ── ۴. نجوا: قفلِ بازمانده ─────────────────────────────────── */

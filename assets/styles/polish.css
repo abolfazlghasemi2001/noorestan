@@ -1,0 +1,126 @@
+/* ═══════════════════════════════════════════════════════════════
+   نورستان — لایهٔ صیقل (polish.css)
+   بعد از sanctuary.css بار می‌شود؛ فقط از کلاس‌ها و متغیرهای موجود
+   استفاده می‌کند و چیدمان را جابه‌جا نمی‌کند. همهٔ حرکت‌ها فقط با
+   transform/opacity و با «کاهشِ حرکت» (سیستم و تنظیمِ برنامه) خاموش می‌شوند.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --pl-r-sm:12px; --pl-r-md:16px; --pl-r-lg:22px; --pl-r-xl:28px;
+  --pl-fast:140ms; --pl-med:240ms; --pl-slow:420ms;
+  --pl-elev-1:0 1px 2px rgba(0,0,0,.10), 0 6px 18px -6px rgba(0,0,0,.28);
+  --pl-elev-2:0 2px 6px rgba(0,0,0,.10), 0 18px 40px -14px rgba(0,0,0,.40);
+  --pl-ring:0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent);
+  --pl-hair:color-mix(in srgb, var(--line) 70%, var(--gold) 30%);
+}
+html[data-theme="light"]{
+  --pl-elev-1:0 1px 2px rgba(120,90,30,.08), 0 8px 22px -10px rgba(120,90,30,.25);
+  --pl-elev-2:0 2px 6px rgba(120,90,30,.08), 0 22px 44px -18px rgba(120,90,30,.32);
+  color-scheme:light;
+}
+html[data-theme="dark"],html[data-theme="ocean"],html[data-theme="forest"],
+html[data-theme="royal"],html[data-theme="desert"]{ color-scheme:dark; }
+
+/* ── تایپوگرافی: اعداد هم‌عرض، تیترهای متوازن ── */
+body{ text-rendering:optimizeLegibility; -webkit-font-smoothing:antialiased; }
+.stat b,.coin .cn,.kv b,.tiny,.badge-n,[data-num]{ font-variant-numeric:tabular-nums; }
+h1,h2,h3,.hero h1,.phead h2{ text-wrap:balance; }
+
+/* ── سربرگ: شیشه‌ای و امن برای ناچ ── */
+html body .top{
+  padding-top:calc(12px + env(safe-area-inset-top, 0px));
+  -webkit-backdrop-filter:blur(14px) saturate(140%); backdrop-filter:blur(14px) saturate(140%);
+  border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+/* ── سطح‌های اصلی: لبهٔ زرّین ظریف + سایهٔ لایه‌ای ── */
+html body .card,html body .hero,html body .today-card,html body .continue-card{
+  border-radius:var(--pl-r-lg);
+  border-color:var(--pl-hair);
+  box-shadow:var(--pl-elev-1);
+}
+html body .hero{ box-shadow:var(--pl-elev-2); }
+/* خطِ زرّینِ بالای کارت (از خودِ برنامه) کمی پررنگ‌تر و پهن‌تر */
+html body .card::before{ opacity:.38; inset-inline:22px; }
+html[data-theme="light"] body .card::before{ opacity:.5; }
+
+/* ── کاشی‌ها و ردیف‌ها: پاسخِ لمسی ── */
+html body .tile,html body .item,html body .shop-item,html body .miss,html body .stat{
+  transition:transform var(--pl-med) var(--ease), box-shadow var(--pl-med) ease, border-color var(--pl-med) ease;
+}
+@media (hover:hover){
+  html body .tile:hover,html body .item.click:hover,html body .shop-item:hover{
+    transform:translateY(-2px); box-shadow:var(--pl-elev-1); border-color:var(--gold);
+  }
+}
+html body .tile:active,html body .item.click:active,html body .shop-item:active{ transform:scale(.985); }
+
+/* ── دکمه‌ها: هدفِ لمسیِ ۴۴px، فشردگیِ نرم ── */
+html body .btn:not(.sm),html body .iconbtn{ min-height:44px; }
+html body .btn{
+  transition:transform var(--pl-fast) var(--bounce, var(--ease)), box-shadow var(--pl-med) var(--ease), filter var(--pl-med) ease;
+}
+@media (hover:hover){ html body .btn:hover:not(:disabled){ filter:brightness(1.05) saturate(1.06); box-shadow:var(--pl-elev-1); } }
+html body .btn:active:not(:disabled),html body .iconbtn:active{ transform:scale(.96); }
+html body .btn:disabled{ filter:grayscale(.35); cursor:not-allowed; }
+
+/* ── حلقهٔ تمرکزِ یکدست برای صفحه‌کلید ── */
+:where(button,a,input,select,textarea,[tabindex],[role="button"]):focus-visible{
+  outline:2px solid var(--gold); outline-offset:3px; box-shadow:var(--pl-ring);
+}
+:where(button,a,input,select,textarea):focus:not(:focus-visible){ outline:0; }
+
+/* ── ورودی‌ها ── */
+html body .inp,html body input[type="text"],html body input[type="tel"],html body input[type="number"],html body select,html body textarea{
+  transition:border-color var(--pl-med) ease, box-shadow var(--pl-med) ease;
+}
+html body .inp:focus,html body input:focus,html body select:focus,html body textarea:focus{
+  border-color:var(--gold); box-shadow:var(--pl-ring);
+}
+
+/* ── پیام‌ها: کارتی تمیز زیرِ سربرگ، با ورود نرم ── */
+#toasts{ top:calc(70px + env(safe-area-inset-top, 0px)); width:min(92vw, 440px); gap:8px; }
+#toasts .toast{
+  border-radius:var(--pl-r-md); box-shadow:var(--pl-elev-2);
+  border:1px solid var(--pl-hair);
+  -webkit-backdrop-filter:blur(16px) saturate(150%); backdrop-filter:blur(16px) saturate(150%);
+  animation:pl-toast-in var(--pl-slow) var(--ease) both;
+}
+#toasts .toast.ok{ border-inline-start:3px solid var(--grn); }
+#toasts .toast.err{ border-inline-start:3px solid var(--red); }
+@keyframes pl-toast-in{ from{ opacity:0; transform:translateY(-10px) scale(.98); } to{ opacity:1; transform:none; } }
+
+/* ── ناوبریِ پایین: نشانگرِ فعال و امنِ لبهٔ پایین ── */
+html body #nav{ padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px)); }
+html body #nav .navi{ transition:color var(--pl-med) ease, transform var(--pl-fast) var(--ease); }
+html body #nav .navi:active{ transform:scale(.94); }
+
+/* ── گذارِ صفحه‌ها: فقط هنگامِ عوض‌شدنِ صفحه ── */
+.screen.active{ animation:pl-screen-in var(--pl-slow) var(--ease) both; }
+@keyframes pl-screen-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+/* ── اسکلتِ بارگذاری ── */
+.skeleton,.shimmer{ position:relative; overflow:hidden; border-radius:var(--pl-r-sm);
+  background:color-mix(in srgb, var(--card2, var(--card)) 85%, var(--line)); }
+.skeleton::after,.shimmer::after{ content:""; position:absolute; inset:0; transform:translateX(110%);
+  background:linear-gradient(100deg, transparent, color-mix(in srgb, var(--txt) 9%, transparent), transparent);
+  animation:pl-shimmer 1.3s linear infinite; }
+@keyframes pl-shimmer{ to{ transform:translateX(-110%); } }
+
+/* ── اسکرول‌بار ظریف ── */
+*{ scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--gold) 45%, transparent) transparent; }
+::selection{ background:color-mix(in srgb, var(--gold) 35%, transparent); }
+
+/* ── گوشی‌های کوچک (۳۶۰px) ── */
+@media (max-width:380px){
+  html body .card,html body .hero{ padding:16px; }
+  html body .btn:not(.sm){ padding-inline:16px; }
+}
+
+/* ── کاهشِ حرکت: سیستم + تنظیمِ برنامه ── */
+@media (prefers-reduced-motion:reduce){
+  .screen.active,#toasts .toast{ animation:none; }
+  .skeleton::after,.shimmer::after{ display:none; }
+  html body .tile,html body .item,html body .btn{ transition:none; }
+}
+html[data-motion="off"] .screen.active,html[data-motion="off"] #toasts .toast{ animation:none; }
+html[data-motion="off"] .skeleton::after,html[data-motion="off"] .shimmer::after{ display:none; }
