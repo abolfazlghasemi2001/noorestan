@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="آیه‌ساز">
+  <defs>
+    <radialGradient id="ab-bg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#24306b"/><stop offset="1" stop-color="#070b18"/></radialGradient>
+    <linearGradient id="ab-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffdf91"/><stop offset=".55" stop-color="#ffb347"/><stop offset="1" stop-color="#ff8a5c"/></linearGradient>
+    <filter id="ab-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#ab-bg)"/>
+  <g fill="none" stroke="#5b6bc4" stroke-opacity=".45" stroke-width="1.2">
+    <rect x="34" y="20" width="52" height="52" transform="rotate(45 60 46)"/>
+    <rect x="34" y="20" width="52" height="52"/>
+    <circle cx="60" cy="46" r="14"/>
+  </g>
+  <path d="M14 96 Q60 70 106 96" fill="none" stroke="#f5c96a" stroke-opacity=".35" stroke-width="1.5" stroke-dasharray="2 4"/>
+  <g filter="url(#ab-glow)" stroke="#7a4a12" stroke-opacity=".35" stroke-width=".8">
+    <rect x="12" y="74" width="26" height="22" rx="5" fill="url(#ab-gold)" transform="rotate(14 25 85)"/>
+    <rect x="47" y="68" width="26" height="22" rx="5" fill="url(#ab-gold)"/>
+    <circle cx="60" cy="68" r="4" fill="url(#ab-gold)"/>
+    <rect x="82" y="74" width="26" height="22" rx="5" fill="url(#ab-gold)" transform="rotate(-14 95 85)"/>
+    <rect x="80" y="18" width="20" height="17" rx="4" fill="url(#ab-gold)" transform="rotate(18 90 26)"/>
+    <rect x="18" y="26" width="17" height="15" rx="4" fill="url(#ab-gold)" transform="rotate(-20 26 33)"/>
+  </g>
+  <g fill="none" stroke="#9a5a12" stroke-opacity=".55" stroke-width="1">
+    <path d="M60 72 l4 7 -4 7 -4 -7z"/>
+    <path d="M25 80 l3 5 -3 5 -3 -5z" transform="rotate(14 25 85)"/>
+    <path d="M95 80 l3 5 -3 5 -3 -5z" transform="rotate(-14 95 85)"/>
+  </g>
+  <g fill="#ffdf91"><circle cx="40" cy="58" r="1.2"/><circle cx="84" cy="54" r="1"/><circle cx="102" cy="64" r="1.4"/><circle cx="16" cy="58" r=".9"/><circle cx="66" cy="12" r="1"/></g>
+</svg>

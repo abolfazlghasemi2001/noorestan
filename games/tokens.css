@@ -1,0 +1,21 @@
+/* نورستان — توکن‌های طراحی (منبع واحد برای games/ و، پس از شکستن index.html، کل اپ)
+   هر رنگ/فاصله/شعاع/سایه/منحنی تازه فقط این‌جا تعریف شود. */
+:root{
+  /* رنگ */
+  --bg:#070b18;--bg2:#0e1530;--card:rgba(255,255,255,.06);--edge:rgba(255,255,255,.12);
+  --gold:#f5c96a;--gold2:#ffdf91;--grad:linear-gradient(135deg,#f5c96a,#ffb347 55%,#ff8a5c);
+  --grn:#3ddc97;--red:#ff5d73;--mut:#9aa5c4;--txt:#eef1ff;
+  /* فاصله (مقیاس ۴) */
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+  /* شعاع */
+  --r-sm:12px;--r-md:16px;--r-lg:22px;--r-xl:28px;--r-full:999px;
+  /* سایه */
+  --sh-1:0 4px 14px rgba(0,0,0,.25);
+  --sh-2:0 20px 60px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);
+  --sh-gold:0 10px 30px rgba(245,170,80,.35);
+  /* حرکت */
+  --ease:cubic-bezier(.22,1,.36,1);--bounce:cubic-bezier(.34,1.56,.64,1);
+  --dur-1:.15s;--dur-2:.3s;--dur-3:.5s;
+  /* قلم */
+  --f-ui:'Vazirmatn',system-ui,sans-serif;--f-q:'Amiri','Traditional Arabic',serif;
+}
