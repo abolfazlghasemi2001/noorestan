@@ -1,0 +1,2 @@
+/* آداپتور سازگاری برای G.result قدیمی */
+(function(root){const G=root.G,R=root.NoorestanGameResult;if(!G||!R||typeof G.result!=='function'||G.result.__noorestanBridge)return;const old=G.result;const bridged=input=>{const n=R.normalize(input),legacy=R.legacy({...input,gameId:n.gameId});return old({...input,...legacy,gameId:n.gameId,completion:n.completion,mode:n.mode,metadata:n.metadata,at:n.at});};bridged.__noorestanBridge=true;G.result=bridged;})(typeof window==='undefined'?globalThis:window);
