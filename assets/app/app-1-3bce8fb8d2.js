@@ -1,0 +1,13982 @@
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان ۱۷.۰ — نسخه ارتقاءیافته
+   · شبکه واقعی: WebSocket سرور  +  حالت محلی بین‌تبی (BroadcastChannel)
+   · دوز آنلاین با اعتبارسنجی سمت سرور
+   · سیستم جان، کمبو، رکورد شخصی و چالش روزانه با زنجیره
+   · تازه در ۱۴.۲: پردهٔ آغازین قرآنی، نگارخانهٔ تصویرسازی SVG،
+     بخش «تلاوت» با صوت قاریان نامدار جهان و موتور صدای سه‌بعدی
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* نگهبان: اگر خطای زمان اجرا رخ داد، پردهٔ آغازین کنار برود تا برنامه قفل نشود */
+window.addEventListener('error', () => {
+  const sp = document.getElementById('splash');
+  if(sp){ sp.classList.add('out'); setTimeout(() => { try{ sp.remove(); }catch(e){} }, 900); }
+});
+
+const APP_VERSION = 17;
+const SERVER_KEY  = 'noorestan';
+/* پورتِ پیش‌فرضِ `server.js` (همان `process.env.PORT || 8787` سمتِ سرور).
+   فقط وقتی به کار می‌آید که کاربر نشانی‌ای بی‌پورت داده باشد. */
+const SERVER_PORT = 8787;
+
+/* ── گرفتن زودهنگام رویداد نصب ──
+   کروم `beforeinstallprompt` را یک بار می‌فرستد و ممکن است این کار پیش از
+   اجرای init باشد. اگر شنونده را داخل init بگذاریم آن یک فرصت از دست
+   می‌رود و دکمهٔ نصب تا بارِ بعدی صفحه بی‌اثر می‌ماند — پس همان‌جا در زمان
+   پارس گرفتنش می‌گیریم.
+
+   preventDefault لازم است: بی آن کروم نوار کوچک خودش را نشان می‌دهد و
+   رویداد «سوخته» می‌شود؛ دیگر نمی‌شود با prompt() بازش کرد. */
+window.__bip = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  window.__bip = e;
+  try{ window.dispatchEvent(new Event('noorestan:bip')); }catch(err){}
+});
+window.addEventListener('appinstalled', () => {
+  window.__bip = null;
+  try{ window.dispatchEvent(new Event('noorestan:installed')); }catch(err){}
+});
+
+/* ─────────────────── 1. UTILS ─────────────────── */
+const U = {
+  $: (s, p = document) => p.querySelector(s),
+  $$: (s, p = document) => [...p.querySelectorAll(s)],
+  fa: n => String(n ?? 0).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]),
+  /* ── برچسبِ دکمهٔ آیکن‌دار ──
+     حالا دکمه‌ها `<svg>` + `<span>` دارند و `textContent` کلِ محتوا را
+     پاک می‌کند — از جمله آیکن را. این کمک‌تابع فقط متنِ `span` را عوض
+     می‌کند و اگر دکمه span نداشت، مثل قبل روی خودِ دکمه می‌نویسد. */
+  /* ── گرهٔ برچسب ──
+     دکمه‌های آیکن‌دار سه ریخت دارند و هر سه باید کار کنند:
+
+       `<i data-ic="user"></i> کاربر`   ← متنِ لخت، بی `<span>`
+       `<i data-ic="mark"></i><span>نشان کن</span>`
+       `<span class="ic-w">…</span><span>…</span>`
+
+     نسخهٔ پیشین فقط `<span>` را می‌دید؛ در ریختِ اول چیزی پیدا نمی‌کرد و
+     به `textContent` روی خودِ دکمه می‌افتاد — که آیکن را هم پاک می‌کرد.
+     `:not(.ic-w)` هم لازم است، وگرنه نگه‌دارندهٔ آیکن جای برچسب گرفته
+     می‌شد و آیکن می‌سوخت. */
+  _labelNode(el){
+    const sp = el.querySelector('span:not(.ic-w)');
+    if(sp) return sp;
+    for(const n of el.childNodes)
+      if(n.nodeType === 3 && n.textContent.trim()) return n;
+    const s = document.createElement('span');
+    el.appendChild(s);
+    return s;
+  },
+  label(btn, text){
+    if(btn) this._labelNode(btn).textContent = text;
+  },
+  /* ── هم آیکن، هم برچسب ──
+     بعضی دکمه‌ها آیکنشان با وضعیت می‌چرخد (صدا 🔊/🔇، لرزش 📳/📴).
+     `label` تنها کافی نیست، چون آیکن را دست نمی‌زند. */
+  icLabel(el, ic, text){
+    if(!el) return;
+    const w = el.querySelector('.ic-w') || el.querySelector('i[data-ic]');
+    if(w && w.tagName === 'I'){
+      /* نشانِ ثابتی که در HTML نشسته: همان را عوض می‌کنیم و از نو
+         می‌نشانیم. اگر نگه‌دارندهٔ تازه بسازیم، دکمه دو آیکن می‌گیرد. */
+      if(ic){ w.setAttribute('data-ic', ic); Icon.hydrate(el); }
+      else w.remove();
+    } else {
+      const box = w || (() => {
+        const s = document.createElement('span');
+        s.className = 'ic-w';
+        el.insertBefore(s, el.firstChild);
+        return s;
+      })();
+      box.innerHTML = ic ? Icon.of(ic) : '';
+    }
+    this._labelNode(el).textContent = text;
+  },
+
+  /* ── حلقهٔ پیشرفتِ #s-play ──
+     تنها منبعِ حقیقت همان نوارِ خطیِ `#pgProg` است؛ این تابع همان درصد
+     را روی حلقهٔ SVG هم می‌نشاند و متنِ وسط را پر می‌کند. نوار دیده
+     نمی‌شود (CSS) ولی سرِ جایش می‌ماند تا ۱۷ محلِ فراخوانی،
+     `FX.levelBurst` و سنجش‌های کهنه بی‌شکسته بمانند.
+
+     `opt.cur`/`opt.total` شمارندهٔ وسط را می‌سازند («۳/۱۰»)؛ اگر نباشند
+     درصد نشان داده می‌شود. `opt.cap` واحدِ زیرِ شمارنده است. */
+  prog(pct, opt){
+    const wrap = this.$('#pgProgWrap');
+    if(!wrap) return;
+    const o = opt || {};
+    const p = this.clamp(+pct || 0, 0, 100);
+
+    const bar = this.$('#pgProg');
+    if(bar) bar.style.width = p + '%';
+
+    const ring = wrap.querySelector('.ring-progress');
+    if(ring){
+      /* محیطِ حلقه از خودِ SVG خوانده می‌شود تا `dasharray` و
+         `dashoffset` هرگز از هم جدا نیفتند. اگر خواندن نشد (SVGِ
+         دیده‌نشده در برخی موتورها)، همان ۲πr با r=۴۶ می‌نشیند. */
+      let C = 0;
+      try{ C = ring.getTotalLength(); }catch(e){}
+      if(!C || !isFinite(C)) C = 289.03;
+      ring.style.strokeDasharray = C;
+      ring.style.strokeDashoffset = (C * (1 - p / 100)).toFixed(2);
+    }
+
+    const tx = wrap.querySelector('.progress-text');
+    if(tx){
+      const b = tx.querySelector('b'), sm = tx.querySelector('small');
+      if(b) b.textContent = (o.cur != null && o.total != null)
+        ? this.fa(o.cur) + '/' + this.fa(o.total)
+        : this.fa(Math.round(p)) + '٪';
+      /* واحد فقط وقتی نوشته می‌شود که فراخوان گفته باشد؛ وگرنه واحدِ
+         همان بازی (که وقتِ آغاز نشسته) دست‌نخورده می‌ماند. */
+      if(sm && o.cap) sm.textContent = o.cap;
+    }
+
+    /* مهرِ پاسخ با هر به‌روزرسانی پاک می‌شود، وگرنه رنگِ سبزِ پاسخِ
+       پیشین روی پرسشِ بعدی می‌ماند. */
+    wrap.classList.remove('is-correct', 'is-wrong');
+    wrap.classList.toggle('is-complete', p >= 100);
+    return p;
+  },
+
+  /* مهرِ گذرا روی حلقه: سبز برای پاسخِ درست، سرخ برای نادرست. */
+  progState(ok){
+    const wrap = this.$('#pgProgWrap');
+    if(!wrap) return;
+    wrap.classList.remove('is-correct', 'is-wrong');
+    wrap.classList.add(ok ? 'is-correct' : 'is-wrong');
+    clearTimeout(this._pgMark);
+    this._pgMark = setTimeout(() => wrap.classList.remove('is-correct', 'is-wrong'), 900);
+  },
+
+  esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  shuffle(a){ const b = [...a]; for(let i = b.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; },
+  rand: a => a[Math.floor(Math.random()*a.length)],
+  uid: () => Math.random().toString(36).slice(2, 10),
+  /* کد اتاق شش‌رقمی — شناسهٔ ورود نیست، فقط کلیدِ کوتاهِ اتاق بازی است.
+     «تصادفِ ریاضی» کافی است. */
+  code6: () => String(Math.floor(100000 + Math.random()*900000)),
+  /* ── تصادفِ امن ──
+     Math.random جای رمز و کد یکبارمصرف را نمی‌گیرد: خروجی‌اش از یک دانهٔ
+     داخلی می‌آید و با دیدن چند عدد می‌توان بقیه را حدس زد. تنها منبع
+     پذیرفته، مولدِ رمزنگاری‌شدهٔ مرورگر است.
+     اگر مرورگر آن را نداشت، هیچ عددی ساخته نمی‌شود. عمداً جانشینِ
+     Math.random نمی‌گذاریم: افتِ بی‌صدا به تصادفِ ضعیف، بدتر از یک خطای
+     آشکار است. */
+  crypto(){
+    try{
+      if(typeof crypto !== 'undefined' && crypto && typeof crypto.getRandomValues === 'function') return crypto;
+      if(typeof window !== 'undefined' && window.crypto && typeof window.crypto.getRandomValues === 'function') return window.crypto;
+    }catch(err){}
+    return null;
+  },
+  /* عددی یکنواخت در [0, n)؛ با «رد کردنِ» نمونه‌های بیرون از بازه، نه با
+     باقی‌ماندهٔ ساده. باقی‌مانده توزیع را کج می‌کند (برخی ارقام بیشتر
+     می‌آیند) و همان کجی، حدس‌زدن را آسان‌تر می‌کند.
+     خروجی -1 یعنی «ساخته نشد». احتمالِ رسیدن به آن حدس‌ناپذیر است
+     (هر دور دست‌کم ۵۰٪ پذیرش) ولی حلقه را بسته نگه می‌داریم تا هیچ
+     مسیری نتواند برنامه را قفل کند. */
+  randBelow(n){
+    const c = this.crypto();
+    if(!c || !(n > 0)) return -1;
+    const MAX = Math.floor(4294967296 / n) * n;
+    const buf = new Uint32Array(1);
+    for(let i = 0; i < 64; i++){
+      c.getRandomValues(buf);
+      if(buf[0] < MAX) return buf[0] % n;
+    }
+    return -1;
+  },
+  /* نمکِ تصادفی (هگز). برای یکتاییِ هشِ کد لازم است و باید حدس‌ناپذیر
+     باشد تا نشود از پیش برای همهٔ کدهای ممکن جدول ساخت.
+     '' یعنی «ساخته نشد». */
+  salt(bytes = 16){
+    const c = this.crypto();
+    if(!c) return '';
+    const b = new Uint8Array(bytes);
+    c.getRandomValues(b);
+    return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  },
+  /* کد پیامکی پنج‌رقمی. عمداً هم‌خانوادهٔ code6 ولی جدا: اگر روزی یکی
+     عوض شود، آن یکی نباید تکان بخورد.
+     '' یعنی «ساخته نشد»؛ صداکننده باید خطا بدهد، نه کدِ ضعیف.
+     TODO(فاز ۹ — معماری): امن‌شدنِ تولید فقط نیمی از کار است. راستی‌آزمایی
+     این کد هنوز در همین صفحه و با هشی در localStorage انجام می‌شود، پس
+     کاربرِ متین می‌تواند پلهٔ کد را رد کند. اصلاحِ کامل = ساخت و بررسیِ
+     کد روی سرور. */
+  code5(){
+    const v = this.randBelow(90000);
+    return v < 0 ? '' : String(10000 + v);
+  },
+  /* رقم فارسی/عربی به لاتین. کاربر با صفحه‌کلید فارسی «۱۲۳۴۵» می‌زند و
+     آن رشته با «12345» برابر نیست؛ بی این تبدیل، کدِ درست رد می‌شود. */
+  unfa(s){
+    const fa = '۰۱۲۳۴۵۶۷۸۹', ar = '٠١٢٣٤٥٦٧٨٩';
+    return String(s ?? '').replace(/[۰-۹٠-٩]/g, ch => {
+      const i = fa.indexOf(ch); return String(i >= 0 ? i : ar.indexOf(ch));
+    });
+  },
+  now: () => Date.now(),
+  localDay(date = new Date()){
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  },
+  today: () => U.localDay(),
+  clamp: (v, a, b) => Math.min(b, Math.max(a, v)),
+  seedRand(seed){ let s = 0; for(const c of String(seed)) s = (s*31 + c.charCodeAt(0))>>>0; return () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; },
+  sleep: ms => new Promise(r => setTimeout(r, ms)),
+  fmtTime(sec){
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec/60), s = sec % 60;
+    return m ? `${m}:${String(s).padStart(2,'0')}` : `${s} ثانیه`;
+  },
+  /* «چند وقت پیش» — برای فهرست رکوردها و ورودهای اخیر.
+     زمانِ آینده و زمانِ نامعتبر هر دو «همین حالا» می‌شوند، نه عددی عجیب. */
+  ago(at){
+    const ms = this.now() - (+at || 0);
+    if(!(+at) || ms < 0) return 'همین حالا';
+    const min = Math.floor(ms / 60000);
+    if(min < 1) return 'همین حالا';
+    if(min < 60) return `${U.fa(min)} دقیقه پیش`;
+    const h = Math.floor(min / 60);
+    if(h < 24) return `${U.fa(h)} ساعت پیش`;
+    const day = Math.floor(h / 24);
+    if(day < 30) return `${U.fa(day)} روز پیش`;
+    return `${U.fa(Math.floor(day / 30))} ماه پیش`;
+  },
+  /* تاریخ شمسی.
+     تقویمِ جلالی را خودمان حساب نمی‌کنیم: جدولِ کبیسه‌ها چهل‌وچند خط است و
+     هر غلطی در آن یک سال تمام را جابه‌جا می‌کند. مرورگر و Node هر دو
+     تقویمِ فارسی را در Intl دارند و همان را می‌پرسیم. اگر نبود، به تاریخِ
+     میلادیِ ISO برمی‌گردیم تا چیزی نمایش داده شود، نه رشتهٔ خالی. */
+  jalali(at){
+    const t = +at || 0;
+    if(!t) return '—';
+    const d = new Date(t);
+    if(isNaN(d.getTime())) return '—';
+    try{
+      const f = new Intl.DateTimeFormat('fa-IR-u-ca-persian',
+        { year:'numeric', month:'2-digit', day:'2-digit' });
+      const p = f.formatToParts(d);
+      const get = k => (p.find(x => x.type === k) || {}).value || '';
+      const y = get('year'), m = get('month'), dd = get('day');
+      if(y && m && dd) return `${y}/${m}/${dd}`;
+    }catch(e){}
+    return U.fa(U.localDay(d));
+  },
+  // نرمال‌سازی متن فارسی برای مقایسه (ی/ك عربی، نیم‌فاصله، اعراب)
+  norm(s){
+    return String(s ?? '')
+      .replace(/[ً-ْٰـ]/g, '')
+      .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[ۀهٔ]/g, 'ه')
+      .replace(/[‌‏‎]/g, ' ')
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+  },
+
+  /* SHA-256 — پیاده‌سازی خالص JS.
+     crypto.subtle روی http:// (مثلاً 192.168.x.x) در دسترس نیست و ورود مدیر را
+     می‌شکست. این نسخه همه‌جا کار می‌کند. */
+  sha256(str){
+    const bytes = new TextEncoder().encode(String(str));
+    const K = new Uint32Array([
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+    const H = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+    const len = bytes.length, bitLen = len * 8;
+    const total = ((len + 9 + 63) >> 6) << 6;
+    const buf = new Uint8Array(total);
+    buf.set(bytes); buf[len] = 0x80;
+    const dv = new DataView(buf.buffer);
+    dv.setUint32(total - 8, Math.floor(bitLen / 4294967296));
+    dv.setUint32(total - 4, bitLen >>> 0);
+    const w = new Uint32Array(64);
+    for(let off = 0; off < total; off += 64){
+      for(let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i*4);
+      for(let i = 16; i < 64; i++){
+        const a1 = w[i-15], b1 = w[i-2];
+        const s0 = rotr(a1,7) ^ rotr(a1,18) ^ (a1 >>> 3);
+        const s1 = rotr(b1,17) ^ rotr(b1,19) ^ (b1 >>> 10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+      }
+      let a=H[0], b=H[1], c=H[2], d=H[3], e=H[4], f=H[5], g=H[6], h=H[7];
+      for(let i = 0; i < 64; i++){
+        const S1 = rotr(e,6) ^ rotr(e,11) ^ rotr(e,25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+        const S0 = rotr(a,2) ^ rotr(a,13) ^ rotr(a,22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + maj) >>> 0;
+        h=g; g=f; f=e; e=(d + t1) >>> 0; d=c; c=b; b=a; a=(t1 + t2) >>> 0;
+      }
+      H[0]=(H[0]+a)>>>0; H[1]=(H[1]+b)>>>0; H[2]=(H[2]+c)>>>0; H[3]=(H[3]+d)>>>0;
+      H[4]=(H[4]+e)>>>0; H[5]=(H[5]+f)>>>0; H[6]=(H[6]+g)>>>0; H[7]=(H[7]+h)>>>0;
+    }
+    return [...H].map(x => x.toString(16).padStart(8,'0')).join('');
+  },
+  async sha256Async(str){
+    if(window.crypto?.subtle && window.isSecureContext){
+      try{
+        const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(str)));
+        return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2,'0')).join('');
+      }catch(e){ /* می‌افتیم روی نسخه خالص */ }
+    }
+    return this.sha256(str);
+  }
+};
+
+/* ─────────────────── آیکن‌ها ─────────────────── */
+/* آیکنِ کارکردی، نه ایموجی. ایموجی در هر فونت و هر سیستمی جورِ دیگری
+   درمی‌آید، بعضی‌جاها رنگی و ناهمخوان با تم است، و رنگِ متن را هم
+   نمی‌گیرد. این‌ها SVGِ درون‌خطی‌اند و رنگشان از currentColor می‌آید،
+   پس در هر شش تم خودشان را با دکمه هم‌رنگ می‌کنند.
+   عنصرهای ثابتِ سند با data-ic نشانه‌گذاری شده‌اند و Icon.hydrate در
+   زمان بالا آمدن پرشان می‌کند؛ صفحه‌های ساختهٔ JS از Icon.of می‌گیرند.
+   f:۱ یعنی آیکنِ توپر (پخش، توقف) — وگرنه خطی است. */
+const Icon = {
+  REG: {
+    bird: { d:'<path d="M3 16c5 1 7-2 8-6l2-5 4 1 2 4 3 1-4 2c-1 7-9 9-15 3Z"/><path d="M8 15l5-2M15 8h.01"/>' },
+    flower: { d:'<circle cx="12" cy="12" r="3"/><path d="M10 9C3 3 15 1 14 9c7-6 11 6 1 5 6 7-6 11-5 1-7 6-11-6-1-5"/>' },
+    leaf: { d:'<path d="M20 4C7 2 2 7 5 15s16 5 15-11ZM5 20 16 9"/>' },
+    fish: { d:'<path d="M3 12 1 6l6 3c4-6 11-5 16 3-5 8-12 9-16 3l-6 3Z"/><path d="M17 10h.01M13 6v12"/>' },
+    shell: { d:'<path d="M8 20 3 9C3 1 21 1 21 9l-5 11ZM8 7l3 11m1-13v13m4-11-3 11"/>' },
+    orbit: { d:'<circle cx="12" cy="12" r="6"/><ellipse cx="12" cy="12" rx="12" ry="3" transform="rotate(-35 12 12)"/>' },
+    lantern: { d:'<path d="M12 2v4M8 7h8l3 5-3 8H8l-3-8Zm0 3h8v7H8Zm2 12h4"/>' },
+    paw: { d:'<path d="M6 16c0-2 3-3 4-5h4c1 2 4 3 4 5 0 5-4 3-6 3s-6 2-6-3Z"/><ellipse cx="4" cy="9" rx="2" ry="3"/><ellipse cx="9" cy="5" rx="2" ry="3"/><ellipse cx="15" cy="5" rx="2" ry="3"/><ellipse cx="20" cy="9" rx="2" ry="3"/>' },
+    meal: { d:'<circle cx="12" cy="12" r="6"/><path d="M2 3v7m3-7v7M2 7h3M3.5 10v11M22 3c-4 2-4 8 0 8v10"/>' },
+    city: { d:'<path d="M3 21V8h7v13m0-17h7v17m0-10h4v10M6 11h1m-1 4h1m6-8h1m-1 4h1m-1 4h1M2 21h20"/>' },
+    'home-active': { f:1, d:'<path d="M2 11 12 2l10 9-2 2-1-1v10h-5v-7h-4v7H5V12l-1 1Z"/>' },
+    'listen-active': { f:1, d:'<path d="M3 12a9 9 0 0 1 18 0v6a3 3 0 0 1-3 3h-3V11h3a6 6 0 0 0-12 0h3v10H6a3 3 0 0 1-3-3Z"/>' },
+    'globe-active': { f:1, d:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM5 10h14v2H5Zm0 5h14v2H5Zm6-11h2v16h-2Z"/>' },
+    'gamepad-active': { f:1, d:'<path fill-rule="evenodd" d="M8 6h8a7 7 0 0 1 6 10l-1 3a3 3 0 0 1-5 1l-2-2h-4l-2 2a3 3 0 0 1-5-1l-1-3A7 7 0 0 1 8 6Zm-1 4v2H5v2h2v2h2v-2h2v-2H9v-2Zm9 1h2v2h-2Zm2 3h2v2h-2Z"/>' },
+    'user-active': { f:1, d:'<circle cx="12" cy="7" r="5"/><path d="M3 22v-2a9 7 0 0 1 18 0v2Z"/>' },
+    stop: { f:1, d:'<rect x="5" y="5" width="14" height="14" rx="2"/>' },
+    search: { d:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>' },
+    hourglass: { d:'<path d="M6 3h12M6 21h12M7 3v4l10 10v4M17 3v4L7 17v4"/>' },
+    expand: { d:'<path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/>' },
+    /* جفتِ `expand`: «خروج از تمام‌صفحه». بی آن، دکمه در حالتِ
+       تمام‌صفحه همان آیکنِ ورود را نشان می‌داد و کاربر نمی‌فهمید
+       وضعیت عوض شده. */
+    collapse: { d:'<path d="M9 4v5H4m11-5v5h5M9 20v-5H4m11 5v-5h5"/>' },
+    lab: { d:'<path d="M9 3h6M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3M7 15h10"/>' },
+    repeat: { d:'<path d="M4 9a8 8 0 0 1 14-3l2 2m0-5v5h-5M20 15a8 8 0 0 1-14 3l-2-2m0 5v-5h5"/>' },
+    home:   { d:'<path d="M3.6 10.9 12 3.5l8.4 7.4"/><path d="M5.9 9.7V20a1 1 0 0 0 1 1h10.2a1 1 0 0 0 1-1V9.7"/><path d="M10 21v-5.5h4V21"/>' },
+    listen: { d:'<path d="M4.2 15.1v-3.3a7.8 7.8 0 0 1 15.6 0v3.3"/><path d="M7.4 13.3H6.1a1.6 1.6 0 0 0-1.6 1.6v3a1.6 1.6 0 0 0 1.6 1.6h1.3z"/><path d="M16.6 13.3h1.3a1.6 1.6 0 0 1 1.6 1.6v3a1.6 1.6 0 0 1-1.6 1.6h-1.3z"/>' },
+    globe:  { d:'<path d="M12 3.3a8.7 8.7 0 1 0 0 17.4 8.7 8.7 0 0 0 0-17.4z"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/><path d="M12 3.3c2.4 2.6 2.4 14.8 0 17.4M12 3.3c-2.4 2.6-2.4 14.8 0 17.4"/>' },
+    gamepad:{ d:'<path d="M8.4 9h7.2a4.9 4.9 0 0 1 4.6 6.6l-.3.9a1.9 1.9 0 0 1-3.2.6L15 15.6H9l-1.7 1.5a1.9 1.9 0 0 1-3.2-.6l-.3-.9A4.9 4.9 0 0 1 8.4 9z"/><path d="M8.4 11.3v2.6M7.1 12.6h2.6M15.4 11.8h.01M17.3 13.7h.01"/>' },
+    user:   { d:'<path d="M12 12.2a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8z"/><path d="M4.6 20.6a7.4 7.4 0 0 1 14.8 0"/>' },
+    bell:   { d:'<path d="M18.2 15.9H5.8l1.3-1.9V10a4.9 4.9 0 0 1 9.8 0v4z"/><path d="M10.1 19a2 2 0 0 0 3.8 0M12 3.4v1.6"/>' },
+    signal: { d:'<path d="M4.8 20v-5.6M9.6 20v-9.4M14.4 20V7.2M19.2 20V4"/>' },
+    book:   { d:'<path d="M12 6.6C10 5.2 7.6 4.6 4.4 4.6v12.9c3.2 0 5.6.6 7.6 2 2-1.4 4.4-2 7.6-2V4.6c-3.2 0-5.6.6-7.6 2z"/><path d="M12 6.6v12.9"/>' },
+    mark:   { d:'<path d="M7.2 4.4h9.6v15.2L12 15.7l-4.8 3.9z"/>' },
+    /* در RTL «بازگشت» به راست اشاره می‌کند، نه چپ. */
+    back:   { d:'<path d="M4.6 12h14.8M13.4 6l6 6-6 6"/>' },
+    retry:  { d:'<path d="M19.5 12a7.5 7.5 0 1 0-2.3 5.4"/><path d="M17.5 17.7l-.3-3.6M17.5 17.7l3.5-.6"/>' },
+    close:  { d:'<path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6"/>' },
+    trash:  { d:'<path d="M5.4 7.4h13.2M9.6 7.4V5.6a1 1 0 0 1 1-1h2.8a1 1 0 0 1 1 1v1.8"/><path d="M7.4 7.4l.8 11a1.4 1.4 0 0 0 1.4 1.3h4.8a1.4 1.4 0 0 0 1.4-1.3l.8-11"/>' },
+    copy:   { d:'<path d="M9.4 8.6h9.2a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H9.4a1 1 0 0 1-1-1V9.6a1 1 0 0 1 1-1z"/><path d="M15.6 6.4V5.2a1 1 0 0 0-1-1H5.4a1 1 0 0 0-1 1v9.2a1 1 0 0 0 1 1h1.2"/>' },
+    plus:   { d:'<path d="M12 5.4v13.2M5.4 12h13.2"/>' },
+    key:    { d:'<path d="M14.6 5.4a5 5 0 1 0 3.9 8.1l.1-.1h1.6v2h2v-2h1.2v-2.4h-5a5 5 0 0 0-3.8-5.6z"/><path d="M8.7 11.6h.01"/>' },
+    send:   { d:'<path d="M4.6 11.6 19.4 5l-6.6 14.8-2-6.2z"/><path d="M10.8 13.6 19.4 5"/>' },
+    cart:   { d:'<path d="M3.6 4.6h2.2l2.3 10.4h9.4l2.1-7.6H6.6"/><path d="M9.4 19.4h.01M16.4 19.4h.01"/>' },
+    link:   { d:'<path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3"/><path d="M13.6 10.4a3.6 3.6 0 0 0-5.1 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3"/>' },
+    snow:   { d:'<path d="M12 3.4v17.2M5 7.4l14 9.2M19 7.4 5 16.6"/><path d="M9.4 5.2 12 7.6l2.6-2.4M9.4 18.8 12 16.4l2.6 2.4"/>' },
+    tools:  { d:'<path d="M14.5 6.6a3.6 3.6 0 0 1 4.9 4.9l-7 7a2 2 0 0 1-2.8-2.8z"/><path d="M6.6 4.4l2.5 2.5M4.4 6.6l2.5 2.5M5.5 4.4l-.1 2.2 2.2-.1"/>' },
+    play:   { f:1, d:'<path d="M8.2 5.3v13.4a.9.9 0 0 0 1.37.77l10.5-6.7a.9.9 0 0 0 0-1.54L9.57 4.53A.9.9 0 0 0 8.2 5.3z"/>' },
+    heart:  { d:'<path d="M12 20.4c-2.1-1.7-8-6.3-8-10.5a4.4 4.4 0 0 1 8-2.6 4.4 4.4 0 0 1 8 2.6c0 4.2-5.9 8.8-8 10.5z"/>' },
+    mic:    { d:'<path d="M12 3.6a2.6 2.6 0 0 1 2.6 2.6v5.3a2.6 2.6 0 0 1-5.2 0V6.2A2.6 2.6 0 0 1 12 3.6z"/><path d="M5.8 11.1v.4a6.2 6.2 0 0 0 12.4 0v-.4M12 17.7v2.7M9 20.4h6"/>' },
+    pause:  { f:1, d:'<path d="M8.2 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7H8.2a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/><path d="M13.1 4.8h2.7a.7.7 0 0 1 .7.7v13a.7.7 0 0 1-.7.7h-2.7a.7.7 0 0 1-.7-.7V5.5a.7.7 0 0 1 .7-.7z"/>' },
+    prev:   { f:1, d:'<path d="M6.1 5.2h2.2v13.6H6.1z"/><path d="M19.4 5.7v12.6a.8.8 0 0 1-1.23.68l-9.3-6.3a.8.8 0 0 1 0-1.36l9.3-6.3A.8.8 0 0 1 19.4 5.7z"/>' },
+    next:   { f:1, d:'<path d="M15.7 5.2h2.2v13.6h-2.2z"/><path d="M4.6 5.7v12.6a.8.8 0 0 0 1.23.68l9.3-6.3a.8.8 0 0 0 0-1.36l-9.3-6.3A.8.8 0 0 0 4.6 5.7z"/>' },
+
+    /* — فاز ۲: آیکن‌های صفحهٔ ورود — */
+    phone:  { d:'<path d="M7.6 3.9h2.1l1.5 3.7-1.9 1.3a11.4 11.4 0 0 0 5.4 5.4l1.3-1.9 3.7 1.5v2.1a2.3 2.3 0 0 1-2.5 2.3A15.5 15.5 0 0 1 5.3 6.4a2.3 2.3 0 0 1 2.3-2.5z"/>' },
+    crown:  { d:'<path d="M4.2 8.3 7 12.1l3.6-5.6 1.4 3 1.4-3 3.6 5.6 2.8-3.8v9.1a1 1 0 0 1-1 1H5.2a1 1 0 0 1-1-1z"/><path d="M4.3 19.4h15.4"/>' },
+    sat:    { d:'<path d="M4.4 13.3a6.3 6.3 0 0 1 6.3-6.3M4.4 8.6a11 11 0 0 1 11 11"/><path d="M4.4 19.6h.01M11.4 12.6l8.2-8.2"/><path d="M15.4 4.4h4.2v4.2"/>' },
+    check:  { d:'<path d="M5 12.6 9.7 17.3 19 5.9"/>' },
+    edit:   { d:'<path d="M4.4 19.6h4.2L19.3 8.9a2.1 2.1 0 0 0-3-3L5.6 16.7z"/><path d="M14.9 4.8l3 3"/>' },
+    clock:  { d:'<path d="M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8z"/><path d="M12 7.4V12l3 1.8"/>' },
+    warn:   { d:'<path d="M12 4.4 21 19.6H3z"/><path d="M12 10v3.6M12 16.6h.01"/>' },
+    lock:   { d:'<path d="M6.6 10.4h10.8a1.4 1.4 0 0 1 1.4 1.4v7.2a1.4 1.4 0 0 1-1.4 1.4H6.6a1.4 1.4 0 0 1-1.4-1.4v-7.2a1.4 1.4 0 0 1 1.4-1.4z"/><path d="M8.5 10.4V7.9a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14.4v2.2"/>' },
+    shield: { d:'<path d="M12 3.6 19.4 6.4v5.2c0 4-3.1 7.4-7.4 8.8-4.3-1.4-7.4-4.8-7.4-8.8V6.4z"/><path d="M9.2 12.2 11.3 14.3 15 10"/>' },
+
+    /* — باگِ آیهٔ امروز: آیکن‌های تازه —
+       `book-open` عمداً از `book` جداست: `book` کتابِ بستهٔ قفسه است،
+       این یکی کتابِ گشوده برای «خواندن سوره». اگر یکی می‌شدند، کاربر
+       دو جای مختلفِ برنامه را یک‌شکل می‌دید. */
+    'book-open': { d:'<path d="M12 8.4 3.6 6.6v11.6L12 20l8.4-1.8V6.6z"/><path d="M12 8.4V20"/>' },
+    moon:  { d:'<path d="M20.4 14.6A8.8 8.8 0 0 1 9.4 3.6a8.8 8.8 0 1 0 11 11z"/>' },
+
+    /* ═══ فاز ۴: دفترِ آیکن‌ها کامل شد ═══
+       هر آیکن با همان قلمِ ۱٫۹ و همان `viewBox="0 0 24 24"` کشیده شده تا
+       کنارِ هم‌خانواده‌های پیشین یکدست بنشیند. هیچ‌کدام متن ندارند؛
+       برچسب از `aria-label` یا متنِ کنارشان می‌آید. */
+    refresh:    { d:'<path d="M4.6 12a7.4 7.4 0 0 1 12.7-5.2l2.1 2"/><path d="M19.4 4.6V9h-4.4"/><path d="M19.4 12a7.4 7.4 0 0 1-12.7 5.2l-2.1-2"/><path d="M4.6 19.4V15h4.4"/>' },
+    save:       { d:'<path d="M5.4 4.4h10.2l3 3v12a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1z"/><path d="M8.4 4.4v5.2h6.2V4.4"/><path d="M8.4 20.4v-5.6h6.2v5.6"/>' },
+    mail:       { d:'<path d="M4.4 6.4h15.2a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1V7.4a1 1 0 0 1 1-1z"/><path d="M3.8 7.2 12 12.8l8.2-5.6"/>' },
+    users:      { d:'<path d="M9.4 11.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8z"/><path d="M3.4 19.8a6 6 0 0 1 12 0"/><path d="M16.2 11.2a3 3 0 1 0-1.8-5.4"/><path d="M17.4 15.2a5.2 5.2 0 0 1 3.2 4.6"/>' },
+    'users-plus':{ d:'<path d="M9.4 11.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8z"/><path d="M3.4 19.8a6 6 0 0 1 12 0"/><path d="M18.4 8.6v5M20.9 11.1h-5"/>' },
+    shuffle:    { d:'<path d="M4.4 6.6h3.2l8.8 10.8h3.2"/><path d="M4.4 17.4h3.2l2.6-3.2"/><path d="M12.6 9.8l1.8-2.2h4.6"/><path d="M17.4 4.4 19.6 6.6 17.4 8.8M17.4 15.2 19.6 17.4 17.4 19.6"/>' },
+    logout:     { d:'<path d="M14.4 4.4h4.2a1 1 0 0 1 1 1v13.2a1 1 0 0 1-1 1h-4.2"/><path d="M4.4 12h10.2"/><path d="M11.4 8.6 14.8 12l-3.4 3.4"/>' },
+    target:     { d:'<path d="M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8z"/><path d="M12 7.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8z"/><path d="M12 11.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6z"/>' },
+    image:      { d:'<path d="M4.4 5.4h15.2a1 1 0 0 1 1 1v11.2a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M8.2 10.4a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8z"/><path d="M3.6 16.2 9 11.4l5 4.6 2.6-2.2 3.8 3.2"/>' },
+    repeat:     { d:'<path d="M5.4 9.4h10.2a3.4 3.4 0 0 1 3.4 3.4v.8"/><path d="M8.2 6.6 5.2 9.4l3 2.8"/><path d="M18.6 14.6H8.4a3.4 3.4 0 0 1-3.4-3.4v-.8"/><path d="M15.8 17.4l3-2.8-3-2.8"/>' },
+    pen:        { d:'<path d="M4.4 19.6h3.2L19.4 7.8a2.26 2.26 0 0 0-3.2-3.2L4.4 16.4z"/><path d="M15.2 5.6l3.2 3.2"/>' },
+    headphones: { d:'<path d="M4.6 16.4v-4.4a7.4 7.4 0 0 1 14.8 0v4.4"/><path d="M4.6 14.4h2.6a.8.8 0 0 1 .8.8v4.2a.8.8 0 0 1-.8.8H5.4a.8.8 0 0 1-.8-.8z"/><path d="M19.4 14.4h-2.6a.8.8 0 0 0-.8.8v4.2a.8.8 0 0 0 .8.8h1.8a.8.8 0 0 0 .8-.8z"/>' },
+    smile:      { d:'<path d="M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8z"/><path d="M9 14.4a4 4 0 0 0 6 0"/><path d="M9.4 9.6h.01M14.6 9.6h.01"/>' },
+    chart:      { d:'<path d="M4.4 20.4h15.2"/><path d="M7.6 20.4v-6.2M12 20.4V4.6M16.4 20.4v-9.4"/>' },
+    medal:      { d:'<path d="M12 14.6a4.6 4.6 0 1 0 0-9.2 4.6 4.6 0 0 0 0 9.2z"/><path d="M8.6 13.8 6.4 20.4l5.6-3 5.6 3-2.2-6.6"/>' },
+    gear:       { d:'<path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M12 2.8v2.4M12 18.8v2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>' },
+    sun:        { d:'<path d="M12 16.4a4.4 4.4 0 1 0 0-8.8 4.4 4.4 0 0 0 0 8.8z"/><path d="M12 2.6v2.4M12 19v2.4M4.4 12H2M22 12h-2.4M6.4 6.4 4.7 4.7M19.3 19.3l-1.7-1.7M6.4 17.6l-1.7 1.7M19.3 4.7l-1.7 1.7"/>' },
+    eye:        { d:'<path d="M2.6 12S6 5.6 12 5.6 21.4 12 21.4 12 18 18.4 12 18.4 2.6 12 2.6 12z"/><path d="M12 14.8a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6z"/>' },
+    trophy:     { d:'<path d="M7.4 4.4h9.2v4.2a4.6 4.6 0 0 1-9.2 0z"/><path d="M7.4 6H4.6v1.8a3.1 3.1 0 0 0 2.8 3.1M16.6 6h2.8v1.8a3.1 3.1 0 0 1-2.8 3.1"/><path d="M12 13.2v3.4M8.6 20.4h6.8l-.7-3.8H9.3z"/>' },
+    star:       { d:'<path d="M12 3.6l2.5 5.4 5.9.7-4.3 3.9 1.1 5.8L12 16.6l-5.2 2.8 1.1-5.8-4.3-3.9 5.9-.7z"/>' },
+    flame:      { d:'<path d="M12 20.4c3.3 0 5.6-2.2 5.6-5.2 0-3.6-3-5.2-3.4-8.6-2 1.1-3 2.6-3.2 4.2-.5-.6-1-1.4-1.1-2.3-1.6 1.6-3.5 4-3.5 6.7 0 3 2.3 5.2 5.6 5.2z"/>' },
+    dice:       { d:'<path d="M5.4 5.4h13.2a1 1 0 0 1 1 1v11.2a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M9 9.4h.01M15 9.4h.01M12 12h.01M9 14.6h.01M15 14.6h.01"/>' },
+    list:       { d:'<path d="M8.4 6.6h11.2M8.4 12h11.2M8.4 17.4h11.2"/><path d="M4.4 6.6h.01M4.4 12h.01M4.4 17.4h.01"/>' },
+    sparkle:    { d:'<path d="M12 3.4l1.7 4.6 4.6 1.7-4.6 1.7L12 16l-1.7-4.6L5.7 9.7l4.6-1.7z"/><path d="M18.4 15.2l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8z"/>' },
+    palette:    { d:'<path d="M12 3.6a8.4 8.4 0 0 0 0 16.8c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1a1.6 1.6 0 0 1 1.2-2.6h1.9a4.1 4.1 0 0 0 4.1-4.1c0-4.1-3.8-7.4-8.4-7.4z"/><path d="M7.4 10.4h.01M9.8 7.4h.01M14.2 7.4h.01M16.6 10.4h.01"/>' },
+    mosque:     { d:'<path d="M12 3.4c2.6 2.2 4.4 3.7 4.4 6.1 0 1.6-1 2.7-2.2 3.3h-4.4C8.6 12.2 7.6 11.1 7.6 9.5c0-2.4 1.8-3.9 4.4-6.1z"/><path d="M4.6 20.4v-6.2c0-1.6 1.3-2.9 2.9-2.9h9c1.6 0 2.9 1.3 2.9 2.9v6.2z"/><path d="M2.4 20.4h19.2M10.2 20.4v-3.2a1.8 1.8 0 0 1 3.6 0v3.2"/>' },
+    scroll:     { d:'<path d="M6.4 4.4h11.2a1.6 1.6 0 0 1 1.6 1.6v12a1.6 1.6 0 0 0 1.6 1.6H7.2"/><path d="M6.4 4.4A1.6 1.6 0 0 0 4.8 6v12a2.4 2.4 0 0 0 2.4 2.4"/><path d="M9.4 8.4h6.2M9.4 12h6.2"/>' },
+    gem:        { d:'<path d="M7.4 3.6h9.2l4 6-8.6 10.8L3.4 9.6z"/><path d="M3.4 9.6h17.2M9.6 9.6 12 20.4l2.4-10.8M7.4 3.6l2.2 6M16.6 3.6l-2.2 6"/>' },
+    bolt:       { d:'<path d="M13.4 2.6 5.6 13.4h5.6l-.6 8 7.8-10.8h-5.6z"/>' },
+    calendar:   { d:'<path d="M5.4 5.4h13.2a1 1 0 0 1 1 1v12.2a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M4.4 9.6h15.2M8.4 3.4v4M15.6 3.4v4"/>' },
+    scales:     { d:'<path d="M12 3.6v16.8M8.4 20.4h7.2"/><path d="M4.6 7.4h14.8M6.8 7.4 3.6 13.2a3.2 3.2 0 0 0 6.4 0z"/><path d="M17.2 7.4l3.2 5.8a3.2 3.2 0 0 1-6.4 0z"/>' },
+    swords:     { d:'<path d="M4.4 4.4h4.2l9.6 9.6-2.1 2.1L4.4 4.6z"/><path d="M19.6 4.4h-4.2l-9.6 9.6 2.1 2.1 11.7-11.5z"/><path d="M6.4 16.4l1.6 1.6M17.6 16.4l-1.6 1.6"/>' },
+    tree:       { d:'<path d="M12 3.4 6.4 10.4h2.8L5.2 16h13.6l-4-5.6h2.8z"/><path d="M12 16v4.6M8.6 20.6h6.8"/>' },
+    /* پیش‌تر این آیکن یک دایره با خطِ عمودی و منحنیِ S بود — یعنی علامتِ
+       دلار. کاربر در چیپِ سکه‌ها «۰ $» می‌دید که در برنامهٔ ایرانی غلط
+       است. حالا سکهٔ ستاره‌دار است: بی‌ابهام و بی‌ارز. */
+    coin:       { d:'<circle cx="12" cy="12" r="8.4"/><path d="M12 6.8l1.6 3.3 3.6.5-2.6 2.6.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.6 3.6-.5z"/>' },
+    chat:       { d:'<path d="M4.6 5.4h14.8a1 1 0 0 1 1 1v9.2a1 1 0 0 1-1 1H9.4l-4.8 3.8v-3.8a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M8.4 9.4h7.2M8.4 12.6h4.6"/>' },
+    volume:     { d:'<path d="M4.6 9.4h3.2L12 5.8v12.4l-4.2-3.6H4.6a1 1 0 0 1-1-1v-3.2a1 1 0 0 1 1-1z"/><path d="M15.4 9.4a3.6 3.6 0 0 1 0 5.2M18 7a7 7 0 0 1 0 10"/>' },
+    trend:      { d:'<path d="M4.4 16.8 9.6 11l3.4 3.4 6.6-7.2"/><path d="M15.4 7.2h4.2v4.2"/>' },
+    /* ── هفت آیکنِ زیر فقط برای نگاشتِ `Glyph` لازم‌اند ──
+       پیش‌تر در دفترِ جداگانه‌ای (`Glyph.EXTRA`) می‌نشستند تا `Icon.REG`
+       شلوغ نشود. ولی دو دفتر یعنی دو جا برای جست‌وجو، و `data-ic="megaphone"`
+       در سند هم به `Icon.REG` می‌رسد نه `EXTRA` — پس جای خالی می‌داد.
+       یک دفتر، یک مسیر. */
+    sprout:       { d:'<path d="M12 20.4v-6.6"/><path d="M12 13.8C12 10.6 9.6 8.4 6.2 8.4c0 3.2 2.4 5.4 5.8 5.4z"/><path d="M12 15.6c0-3.2 2.4-5.4 5.8-5.4 0 3.2-2.4 5.4-5.8 5.4z"/>' },
+    megaphone:    { d:'<path d="M4.4 10.4h3.2l9.6-4.4v12.4l-9.6-4.4H4.4a1.4 1.4 0 0 1-1.4-1.4v-1.8a1.4 1.4 0 0 1 1.4-1.4z"/><path d="M7.6 14v4.2a1.4 1.4 0 0 0 1.4 1.4h1.2V14"/>' },
+    'heart-break':{ d:'<path d="M12 20.4c-2.1-1.7-8-6.3-8-10.5a4.4 4.4 0 0 1 8-2.6 4.4 4.4 0 0 1 8 2.6c0 4.2-5.9 8.8-8 10.5z"/><path d="M12 7.3 9.8 10h4L11.6 13l1.6 2.4"/>' },
+    grid:         { d:'<path d="M4.4 4.4h15.2v15.2H4.4z"/><path d="M12 4.4v15.2M4.4 12h15.2"/>' },
+    car:          { d:'<path d="M4.4 16.4v-3.2l1.8-4.4a1.4 1.4 0 0 1 1.3-.8h9a1.4 1.4 0 0 1 1.3.8l1.8 4.4v3.2"/><path d="M3.4 16.4h17.2v2.2H3.4z"/><path d="M7.4 12.6h9.2"/><path d="M6.8 18.6h.01M17.2 18.6h.01"/>' },
+    text:         { d:'<path d="M4.4 6.4h9.2"/><path d="M9 6.4v11.2"/><path d="M15.4 11.4h4.2M17.5 11.4v6.2"/>' },
+    flag:         { d:'<path d="M6.4 3.6v16.8"/><path d="M6.4 5.2h11.2l-2.4 4 2.4 4H6.4z"/>' },
+    /* ── دستهٔ دوم: آیکن‌هایی که پوستهٔ ساخته‌شده با JS لازم داشت ── */
+    share:        { d:'<path d="M12 3.6v10.8"/><path d="M8.4 7.2 12 3.6l3.6 3.6"/><path d="M6.4 11.4H5.4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h13.2a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/>' },
+    party:        { d:'<path d="M3.6 20.4 8.2 8.4l7.4 7.4z"/><path d="M14.4 3.4h.01M18.4 6.4h.01M20.4 3.4h.01M15.4 7.4h.01M20.4 10.4h.01"/>' },
+    clap:         { d:'<path d="M7.4 12.4 5.6 10.6a1.4 1.4 0 0 1 2-2l3.6 3.6"/><path d="M9.6 9.4 7.8 7.6a1.4 1.4 0 0 1 2-2l4.6 4.6"/><path d="M12.4 8.4 11 7a1.4 1.4 0 0 1 2-2l5.2 5.2a5.6 5.6 0 0 1 1.6 4.6l-.4 3.6a5 5 0 0 1-5 4.4h-3a5 5 0 0 1-5-5v-4"/>' },
+    broom:        { d:'<path d="M16.4 3.6 8.6 11.4"/><path d="M11 8.8 4.4 15.4a1.6 1.6 0 0 0-.3 1.9l1.4 2.4c.3.5.9.7 1.4.4l4.9-2.6a1.6 1.6 0 0 0 .6-.5l3.4-3.4z"/>' },
+    unlock:       { d:'<path d="M5.4 10.4h13.2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/><path d="M8.4 10.4V7.6a3.6 3.6 0 0 1 6.9-1.4"/><path d="M12 14.4v2.4"/>' },
+    'mic-off':    { d:'<path d="M4.4 4.4 19.6 19.6"/><path d="M9.4 5.6a2.6 2.6 0 0 1 5.2 0v4.6"/><path d="M14.6 13.2a2.6 2.6 0 0 1-5.2-2.2"/><path d="M6.6 11.4v1a5.4 5.4 0 0 0 8.2 4.7"/><path d="M17.4 11.4v1a5.4 5.4 0 0 1-.7 2.6"/><path d="M12 17.8v2.6M9 20.4h6"/>' },
+    'volume-off': { d:'<path d="M4.6 9.4h3.2L12 5.8v12.4l-4.2-3.6H4.6a1 1 0 0 1-1-1v-3.2a1 1 0 0 1 1-1z"/><path d="M15.6 9.8 20 14.2M20 9.8l-4.4 4.4"/>' },
+    rocket:       { d:'<path d="M12 3.4c3.2 2.4 4.6 5.6 4.6 9.2l-2.4 3.4h-4.4L7.4 12.6c0-3.6 1.4-6.8 4.6-9.2z"/><path d="M9.8 16v3.6l2.2-1.6 2.2 1.6V16"/><path d="M12 8.4h.01"/>' },
+    help:         { d:'<path d="M12 3.8a8.2 8.2 0 1 0 0 16.4 8.2 8.2 0 0 0 0-16.4z"/><path d="M9.6 9.6a2.5 2.5 0 0 1 4.9.6c0 1.7-2.5 2.5-2.5 2.5"/><path d="M12 16.6h.01"/>' },
+    download:     { d:'<path d="M12 3.6v10.4"/><path d="M7.8 10 12 14.2 16.2 10"/><path d="M4.6 16.4v2.4a1 1 0 0 0 1 1h12.8a1 1 0 0 0 1-1v-2.4"/>' },
+    cloud:        { d:'<path d="M7.4 18.4h9.8a4.2 4.2 0 0 0 .3-8.4 6 6 0 0 0-11.5 1.3 3.6 3.6 0 0 0 1.4 7.1z"/>' },
+    ban:          { d:'<path d="M12 3.8a8.2 8.2 0 1 0 0 16.4 8.2 8.2 0 0 0 0-16.4z"/><path d="M6.2 6.2 17.8 17.8"/>' },
+    'id-card':    { d:'<path d="M4.4 5.4h15.2a1 1 0 0 1 1 1v11.2a1 1 0 0 1-1 1H4.4a1 1 0 0 1-1-1V6.4a1 1 0 0 1 1-1z"/><path d="M7.4 9h3.2v3.2H7.4z"/><path d="M7.4 14.4h3.2M13.4 9h3.2M13.4 12h3.2M13.4 15h2"/>' },
+    archive:      { d:'<path d="M3.6 5.4h16.8v3.2H3.6z"/><path d="M5.4 8.6h13.2v10.4a1 1 0 0 1-1 1H6.4a1 1 0 0 1-1-1z"/><path d="M10 12.4h4"/>' },
+    package:      { d:'<path d="M12 3.4 20.4 8v8L12 20.6 3.6 16V8z"/><path d="M3.6 8 12 12.6 20.4 8"/><path d="M12 12.6v8"/>' },
+    handshake:    { d:'<path d="M2.6 12.4 6.4 8.6l3.2 3.2"/><path d="M21.4 12.4 17.6 8.6l-3.2 3.2"/><path d="M6.4 8.6h4.6l1 1 1-1h4.6"/><path d="M12 9.6l2.4 2.4 2.4-2.4"/>' },
+    bulb:         { d:'<path d="M9.4 17.4a6 6 0 1 1 5.2 0v1.8a1 1 0 0 1-1 1h-3.2a1 1 0 0 1-1-1z"/><path d="M10 20.4h4"/>' },
+    undo:         { d:'<path d="M4.4 9.4h9.2a5.4 5.4 0 0 1 0 10.8H8"/><path d="M8 5.4 4 9.4l4 4"/>' },
+    sliders:      { d:'<path d="M5.4 4.4v5M5.4 14.6v5M12 4.4v9M12 18.6v1M18.6 4.4v3M18.6 12.6v7"/><path d="M3.4 9.4h4M10 13.4h4M16.6 7.4h4"/>' },
+    vibrate:      { d:'<path d="M8.4 4.4h7.2a1 1 0 0 1 1 1v13.2a1 1 0 0 1-1 1H8.4a1 1 0 0 1-1-1V5.4a1 1 0 0 1 1-1z"/><path d="M4.4 9.4v5.2M2.4 11v2M19.6 9.4v5.2M21.6 11v2"/>' },
+    dot:          { f:1, d:'<circle cx="12" cy="12" r="4.6"/>' }
+  },
+  /* `size` اختیاری است. اگر بیاید، به‌صورتِ styleِ درون‌خطی می‌نشیند نه
+     صفتِ width/height: صفتِ ارائه‌ای را CSS می‌بَرد و آن‌وقت اندازهٔ
+     خواسته‌شده بی‌صدا نادیده می‌مانْد. */
+  of(name, size){
+    const r = this.REG[name];
+    if(!r) return '';
+    const n = Number(size);
+    const s = n > 0 ? ' style="width:' + n + 'px;height:' + n + 'px"' : '';
+    return '<svg class="ic' + (r.f ? ' icf' : '') + '"' + s +
+      ' viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + r.d + '</svg>';
+  },
+  /* برچسبِ دکمه‌ها با title/aria-label می‌آید؛ خودِ آیکن تزئینی است. */
+  hydrate(root){
+    try{
+      (root || document).querySelectorAll('[data-ic]').forEach(el => {
+        const name = el.getAttribute('data-ic');
+        const active = el.closest?.('.navi.on');
+        const svg = this.of(active && this.REG[name + '-active'] ? name + '-active' : name);
+        if(svg) el.innerHTML = svg;
+      });
+    }catch(err){}
+  }
+};
+
+/* ─────────────────── 1.1 GLYPH: نگاشتِ ایموجی به آیکن ───────────────────
+   دسته‌بندی‌ها، بازی‌ها و نشان‌ها آیکنشان را در `DATA` به‌صورتِ ایموجی
+   نگه می‌دارند. `DATA` محتوای پروژه است و دست‌زدن به ۱۰۸ سطرش هم پرخطر
+   است هم بی‌لازم؛ پس به‌جای عوض‌کردنِ داده، در لحظهٔ نمایش ترجمه می‌کنیم.
+
+   اگر ایموجی‌ای در نقشه نباشد، **خودش** برگردانده می‌شود — نه جای خالی.
+   این عمدی است: آیکنِ ناقص بدتر از ایموجیِ جامانده است، و این‌طور افزودنِ
+   دستهٔ تازه در آینده چیزی را نمی‌شکند. */
+const Glyph = {
+  MAP: {
+    '⏮':'prev', '⏭':'next', '⭕':'dot', '👨‍👩‍👧':'users', '🏙️':'city', '🌍':'globe',
+    '🍽️':'meal', '🐾':'paw', '✖':'close', '🐦':'bird', '🍃':'leaf', '🧿':'eye',
+    '🪔':'lantern', '🌻':'flower', '❄️':'snow', '🐬':'fish', '🦅':'bird', '🏵️':'flower',
+    '🎴':'image', '🪐':'orbit', '🦚':'bird', '🐚':'shell', '🌷':'flower', '🍀':'leaf',
+    '🎐':'lantern', '🪷':'flower', '🦉':'bird', '🛡️':'shield',
+    '🆔':'id-card', '🗓':'calendar', '🕊':'sprout', '💻':'tools', '📶':'signal', '⛔':'ban',
+    '✨':'sparkle', '💫':'sparkle', '✦':'sparkle', '☀️':'sun', '🌊':'globe', '🌲':'tree',
+    '🥈':'medal', '🥉':'medal', '🔎':'search', '🔍':'search', '🧪':'lab',
+    '⏳':'hourglass', '⌛':'hourglass', '⏱':'clock', '⏰':'clock', '⏲':'clock',
+    '🔊':'volume', '🔉':'volume', '🔁':'repeat', '📋':'copy', '📨':'send', '✉️':'send',
+    '▶️':'play', '▶':'play', '⏹':'stop', '❚❚':'pause', '⏸':'pause', '☑':'check',
+    '📕':'book', '📗':'book', '📘':'book', '📙':'book', '🧘':'moon', '🙏':'smile',
+    '😔':'smile', '😮':'smile', '😂':'smile', '😊':'smile', '💪':'bolt', '💤':'moon',
+    '🚩':'flag', '💬':'chat', '📩':'send', '🧭':'target', '🕋':'mosque',
+    '📖':'book-open', '📚':'book', '📜':'scroll', '📝':'pen', '📿':'sparkle',
+    '🕌':'mosque',    '🤲':'smile', '🕯️':'sun',  '🌙':'moon',  '🌠':'sparkle',
+    '🧠':'target',    '🧩':'plus',  '🧊':'gem',   '🦋':'sparkle', '💎':'gem',
+    '🏆':'trophy',    '🥇':'medal', '🏅':'medal', '🎖️':'medal', '⭐':'star',
+    '🌟':'star',      '🔥':'flame', '☄️':'flame', '⚡':'bolt',  '🌱':'sprout',
+    '🌿':'sprout',    '🌳':'tree',  '🏜':'sun',   '🌐':'globe', '🔗':'link',
+    '🎮':'gamepad',   '🎲':'dice',  '🎯':'target', '🎬':'image', '🎧':'headphones',
+    '🎙':'mic',       '📢':'megaphone', '📊':'chart', '📅':'calendar', '🗓️':'calendar',
+    '👥':'users',     '👤':'user',  '👑':'crown',  '🛒':'cart',  '🔖':'mark',
+    '❤️':'heart',     '💖':'heart', '💔':'heart-break', '✅':'check', '❌':'close',
+    '❌⭕':'grid',    '⚙️':'gear',  '⚖️':'scales', '⚔️':'swords', '🏎️':'car',
+    '🔤':'text',      '🇮🇷':'flag', '🙂':'smile',
+    /* ── دستهٔ دوم: ایموجی‌هایی که پوستهٔ ساخته‌شده با JS به‌کار می‌برد ── */
+    '⚠️':'warn',      '🔄':'refresh', '📤':'share',  '📥':'download',
+    '📲':'download',  '⬇️':'download', '🏠':'home',  '🏁':'flag',
+    '🎉':'party',     '👏':'clap',    '🧹':'broom',  '🔓':'unlock',
+    '🔒':'lock',      '🔐':'lock',    '📵':'mic-off', '🔇':'volume-off',
+    '📴':'volume-off','🚀':'rocket',  '❓':'help',   '☁️':'cloud',
+    '🚫':'ban',       '🪪':'id-card', '📇':'id-card','🗄️':'archive',
+    '📦':'package',   '🤝':'handshake','💡':'bulb',  '↩️':'undo',
+    '↩':'undo',       '🎚':'sliders', '📳':'vibrate','🟢':'dot',
+    '🟡':'dot',       '🔴':'dot',     '💰':'coin',   '🪙':'coin',
+    '🔑':'key',       '🔔':'bell',    '📱':'phone',  '📡':'sat',
+    '🎨':'palette',   '🌸':'sparkle', '🧊':'snow',   '🛒':'cart',
+    '📊':'chart',     '📈':'trend',   '🧮':'chart',  '🎬':'image',
+    '🖼':'image',     '📖':'book-open','📚':'book',  '🕒':'clock',
+    '✏️':'edit',      '✒️':'pen',     '🖋':'pen',    '🗑️':'trash',
+    '🗑':'trash',     '🛠️':'tools',   '🛠':'tools',  '🛡':'shield',
+    '👁':'eye',       '🔀':'shuffle', '🚪':'logout', '💾':'save',
+    '➕':'plus',      '✖️':'close',   '✕':'close',   '✓':'check'
+  },
+  /* ── جدا کردنِ ایموجیِ صدرِ رشته ──
+     پیام‌های توست و برچسبِ دکمه‌ها با ایموجیِ کارکردی شروع می‌شوند
+     (`⚠️ تلاوت بارگذاری نشد`). این تابع آن ایموجی را از متن جدا می‌کند تا
+     بشود SVG نشاند و متن را با `textContent` نوشت.
+
+     تطبیق عمداً «دقیق» است، نه با `\p{Extended_Pictographic}`: الگوی
+     یونیکدی هر ایموجی‌ای را می‌گیرد — از جمله چهرکِ انتخابیِ کاربر و
+     ایموجیِ داخلِ متنِ حدیث — و آن‌وقت محتوای کاربر به آیکن بدل می‌شد.
+     فقط ایموجی‌هایی که در همین نقشه‌اند جدا می‌شوند.
+
+     کلیدها بلندبه‌کوتاه امتحان می‌شوند: وگرنه `❌⭕` اول با `❌` تطبیق
+     می‌خورد و `⭕` در متن جا می‌ماند. */
+  _lead: null,
+  lead(s){
+    if(!this._lead) this._lead = Object.keys(this.MAP).sort((a, b) => b.length - a.length);
+    for(const k of this._lead){
+      if(!s.startsWith(k)) continue;
+      const rest = s.slice(k.length).replace(/^[\s‎‏]+/, '');
+      return rest ? { emoji: k, rest } : null;
+    }
+    return null;
+  },
+  /* عنصرِ نگه‌دارندهٔ آیکن. `of` اگر ایموجی را نشناسد خودش را برمی‌گرداند،
+     پس اینجا هم چیزی نمی‌شکند. */
+  /* ── متنِ ایمن با آیکنِ آغازین ──
+     جاهایی که متن از داده می‌آید و باید امن بماند، ولی با ایموجیِ کارکردی
+     شروع می‌شود (`📖 سفر سوره‌ها`). ایموجیِ صدر SVG می‌شود و باقیِ متن
+     `escape` — پس خروجی برای `innerHTML` امن است. */
+  inline(s){
+    const t = String(s == null ? '' : s);
+    const g = this.lead(t);
+    if(!g) return U.esc(t);
+    const h = this.of(g.emoji);
+    return (h.startsWith('<svg') ? h : U.esc(h)) + U.esc(g.rest);
+  },
+  el(e){
+    const s = document.createElement('span');
+    s.className = 'ic-w';
+    const h = this.of(e);
+    /* فقط خروجیِ `<svg>` به‌عنوان markup می‌نشیند. اگر `of` ایموجی را
+       نشناخت و خودِ ورودی را برگرداند، آن‌وقت ورودی ممکن است متنِ دلخواه
+       باشد — و `innerHTML` راهِ تزریق می‌شد. پس در آن حالت با
+       `textContent` می‌نویسیم. */
+    if(h.startsWith('<svg')) s.innerHTML = h;
+    else s.textContent = h;
+    return s;
+  },
+  decorate(root){
+    if(!root || !document.createTreeWalker) return;
+    const keys = Object.keys(this.MAP).sort((a,b) => b.length - a.length);
+    const pattern = new RegExp(keys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gu');
+    const walker = document.createTreeWalker(root, 4);
+    const nodes = []; let n;
+    while((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(node => {
+      const parent = node.parentElement;
+      if(!parent || parent.closest('svg,script,style,textarea,input,option,[contenteditable],.glyph-token,.read-ar,.q-ar,.ayah-text,.av,.ava,.msg,.profile-avatar,#pgBody')) return;
+      const text = node.textContent;
+      pattern.lastIndex = 0;
+      if(!pattern.test(text)) return;
+      pattern.lastIndex = 0;
+      const fragment = document.createDocumentFragment(); let last = 0;
+      for(const m of text.matchAll(pattern)){
+        fragment.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const span = document.createElement('span'); span.className = 'glyph-token';
+        span.innerHTML = this.of(m[0]);
+        fragment.appendChild(span); last = m.index + m[0].length;
+      }
+      fragment.appendChild(document.createTextNode(text.slice(last)));
+      node.replaceWith(fragment);
+    });
+  },
+  of(e){
+    const n = this.MAP[e];
+    return n ? (Icon.of(n) || e) : e;
+  }
+};
+
+/* ─────────────────── 2. TIMERS ─────────────────── */
+/* «page»  → با هر تغییر صفحه پاک می‌شود (تایمر بازی، شمارش معکوس)
+   «sys»   → تایمرهای سیستمی مثل heartbeat شبکه، هرگز پاک نمی‌شوند */
+const Timers = {
+  page: new Set(),
+  sys:  new Set(),
+  every(fn, ms, kind = 'page'){
+    const id = setInterval(fn, ms);
+    this[kind].add(id);
+    return id;
+  },
+  after(fn, ms, kind = 'page'){
+    const id = setTimeout(() => { this[kind].delete(id); fn(); }, ms);
+    this[kind].add(id);
+    return id;
+  },
+  clear(id){ clearInterval(id); clearTimeout(id); this.page.delete(id); this.sys.delete(id); },
+  clearPage(){ for(const id of this.page){ clearInterval(id); clearTimeout(id); } this.page.clear(); },
+  clearSys(){ for(const id of this.sys){ clearInterval(id); clearTimeout(id); } this.sys.clear(); }
+};
+
+/* ─────────────────── 3. STORE (نسخه‌دار) ─────────────────── */
+
+/* هشِ رمزهای پیش‌فرضِ نسخه‌های پیشین.
+   این‌ها دیگر رمز نیستند: در مخزن عمومی منتشر شده بودند و هر کسی می‌دانستشان.
+   هنگام بارکردن داده پاک می‌شوند تا کاربر مجبور شود رمز خودش را بگذارد. */
+const LEGACY_ADMIN_HASHES = [
+  'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded',  // sha256('noor2024')
+  '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'   // هش شکستهٔ نسخهٔ ۱۲
+];
+
+const Store = {
+  KEY: 'noorestan_v14',
+  VERSION: 15,
+  HEART_MAX: 3,      // سه قلب، نه پنج — پر شدنِ نوار باید به چشم بیاید
+  HEART_REGEN_MS: 3 * 60 * 1000,   // هر ۳ دقیقه یک جان
+  data: null,
+
+  defaults(){
+    return {
+      _v: this.VERSION,
+      playerId: U.uid(),
+      playerName: 'بازیکن',
+      score: 0, xp: 0, level: 1,
+      hearts: this.HEART_MAX, heartsAt: 0,
+      stars: {}, completed: {}, badges: {},
+      best: {},                       // gameId -> بهترین رکورد
+      stats: { totalCorrect: 0, totalWrong: 0, fastestAnswer: 999, maxCombo: 0, plays: 0,
+               puzzles: 0, quizzes: 0, memory: 0, match: 0, iran: 0, speed: 0,
+               tttWins: 0, tttLoss: 0, tttDraw: 0, rooms: 0, onlineWins: 0,
+               esmFamilBest: 0, perfectRuns: 0, playMs: 0,
+               exams: 0, topics: {},
+               hadith: 0, imams: 0, dua: 0, spectated: 0, shared: 0, missionsDone: 0,
+               hifzVerses: 0, reviews: 0, bestStreak: 0, shopBuys: 0, coinsEarned: 0,
+               /* شمارشِ بازی‌ها برای پنل مدیریت: کلِ عمر و امروز */
+               byGame: {}, today: { date: '', n: 0, byGame: {} } },
+      /* روکشِ ویرایشِ محتوا — پرسش‌های برداشته و افزوده، جدا از خودِ بسته */
+      contentEdits: { del: {}, add: {} },
+      dailyChallenge: { date: '', done: false, reward: 0, streak: 0, lastDate: '' },
+      settings: { theme: 'dark', sound: true, haptics: true, notifications: true,
+                  ambient: false, onboarded: false, tips: true },
+      // ترجیحات تلاوت: قاری، منبع صدا، تکرار آیه، سرعت، بلندی، ترجمه، اندازهٔ متن
+      quran: { reciter: 0, source: 0, repeat: 0, speed: 1, vol: .9, autoNext: true,
+               surah: 1, ayah: 1, translation: 'fa.ansarian', readSize: 25, showFa: true,
+               focus: false, night: { on: false, from: 0, to: 0, fade: 20, until: 0 } },
+      // مأموریت‌های روزانه، نشانه‌های مصحف، پیشرفت درخت دانش و رکورد هفته
+      missions: { date: '', list: [], weekStart: '', week: [] },
+      bookmarks: [],                       // { s, a, name, at, note }
+      tree: {},                            // topicId -> شمار پاسخ درست
+      friends: [],                         // { id, name, at, lastSeen }
+      gamesPlayed: {},                     // gameId -> شمار بازی (برای «رکوردت را بزن»)
+      savedGame: null,                     // بازی نیمه‌کاره — { kind, label, at, data }
+      // ── نسخهٔ ۱۶: سکه، کیف خرید، پروفایل ──
+      coins: 0,                            // سکهٔ خرج‌کردنی — جدا از امتیاز، چون امتیاز هرگز کم نمی‌شود
+      wallet: { earned: 0, spent: 0, items: {} },   // items: shopId -> شمار خرید
+      profile: { emoji: '🌟', color: 0, joined: 0, motto: '' },
+      // فونت‌ها: نمایشی (نستعلیق) و متن قرآن (نسخ)
+      fonts: { display: 'lalezar', quran: 'amiri' },
+      /* رمز مدیر: عمداً هیچ رمز پیش‌فرضی نیست.
+         پیش‌تر هشِ «noor2024» همین‌جا ثابت بود — یعنی رمزِ مدیر داخل خودِ بسته
+         منتشر می‌شد و هر کسی که برنامه را باز می‌کرد، مدیر بود. حالا رشتهٔ خالی
+         یعنی «هنوز رمزی ساخته نشده» و اولین ورود، ساختن رمز را اجباری می‌کند. */
+      adminHash: '',
+      /* ── نسخهٔ ۹: نشستِ مدیر روی سرور ──
+         نشانهٔ نشستی که سرور صادر کرده، با سررسیدش. رمز و هشِ رمز هرگز
+         اینجا نمی‌نشینند و روی سیم نمی‌روند. */
+      adminToken: '',
+      adminTokenExp: 0,
+      isAdmin: false,
+      /* زمانِ آخرین بستنِ بنر نصب — ۰ یعنی هرگز نبسته. عدد است نه بولین،
+         چون می‌خواهیم پس از مدتی دوباره پیشنهاد شود (پایین را ببین). */
+      installBar: 0,
+      /* ── نسخهٔ ۱۸: پیامک و ورود با موبایل ──
+         sms: پیکربندی دروازهٔ پیامک. کلید روی سرور هم می‌تواند باشد؛ اگر
+              بود، این دو خالی می‌مانند و کلید هرگز به دستگاه نمی‌آید.
+         phone: شماره‌ای که با OTP تأیید شده — رشتهٔ خالی یعنی هنوز نه.
+         otp: تنها کدِ در جریان. هش و نمک نگه داشته می‌شود، نه خودِ کد. */
+      sms: { apiKey: '', deviceId: '', testPhone: '' },
+      /* ── نسخهٔ ۹: هویتِ کاربر ──
+         `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
+         plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
+         در نخستین فرصت می‌سازدش. */
+      user: null,
+      /* نشانهٔ نشستِ کاربر که سرور پس از تأییدِ پیامک می‌دهد. سرور فقط با
+         همین باور می‌کند که این اتصال مالِ فلان شماره است. */
+      userToken: '',
+      userTokenExp: 0,
+      phone: '',
+      otp: null,
+      /* ── صفحهٔ ورودِ تمام‌صفحه ──
+         '' یعنی کاربر هنوز تصمیم نگرفته و صفحه باید یک بار بیاید.
+         'guest' یعنی «مهمان» را انتخاب کرده، 'user' یعنی با موبایل وارد
+         شده. در هر دو حال دیگر خودبه‌خود باز نمی‌شود. */
+      gate: '',
+      serverUrl: '',
+      notifications: [],
+      leaderboard: []
+    };
+  },
+
+  load(){
+    try{
+      const raw = localStorage.getItem(this.KEY);
+      if(!raw){
+        // مهاجرت از نسخه ۱۲ اگر وجود داشت
+        const old = localStorage.getItem('noorestan_v12');
+        this.data = this.defaults();
+        if(old){ try{ this.data = this.migrate(JSON.parse(old)); }catch(e){} }
+        this.save(); this.regenHearts(); return;
+      }
+      this.data = { ...this.defaults(), ...JSON.parse(raw) };
+      this.data.stats = { ...this.defaults().stats, ...(this.data.stats || {}) };
+      this.data.settings = { ...this.defaults().settings, ...(this.data.settings || {}) };
+      this.data.quran = { ...this.defaults().quran, ...(this.data.quran || {}) };
+      this.data.quran.night = { ...this.defaults().quran.night, ...(this.data.quran.night || {}) };
+      this.data.fonts = { ...this.defaults().fonts, ...(this.data.fonts || {}) };
+      this.data.dailyChallenge = { ...this.defaults().dailyChallenge, ...(this.data.dailyChallenge || {}) };
+      this.data.missions = { ...this.defaults().missions, ...(this.data.missions || {}) };
+      delete this.data.week;
+      /* رمزهای پیش‌فرضِ قدیمی (از جمله «noor2024» و هش شکستهٔ نسخهٔ ۱۲) پاک
+         می‌شوند. قبلاً هش شکسته با هش «درست»ِ noor2024 جانشین می‌شد؛ یعنی
+         ارتقا خودش رمزِ عمومیِ شناخته‌شده را سرِ جایش می‌گذاشت. */
+      if(LEGACY_ADMIN_HASHES.includes(this.data.adminHash)) this.data.adminHash = '';
+      this.data._v = this.VERSION;
+      this.sanitize();
+      this.save();
+    }catch(e){
+      console.warn('Store load error:', e);
+      this.data = this.defaults();
+    }
+    this.regenHearts();
+  },
+
+  migrate(old){
+    const d = this.defaults();
+    d.playerName = old.playerName || d.playerName;
+    d.score = +old.score || 0;
+    d.level = +old.level || 1;
+    d.xp = +old.xp || 0;
+    d.stars = old.stars || {};
+    d.completed = old.completed || {};
+    d.badges = old.badges || {};
+    d.notifications = Array.isArray(old.notifications) ? old.notifications : [];
+    d.leaderboard = Array.isArray(old.leaderboard) ? old.leaderboard : [];
+    d.stats = { ...d.stats, ...(old.stats || {}) };
+    d.settings = { ...d.settings, ...(old.settings || {}) };
+    d.dailyChallenge = { ...d.dailyChallenge, ...(old.dailyChallenge || {}) };
+    if(old.isAdmin) d.isAdmin = !!old.isAdmin;
+    d._migratedFrom = old._v || 12;
+    return d;
+  },
+
+  sanitize(){
+    const d = this.data;
+    d.score = Math.max(0, +d.score || 0);
+    d.xp = Math.max(0, +d.xp || 0);
+    d.level = U.clamp(Math.floor(+d.level) || 1, 1, 999);
+    d.hearts = U.clamp(Math.floor(+d.hearts ?? this.HEART_MAX), 0, this.HEART_MAX);
+    if(typeof d.playerName !== 'string' || !d.playerName.trim()) d.playerName = 'بازیکن';
+    d.playerName = d.playerName.slice(0, 20);
+    if(!d.playerId) d.playerId = U.uid();
+    if(!Array.isArray(d.notifications)) d.notifications = [];
+    if(!Array.isArray(d.leaderboard)) d.leaderboard = [];
+    if(!d.best || typeof d.best !== 'object') d.best = {};
+    if(!d.heartsAt) d.heartsAt = 0;
+    /* ── نسخهٔ ۱۵ ── */
+    if(!Array.isArray(d.bookmarks)) d.bookmarks = [];
+    d.bookmarks = d.bookmarks.filter(b => b && b.s >= 1 && b.s <= 114 && b.a >= 1).slice(0, 200);
+    if(!d.tree || typeof d.tree !== 'object') d.tree = {};
+    if(!d.missions || typeof d.missions !== 'object') d.missions = { date:'', list:[] };
+    if(!Array.isArray(d.missions.list)) d.missions.list = [];
+    if(!Array.isArray(d.friends)) d.friends = [];
+    d.friends = d.friends.filter(f => f && f.id).slice(0, 100);
+    if(!d.gamesPlayed || typeof d.gamesPlayed !== 'object') d.gamesPlayed = {};
+    /* بازی نیمه‌کارهٔ ذخیره‌شده — هر چیز بی‌شکل دور انداخته می‌شود، وگرنه
+       یک snapshot خراب می‌تواند تا ابد در «ادامه بده» بماند و بشکند. */
+    if(d.savedGame && (typeof d.savedGame !== 'object' || Array.isArray(d.savedGame) ||
+       !d.savedGame.kind || typeof d.savedGame.kind !== 'string' || !d.savedGame.data))
+      d.savedGame = null;
+    if(!d.quran.night || typeof d.quran.night !== 'object')
+      d.quran.night = { on:false, from:0, to:0, fade:20, until:0 };
+    if(typeof d.quran.focus !== 'boolean') d.quran.focus = false;
+    if(typeof d.settings.ambient !== 'boolean') d.settings.ambient = false;
+    /* شمارندهٔ بازی‌ها: هر چیز بی‌شکل به پیش‌فرض برمی‌گردد، وگرنه پنل
+       مدیریت روی `undefined` می‌شکند. */
+    if(!d.stats.byGame || typeof d.stats.byGame !== 'object' || Array.isArray(d.stats.byGame))
+      d.stats.byGame = {};
+    if(!d.stats.today || typeof d.stats.today !== 'object' || Array.isArray(d.stats.today))
+      d.stats.today = { date: '', n: 0, byGame: {} };
+    if(!d.stats.today.byGame || typeof d.stats.today.byGame !== 'object')
+      d.stats.today.byGame = {};
+    if(!d.contentEdits || typeof d.contentEdits !== 'object' || Array.isArray(d.contentEdits))
+      d.contentEdits = { del: {}, add: {} };
+    /* ── نسخهٔ ۱۶ ── */
+    d.coins = Math.max(0, Math.floor(+d.coins) || 0);
+    /* بنر نصب: هر چیز بی‌شمار به ۰ برمی‌گردد (یعنی «نبسته»)، نه به NaN.
+       اگر NaN بماند، مقایسه‌های زمانی پایین همیشه false می‌شوند و بنر
+       بی‌دلیل هر بار برمی‌گردد. */
+    d.installBar = Math.max(0, Math.floor(+d.installBar) || 0);
+    /* ── رمز مدیر ──
+       adminHash فقط ۶۴ رقم هگز باشد یا خالی. هر چیز دیگر — از جمله رشتهٔ خالی
+       که خودمان گذاشتیم — یعنی «رمزی ساخته نشده».
+       و بی هیچ راهی برای ورود، پرچم isAdmin معنا ندارد: پاک می‌شود تا کسی با
+       دست‌کاری localStorage وارد پنل نشود. دو راه ورود داریم و هر دو شمرده
+       می‌شوند: رمزِ محلی (بدونِ سرور) و نشانهٔ نشستِ سرور. اگر فقط رمزِ محلی
+       را می‌شمردیم، مدیرِ سرور در هر بار باز شدنِ برنامه بیرون می‌افتاد. */
+    if(typeof d.adminHash !== 'string' || !/^[0-9a-f]{64}$/.test(d.adminHash)) d.adminHash = '';
+    if(LEGACY_ADMIN_HASHES.includes(d.adminHash)) d.adminHash = '';
+    /* نشانهٔ سرور: ۶۴ رقم هگز و بیهیچ نشانهٔ راز دیگری در خودش. انقضایش را
+       همینجا میسنجیم تا نشانهٔ کهنه در حافظه نماند؛ اعتبارِ راستین را سرور
+       میگوید (Admin.confirmServer). */
+    if(typeof d.adminToken !== 'string' || !/^[0-9a-f]{64}$/.test(d.adminToken)) d.adminToken = '';
+    d.adminTokenExp = Math.max(0, Math.floor(+d.adminTokenExp) || 0);
+    if(d.adminToken && d.adminTokenExp && U.now() > d.adminTokenExp){
+      d.adminToken = ''; d.adminTokenExp = 0;
+    }
+    if(d.adminToken && !d.adminTokenExp) d.adminToken = '';   // نشانهٔ بیسررسید، نشانه نیست
+    if(!d.adminHash && !d.adminToken) d.isAdmin = false;
+    d.isAdmin = !!d.isAdmin;
+    /* ── پیامک ──
+       شماره و پیکربندی رشته‌اند و بریده می‌شوند؛ کدِ در جریان شکل دقیق
+       دارد و هر چیز بی‌شکل دور انداخته می‌شود، وگرنه یک otp خراب می‌تواند
+       تا ابد ورود را بشکند. */
+    if(!d.sms || typeof d.sms !== 'object' || Array.isArray(d.sms)) d.sms = { apiKey:'', deviceId:'' };
+    if(typeof d.sms.apiKey !== 'string')   d.sms.apiKey = '';
+    if(typeof d.sms.deviceId !== 'string') d.sms.deviceId = '';
+    d.sms.apiKey   = d.sms.apiKey.trim().slice(0, 200);
+    d.sms.deviceId = d.sms.deviceId.trim().slice(0, 80);
+    if(typeof d.phone !== 'string') d.phone = '';
+    d.phone = U.unfa(d.phone).replace(/\D/g, '').slice(0, 15);
+    /* صفحهٔ ورود: از کدام در رد شد — «مهمان»، «کاربر» یا «مدیر». هر چیز
+       دیگر — از جمله عدد و آبجکت — به '' برمی‌گردد، یعنی «هنوز نپرسیده»؛
+       وگرنه یک مقدار خراب می‌توانست صفحه را تا ابد پنهان کند و کاربر
+       هیچ‌وقت راه ورود نبیند. */
+    if(d.gate !== 'guest' && d.gate !== 'user' && d.gate !== 'admin') d.gate = '';
+    /* اگر شماره‌ای تأیید شده، پس کاربر تصمیمش را گرفته است — حتی اگر پرچم
+       gate از یک نسخهٔ قدیمی نمانده باشد. */
+    if(d.gate === '' && d.phone) d.gate = 'user';
+    /* نشانهٔ نشستِ کاربر: همان قاعدهٔ نشانهٔ مدیر — ۶۴ رقم هگز و با سررسید.
+       نشانهٔ بی‌سررسید نگه داشته نمی‌شود، چون هرگز باطل نمی‌شد. */
+    if(typeof d.userToken !== 'string' || !/^[0-9a-f]{64}$/.test(d.userToken)) d.userToken = '';
+    d.userTokenExp = Math.max(0, Math.floor(+d.userTokenExp) || 0);
+    if(d.userToken && (!d.userTokenExp || U.now() > d.userTokenExp)){
+      d.userToken = ''; d.userTokenExp = 0;
+    }
+    /* ── هویتِ کاربر ──
+       روکشِ خراب دور انداخته می‌شود تا User.ensure از نو بسازدش. شناسهٔ
+       بی‌شکل هم همین حکم را دارد: اعتبارسنجی‌اش در User.okId است و اینجا
+       تکرار نمی‌شود تا دو جای متفاوت یک چیز را نسنجند. */
+    if(d.user != null){
+      if(typeof d.user !== 'object' || Array.isArray(d.user) || !User.okId(d.user.id)){
+        d.user = null;
+      }else{
+        const u = d.user;
+        if(typeof u.name !== 'string') u.name = '';
+        u.name = u.name.replace(/\s+/g, ' ').trim().slice(0, 20) || 'بازیکن';
+        if(typeof u.phone !== 'string') u.phone = '';
+        u.phone = U.unfa(u.phone).replace(/\D/g, '').slice(0, 15);
+        u.joinedAt  = Math.max(0, Math.floor(+u.joinedAt)  || 0);
+        u.lastLogin = Math.max(0, Math.floor(+u.lastLogin) || 0);
+        u.visits    = Math.max(0, Math.floor(+u.visits)    || 0);
+        u.plays     = Math.max(0, Math.floor(+u.plays)     || 0);
+        u.blocked   = !!u.blocked;
+        if(typeof u.lastIp !== 'string') u.lastIp = '';
+        u.lastIp    = u.lastIp.replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45);
+        if(typeof u.legacyId !== 'string') u.legacyId = '';
+        /* شمارهٔ هویت و شمارهٔ سنجش‌شده یک چیزند؛ اگر از هم جدا افتادند،
+           آنکه پیامک تأیید کرده (phone) مرجع است. */
+        if(d.phone && u.phone !== d.phone) u.phone = d.phone;
+        if(!d.phone && u.phone) d.phone = u.phone;
+      }
+    }
+    if(d.otp && (typeof d.otp !== 'object' || Array.isArray(d.otp) ||
+       typeof d.otp.hash !== 'string' || typeof d.otp.salt !== 'string' ||
+       !d.otp.phone || !d.otp.exp))
+      d.otp = null;
+    if(d.otp){
+      d.otp.exp   = Math.floor(+d.otp.exp)   || 0;
+      d.otp.lock  = Math.floor(+d.otp.lock)  || 0;
+      d.otp.tries = Math.max(0, Math.floor(+d.otp.tries) || 0);
+      d.otp.at    = Math.floor(+d.otp.at)    || 0;
+    }
+    if(!d.wallet || typeof d.wallet !== 'object' || Array.isArray(d.wallet))
+      d.wallet = { earned: 0, spent: 0, items: {} };
+    if(!d.wallet.items || typeof d.wallet.items !== 'object' || Array.isArray(d.wallet.items))
+      d.wallet.items = {};
+    d.wallet.earned = Math.max(0, Math.floor(+d.wallet.earned) || 0);
+    d.wallet.spent  = Math.max(0, Math.floor(+d.wallet.spent)  || 0);
+    /* اگر سکه از راهی جز خرید کم شده باشد، حساب کیف به هم می‌ریزد؛ پس
+       سکه را مرجع می‌گیریم و باقی را با آن هم‌تراز می‌کنیم. */
+    if(d.wallet.earned - d.wallet.spent !== d.coins)
+      d.wallet.earned = d.coins + d.wallet.spent;
+    if(!d.profile || typeof d.profile !== 'object' || Array.isArray(d.profile))
+      d.profile = { emoji: '🌟', color: 0, joined: U.now(), motto: '' };
+    /* خالی یا ‎-۱ یعنی «خودت از شناسهٔ بازیکن حساب کن» — پس صفرِ ناخواسته
+       که از یک نسخهٔ قدیمی آمده، به «انتخاب‌نشده» برمی‌گردد نه «رنگ اول». */
+    if(typeof d.profile.emoji !== 'string') d.profile.emoji = '';
+    d.profile.emoji = d.profile.emoji.slice(0, 8);
+    d.profile.color = U.clamp(Math.floor(+d.profile.color), -1, 11);
+    if(isNaN(d.profile.color)) d.profile.color = -1;
+    if(typeof d.profile.motto !== 'string') d.profile.motto = '';
+    d.profile.motto = d.profile.motto.slice(0, 60);
+    if(!d.profile.joined) d.profile.joined = U.now();
+    if(typeof d.settings.onboarded !== 'boolean') d.settings.onboarded = false;
+    if(typeof d.settings.tips !== 'boolean') d.settings.tips = true;
+    if(!d.missions.weekStart || typeof d.missions.weekStart !== 'string') d.missions.weekStart = '';
+    if(!Array.isArray(d.missions.week)) d.missions.week = [];
+  },
+
+  save(){
+    try{ localStorage.setItem(this.KEY, JSON.stringify(this.data)); this._saveWarned = false; return true; }
+    catch(e){
+      /* حافظهٔ پر یا حالتِ خصوصی: بی‌صدا رد شدن یعنی پیشرفت با بستنِ
+         برنامه گم می‌شد و کاربر خبر نداشت. یک‌بار هشدار می‌دهیم. */
+      if(!this._saveWarned){
+        this._saveWarned = true;
+        try{ console.warn('Store.save failed', e); UI.toast('⚠️ حافظهٔ مرورگر پر است؛ پیشرفت ذخیره نشد. از «داده‌های من» پشتیبان بگیر.', 'err', 5000); }catch(_){}
+      }
+      return false;
+    }
+  },
+  get(k){ return this.data[k]; },
+  set(k, v){ this.data[k] = v; this.save(); },
+  update(fn){ fn(this.data); this.save(); },
+  export(){return PersonalData.export();},
+  import(json){return PersonalData.import(json);},
+  reset(){ this.data = this.defaults(); this.save(); },
+
+  /* ── جان: مصرف و بازیابی واقعی ── */
+  regenHearts(){
+    const d = this.data;
+    if(d.hearts >= this.HEART_MAX){ d.heartsAt = 0; return; }
+    const now = U.now();
+    if(!d.heartsAt){ d.heartsAt = now; this.save(); return; }
+    const gained = Math.floor((now - d.heartsAt) / this.HEART_REGEN_MS);
+    if(gained > 0){
+      d.hearts = Math.min(this.HEART_MAX, d.hearts + gained);
+      d.heartsAt = d.hearts >= this.HEART_MAX ? 0 : d.heartsAt + gained * this.HEART_REGEN_MS;
+      this.save();
+      UI.toast(`❤️ ${U.fa(gained)} جان بازیابی شد`, 'ok');
+    }
+  },
+  heartsLeftMs(){
+    const d = this.data;
+    if(d.hearts >= this.HEART_MAX || !d.heartsAt) return 0;
+    return Math.max(0, this.HEART_REGEN_MS - (U.now() - d.heartsAt));
+  },
+  spendHeart(){
+    const d = this.data;
+    this.regenHearts();
+    if(d.hearts <= 0) return false;
+    if(d.hearts === this.HEART_MAX) d.heartsAt = U.now();
+    d.hearts--;
+    this.save();
+    return true;
+  },
+  addHearts(n = 1){
+    const d = this.data;
+    d.hearts = Math.min(this.HEART_MAX, d.hearts + n);
+    if(d.hearts >= this.HEART_MAX) d.heartsAt = 0;
+    this.save();
+  }
+};
+
+/* ─────────────────── 3.5 ASSETS — تصویر، واپس‌روی به SVG، PWA ───────────────────
+   همهٔ تصویرها از assets/ می‌آیند ولی هیچ‌کدام شرط اجرا نیستند: اگر فایل نبود،
+   همان نگارهٔ SVG درون‌خطی (Art) جایش را می‌گیرد. پس برنامه هرگز «تصویر شکسته» ندارد.
+   ──────────────────────────────────────────────────────────────────────────── */
+const Assets = {
+  BASE: 'assets',
+  /* مسیر نسبی امن — هم 'images/x.webp' و هم '/assets/images/x.webp' را می‌پذیرد */
+  path(p, kind = 'images'){
+    if(!p) return '';
+    if(/^(https?:)?\/\//.test(p) || p.startsWith('data:')) return p;
+    const rel = p.startsWith(this.BASE + '/') ? p.slice(this.BASE.length + 1)
+              : p.startsWith('/') ? p.replace(/^\/+/, '').replace(/^assets\//, '')
+              : p;
+    return this.BASE + '/' + kind + '/' + rel.replace(/^\.?\//, '');
+  },
+  /* واریانت‌های یک نام: x.webp → [x.webp, x.jpg].
+     برای وقتی است که هر دو فایل را واقعاً داری و می‌خواهی خودت
+     <picture> بسازی. توجه: در srcset بی‌توصیفگرِ درست به کار نمی‌آید —
+     هر دو ۱x یعنی «اولی را بردار» و دومی هرگز انتخاب نمی‌شود. */
+  variants(p){
+    const s = String(p || '');
+    if(!s || /^(https?:)?\/\//.test(s) || s.startsWith('data:')) return [s];
+    const out = [s];
+    const ext = s.match(/\.(webp|avif|png|jpe?g|svg)$/i);
+    if(ext && /webp|avif/i.test(ext[1])) out.push(s.replace(/\.(webp|avif)$/i, '.jpg'));
+    else if(ext && /jpe?g|png/i.test(ext[1])) out.push(s.replace(/\.(jpe?g|png)$/i, '.webp'));
+    return out;
+  },
+  /* <img> تنبل.
+     پیش‌تر این‌جا یک srcset ساختگی بود: هر دو واریانت با توصیفگر ۱x
+     می‌آمدند، یعنی «هر دو تراکم ۱» — مرورگر اولی را برمی‌دارد و دومی
+     هرگز نامزد نمی‌شود. اگر هم روزی دومی انتخاب می‌شد، به فایلی می‌رسید
+     که لزوماً وجود ندارد. واپس‌رویِ واقعی جای دیگری است: شنوندهٔ error
+     در watch() نگارهٔ SVG را جای تصویرِ بارنشده می‌گذارد. */
+  img(p, { alt = '', cls = 'art-img', kind = 'images', w = null, h = null, eager = false } = {}){
+    const src = this.path(p, kind);
+    if(!src) return '';
+    const sz = (w ? ` width="${w}"` : '') + (h ? ` height="${h}"` : '');
+    return `<img src="${U.esc(src)}" alt="${U.esc(alt)}" class="${cls}"
+      loading="${eager ? 'eager' : 'lazy'}" decoding="async"${sz}>`;
+  },
+  /* نگارهٔ SVG درون‌خطی */
+  svg(markup, cls = 'art-svg'){
+    return `<span class="${cls}" aria-hidden="true">${markup || ''}</span>`;
+  },
+  /**
+   * imageOrSvg — نگارهٔ تصویری با واپس‌روی خودکار به SVG.
+   * @param {string} p مسیر فایل تصویر (اختیاری)
+   * @param {string} svgFallback رشتهٔ SVG که Art می‌سازد
+   * @param {object} o alt/cls/kind
+   * @returns {string} HTML
+   */
+  imageOrSvg(p, svgFallback, o = {}){
+    const safe = this.svg(svgFallback || '', o.svgCls || 'art-svg');
+    if(!p) return safe;
+    return `<span class="art-hold" data-fallback="${U.esc(safe)}" data-alt="${U.esc(o.alt || '')}">
+      ${this.img(p, o)}</span>`;
+  },
+  /* هر تصویری که بار نشد، جایش SVG می‌نشیند — یک شنونده برای کل سند */
+  watch(){
+    if(this._wired) return; this._wired = true;
+    document.addEventListener('error', e => {
+      const t = e.target;
+      if(!t || t.tagName !== 'IMG' || !t.closest || !t.closest('.art-hold')) return;
+      const hold = t.closest('.art-hold');
+      hold.innerHTML = hold.getAttribute('data-fallback') || '';
+    }, true);
+    document.addEventListener('load', e => {
+      const t = e.target;
+      if(t && t.tagName === 'IMG') t.classList.add('ld');
+    }, true);
+  },
+  /* پوستهٔ PWA */
+  pwa(){
+    /* نسخهٔ ۱۶: مانیفست، آیکن و تگ‌های apple-* حالا ایستا در <head> هستند.
+       اینجا فقط رنگ نوار وضعیت با پوستهٔ فعال هم‌گام می‌شود. پیش‌تر این
+       تابع یک link آیکن به icon-192.webp تزریق می‌کرد که فایلش وجود نداشت؛
+       کروم همان را برمی‌داشت و شرط «آیکن قابل‌حل» نصب را رد می‌کرد. */
+    try{ Shell.syncThemeColor(); }catch(e){}
+    if('serviceWorker' in navigator && location.protocol !== 'file:'){
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(
+          () => console.log('🛠️ sw ثبت شد'),
+          e => console.warn('sw ثبت نشد', e));
+      });
+    }
+  },
+  /* گرادیان قطعی از نام — برای چهرهٔ قاری/کاربر بدون تصویر */
+  hue(s){ let h = 0; for(let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) % 360; return h; },
+  avatar(name, cls = 'rav'){
+    const n = String(name || '؟').replace(/[أإآ]/g, 'ا');
+    const h = this.hue(n);
+    return `<span class="${cls}" style="background:linear-gradient(150deg,
+      hsl(${h} 62% 34%),hsl(${(h + 38) % 360} 55% 20%))" aria-hidden="true">${U.esc(n.slice(-1) || '؟')}</span>`;
+  }
+};
+
+/* ─────────────────── 3.6 FX — لایهٔ پویانمایی (transform/opacity فقط) ───────────────────
+   هر تابع اگر کاربر prefers-reduced-motion خواسته باشد بی‌صدا کاری نمی‌کند.
+   ──────────────────────────────────────────────────────────────────────────── */
+const FX = {
+  get reduced(){
+    try{
+      if(document.documentElement.getAttribute('data-motion') === 'off') return true;
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }catch(e){ return false; }
+  },
+  raf(fn){ try{ return requestAnimationFrame(fn); }catch(e){ fn(0); return 0; } },
+  /* شمارش عددی با ارقام فارسی */
+  countUp(el, to, dur = 900, suffix = ''){
+    if(!el) return;
+    const to2 = Number(to) || 0;
+    if(this.reduced){ el.textContent = U.fa(to2) + suffix; return; }
+    const from = 0, t0 = U.now();
+    const step = () => {
+      const k = Math.min(1, (U.now() - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = U.fa(Math.round(from + (to2 - from) * e)) + suffix;
+      if(k < 1) this.raf(step);
+    };
+    step();
+  },
+  /* ورود پله‌ای فرزندان یک ظرف */
+  stagger(host, sel = ':scope > *', step = 55){
+    if(!host || this.reduced) return;
+    const kids = host.querySelectorAll ? host.querySelectorAll(sel) : [];
+    kids.forEach((k, i) => {
+      if(!k.style) return;
+      k.style.setProperty('--i', i);
+      k.classList && k.classList.add('a-in');
+      if(k.getAnimations && k.getAnimations.length === 0 && !this.reduced){
+        try{ k.animate([{ opacity:0, transform:'translateY(14px)' }, { opacity:1, transform:'none' }],
+          { duration:480, delay:i * step, easing:'cubic-bezier(.22,.9,.3,1)', fill:'backwards' }); }catch(e){}
+      }
+    });
+  },
+  /* تیلت سه‌بعدی با نشانگر/لمس */
+  tilt(el, max = 8){
+    if(!el || this.reduced || !el.addEventListener || el._tiltBound) return;
+    el._tiltBound = true;
+    const move = e => {
+      if(this.reduced || e.pointerType === 'touch'){ el.style.transform = ''; return; }
+      const b = el.getBoundingClientRect ? el.getBoundingClientRect() : { left:0, top:0, width:1, height:1 };
+      const x = ((e.clientX || 0) - b.left) / (b.width || 1) - .5;
+      const y = ((e.clientY || 0) - b.top) / (b.height || 1) - .5;
+      el.style.transform = `perspective(760px) rotateY(${(x * max).toFixed(2)}deg) rotateX(${(-y * max).toFixed(2)}deg) translateZ(6px)`;
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerleave', () => { el.style.transform = ''; });
+    el.addEventListener('touchmove', e => { const t = e.touches && e.touches[0]; if(t) move(t); }, { passive:true });
+  },
+  /* ستاره‌های پرتابی از یک نقطه — درست/کمبو/سطح */
+  starBurst(x, y, n = 12, glyphs = ['⭐','✨','🌟','💫']){
+    if(this.reduced) return;
+    for(let i = 0; i < n; i++){
+      const s = document.createElement('i');
+      s.className = 'starfly';
+      s.innerHTML = Glyph.of(glyphs[i % glyphs.length]);
+      s.style.left = x + 'px'; s.style.top = y + 'px';
+      document.body.appendChild(s);
+      const ang = (Math.PI * 2 * i) / n + Math.random() * .5;
+      const dist = 60 + Math.random() * 130;
+      const dx = Math.cos(ang) * dist, dy = Math.sin(ang) * dist - 40;
+      try{
+        s.animate([{ transform:'translate(-50%,-50%) scale(.4) rotate(0deg)', opacity:1 },
+                   { transform:`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.15) rotate(${(Math.random()*360-180)|0}deg)`, opacity:0 }],
+          { duration:760 + Math.random() * 320, easing:'cubic-bezier(.2,.7,.3,1)' }).onfinish = () => s.remove();
+      }catch(e){ setTimeout(() => s.remove(), 1000); }
+    }
+  },
+  burstAtEl(el, n = 12, glyphs){
+    if(!el || !el.getBoundingClientRect) return;
+    const b = el.getBoundingClientRect();
+    this.starBurst(b.left + b.width / 2, b.top + b.height / 2, n, glyphs);
+  },
+  /* لرزش افقی کوتاه */
+  shake(el){
+    if(!el || !el.animate || this.reduced) return;
+    try{ el.animate([{ transform:'translateX(0)' }, { transform:'translateX(-8px)' },
+      { transform:'translateX(7px)' }, { transform:'translateX(-4px)' }, { transform:'translateX(0)' }],
+      { duration:400, easing:'cubic-bezier(.36,.07,.19,.97)' }); }catch(e){}
+  },
+  /* پاپ کمبو */
+  pop(el){
+    if(!el || !el.animate || this.reduced) return;
+    try{ el.animate([{ transform:'scale(.6) rotate(-9deg)', opacity:.4 },
+      { transform:'scale(1.18) rotate(4deg)' }, { transform:'none', opacity:1 }],
+      { duration:520, easing:'cubic-bezier(.22,1.2,.36,1)' }); }catch(e){}
+  },
+  /* شعلهٔ سطح — ستاره‌های گرداگرد + تکان اندازه */
+  levelBurst(el){
+    if(this.reduced) return;
+    const layer = document.createElement('div');
+    layer.className = 'lv-burst';
+    document.body.appendChild(layer);
+    const w = (window.innerWidth || 360), h = (window.innerHeight || 640);
+    for(let i = 0; i < 26; i++){
+      const s = document.createElement('i');
+      s.className = 'starfly';
+      s.textContent = i % 3 ? '⭐' : '✨';
+      s.style.left = (w / 2) + 'px'; s.style.top = (h / 2) + 'px';
+      layer.appendChild(s);
+      const ang = Math.PI * 2 * i / 26, d = 110 + Math.random() * 210;
+      try{
+        s.animate([{ transform:'translate(-50%,-50%) scale(.3)', opacity:1 },
+          { transform:`translate(calc(-50% + ${Math.cos(ang)*d}px), calc(-50% + ${Math.sin(ang)*d}px)) scale(1.2)`, opacity:0 }],
+          { duration:1250, easing:'cubic-bezier(.2,.7,.3,1)', delay:i * 12 });
+      }catch(e){}
+    }
+    setTimeout(() => layer.remove(), 1900);
+    if(el && el.animate && !this.reduced){
+      try{ el.animate([{ transform:'scale(1)' }, { transform:'scale(1.22)' }, { transform:'scale(1)' }],
+        { duration:700, easing:'cubic-bezier(.22,1.2,.36,1)' }); }catch(e){}
+    }
+  },
+  /* FLIP — جای عناصر را نرم جابه‌جا می‌کند */
+  flip(host, mutate){
+    if(!host || !host.querySelectorAll) { if(mutate) mutate(); return; }
+    const items = [...host.querySelectorAll('[data-flip]')];
+    const before = new Map();
+    items.forEach(el => { const b = el.getBoundingClientRect(); before.set(el, b); });
+    if(mutate) mutate();
+    if(this.reduced) return;
+    items.forEach(el => {
+      const a = before.get(el); if(!a) return;
+      const b = el.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if(!dx && !dy) return;
+      try{ el.animate([{ transform:`translate(${dx}px,${dy}px)` }, { transform:'none' }],
+        { duration:380, easing:'cubic-bezier(.22,.9,.3,1)' }); }catch(e){}
+    });
+  },
+  /* بوم ذرات — پردهٔ آغازین و غبار طلایی */
+  canvas(cv, { count = 44, gold = true, speed = .28, link = 0 } = {}){
+    if(!cv || this.reduced) return null;
+    const ctx = cv.getContext && cv.getContext('2d');
+    if(!ctx) return null;
+    let w = 0, h = 0, parts = [], live = true;
+    const fit = () => {
+      w = cv.clientWidth || cv.width || 320;
+      h = cv.clientHeight || cv.height || 480;
+      cv.width = w; cv.height = h;
+    };
+    fit();
+    for(let i = 0; i < count; i++) parts.push({
+      x: Math.random() * (w || 320), y: Math.random() * (h || 480),
+      r: .6 + Math.random() * 2.1, vx: (Math.random() - .5) * speed, vy: -.06 - Math.random() * speed,
+      a: .15 + Math.random() * .5, p: Math.random() * 6.28
+    });
+    const draw = () => {
+      if(!live) return;
+      ctx.clearRect(0, 0, w, h);
+      parts.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.p += .02;
+        if(p.y < -8) { p.y = h + 8; p.x = Math.random() * w; }
+        if(p.x < -8) p.x = w + 8; if(p.x > w + 8) p.x = -8;
+        const al = p.a * (0.62 + 0.38 * Math.sin(p.p));
+        ctx.beginPath();
+        ctx.fillStyle = gold ? `rgba(255,231,168,${al})` : `rgba(200,225,255,${al})`;
+        ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+        ctx.fill();
+      });
+      if(link > 0){
+        for(let i = 0; i < parts.length; i++) for(let j = i + 1; j < parts.length; j++){
+          const dx = parts[i].x - parts[j].x, dy = parts[i].y - parts[j].y;
+          const d2 = dx * dx + dy * dy;
+          if(d2 < link * link){
+            ctx.strokeStyle = `rgba(255,231,168,${(1 - Math.sqrt(d2) / link) * .13})`;
+            ctx.lineWidth = 1; ctx.beginPath();
+            ctx.moveTo(parts[i].x, parts[i].y); ctx.lineTo(parts[j].x, parts[j].y); ctx.stroke();
+          }
+        }
+      }
+      try{ requestAnimationFrame(draw); }catch(e){}
+    };
+    draw();
+    this._canvases = this._canvases || [];
+    this._canvases.push({ cv, get live(){ return live; }, stop(){ live = false; }, fit });
+    return { stop(){ live = false; }, fit };
+  },
+  /* غبار طلایی پس‌زمینه (اختیاری، از تنظیمات) */
+  dust(on){
+    let cv = U.$('#dustBg');
+    if(!on){ if(cv) cv.remove(); return; }
+    if(cv) return;
+    cv = document.createElement('canvas');
+    cv.id = 'dustBg'; cv.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(cv);
+    cv.style.width = '100%'; cv.style.height = '100%';
+    this.canvas(cv, { count: 26, speed: .18, link: 66 });
+  },
+  /* واکنش شناور در محفل */
+  reaction(x, y, emoji){
+    if(this.reduced) return;
+    const s = document.createElement('i');
+    s.className = 'react-fly'; s.innerHTML = Glyph.inline(emoji);
+    s.style.left = (x || (window.innerWidth || 360) / 2) + 'px';
+    s.style.top = (y || (window.innerHeight || 620) * .72) + 'px';
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 1700);
+  },
+  vibrate(ms){ try{ if(Store.get('settings').haptics) navigator.vibrate && navigator.vibrate(ms); }catch(e){} },
+  /* گذار بین صفحه‌ها */
+  view(name){
+    if(this.reduced) return;
+    const el = U.$('#s-' + name);
+    if(!el || !el.animate) return;
+    try{ el.animate([{ opacity:0, transform:'translateY(10px)' }, { opacity:1, transform:'none' }],
+      { duration:320, easing:'cubic-bezier(.22,.9,.3,1)' }); }catch(e){}
+  }
+};
+
+/* ─────────────────── 4. ROUTER ─────────────────── */
+const Router = {
+  stack: ['home'],
+  screens: { home:'s-home', quran:'s-quran', read:'s-read', online:'s-online', room:'s-room',
+             play:'s-play', notif:'s-notif', me:'s-me', admin:'s-admin' },
+  hooks: {},
+  go(name, replace = false){
+    if(!this.screens[name] || !Session.allow(name)) return;
+    /* تایمرِ بازی هنگام خروج پاک می‌شود. حالتِ دوم هم لازم است: رفتن از
+       یک بازی به بازیِ دیگر همان صفحه است (`play` → `play`)، پس شرطِ اول
+       نمی‌گیرد و تایمرِ رهاشدهٔ بازیِ قبلی روی صفحهٔ تازه شلیک می‌کرد —
+       مثلاً «حدیث‌یاب» نیم‌ثانیه بعد از ترک، در DOMِ آزمون می‌نوشت. */
+    if(name !== 'play' || this.stack[this.stack.length - 1] === 'play') Timers.clearPage();
+    /* رفتن به صفحهٔ دیگر، پنجرهٔ باز را می‌بندد؛ وگرنه پنجره روی صفحهٔ
+       تازه می‌ماند و ورودیِ نشان‌دارش در تاریخچه بی‌صاحب می‌شود. */
+    AyahEmbed.cleanup();
+    if(UI.isOpen()) UI.closeModal();
+    UI.absorbModalEntry();
+    if(!replace && this.stack[this.stack.length-1] !== name){
+      this.stack.push(name);
+      history.pushState({ screen: name }, '', '#' + name);
+    }
+    this._render(name);
+    if(this.hooks[name]) { try{ this.hooks[name](); }catch(e){ console.warn(e); } }
+  },
+  back(){
+    /* پشته را این‌جا کوتاه نمی‌کنیم: popstate خودش این کار را می‌کند.
+       اگر هم این‌جا pop کنیم، مقایسهٔ popstate به هم می‌خورد و پشته از
+       تاریخچه جدا می‌افتد. */
+    if(this.stack.length > 1){ history.back(); return; }
+    /* ته پشته‌ایم ⇒ جایی برای برگشتن نیست. ورودیِ کنونی هم «خانه»
+       نوشته می‌شود تا تاریخچه با آنچه می‌بینیم یکی بماند. */
+    try{ history.replaceState({ screen: 'home' }, '', '#home'); }catch(e){}
+    this.go('home', true);
+  },
+  _render(name){
+    if(!Session.allow(name))return;
+    if(name!=='play')RoundControl.clear();
+    if(name !== 'play') AyahEmbed.cleanup();
+    U.$$('.screen').forEach(s => s.classList.remove('active'));
+    const el = U.$('#' + this.screens[name]);
+    if(el) el.classList.add('active');
+    /* پنل مدیریت نوارِ ناوبریِ کاربر را اصلاً نمی‌بیند (Session.layout
+       نوار را برای مدیر پنهان می‌کند)، پس قاعده‌ای برایش لازم نیست. */
+    U.$$('.nav button').forEach(b => b.classList.toggle('on',
+      b.dataset.nav === name ||
+      (name === 'room'  && b.dataset.nav === 'online')));
+    Icon.hydrate(U.$('#nav'));
+    HomeCarousel.schedule();
+    /* کاروسل‌های دسته‌ها هم با همان دروازه: صفحه که `.active` شد دوباره
+       اندازه می‌گیرند و تایمرشان از سر می‌گیرد؛ صفحهٔ دیگر که فعال شد
+       تایمرشان می‌خوابد. این پیش از قلابِ صفحه اجرا می‌شود، پس اگر
+       `renderHome()` محتوای `#cats` را عوض نکند (چیزی تغییر نکرده باشد)
+       کاروسلِ موجود سرِ جای خودش می‌ماند و بی‌جهت از نو ساخته نمی‌شود. */
+    try{ if(typeof Carousels !== 'undefined') Carousels.refresh(); }catch(e){}
+    window.scrollTo({ top: 0, behavior: FX.reduced ? 'auto' : 'smooth' });
+    /* گذار نرم صفحه + جهش آیکن نوار پایین */
+    try{ FX.view(name); }catch(e){}
+    try{
+      document.body.classList.remove('nav-bounce');
+      void document.body.offsetWidth;              // بازنشانی انیمیشن
+      document.body.classList.add('nav-bounce');
+      setTimeout(() => document.body.classList.remove('nav-bounce'), 520);
+    }catch(e){}
+  },
+  init(){
+    /* یک بار. بی این نگهبان، هر فراخوانیِ دوباره یک شنوندهٔ popstate
+       تازه می‌گذارد و یک بازگشت، دو بار رسیدگی می‌شود — پشته دو قدم
+       عقب می‌رود و صفحه دو بار رسم می‌شود. */
+    if(this._inited) return; this._inited = true;
+    window.addEventListener('popstate', e => {
+      /* ۱) ورودیِ نشان‌داری که خودمان پس گرفتیم — بی هیچ بازترسیمی. */
+      if(UI._swallow){ UI._swallow = false; return; }
+
+      /* ۲) پنجرهٔ باز: بازگشت اول پنجره را می‌بندد، نه صفحه را. ورودی
+         نشان‌دار همین حالا از تاریخچه رفته، پس چیزی برای برگرداندن نیست. */
+      if(UI.isOpen()){ UI.closeFromBack(); return; }
+
+      /* ۳) پشته باید آینهٔ تاریخچه بماند. پیش‌تر این‌جا
+         `this.stack = [name]` بود و پشته با هر بازگشت به یک عنصر می‌رفت؛
+         نتیجه این بود که پس از دو «عقب»، شمارشِ پشته با تاریخچه نمی‌خواند
+         و «عقب» بعدی به خانه می‌پرید.
+         حالا فقط وقتی عقب می‌کشیم که ورودیِ رسیده همان یکی‌زیرِ سرِ پشته
+         باشد — یعنی واقعاً یک قدم عقب رفته‌ایم. هر چیز دیگر (پرشِ نشانی،
+         دکمهٔ جلوی مرورگر) پشته را از نو می‌سازد. */
+      const name = (e.state && e.state.screen) || 'home';
+      if(this.stack.length > 1 && this.stack[this.stack.length - 2] === name) this.stack.pop();
+      else this.stack = [name];
+      if(name !== 'play') Timers.clearPage();
+      this._render(name);
+      if(Session.allow(name)&&this.hooks[name]) { try{ this.hooks[name](); }catch(err){} }
+    });
+    /* اگر صفحه وسطِ یک پنجرهٔ باز دوباره بار شده، نشانهٔ تاریخچه‌اش مانده
+       ولی پنجره‌ای باز نیست. پاکش می‌کنیم تا «عقب» اول بی‌دلیل خرج نشود. */
+    if(history.state && history.state.modal){
+      const cur = this.screens[location.hash.slice(1)] ? location.hash.slice(1) : 'home';
+      try{ history.replaceState({ screen: cur }, '', '#' + cur); }catch(e){}
+    }
+    const hash = location.hash.slice(1);
+    if(this.screens[hash]){
+      this.stack = [hash];
+      this._render(hash);
+    } else {
+      history.replaceState({ screen: 'home' }, '', '#home');
+    }
+  }
+};
+
+/* ─────────────────── 5. UI ─────────────────── */
+const UI = {
+  empty(icon, title, detail){
+    return `<div class="empty-state">${Icon.of(icon)}<strong>${U.esc(title)}</strong><span>${U.esc(detail)}</span></div>`;
+  },
+  busy(selector, on, skeleton = false){
+    U.$$(selector).forEach(el => {
+      el.classList.toggle(skeleton ? 'skeleton' : 'shimmer', !!on);
+      el.setAttribute('aria-busy', String(!!on));
+    });
+  },
+  decorate(root){
+    Glyph.decorate(root);
+    const lists = '#shopList,.coll-grid,.miss-list,.lbwrap,#gboard,.list,#adminBody';
+    const fresh = '.shop-item,.coll,.miss,.lbrow,.item,.adm-user,.adm-bar';
+    U.$$(lists, root).forEach(list => {
+      const rows = U.$$(fresh, list).filter(el => !el.dataset.fxReady);
+      rows.forEach(el => { el.dataset.fxReady = '1'; el.classList.add('fx-fresh'); });
+      FX.stagger(list, '.fx-fresh', 40);
+      rows.forEach(el => { el.classList.remove('fx-fresh'); FX.tilt(el, 3); });
+    });
+    U.$$('.completion-check', root).forEach(el => {
+      if(el.dataset.popped) return; el.dataset.popped = '1'; FX.pop(el);
+    });
+  },
+  observeShell(){
+    if(typeof MutationObserver === 'undefined' || this._shellObserver) return;
+    const roots = U.$$('#s-home,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar,#pgBody');
+    const queued = new Set(); let pending = false;
+    this._shellObserver = new MutationObserver(records => {
+      records.forEach(r => { const root = roots.find(x => x.contains(r.target)); if(root) queued.add(root); });
+      if(pending) return; pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        const work = [...queued]; queued.clear();
+        work.forEach(root => this.decorate(root));
+      });
+    });
+    roots.forEach(root => { this.decorate(root); this._shellObserver.observe(root, { childList:true, subtree:true, characterData:true }); });
+  },
+  /* ── توست ──
+     • چهار ثانیه می‌ماند: پیام‌های این برنامه جمله‌های کامل‌اند، نه یک
+       واژه؛ ۲٫۵ ثانیه برای خواندنشان کم بود.
+     • دکمهٔ ✕ دارد، چون پیامِ نامربوط باید کنار رود بی آنکه کاربر صبر کند.
+     • حداکثر دو تا: بیشتر از آن روی هم می‌افتاد و پیامِ تازه در انبوهِ
+       کهنه‌ها گم می‌شد.
+     متن با `textContent` نوشته می‌شود، نه `innerHTML` — پیام‌ها از دادهٔ
+     سرور و نام کاربر می‌آیند. */
+  toast(msg, type = '', ms = 4000){
+    const box = U.$('#toasts');
+    if(!box) return;
+    const el = document.createElement('div');
+    el.className = 'toast live ' + type;
+    /* ایموجیِ صدرِ پیام به آیکنِ SVG بدل می‌شود؛ ولی خودِ متن همچنان با
+       `textContent` نوشته می‌شود، چون پیام‌ها از دادهٔ سرور و نام کاربر
+       می‌آیند و `innerHTML` راهِ تزریق می‌شد. */
+    let body = String(msg == null ? '' : msg);
+    /* همان پیام اگر هنوز روی صفحه است، دوباره ساخته نشود؛ فقط زمانش تازه شود */
+    for(const old of box.children){
+      if(old._msg === body && !old.classList.contains('out')){ old._renew && old._renew(); return; }
+    }
+    el._msg = body;
+    const g = Glyph.lead(body);
+    if(g){ el.appendChild(Glyph.el(g.emoji)); body = g.rest; }
+    const tx = document.createElement('span');
+    tx.className = 'tx';
+    tx.textContent = body;
+    const x = document.createElement('button');
+    x.className = 'x'; x.type = 'button';
+    x.setAttribute('aria-label', 'بستن پیام');
+    x.title = 'بستن';
+    x.innerHTML = Icon.of('close');
+    el.appendChild(tx); el.appendChild(x);
+    box.appendChild(el);
+    if(type === 'ok' && g?.emoji === '✅') FX.pop(el.querySelector('.ic'));
+    while(box.children.length > 2) box.firstChild.remove();
+    let done = false, t = 0;
+    const close = () => {
+      if(done) return;
+      done = true;
+      clearTimeout(t);
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 300);
+    };
+    x.onclick = close;
+    t = setTimeout(close, ms);
+    el._renew = () => { if(done) return; clearTimeout(t); t = setTimeout(close, ms); };
+  },
+  /* ── پنجرهٔ جستن ──
+     سه چیز را با هم نگه می‌دارد: نمایش، تاریخچه، و تمرکز.
+
+     • تاریخچه: باز شدنِ پنجره یک ورودیِ «نشان‌دار» می‌گذارد. بی آن، دکمهٔ
+       بازگشتِ اندروید صفحه را عوض می‌کرد و پنجره روی صفحهٔ تازه باز
+       می‌ماند — کاربر گیر می‌کرد. با آن، اولین بازگشت پنجره را می‌بندد.
+     • تمرکز: کلید به داخلِ پنجره می‌رود و همان‌جا می‌ماند؛ وگرنه Tab
+       پشتِ پنجره می‌چرخد و کاربر جایی را می‌زند که نمی‌بیند.
+     • Escape: پنجره را می‌بندد، مثل دکمهٔ انصراف. */
+  _mOpen: false,     // پنجرهٔ باز
+  _drop: null,       // تایمرِ پاک‌کردنِ ورودیِ نشان‌دار
+  _swallow: false,   // یک popstate را بی‌واکنش رد کن (پاک‌کردنِ خودمان)
+  _focusBack: null,  // عنصری که پیش از باز شدن فوکوس داشت
+  _trap: false,
+
+  isOpen(){ return this._mOpen; },
+
+  modal(html, onMount){
+    const box = U.$('#modalBox');
+    /* نشانِ برگه فقط برای همان فراخوانیِ sheet معتبر است؛ وگرنه پنجرهٔ
+       بعدی که با modal باز می‌شود هم از پایین می‌آمد. */
+    const wrap = U.$('#modal');
+    if(wrap && wrap.classList) wrap.classList.toggle('sheet', !!this._wantSheet);
+    this._wantSheet = false;
+    if(!this._mOpen){
+      this._focusBack = document.activeElement || null;
+      try{
+        history.pushState({ screen: Router.stack[Router.stack.length - 1], modal: true },
+                          '', location.hash || '#home');
+      }catch(e){ console.warn('modal history', e); }
+      this._mOpen = true;
+      this.trap();
+    }
+    box.innerHTML = html;
+    this.decorate(box);
+    /* کلید روی خودِ جعبه می‌نشیند، نه روی اولین دکمه: فوکوسِ خودکار روی
+       ورودی، روی گوشی صفحه‌کلید را می‌آورد و پنجره را نصفه می‌کند. */
+    box.setAttribute('tabindex', '-1');
+    U.$('#modal').classList.add('on');
+    try{ box.focus({ preventScroll: true }); }catch(e){ try{ box.focus(); }catch(e2){} }
+    onMount && onMount(box);
+  },
+
+  /* برگهٔ پایین‌کش — همان پنجره، ولی از پایین می‌آید و به لبه می‌چسبد.
+     برای انتخابِ سریع در حینِ پخش: پخش زیرش دیده می‌ماند. */
+  sheet(html, onMount){
+    this._wantSheet = true;
+    this.modal(html, onMount);
+  },
+
+  closeModal(){
+    if(!this._mOpen) return;
+    this._mOpen = false;
+    U.$('#modal').classList.remove('on');
+    /* نشانِ برگه پاک شود، وگرنه پنجرهٔ بعدی هم از پایین می‌آید */
+    U.$('#modal').classList.remove('sheet');
+    this._wantSheet = false;
+    this.giveBackFocus();
+    /* پاک‌کردنِ ورودیِ نشان‌دار به پایانِ همین چرخهٔ رویداد موکول می‌شود:
+       اگر بلافاصله پس از بستن، Router.go صدا زده شود (الگوی «بستن و رفتن
+       به صفحهٔ دیگر»)، آن مسیر خودش نشانه را با replaceState پس می‌گیرد و
+       دیگر جایی برای back نمی‌ماند. */
+    clearTimeout(this._drop);
+    this._drop = setTimeout(() => this.dropModalEntry(), 0);
+  },
+
+  /* ورودیِ نشان‌دار را با یک back برمی‌گرداند. popstate همان لحظه
+     _swallow را می‌بیند و هیچ صفحه‌ای دوباره رسم نمی‌شود. */
+  dropModalEntry(){
+    clearTimeout(this._drop); this._drop = null;
+    if(history.state && history.state.modal){ this._swallow = true; history.back(); }
+  },
+
+  /* نشانه را به ورودیِ معمولیِ همین صفحه تبدیل می‌کند، بی هیچ جابه‌جایی.
+     Router.go پیش از pushState این را صدا می‌زند. */
+  absorbModalEntry(){
+    clearTimeout(this._drop); this._drop = null;
+    if(history.state && history.state.modal){
+      const top = Router.stack[Router.stack.length - 1] || 'home';
+      try{ history.replaceState({ screen: top }, '', '#' + top); }catch(e){}
+    }
+  },
+
+  /* بستن با دکمهٔ بازگشت: ورودی خودش رفته، پس به تاریخچه دست نمی‌زنیم. */
+  closeFromBack(){
+    this._mOpen = false;
+    clearTimeout(this._drop); this._drop = null;
+    U.$('#modal').classList.remove('on');
+    this.giveBackFocus();
+  },
+
+  giveBackFocus(){
+    const b = this._focusBack;
+    this._focusBack = null;
+    if(b && b.focus) try{ b.focus({ preventScroll: true }); }catch(e){}
+  },
+
+  /* Escape می‌بندد؛ Tab داخلِ پنجره می‌ماند. یک بار نصب می‌شود. */
+  trap(){
+    if(this._trap) return; this._trap = true;
+    document.addEventListener('keydown', e => {
+      if(!this._mOpen) return;
+      if(e.key === 'Escape' || e.key === 'Esc'){
+        e.preventDefault(); this.closeModal(); return;
+      }
+      if(e.key !== 'Tab') return;
+      const box = U.$('#modalBox');
+      if(!box) return;
+      const f = Array.from(box.querySelectorAll('button, a[href], input, select, textarea'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if(!f.length){ e.preventDefault(); return; }   // چیزی برای چرخیدن نیست
+      const first = f[0], last = f[f.length - 1], cur = document.activeElement;
+      if(e.shiftKey){
+        if(cur === first || !box.contains(cur)){ e.preventDefault(); last.focus(); }
+      }else if(cur === last || !box.contains(cur)){ e.preventDefault(); first.focus(); }
+    });
+  },
+  confirm(msg, onYes){
+    this.modal(`
+      <h3 style="margin-bottom:14px">${U.esc(msg)}</h3>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn gh" id="mNo">انصراف</button>
+        <button class="btn dg" id="mYes">تأیید</button>
+      </div>`);
+    U.$('#mNo').onclick = () => this.closeModal();
+    U.$('#mYes').onclick = () => { this.closeModal(); onYes && onYes(); };
+  },
+  result({ icon, title, pct, detail, stars, extraHtml = '', onAgain }){
+    /* سکهٔ پایان بازی از همین یک جا داده می‌شود تا هر بازی نرخ خودش را
+       نسازد. درصد نامعلوم (مثل اسم فامیل) نرخ پایه می‌گیرد. */
+    try{
+      const p = (pct == null) ? 60 : U.clamp(+pct || 0, 0, 100);
+      Wallet.earn(6 + Math.round(p / 10) + (p >= 100 ? Wallet.RATE.perfect : 0), 'پایان بازی');
+    }catch(e){ console.warn('coins', e); }
+    U.$('#pgBar').innerHTML = '';
+    U.prog(100, { cap: 'پایان' });
+    U.$('#pgBody').innerHTML = `
+      <div class="res card">
+        <div class="big">${Glyph.of(icon)}</div>
+        <h3>${Glyph.inline(title)}</h3>
+        <p style="color:var(--mut);font-size:13px;margin-top:6px">${detail || ''}</p>
+        ${stars != null ? `<div class="stars">${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0,3-stars))}</div>` : ''}
+        ${extraHtml}
+        <div class="row" style="gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+          ${onAgain ? `<button class="btn" id="pgAgain">${Icon.of('refresh')}<span>دوباره</span></button>` : ''}
+          <button class="btn gh" id="pgHome">${Icon.of('home')}<span>خانه</span></button>
+          <button class="btn gh" id="pgShare">${Icon.of('share')}<span>اشتراک نتیجه</span></button>
+        </div>
+      </div>`;
+    if(onAgain) U.$('#pgAgain').onclick = onAgain;
+    U.$('#pgHome').onclick = () => Router.go('home');
+    U.$('#pgShare').onclick = () => Share.result({ title, pct, detail });
+  }
+};
+U.$('#modal').addEventListener('click', e => { if(e.target.id === 'modal') UI.closeModal(); });
+
+/* ─────────────────── 6. SOUND + HAPTICS ───────────────────
+   موتور صدای سه‌بعدی: نوسان‌ساز + پوش‌دادن ADSR + طنین سالن (Reverb)
+   هیچ فایل صوتی لازم نیست؛ همه‌چیز زنده ساخته می‌شود.               */
+const Sound = {
+  ctx: null, master: null, wet: null,
+
+  ensure(){
+    if(this.ctx){
+      if(this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      return this.ctx;
+    }
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      const ctx = new AC();
+      const master = ctx.createGain();
+      master.gain.value = .9;
+      master.connect(ctx.destination);
+      // طنین: پاسخ ضربهٔ ساخته‌شده از نوفهٔ محو‌شونده
+      try{
+        const conv = ctx.createConvolver();
+        conv.buffer = this.impulse(ctx, 2.1, 2.8);
+        const wet = ctx.createGain(); wet.gain.value = .2;
+        master.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+        this.wet = wet;
+      }catch(e){}
+      this.ctx = ctx; this.master = master;
+    }catch(e){ this.ctx = null; }
+    return this.ctx;
+  },
+  impulse(ctx, sec, decay){
+    const rate = ctx.sampleRate, len = Math.max(1, Math.floor(rate * sec));
+    const buf = ctx.createBuffer(2, len, rate);
+    for(let c = 0; c < 2; c++){
+      const d = buf.getChannelData(c);
+      for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  },
+  on(){ return !!Store.get('settings').sound; },
+
+  /* یک نُت با پوش ADSR — بدون تق‌تق شروع */
+  tone(freq, dur = .22, type = 'sine', vol = .14, delay = 0){
+    if(!this.on()) return;
+    const ctx = this.ensure(); if(!ctx || !this.master) return;
+    const t0 = ctx.currentTime + delay;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(.0002, vol), t0 + .014);
+    g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t0); o.stop(t0 + dur + .06);
+  },
+  /* نُت دولایه — گرم‌تر و پرتر */
+  rich(freq, dur = .2, vol = .1, delay = 0, type = 'sine'){
+    this.tone(freq, dur, type, vol, delay);
+    this.tone(freq * 1.005, dur, type, vol * .55, delay + .008);
+    this.tone(freq * 2, dur * .7, 'triangle', vol * .3, delay + .015);
+  },
+  noise(dur = .34, vol = .07, f0 = 320, f1 = 2400){
+    if(!this.on()) return;
+    const ctx = this.ensure(); if(!ctx || !this.master) return;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
+    const t0 = ctx.currentTime;
+    bp.frequency.setValueAtTime(f0, t0);
+    bp.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(bp); bp.connect(g); g.connect(this.master);
+    src.start(t0); src.stop(t0 + dur);
+  },
+
+  /* ── صداهای برنامه (همان نام‌های پیشین تا هیچ‌جا نشکند) ── */
+  play(ok = true){
+    if(ok){ this.rich(660, .16, .12); this.tone(990, .2, 'sine', .06, .05); }
+    else  { this.tone(200, .3, 'triangle', .12); this.tone(148, .36, 'sawtooth', .06, .05); this.noise(.16, .04, 900, 200); }
+  },
+  combo(n){
+    const f = 470 + Math.min(n, 10) * 78;
+    this.rich(f, .13, .1);
+    this.tone(f * 1.5, .13, 'sine', .06, .06);
+  },
+  levelUp(){
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+      this.rich(f, .26, .1, i * .085);
+      this.tone(f * 2, .18, 'triangle', .035, i * .085 + .02);
+    });
+    this.noise(.5, .035, 500, 3200);
+  },
+  tick(){ this.tone(1180, .05, 'square', .035); },
+  buzz(){ this.tone(120, .48, 'sawtooth', .1); this.tone(91, .52, 'sine', .08, .02); },
+  click(){ this.tone(1500, .035, 'sine', .05); },
+  chime(){ [880, 1174.66, 1318.51, 1760].forEach((f, i) => this.tone(f, .95, 'sine', .06, i * .07)); },
+  fanfare(){ [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.rich(f, .34, .09, i * .1)); this.chime(); },
+  whoosh(){ this.noise(.42, .06, 260, 2600); },
+  page(){ this.noise(.18, .045, 1600, 500); }
+};
+const Haptic = {
+  hit(ms = 18){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} },
+  success(){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate([15,40,25]); }catch(e){} },
+  /* لرزش خطا: دو ضربهٔ کوتاه و پشت‌سرهم — از success جدا است تا کاربر
+     بی نگاه‌کردن هم بفهمد کد اشتباه بوده، نه درست. */
+  warn(){ if(Store.get('settings').haptics && navigator.vibrate) try{ navigator.vibrate([40,60,40]); }catch(e){} }
+};
+
+/* ═══════════════ 6.5 نگارخانهٔ تصویرسازی قرآنی (SVG خالص) ═══════════════
+   هیچ فایل تصویری بیرونی لازم نیست: همهٔ نگاره‌ها همین‌جا ساخته می‌شوند،
+   پس روی گوشی آفلاین هم همیشه دیده می‌شوند.                              */
+const Art = {
+  gold: '#f5c451',
+
+  /* کاشی هشت‌پر اسلامی — بی‌درز، برای پس‌زمینه */
+  patternTile(color = this.gold, s = 60){
+    const h = s / 2;
+    const star = (cx, cy) => `<g transform="translate(${cx} ${cy})">
+      <rect x="-17" y="-7.2" width="34" height="14.4" rx="3.4"/>
+      <rect x="-7.2" y="-17" width="14.4" height="34" rx="3.4"/>
+      <circle r="3.1" fill="${color}" stroke="none" opacity=".75"/>
+    </g>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+  <g fill="none" stroke="${color}" stroke-width="1.05" stroke-linejoin="round">
+    ${star(h, h)}${star(0, 0)}${star(s, 0)}${star(0, s)}${star(s, s)}
+    <circle cx="${h}" cy="0" r="3.2"/><circle cx="0" cy="${h}" r="3.2"/>
+    <circle cx="${s}" cy="${h}" r="3.2"/><circle cx="${h}" cy="${s}" r="3.2"/>
+  </g></svg>`;
+  },
+
+  /* converting SVG → CSS background */
+  asBg(svg){ return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`; },
+
+  /* پرتوهای نور پشت قرآن */
+  rays(cx, cy, r0, r1, n = 16){
+    let out = '';
+    for(let i = 0; i < n; i++){
+      const a = (i / n) * Math.PI * 2, w = i % 2 ? 1 : 1.8;
+      const x1 = cx + Math.cos(a) * r0, y1 = cy + Math.sin(a) * r0;
+      const x2 = cx + Math.cos(a) * r1, y2 = cy + Math.sin(a) * r1;
+      out += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke-width="${w}" stroke-linecap="round" opacity="${(0.18 + (i % 3) * 0.16).toFixed(2)}"/>`;
+    }
+    return out;
+  },
+
+  /* نگارهٔ اصلی: قرآن گشوده، گنبد و گلدسته، هالهٔ نور */
+  mushaf(){
+    const lines = (x0, x1, ys, col) => ys.map((y, k) => {
+      const shrink = k * 5;
+      return `<path d="M${x0 + shrink},${y} Q${(x0 + x1) / 2},${y - 4} ${x1 - shrink},${y}"
+        fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" opacity="${0.5 - k * 0.06}"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 400 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="قرآن کریم، گنبد و گلدسته">
+  <defs>
+    <radialGradient id="nHalo" cx="50%" cy="40%" r="58%">
+      <stop offset="0%" stop-color="#fff0bd" stop-opacity=".9"/>
+      <stop offset="42%" stop-color="#f5c451" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#f5c451" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="nPage" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffdf6"/><stop offset="55%" stop-color="#f5ecd2"/>
+      <stop offset="100%" stop-color="#dcc79d"/>
+    </linearGradient>
+    <linearGradient id="nGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbe79b"/><stop offset="50%" stop-color="#e0a325"/>
+      <stop offset="100%" stop-color="#9a6507"/>
+    </linearGradient>
+    <linearGradient id="nDome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#193a6b"/>
+      <stop offset="100%" stop-color="#0a1730"/>
+    </linearGradient>
+    <linearGradient id="nSil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16305c"/><stop offset="100%" stop-color="#0a1730"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="200" cy="118" r="132" fill="url(#nHalo)"/>
+  <g class="sp-ray" stroke="#f5c451">${Art.rays(200, 118, 100, 136, 20)}</g>
+
+  <!-- ستارهٔ هشت‌پر بالا -->
+  <g class="sp-glow" transform="translate(200 46)" fill="none" stroke="url(#nGold)" stroke-width="2" stroke-linejoin="round">
+    <rect x="-24" y="-10" width="48" height="20" rx="5"/>
+    <rect x="-10" y="-24" width="20" height="48" rx="5"/>
+    <circle r="5.5" fill="url(#nGold)" stroke="none"/>
+  </g>
+
+  <!-- گنبد و گلدسته‌ها -->
+  <g fill="url(#nSil)" stroke="url(#nGold)" stroke-width="1.3" stroke-linejoin="round" opacity=".97">
+    <rect x="46" y="152" width="52" height="40" rx="6"/>
+    <rect x="302" y="152" width="52" height="40" rx="6"/>
+    <path d="M154,192 C154,160 172,138 200,128 C228,138 246,160 246,192 Z"/>
+    <rect x="114" y="124" width="12" height="68" rx="5"/>
+    <rect x="274" y="124" width="12" height="68" rx="5"/>
+    <circle cx="120" cy="122" r="8"/>
+    <circle cx="280" cy="122" r="8"/>
+    <rect x="119" y="104" width="2" height="12"/>
+    <rect x="279" y="104" width="2" height="12"/>
+    <circle cx="200" cy="124" r="5"/>
+    <path d="M200,128 L200,112"/>
+  </g>
+  <!-- پنجره‌های نورانی -->
+  <g fill="#f5c451" opacity=".75">
+    <path d="M62,186 a6,6 0 0 1 12,0 v6 h-12 z"/><path d="M78,186 a6,6 0 0 1 12,0 v6 h-12 z"/>
+    <path d="M318,186 a6,6 0 0 1 12,0 v6 h-12 z"/><path d="M334,186 a6,6 0 0 1 12,0 v6 h-12 z"/>
+    <path d="M188,182 a12,14 0 0 1 24,0 v10 h-24 z"/>
+  </g>
+
+  <!-- قرآن گشوده -->
+  <ellipse cx="200" cy="268" rx="140" ry="15" fill="#f5c451" opacity=".18"/>
+  <g stroke="url(#nGold)" stroke-width="6" stroke-linejoin="round" fill="none" opacity=".9">
+    <path d="M200,196 Q142,182 70,200 Q62,203 62,211 L62,251 Q140,229 200,242 Z"/>
+    <path d="M200,196 Q258,182 330,200 Q338,203 338,211 L338,251 Q260,229 200,242 Z"/>
+    <path d="M200,196 L200,242"/>
+  </g>
+  <path d="M200,196 Q142,182 70,200 Q62,203 62,211 L62,251 Q140,229 200,242 Z" fill="url(#nPage)"/>
+  <path d="M200,196 Q258,182 330,200 Q338,203 338,211 L338,251 Q260,229 200,242 Z" fill="url(#nPage)"/>
+  <path d="M200,196 L200,242" stroke="#8a7345" stroke-width="2.6" opacity=".45"/>
+  <!-- کادر و سطرهای متن -->
+  <g fill="none" stroke="#c79a3c" stroke-width="1.4" opacity=".8">
+    <path d="M76,206 Q140,192 190,204 L190,232 Q140,220 76,240 Z"/>
+    <path d="M324,206 Q260,192 210,204 L210,232 Q260,220 324,240 Z"/>
+  </g>
+  ${lines(90, 182, [212, 220, 228], '#a8792e')}
+  ${lines(310, 218, [212, 220, 228], '#a8792e')}
+  <!-- نشان کتاب -->
+  <path d="M195,240 L195,278 L200,271 L205,278 L205,240 Z" fill="url(#nGold)"/>
+
+  <!-- درخش‌های پراکنده -->
+  <g fill="#fff4cf" class="sp-glow">
+    <circle cx="86" cy="96" r="2.4"/><circle cx="322" cy="112" r="1.9"/>
+    <circle cx="128" cy="58" r="1.6"/><circle cx="286" cy="66" r="2.2"/>
+  </g>
+</svg>`;
+  },
+
+  /* نگارهٔ افقی مسجد برای سربرگ خانه */
+  panorama(){
+    return `<svg viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" role="img" aria-label="مسجد در شب">
+  <defs>
+    <linearGradient id="pSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e2145"/><stop offset="60%" stop-color="#0a1730"/><stop offset="100%" stop-color="#060d1c"/>
+    </linearGradient>
+    <linearGradient id="pGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbe79b"/><stop offset="55%" stop-color="#e0a325"/><stop offset="100%" stop-color="#9a6507"/>
+    </linearGradient>
+    <radialGradient id="pMoon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff6d6"/><stop offset="100%" stop-color="#f5c451" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="220" fill="url(#pSky)"/>
+  <circle cx="672" cy="52" r="46" fill="url(#pMoon)" opacity=".55"/>
+  <circle cx="672" cy="52" r="20" fill="#fff4cf" opacity=".92"/>
+  <circle cx="680" cy="46" r="17" fill="#0e2145"/>
+  <g fill="#fff4cf" opacity=".8">
+    <circle cx="90" cy="34" r="1.8"/><circle cx="180" cy="66" r="1.4"/><circle cx="300" cy="28" r="2"/>
+    <circle cx="396" cy="58" r="1.3"/><circle cx="520" cy="36" r="1.7"/><circle cx="742" cy="102" r="1.5"/>
+    <circle cx="60" cy="96" r="1.3"/><circle cx="610" cy="88" r="1.6"/>
+  </g>
+  <g opacity=".5">
+    <rect y="176" width="800" height="20" fill="#0a1730" opacity=".8"/>
+  </g>
+  <g fill="#0b1a35" stroke="url(#pGold)" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M330,196 C330,158 358,132 400,120 C442,132 470,158 470,196 Z"/>
+    <rect x="250" y="126" width="15" height="70" rx="6"/>
+    <rect x="535" y="126" width="15" height="70" rx="6"/>
+    <circle cx="257.5" cy="124" r="9"/><circle cx="542.5" cy="124" r="9"/>
+    <rect x="256" y="100" width="3" height="16"/><rect x="541" y="100" width="3" height="16"/>
+    <rect x="150" y="158" width="78" height="38" rx="7"/>
+    <rect x="572" y="158" width="78" height="38" rx="7"/>
+    <rect x="40" y="174" width="88" height="22" rx="6"/>
+    <rect x="672" y="174" width="88" height="22" rx="6"/>
+    <circle cx="400" cy="117" r="6"/>
+    <path d="M400,120 L400,104"/>
+  </g>
+  <g fill="#f5c451" opacity=".72">
+    <path d="M368,178 a14,16 0 0 1 28,0 v18 h-28 z"/>
+    <path d="M170,178 a8,8 0 0 1 16,0 v18 h-16 z"/><path d="M592,178 a8,8 0 0 1 16,0 v18 h-16 z"/>
+  </g>
+  <rect y="196" width="800" height="24" fill="#050a15"/>
+</svg>`;
+  },
+
+  /* سربرگ تزئینی برای کارت‌ها */
+  band(hue = 40, label = ''){
+    return `<svg viewBox="0 0 800 120" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" role="img">
+  <defs>
+    <linearGradient id="bG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="hsl(${hue} 55% 22%)"/>
+      <stop offset="50%" stop-color="hsl(${hue} 62% 34%)"/>
+      <stop offset="100%" stop-color="hsl(${hue} 55% 20%)"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="120" fill="url(#bG)"/>
+  <g fill="none" stroke="hsl(${hue} 80% 72%)" stroke-width="1.4" opacity=".55">
+    <path d="M0,60 H320"/><path d="M480,60 H800"/>
+    <g transform="translate(400 60)">
+      <rect x="-30" y="-12" width="60" height="24" rx="6"/>
+      <rect x="-12" y="-30" width="24" height="60" rx="6"/>
+      <circle r="6.5"/>
+    </g>
+    <circle cx="340" cy="60" r="4"/><circle cx="460" cy="60" r="4"/>
+  </g>
+  <text x="400" y="104" text-anchor="middle" font-size="15" fill="hsl(${hue} 90% 88%)"
+        font-family="Vazirmatn,Tahoma,sans-serif" opacity=".9">${U.esc(label)}</text>
+</svg>`;
+  },
+
+  /* جداکنندهٔ تزئینی (تورنج/اسلیمی) میان بخش‌ها */
+  ornament(color = '#f5c451'){
+    return `<svg class="ornsvg" viewBox="0 0 400 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g fill="none" stroke="${color}" stroke-width="1.2" stroke-linecap="round">
+    <path d="M4,11 H150"/><path d="M250,11 H396"/>
+    <path d="M150,11 C162,3 172,3 180,11 C188,19 198,19 206,11"/>
+    <path d="M250,11 C238,19 228,19 220,11 C212,3 202,3 194,11"/>
+    <path d="M200,3 L206,11 L200,19 L194,11 Z"/>
+    <circle cx="164" cy="11" r="2.4"/><circle cx="236" cy="11" r="2.4"/>
+  </g>
+</svg>`;
+  }
+};
+
+/* ═══════════════ 6.4 فونت‌های فارسی ═══════════════
+   فونت‌ها با تنبلی (lazy) بار می‌شوند: هیچ‌کدام در بار نخست دانلود
+   نمی‌شوند مگر همان‌که واقعاً روی صفحه دیده می‌شود. هر فونت با CSS
+   جداگانه از jsDelivr می‌آید و اگر نیامد، فونت پیشین می‌ماند.        */
+const FONTS = {
+  /* ── فونت نمایشی: تیترها، نام نورستان، سربرگ‌ها ── */
+  gulzar:      { name:'گلزار نستعلیق',      note:'نستعلیق خوش‌نویس — شکوه و ظرافت', role:'disp',
+                 group:'نستعلیق', nast:true, w:400, lh:2.15, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/gulzar/arabic.css' },
+  nastaliq:    { name:'نستعلیق نو',         note:'نستعلیق رسمی Noto — خواناتر از گلزار', role:'disp',
+                 group:'نستعلیق', nast:true, w:400, lh:2.25, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu/arabic.css' },
+  lalezar:     { name:'لاله‌زار',            note:'تیتری و درشت — چشمگیر برای سربرگ', role:'disp',
+                 group:'نمایشی', w:400, lh:1.45, ls:'0px',
+                 family:'Lalezar' },
+  markazi:     { name:'مرکزی',              note:'خوش‌نویس کلاسیک با طمأنینهٔ نسخ', role:'disp',
+                 group:'نمایشی', w:700, lh:1.6, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/markazi-text/arabic.css' },
+  samim:       { name:'صمیم',               note:'نرم و گرم — خوانا در همه اندازه‌ها', role:'disp',
+                 group:'خوانا', w:800, lh:1.35, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css',
+                 faces:[ { family:'Samim', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/Samim.woff2' },
+                         { family:'Samim', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/Samim-Bold.woff2' } ] },
+  shabnam:     { name:'شبنم',               note:'تمیز و امروزی — متن و تیتر', role:'disp',
+                 group:'خوانا', w:800, lh:1.35, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css',
+                 faces:[ { family:'Shabnam', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam.woff2' },
+                         { family:'Shabnam', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/Shabnam-Bold.woff2' } ] },
+  sahel:       { name:'ساحل',               note:'گرد و مهربان — سبک و بی‌ادعا', role:'disp',
+                 group:'خوانا', w:800, lh:1.4, ls:'0px',
+                 css:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/font-face.css',
+                 faces:[ { family:'Sahel', w:'400', src:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel.woff2' },
+                         { family:'Sahel', w:'700', src:'https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/Sahel-Bold.woff2' } ] },
+  vazir:       { name:'وزیرمتن',            note:'ساده و بی‌فونت‌بار (سبک‌ترین)', role:'disp',
+                 group:'خوانا' },
+
+  /* ── فونت متن قرآن: نسخ قرآنی ── */
+  amiri:       { name:'امیری',              note:'نسخ قرآنی — نزدیک به مصحف', role:'quran',
+                 group:'نسخ قرآن', w:400, lh:2.15,
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/amiri/arabic.css' },
+  naskh:       { name:'نسخ نو',             note:'نسخ رسمی Noto — بسیار خوانا و امروزی', role:'quran',
+                 group:'نسخ قرآن', w:400, lh:2.1,
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/noto-naskh-arabic/arabic.css' },
+  scheherazade:{ name:'شهرزاد نو',          note:'نسخ درشت با اعراب روشن', role:'quran',
+                 group:'نسخ قرآن', w:400, lh:1.95,
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/scheherazade-new/arabic.css' },
+  lateef:      { name:'لطیف',               note:'نسخ بزرگ‌چشم — بهترین خوانایی روی گوشی', role:'quran',
+                 group:'نسخ قرآن', w:400, lh:2.0,
+                 css:'https://cdn.jsdelivr.net/npm/@fontsource/lateef/arabic.css' },
+  kitab:       { name:'وزیرمتن',            note:'بی‌فونت‌بار — سبک‌ترین حالت', role:'quran',
+                 group:'ساده', family:'Vazirmatn', w:400, lh:2.1 }
+};
+const FALLBACK_DISP = 'Lalezar, Vazirmatn, system-ui, sans-serif';
+/* قلمِ قرآنیِ انتخابی هم اگر نیامد (مثلاً نخستین اجرای آفلاین)، باید
+   به قلمِ همراهِ خودِ برنامه برسد، نه به serifِ سیستم که ممکن است
+   پوششِ عربی نداشته باشد. */
+const FALLBACK_QURAN = 'Amiri, "Scheherazade New", Vazirmatn, serif';
+
+const Fonts = {
+  pending: {}, loading: 0,
+  load(key){
+    const f = FONTS[key];
+    if(!f || (!f.css && !f.faces)) return Promise.resolve(f);
+    if(this.pending[key] !== undefined) return this.pending[key];
+    this.loading++; UI.busy('#setFontDisp,#setFontQuran,.fpick', true);
+    this.pending[key] = new Promise(resolve => {
+      let done = false;
+      const fin = ok => { if(!done){ done = true; this.loading--; UI.busy('#setFontDisp,#setFontQuran,.fpick', this.loading > 0); resolve(ok ? f : null); } };
+
+      /* راهِ ترجیحی: خودمان شیءِ FontFace را می‌سازیم با display:'swap'.
+         چرا؟ برگهٔ سبکِ سه قلمِ rastikerdar هیچ font-display ندارد، یعنی
+         مقدارِ پیش‌فرضِ auto و در نتیجه FOIT: تا آمدنِ قلم (تا ۳ ثانیه،
+         و روی CDNِ کند بیشتر) متنِ فارسی نامرئی می‌ماند. خودِ برگهٔ سبک
+         قابلِ تغییر نیست، پس از CSS صرف‌نظر می‌کنیم و فایلِ woff2 را
+         مستقیم می‌گیریم — با swap. */
+      if(f.faces && typeof FontFace === 'function' &&
+         document.fonts && typeof document.fonts.add === 'function'){
+        try{
+          let live = 0;
+          f.faces.forEach(x => {
+            live++;
+            const ff = new FontFace(x.family, 'url("' + x.src + '")',
+                                    { weight: x.w || '400', display: 'swap' });
+            ff.load().then(() => { document.fonts.add(ff); if(--live <= 0) fin(true); })
+                     .catch(() => { if(--live <= 0) fin(true); });
+          });
+          setTimeout(() => fin(true), 4000);   // اگر رویداد نیامد، ادامه بده
+          return;
+        }catch(err){ /* مرورگرِ قدیمی — می‌افتیم روی راهِ <link> */ }
+      }
+
+      try{
+        const link = document.createElement('link');
+        link.rel = 'stylesheet'; link.href = f.css;
+        link.onload = () => fin(true);
+        link.onerror = () => fin(false);
+        const head = document.head || document.querySelector('head');
+        if(head) head.appendChild(link); else fin(false);
+      }catch(e){ fin(false); }
+      setTimeout(() => fin(true), 4000);   // اگر رویداد بارگذاری نیامد، ادامه بده
+    });
+    return this.pending[key];
+  },
+  list(role){ return Object.keys(FONTS).filter(k => FONTS[k].role === role); },
+  /* گزینه‌ها به ترتیب گروه، برای گزینشگر — تا ۹ فونت پشت هم نریزند */
+  grouped(role){
+    const keys = this.list(role), out = [], seen = {};
+    keys.forEach(k => {
+      const g = FONTS[k].group || 'دیگر';
+      if(!seen[g]){ seen[g] = []; out.push(g); }
+      seen[g].push(k);
+    });
+    return out.map(g => ({ group: g, keys: seen[g] }));
+  },
+  /* اعمال روی متغیرهای CSS — بلافاصله، حتی اگر فونت هنوز نیامده باشد */
+  apply(prefs){
+    const disp = FONTS[prefs.display] || FONTS.lalezar;
+    const qur  = FONTS[prefs.quran]   || FONTS.amiri;
+    this.load(prefs.display);
+    this.load(prefs.quran);
+    const st = document.documentElement.style;
+    st.setProperty('--f-disp', (disp.family || 'Lalezar') + ', ' + FALLBACK_DISP);
+    st.setProperty('--f-disp-w', String(disp.w || 400));
+    st.setProperty('--f-disp-lh', String(disp.lh || 1.3));
+    st.setProperty('--f-disp-ls', disp.ls || '0px');
+    st.setProperty('--f-quran', (qur.family || 'Amiri') + ', ' + FALLBACK_QURAN);
+    st.setProperty('--f-quran-w', String(qur.w || 400));
+    st.setProperty('--f-quran-lh', String(qur.lh || 2.05));
+    const root = document.documentElement;
+    root.setAttribute('data-disp', prefs.display);
+    root.setAttribute('data-quran', prefs.quran);
+    root.setAttribute('data-nast', disp.nast ? '1' : '0');
+  },
+  isNastaliq(key){ return !!(FONTS[key] && FONTS[key].nast); },
+  family(key){ const f = FONTS[key]; return ((f && f.family) || 'Vazirmatn'); },
+
+  /* ── پایشِ قلمِ رابط کاربری ──
+     سه وزنِ وزیرمتن محلی است، ولی سکوتش خطرناک است: اگر فایل‌ها سرو نشوند
+     (پیش‌نمایشی که فقط index.html را می‌گیرد، کشِ ناقصِ PWA، میزبانی‌ای که
+     assets/ را نمی‌دهد) مرورگر بی هیچ خطایی به قلمِ سیستم می‌افتد و کاربر
+     فکر می‌کند برنامه خطِ فارسی ندارد. پس یک بار می‌سنجیم، و اگر نبود هم
+     گزارش می‌دهیم و هم از CDN جانشین می‌گیریم.
+
+     مقدار `ui` را selfTest و پروفایل می‌خوانند: 'local' | 'cdn' | 'unknown'. */
+  ui: 'unknown',
+  pendingUI: null,
+  CDN_UI: 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css',
+  ensureUI(){
+    if(this.pendingUI) return this.pendingUI;
+    this.pendingUI = new Promise(resolve => {
+      const fin = v => { this.ui = v; resolve(v); };
+      /* بی Font Loading API (مرورگرِ قدیمی، یا محیطِ آزمون) داوری نمی‌کنیم
+         و «نامعلوم» می‌مانیم — بهتر از هشدارِ دروغ. */
+      if(!(document.fonts && typeof document.fonts.load === 'function')) return fin('unknown');
+      const done = ok => {
+        if(ok) return fin('local');
+        try{
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = this.CDN_UI;
+          link.onerror = () => fin('unknown');   // CDN هم نیست — دستِ کم دروغ نگوییم
+          const head = document.head || document.querySelector('head');
+          if(head) head.appendChild(link); else return fin('unknown');
+          console.warn('⛔ قلمِ محلی وزیرمتن بار نشد — از CDN جانشین گرفته شد.');
+          fin('cdn');
+        }catch(e){ fin('unknown'); }
+      };
+      let settled = false;
+      const once = ok => { if(!settled){ settled = true; done(ok); } };
+      try{
+        document.fonts.load('400 16px Vazirmatn')
+          .then(() => once(!!(document.fonts.check && document.fonts.check('400 16px Vazirmatn'))))
+          .catch(() => once(false));
+      }catch(e){ return once(false); }
+      /* اگر وعده هرگز نیامد (شبکهٔ گیرکرده)، سکوت را به «نامعلوم» می‌بریم */
+      setTimeout(() => once(false), 4000);
+    });
+    return this.pendingUI;
+  }
+};
+
+/* ═══════════════ 6.6 دادهٔ قرآن کریم: ۱۱۴ سوره ═══════════════
+   قالب: نام:تعداد آیات — مجموع باید ۶۲۳۶ شود (تست می‌شود).            */
+const QURAN_RAW = 'الفاتحة:7,البقرة:286,آل عمران:200,النساء:176,المائدة:120,الأنعام:165,الأعراف:206,الأنفال:75,التوبة:129,يونس:109,هود:123,يوسف:111,الرعد:43,إبراهيم:52,الحجر:99,النحل:128,الإسراء:111,الكهف:110,مريم:98,طه:135,الأنبياء:112,الحج:78,المؤمنون:118,النور:64,الفرقان:77,الشعراء:227,النمل:93,القصص:88,العنكبوت:69,الروم:60,لقمان:34,السجدة:30,الأحزاب:73,سبأ:54,فاطر:45,يس:83,الصافات:182,ص:88,الزمر:75,غافر:85,فصلت:54,الشورى:53,الزخرف:89,الدخان:59,الجاثية:37,الأحقاف:35,محمد:38,الفتح:29,الحجرات:18,ق:45,الذاريات:60,الطور:49,النجم:62,القمر:55,الرحمن:78,الواقعة:96,الحديد:29,المجادلة:22,الحشر:24,الممتحنة:13,الصف:14,الجمعة:11,المنافقون:11,التغابن:18,الطلاق:12,التحريم:12,الملك:30,القلم:52,الحاقة:52,المعارج:44,نوح:28,الجن:28,المزمل:20,المدثر:56,القيامة:40,الإنسان:31,المرسلات:50,النبأ:40,النازعات:46,عبس:42,التكوير:29,الانفطار:19,المطففين:36,الانشقاق:25,البروج:22,الطارق:17,الأعلى:19,الغاشية:26,الفجر:30,البلد:20,الشمس:15,الليل:21,الضحى:11,الشرح:8,التين:8,العلق:19,القدر:5,البينة:8,الزلزلة:8,العاديات:11,القارعة:11,التكاثر:8,العصر:3,الهمزة:9,الفيل:5,قريش:4,الماعون:7,الكوثر:3,الكافرون:6,النصر:3,المسد:5,الإخلاص:4,الفلق:5,الناس:6';
+
+const QURAN = (() => {
+  let offset = 0;
+  return QURAN_RAW.split(',').map((item, i) => {
+    const cut = item.lastIndexOf(':');
+    const name = item.slice(0, cut), count = +item.slice(cut + 1);
+    const s = { n: i + 1, name, count, offset };
+    offset += count;
+    return s;
+  });
+})();
+const QURAN_TOTAL = QURAN.reduce((a, s) => a + s.count, 0);   // ۶۲۳۶
+
+/* قاریان نامدار جهان — دو منبع آزاد و پایدار.
+   `hue` رنگِ چهرهٔ گرادیانی است و `short` حرفی که رویش می‌نشیند.
+   فیلد اختیاری `img` جای چهرهٔ گرادیانی عکس می‌گذارد؛ بی آن (حالِ کنونی)
+   هیچ درخواستِ تصویری برای قاری فرستاده نمی‌شود. نمونه:
+   `img:'avatars/reciter-1.webp'` — فایل در assets/images/avatars/ بنشیند. */
+const RECITERS = [
+  { id:'Alafasy_128kbps',                   ed:'ar.alafasy',            name:'مشاری راشد العفاسی',  short:'العفاسی',   hue:38,  note:'ترتیل مشهور و شفاف' },
+  { id:'Abdul_Basit_Murattal_192kbps',      ed:'ar.abdulbasitmurattal', name:'عبدالباسط عبدالصمد',  short:'عبدالباسط', hue:150, note:'صدای جاودانهٔ مصری' },
+  { id:'Minshawy_Murattal_128kbps',         ed:'ar.minshawi',           name:'محمد صدیق منشاوی',    short:'منشاوی',    hue:275, note:'ترتیل آرام و دل‌نشین' },
+  { id:'Husary_128kbps',                    ed:'ar.husary',             name:'محمود خلیل الحصری',   short:'حصری',      hue:206, note:'استاد تجوید و روایت حفص' },
+  { id:'Sudais_128kbps',                    ed:'ar.abdurrahmaansudais', name:'عبدالرحمن السدیس',    short:'السدیس',    hue:188, note:'امام مسجدالحرام' },
+  { id:'Maher_AlMuaiqly_128kbps',           ed:'ar.mahermuaiqly',       name:'ماهر المعیقلی',       short:'المعیقلی',  hue:12,  note:'امام مسجدالحرام' },
+  { id:'Ghamadi_40kbps',                    ed:'',                      name:'سعد الغامدی',         short:'الغامدی',   hue:96,  note:'ترتیل نرم و روان' },
+  { id:'Abu_Bakr_Ash-Shaatree_128kbps',     ed:'ar.shaatree',           name:'أبو بکر الشاطری',     short:'الشاطری',   hue:320, note:'لحن گرم و مؤثر' },
+  { id:'Ahmed_ibn_Ali_al-Ajamy_128kbps',    ed:'ar.ahmedajamy',         name:'أحمد بن علی العجمی',  short:'العجمی',    hue:262, note:'ترتیل پرطنین' },
+  { id:'Muhammad_Ayyoub_128kbps',           ed:'ar.muhammadayyoub',     name:'محمد أیوب',           short:'أیوب',      hue:172, note:'صدای خاشع مدینه' }
+];
+
+/* منبع‌های صدا — اگر اولی جواب نداد، دومی خودکار امتحان می‌شود */
+const QSOURCES = [
+  { name:'everyayah', label:'EveryAyah — آیه‌به‌آیه',
+    url:(r, s, a) => `https://everyayah.com/data/${r.id}/${String(s).padStart(3, '0')}${String(a).padStart(3, '0')}.mp3` },
+  { name:'islamic.network', label:'Islamic Network — AlQuran Cloud',
+    url:(r, s, a) => {
+      if(!r.ed) return '';
+      const g = (QURAN[s - 1]?.offset || 0) + a;   // شمارهٔ سراسری آیه
+      return `https://cdn.islamic.network/quran/audio/128/${r.ed}/${g}.mp3`;
+    } }
+];
+
+/* آیه‌های روز — متن دقیق عثمانی از AlQuran Cloud گرفته و این‌جا ثابت شده
+   تا حتی بدون اینترنت هم درست و کامل نمایش داده شود.                  */
+/* DAILY_AYAT_START */
+const DAILY_AYAT = [
+  { s:94, a:5, why:"آسانی پس از هر سختی",
+    ar:"فَإِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",
+    fa:"پس بی تردید با دشواری آسانی است." },
+  { s:13, a:28, why:"آرامش دل با یاد خدا", long:true,
+    ar:"ٱلَّذِينَ ءَامَنُوا۟ وَتَطْمَئِنُّ قُلُوبُهُم بِذِكْرِ ٱللَّهِ ۗ أَلَا بِذِكْرِ ٱللَّهِ تَطْمَئِنُّ ٱلْقُلُوبُ",
+    fa:"[بازگشتگان به سوی خدا] کسانی [هستند] که ایمان آوردند و دل هایشان به یاد خدا آرام می گیرد، آگاه باشید! دل ها فقط به یاد خدا آرام می گیرد." },
+  { s:17, a:82, why:"قرآن، شفا و رحمت", long:true,
+    ar:"وَنُنَزِّلُ مِنَ ٱلْقُرْءَانِ مَا هُوَ شِفَآءٌۭ وَرَحْمَةٌۭ لِّلْمُؤْمِنِينَ ۙ وَلَا يَزِيدُ ٱلظَّٰلِمِينَ إِلَّا خَسَارًۭا",
+    fa:"و ما از قرآن آنچه را برای مؤمنان مایه درمان ورحمت است، نازل می کنیم وستمکاران را جز خسارت نمی افزاید." },
+  { s:39, a:53, why:"نومیدی از رحمت خدا ممنوع", long:true,
+    ar:"۞ قُلْ يَٰعِبَادِىَ ٱلَّذِينَ أَسْرَفُوا۟ عَلَىٰٓ أَنفُسِهِمْ لَا تَقْنَطُوا۟ مِن رَّحْمَةِ ٱللَّهِ ۚ إِنَّ ٱللَّهَ يَغْفِرُ ٱلذُّنُوبَ جَمِيعًا ۚ إِنَّهُۥ هُوَ ٱلْغَفُورُ ٱلرَّحِيمُ",
+    fa:"بگو: ای بندگان من که [با ارتکاب گناه] بر خود زیاده روی کردید! از رحمت خدا نومید نشوید، یقیناً خدا همه گناهان را می آمرزد؛ زیرا او بسیار آمرزنده و مهربان است؛" },
+  { s:3, a:139, why:"سستی نکن، اندوه مخور", long:true,
+    ar:"وَلَا تَهِنُوا۟ وَلَا تَحْزَنُوا۟ وَأَنتُمُ ٱلْأَعْلَوْنَ إِن كُنتُم مُّؤْمِنِينَ",
+    fa:"و [در انجام فرمان هایِ حق و در جهاد با دشمن] سستی نکنید و [از پیش آمدها و حوادث و سختی هایی که به شما می رسد] اندوهگین مشوید که شما اگر مؤمن باشید، برترید." },
+  { s:2, a:152, why:"یاد خدا، یاد شدن توسط خدا",
+    ar:"فَٱذْكُرُونِىٓ أَذْكُرْكُمْ وَٱشْكُرُوا۟ لِى وَلَا تَكْفُرُونِ",
+    fa:"پس مرا یاد کنید تا شما را یاد کنم و مرا سپاس گزارید و کفران نعمت نکنید." },
+  { s:40, a:60, why:"دعا، کلید اجابت", long:true,
+    ar:"وَقَالَ رَبُّكُمُ ٱدْعُونِىٓ أَسْتَجِبْ لَكُمْ ۚ إِنَّ ٱلَّذِينَ يَسْتَكْبِرُونَ عَنْ عِبَادَتِى سَيَدْخُلُونَ جَهَنَّمَ دَاخِرِينَ",
+    fa:"و پروردگارتان گفت: مرا بخوانید تا شما را اجابت کنم، آنان که از عبادت من تکبّر ورزند، به زودی خوار و رسوا به دوزخ درآیند." },
+  { s:21, a:107, why:"رحمت برای جهانیان",
+    ar:"وَمَآ أَرْسَلْنَٰكَ إِلَّا رَحْمَةًۭ لِّلْعَٰلَمِينَ",
+    fa:"و تو را جز رحمتی برای جهانیان نفرستادیم." },
+  { s:24, a:35, why:"نور آسمان‌ها و زمین — نشان نورستان", long:true,
+    ar:"۞ ٱللَّهُ نُورُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ مَثَلُ نُورِهِۦ كَمِشْكَوٰةٍۢ فِيهَا مِصْبَاحٌ ۖ ٱلْمِصْبَاحُ فِى زُجَاجَةٍ ۖ ٱلزُّجَاجَةُ كَأَنَّهَا كَوْكَبٌۭ دُرِّىٌّۭ يُوقَدُ مِن شَجَرَةٍۢ مُّبَٰرَكَةٍۢ زَيْتُونَةٍۢ لَّا شَرْقِيَّةٍۢ وَلَا غَرْبِيَّةٍۢ يَكَادُ زَيْتُهَا يُضِىٓءُ وَلَوْ لَمْ تَمْسَسْهُ نَارٌۭ ۚ نُّورٌ عَلَىٰ نُورٍۢ ۗ يَهْدِى ٱللَّهُ لِنُورِهِۦ مَن يَشَآءُ ۚ وَيَضْرِبُ ٱللَّهُ ٱلْأَمْثَٰلَ لِلنَّاسِ ۗ وَٱللَّهُ بِكُلِّ شَىْءٍ عَلِيمٌۭ",
+    fa:"خدا نور آسمان ها و زمین است؛ وصف نورش مانند چراغدانی است که در آن، چراغ پر فروغی است، و آن چراغ در میان قندیل بلورینی است، که آن قندیل بلورین گویی ستاره تابانی است، [و آن چراغ] از [روغن] درخت زیتونی پربرکت که نه شرقی است و نه غربی افروخته می شود، [و] روغن آن [از پاکی و صافی] نزدیک است روشنی بدهد گرچه آتشی به آن نرسیده باشد، نوری است بر فراز نوری؛ خدا هر کس را بخواهد به سوی نور خود هدایت می کند، و خدا برای مردم مثل ها می زند [تا حقایق را بفهمند] و خدا به همه چیز داناست." },
+  { s:20, a:114, why:"دعای افزون شدن دانش", long:true,
+    ar:"فَتَعَٰلَى ٱللَّهُ ٱلْمَلِكُ ٱلْحَقُّ ۗ وَلَا تَعْجَلْ بِٱلْقُرْءَانِ مِن قَبْلِ أَن يُقْضَىٰٓ إِلَيْكَ وَحْيُهُۥ ۖ وَقُل رَّبِّ زِدْنِى عِلْمًۭا",
+    fa:"برتر و بلند مرتبه است خدا [یِ یگانه] که فرمانروای هستی و حقّ محض است؛ و پیش از آنکه وحی کردن قرآن بر تو پایان گیرد در خواندنش شتاب مکن، و بگو: پروردگارا! دانش مرا بیفزای." },
+  { s:2, a:186, why:"خدا نزدیک است", long:true,
+    ar:"وَإِذَا سَأَلَكَ عِبَادِى عَنِّى فَإِنِّى قَرِيبٌ ۖ أُجِيبُ دَعْوَةَ ٱلدَّاعِ إِذَا دَعَانِ ۖ فَلْيَسْتَجِيبُوا۟ لِى وَلْيُؤْمِنُوا۟ بِى لَعَلَّهُمْ يَرْشُدُونَ",
+    fa:"هنگامی که بندگانم از تو درباره من بپرسند، [بگو:] یقیناً من نزدیکم، دعای دعا کننده را زمانی که مرا بخواند اجابت می کنم؛ پس باید دعوتم را بپذیرند و به من ایمان آورند، تا [به حقّ و حقیقت] راه یابند [و به مقصد اعلی برسند]." },
+  { s:55, a:13, why:"نعمت‌های پروردگار",
+    ar:"فَبِأَىِّ ءَالَآءِ رَبِّكُمَا تُكَذِّبَانِ",
+    fa:"پس [ای انس و جن!] کدامیک از نعمت های پروردگارتان را انکار می کنید؟" }
+];
+/* DAILY_AYAT_END */
+
+/* ترجمه‌های فارسی — شناسه‌ها از AlQuran Cloud (بررسی‌شده) */
+const TRANSLATIONS = [
+  { id:'fa.ansarian',   name:'انصاریان',      note:'روان و امروزی' },
+  { id:'fa.fooladvand', name:'فولادوند',      note:'نزدیک به متن' },
+  { id:'fa.makarem',    name:'مکارم شیرازی',  note:'تفسیری' },
+  { id:'fa.ghomshei',   name:'الهی قمشه‌ای',  note:'عرفانی' },
+  { id:'fa.khorramshahi', name:'خرمشاهی',     note:'ادبی' },
+  { id:'fa.ayati',      name:'آیتی',          note:'ساده و روشن' }
+];
+
+/* تلاوت‌های برگزیده برای شروع سریع */
+const QPICKS = [
+  { s:1,   a:1, why:'فاتحه — آغاز هر انس با قرآن' },
+  { s:36,  a:1, why:'یس — قلب قرآن' },
+  { s:55,  a:1, why:'الرحمن — عروس قرآن' },
+  { s:67,  a:1, why:'الملک — نجات‌بخش شب' },
+  { s:18,  a:1, why:'الکهف — نور جمعه' },
+  { s:112, a:1, why:'توحید — ثلث قرآن' },
+  { s:59,  a:22, why:'خواتیم حشر — اسماء حسنی' },
+  { s:2,   a:255, why:'آیةالکرسی' }
+];
+
+/* ═══════════════ 6.7 موتور پخش تلاوت ═══════════════ */
+const Recite = {
+  stoppedManually: false,
+  el: null,
+  cur: null,          // { s, a }
+  queue: [],          // آیه‌های بعدی
+  repeatLeft: 0,
+  srcTried: {},       // کدام منبع‌ها برای آیهٔ جاری آزموده شده‌اند
+  state: 'idle',      // idle | loading | playing | paused | error
+  listeners: [],
+  srcIdx: 0,
+  _seekTo: 0,         // ثانیه‌ای که پس از رسیدنِ متادیتا باید برویم سرش
+  _seekTok: 0,        // نشانهٔ نوبتِ جست‌وجو؛ دو تعویضِ پشت‌سرهم را جدا می‌کند
+  _recRevert: null,   // اگر قاریِ تازه فایل نداشت، به این قاری برگرد
+  /* قاریانی که در همین نشست بارگذاری‌شان نشد. «غیرفعال»شان نمی‌کنیم —
+     شبکه ممکن است برگردد — ولی در برگهٔ انتخاب هشدار می‌گیرند. */
+  _bad: new Set(),
+
+  pref(){ return Store.get('quran') || {}; },
+
+  init(){
+    if(this.el) return this.el;
+    const a = new Audio();
+    a.preload = 'none';
+    this.el = a;
+    a.addEventListener('playing', () => {
+      /* بارگذاری شد ⇒ نشانِ خرابیِ این قاری برداشته می‌شود */
+      this._bad.delete(U.clamp(+(this.pref().reciter ?? 0), 0, RECITERS.length - 1));
+      this.set('playing');
+    });
+    a.addEventListener('pause',   () => { if(this.state !== 'idle') this.set('paused'); });
+    a.addEventListener('waiting', () => this.set('loading'));
+    a.addEventListener('ended',   () => this.onEnded());
+    a.addEventListener('error',   () => this.onError());
+    a.addEventListener('timeupdate', () => this.tick());
+    return a;
+  },
+  /* نوارِ پیشرفتِ نوارِ پخش. عمداً سبک است: timeupdate چند بار در ثانیه
+     می‌آید و هر کار سنگین‌تری اینجا پخش را می‌لرزاند. */
+  tick(){
+    const el = this.el;
+    if(!el) return;
+    const fill = U.$('#mqFill');
+    if(fill){
+      const d = el.duration;
+      fill.style.width = (d && isFinite(d) && d > 0 ? U.clamp(el.currentTime / d * 100, 0, 100) : 0) + '%';
+    }
+    const t = U.$('#mqTime');
+    if(t) t.textContent = this.clock(el.currentTime) + (isFinite(el.duration) ? ' / ' + this.clock(el.duration) : '');
+  },
+  clock(sec){
+    if(!isFinite(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    const f = n => (n < 10 ? '0' : '') + n;
+    return f(m) + ':' + f(s);
+  },
+  on(fn){ this.listeners.push(fn); },
+  set(st){
+    this.state = st;
+    this.listeners.forEach(f => { try{ f(this.cur, st); }catch(e){} });
+    QuranUI.syncMini();
+  },
+
+  url(r, s, a, srcIdx){ return QSOURCES[srcIdx].url(r, s, a); },
+
+  reciter(){ return RECITERS[U.clamp(Recite.pref().reciter ?? 0, 0, RECITERS.length - 1)]; },
+
+  /* پخش یک آیه. opts: { source, queue } */
+  play(s, a, opts = {}){
+    this.stoppedManually = false;
+    const q = Store.get('quran');
+    const r = this.reciter();
+    this.cur = { s, a };
+    this.srcTried = {};
+    if(opts.queue) this.queue = opts.queue.slice();
+    if(opts.queue) this.queue = this.queue.filter(x => !(x.s === s && x.a === a));
+    this.repeatLeft = q.repeat > 0 ? q.repeat : 0;
+    this._try(opts.source != null ? opts.source : q.source);
+    Store.update(d => { d.quran.surah = s; d.quran.ayah = a; });
+  },
+  _try(srcIdx){
+    const a = this.init();
+    const q = Store.get('quran');
+    let idx = U.clamp(srcIdx ?? 0, 0, QSOURCES.length - 1);
+    let url = this.url(this.reciter(), this.cur.s, this.cur.a, idx);
+    // منبع دوم برای بعضی قاریان وجود ندارد → سراغ منبع دیگر
+    if(!url){
+      idx = (idx + 1) % QSOURCES.length;
+      url = this.url(this.reciter(), this.cur.s, this.cur.a, idx);
+      if(!url){ this.fail(); return; }
+    }
+    this.srcIdx = idx;
+    this.srcTried[idx] = true;
+    a.volume   = U.clamp(q.vol ?? .9, 0, 1);
+    a.playbackRate = q.speed || 1;
+    a.src = url;
+    this.set('loading');
+    U.$('#qStat').textContent = `منبع: ${QSOURCES[idx].name}`;
+    /* تعویضِ قاری نباید آیه را از سر بگیرد. زمان را *پیش از* بارگذاری
+       نمی‌شود ست کرد (فراخوانیِ بی‌متادیتا بی‌اثر است)، پس تا رسیدنِ
+       متادیتا نگه می‌داریمش. نشانه لازم است وگرنه دو تعویضِ پشت‌سرهم
+       هر دو روی همان متادیتا می‌سوزند و دومی زمانِ کهنه را می‌نشاند. */
+    if(this._seekTo > 0 && a.addEventListener){
+      const want = ++this._seekTok, to = this._seekTo;
+      this._seekTo = 0;
+      a.addEventListener('loadedmetadata', () => {
+        if(want !== this._seekTok) return;
+        try{ a.currentTime = Math.min(to, (a.duration || to)); }catch(e){}
+      }, { once: true });
+    }
+    const p = a.play();
+    if(p && p.catch) p.catch(err => this.playRejected(err));
+  },
+  /* ردِ play() همیشه خرابیِ منبع نیست: سیاستِ پخشِ خودکارِ مرورگر
+     (NotAllowedError) یا قطعِ عمدی (AbortError) را نباید با «منبع خراب»
+     یکی گرفت، وگرنه منبعِ سالم کنار گذاشته می‌شد. */
+  playRejected(err){
+    const n = err && err.name;
+    if(n === 'AbortError') return;
+    if(n === 'NotAllowedError'){
+      this.set('paused');
+      UI.toast('▶️ برای شروعِ تلاوت یک بار دکمهٔ پخش را بزن', '', 3000);
+      return;
+    }
+    this.onError();
+  },
+  onError(){
+    // منبع دیگری را امتحان کن؛ اگر همه شکست خوردند، پیام روشن بده
+    const alt = this.srcTried[0] ? (this.srcTried[1] ? -1 : 1) : 0;
+    if(this.cur && alt >= 0 && this.url(this.reciter(), this.cur.s, this.cur.a, alt)){
+      this._try(alt);
+      return;
+    }
+    this.fail();
+  },
+
+  /* ── تعویضِ قاری بی قطعِ صدا ──
+     تا پیش از این، عوض‌کردنِ قاری آیه را از ثانیهٔ صفر از نو می‌خواند و
+     کاربر جای خودش را گم می‌کرد. حالا همان لحظه حفظ می‌شود و اگر پخش
+     جریان داشته باشد، از همان‌جا با صدای تازه ادامه می‌یابد. */
+  switchTo(i, opts = {}){
+    const idx = U.clamp(Math.floor(+i) || 0, 0, RECITERS.length - 1);
+    const was = U.clamp(Math.floor(+(this.pref().reciter ?? 0)) || 0, 0, RECITERS.length - 1);
+    if(idx === was) return false;
+    const at = this.el ? this.el.currentTime || 0 : 0;
+    const cur = this.cur;
+    const live = !!cur && !!(this.el && this.el.src) && this.state !== 'idle' && this.state !== 'error';
+    Store.update(d => { d.quran.reciter = idx; });
+    /* اگر قاریِ تازه این آیه را نداشته باشد، به همین قاری برمی‌گردیم. */
+    this._recRevert = (opts.noRevert || !live) ? null : was;
+    if(!live) return true;
+    this._seekTo = at;
+    this.play(cur.s, cur.a, { source: this.srcIdx, queue: this.queue });
+    /* play صف را از نو می‌سازد؛ صفِ آیه‌های بعدی باید دست‌نخورده بماند */
+    return true;
+  },
+
+  /* عوض‌کردنِ منبع صدا هم نباید آیه را از سر بگیرد — همان قاعدهٔ قاری. */
+  switchSource(i){
+    const idx = U.clamp(Math.floor(+i) || 0, 0, QSOURCES.length - 1);
+    const at = this.el ? this.el.currentTime || 0 : 0;
+    const cur = this.cur;
+    const live = !!cur && !!(this.el && this.el.src) && this.state !== 'idle' && this.state !== 'error';
+    Store.update(d => d.quran.source = idx);
+    if(!live) return false;
+    this._seekTo = at;
+    this.srcTried = {};
+    this.play(cur.s, cur.a, { source: idx, queue: this.queue });
+    return true;
+  },
+
+  fail(){
+    this._bad.add(U.clamp(+(this.pref().reciter ?? 0), 0, RECITERS.length - 1));
+    /* قاریِ تازه فایل نداشت؟ کاربر نباید بی صدا بماند. */
+    if(this._recRevert != null){
+      const back = this._recRevert;
+      this._recRevert = null;
+      UI.toast(`⚠️ ${RECITERS[U.clamp(Store.get('quran').reciter, 0, RECITERS.length - 1)].short} این آیه را ندارد — به قاری پیشین برگشتیم`, 'err', 3600);
+      if(this.cur){ this.switchTo(back, { noRevert: true }); return; }
+    }
+    this.set('error');
+    UI.toast('⚠️ تلاوت بارگذاری نشد — اینترنت یا منبع صدا را بررسی کن', 'err', 3200);
+    U.$('#qStat').innerHTML = '<b style="color:var(--red)">اتصال به منبع صدا ممکن نشد</b>';
+  },
+  onEnded(){
+    /* شمارنده‌های «۱۰ آیه بشنو» و «یک سوره بخوان» — پیش‌تر هیچ‌جا زیاد
+       نمی‌شدند و این دو مأموریت (و مأموریتِ هفتگیِ خواندن) هرگز پر نمی‌شد. */
+    try{
+      const c = this.cur;
+      if(c){
+        const last = QURAN[c.s - 1] && c.a === QURAN[c.s - 1].count;
+        Store.update(d => {
+          d.stats.listened = (d.stats.listened || 0) + 1;
+          if(last) d.stats.readSurahs = (d.stats.readSurahs || 0) + 1;
+        });
+        if(typeof Missions !== 'undefined') Missions.refresh(true);
+      }
+    }catch(e){}
+    if(this.repeatLeft > 0){ this.repeatLeft--; this.el.currentTime = 0; this.el.play().catch(err => this.playRejected(err)); return; }
+    const next = this.queue.shift();
+    if(next && Store.get('quran').autoNext !== false){ this.play(next.s, next.a, { source: this.srcIdx }); return; }
+    this.set('idle');
+    this.cur = null;
+    QuranUI.renderNow();
+  },
+
+  toggle(){
+    const a = this.init();
+    if(this.state === 'playing' || this.state === 'loading'){ a.pause(); this.set('paused'); return; }
+    if(a.src && this.cur){ a.play().then(() => this.set('playing')).catch(err => this.playRejected(err)); return; }
+    const q = Store.get('quran');
+    this.play(q.surah || 1, q.ayah || 1);
+  },
+  stop(manual = true){ this.stoppedManually = manual; this.init().pause(); try{ this.el.removeAttribute('src'); this.el.load(); }catch(e){} this.queue = []; this.cur = null; this.set('idle'); QuranUI.syncMini(); },
+  step(d){
+    const q = Store.get('quran');
+    const s = this.cur?.s ?? q.surah ?? 1;
+    let a = (this.cur?.a ?? q.ayah ?? 1) + d;
+    const su = QURAN[s - 1];
+    if(a < 1){ if(s > 1){ this.play(s - 1, QURAN[s - 2].count); } return; }
+    if(a > su.count){ if(s < 114) this.play(s + 1, 1); return; }
+    this.play(s, a);
+  },
+  /* پخش یک سورهٔ کامل: صف آیه‌ها ساخته می‌شود */
+  playSurah(s, from = 1){
+    const su = QURAN[s - 1];
+    const queue = [];
+    for(let a = from + 1; a <= su.count; a++) queue.push({ s, a });
+    this.play(s, from, { queue });
+  },
+  applyPrefs(){
+    const q = Store.get('quran');
+    if(this.el){
+      /* تکرار شبانه، صدا را در دقیقه‌های آخر کم می‌کند (۱ = بی‌اثر) */
+      let fade = 1;
+      try{ fade = NightRepeat.fadeFactor(); }catch(e){}
+      this.el.volume = U.clamp((q.vol ?? .9) * fade, 0, 1);
+      this.el.playbackRate = q.speed || 1;
+    }
+  }
+};
+
+/* ═══════════════ 6.8 متن آیه (با حافظهٔ محلی) ═══════════════
+   متن عثمانی + ترجمهٔ فارسی از AlQuran Cloud؛ یک بار گرفته و
+   برای همیشه روی دستگاه می‌ماند تا آفلاین هم خوانده شود.        */
+const QText = {
+  mem: new Map(),
+  base: 'https://api.alquran.cloud/v1/surah',
+  CACHE_MAX: 900 * 1024,          // سقف تقریبی حافظهٔ متن روی دستگاه
+  key: (n, ed) => `noorestan_qtext_${ed}_${n}`,
+  trId(){ return (Store.get('quran') || {}).translation || 'fa.ansarian'; },
+
+  /* «بِسْمِ اللَّهِ…» به ابتدای آیهٔ اولِ بیشتر سوره‌ها چسبیده است.
+     جدا می‌کنیم تا خودش جداگانه و زیبا نشان داده شود. */
+  stripBasmala(text, surah){
+    if(surah === 1) return String(text);
+    const parts = String(text).split(/\s+/);
+    if(parts.length > 4 && /^بِسْمِ$/.test(parts[0])) return parts.slice(4).join(' ');
+    return String(text);
+  },
+
+  async surah(n){
+    const ed = this.trId();
+    const ck = ed + ':' + n;
+    if(this.mem.has(ck)) return this.mem.get(ck);
+    try{
+      const raw = localStorage.getItem(this.key(n, ed));
+      if(raw){ const d = JSON.parse(raw); this.mem.set(ck, d); return d; }
+    }catch(e){}
+    const res = await fetch(`${this.base}/${n}/editions/quran-uthmani,${ed}`);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    const src = j.data && j.data[0], trs = j.data && j.data[1];
+    if(!src || !src.ayahs || !trs || !trs.ayahs) throw new Error('پاسخ نامعتبر');
+    const d = {
+      n, ed,
+      name: String(src.name || '').replace(/^سُورَةُ\s*/, '').trim() || QURAN[n - 1].name,
+      ar: src.ayahs.map(x => this.stripBasmala(x.text, n)),
+      fa: trs.ayahs.map(x => x.text)
+    };
+    this.mem.set(ck, d);
+    try{
+      const payload = JSON.stringify(d);
+      if(payload.length < this.CACHE_MAX) localStorage.setItem(this.key(n, ed), payload);
+    }catch(e){ /* حافظه پر است — فقط در رم می‌ماند */ }
+    return d;
+  },
+  async get(s, a){
+    try{
+      const d = await this.surah(s);
+      return { ar: d.ar[a - 1] || '', fa: d.fa[a - 1] || '', name: d.name };
+    }catch(e){ return null; }
+  },
+  cached(){ try{ return Object.keys(localStorage).filter(k => k.startsWith('noorestan_qtext_')).length; }catch(e){ return 0; } },
+  clear(){
+    try{
+      Object.keys(localStorage).filter(k => k.startsWith('noorestan_qtext_'))
+        .forEach(k => localStorage.removeItem(k));
+    }catch(e){}
+    this.mem.clear();
+  }
+};
+
+/* ═══════════════ 6.9 صفحهٔ تلاوت ═══════════════ */
+const QuranUI = {
+  heroDone: false,
+  picked: null,
+
+  render(){
+    if(!U.$('#qReciters')) return;
+    if(!this.heroDone){
+      U.$('#qHero').innerHTML = Art.panorama() +
+        '<div class="art-cap">🌙 تلاوت قرآن کریم — آیه‌به‌آیه، با متن عثمانی و ترجمهٔ فارسی</div>';
+      this.heroDone = true;
+    }
+    this.renderReciters();
+    this.renderSurahs();
+    this.renderAyahs();
+    this.renderNow();
+    this.renderPicks();
+    U.$('#qRecCount').textContent = U.fa(RECITERS.length) + ' قاری';
+    const search = U.$('#qSearch');
+    if(search && !search.oninput) search.oninput = () => { this.picked = search.value; this.renderSurahs(); };
+    this.renderTools();
+  },
+
+  /* ── ابزارهای تازهٔ نسخهٔ ۱۵: تمرکز، شبانه، تصویر آیه، نشانه ── */
+  renderTools(){
+    const q = Store.get('quran');
+    const cur = Recite.cur || { s: q.surah || 1, a: q.ayah || 1 };
+    const f = U.$('#qFocus');
+    if(f){ U.icLabel(f, 'target', Focus.on() ? 'تمرکز: روشن' : 'تمرکز'); f.classList.toggle('ok', Focus.on());
+      f.onclick = () => Focus.toggle(); }
+    const n = U.$('#qNight');
+    if(n){ U.icLabel(n, 'moon', NightRepeat.on() ? 'شبانه: روشن' : 'شبانه');
+      n.classList.toggle('ok', NightRepeat.on());
+      n.onclick = () => NightRepeat.modal(); }
+    const sh = U.$('#qShare');
+    if(sh) sh.onclick = () => ShareCard.open(cur.s, cur.a);
+    const bm = U.$('#qBm');
+    if(bm){
+      const on = Bookmarks.has(cur.s, cur.a);
+      U.icLabel(bm, 'mark', on ? 'نشانه برداشته شود' : 'نشان کن');
+      bm.classList.toggle('ok', on);
+      bm.onclick = () => Bookmarks.toggle(cur.s, cur.a);
+    }
+    const rp = U.$('#qRecPick');
+    if(rp) rp.onclick = () => ReciterUI.open();
+    const mb = U.$('#qBookmarks');
+    if(mb) mb.onclick = () => Bookmarks.open();
+    const res = U.$('#qResume');
+    if(res) res.innerHTML = Bookmarks.bar();
+    const go = U.$('#bmGo');
+    if(go) go.onclick = () => {
+      const r = Bookmarks.resumeAt();
+      if(!r) return;
+      Store.update(d => { d.quran.surah = r.s; d.quran.ayah = r.a; });
+      Router.go('read'); ReaderUI.open(r.s, r.a);
+      Recite.playSurah(r.s, r.a);
+    };
+  },
+
+  medal(r, size = 46){
+    const h = `hsl(${r.hue} 78% 62%)`, h2 = `hsl(${r.hue} 68% 38%)`;
+    return `<div class="medal" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${h},${h2})">${U.esc(r.short.slice(0, 4))}</div>`;
+  },
+
+  renderReciters(){
+    const q = Store.get('quran');
+    U.$('#qReciters').innerHTML = RECITERS.map((r, i) => `
+      <div class="qcard ${i === q.reciter ? 'on' : ''}" data-rec="${i}">
+        <div style="display:flex;justify-content:center;margin-bottom:6px">${this.medal(r, 40)}</div>
+        <b>${U.esc(r.short)}</b>
+        <small>${U.esc(r.note)}</small>
+      </div>`).join('');
+    U.$$('#qReciters .qcard').forEach(el => el.onclick = () => {
+      const i = +el.dataset.rec;
+      Sound.tick();
+      /* از راهِ switchTo می‌رود تا اگر پخشی در جریان است، از همین لحظه
+         ادامه یابد — نه از ثانیهٔ صفر. */
+      this.pickReciter(i);
+    });
+  },
+
+  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارت‌های صفحه، برگهٔ پایین‌کش. */
+  pickReciter(i){
+    const before = Store.get('quran').reciter;
+    const changed = Recite.switchTo(i);
+    Sound.tick();
+    this.renderReciters();
+    if(!changed){ UI.toast(`🎙 ${RECITERS[i].short} از قبل انتخاب بود`, '', 1400); return; }
+    const same = before === Store.get('quran').reciter;
+    UI.toast(same ? `🎙 ${RECITERS[i].name} انتخاب شد` : `🎙 از همین لحظه با ${RECITERS[i].short}`, 'ok', 1800);
+  },
+
+  /* ── برگهٔ پایین‌کشِ قاری ──
+     هنگامِ پخش باز می‌شود تا کاربر بی ترکِ صفحه قاری را عوض کند. */
+  reciterSheet(){
+    const q = Store.get('quran');
+    const playing = Recite.state === 'playing' || Recite.state === 'loading';
+    const rows = RECITERS.map((r, i) => `
+      <div class="rec-row ${i === q.reciter ? 'on' : ''}" data-rec="${i}"
+           role="button" tabindex="0" aria-label="${U.esc(r.name)}">
+        ${this.medal(r, 36)}
+        <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
+          ${Recite._bad.has(i) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — می‌توانی باز امتحان کنی</small>' : ''}</span>
+        ${i === q.reciter ? '<span class="rk" aria-hidden="true">✓</span>' : ''}
+      </div>`).join('');
+    UI.sheet(`
+      <div class="sheet-grab"></div>
+      <h3 style="margin-bottom:4px">${Icon.of('mic')} انتخاب قاری</h3>
+      <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
+        ${playing ? 'پخش از همین لحظه با صدای تازه ادامه می‌یابد — چیزی از دست نمی‌رود.'
+                  : 'با زدن روی هر قاری، پخش با او آغاز می‌شود.'}</p>
+      <div id="recSheetRows">${rows}</div>
+      <p style="font-size:11px;color:var(--mut);margin-top:10px">
+        🔊 منبع صدا: ${U.esc(QSOURCES[U.clamp(q.source, 0, QSOURCES.length - 1)].label)}</p>
+      <div class="row" style="gap:8px;margin-top:12px">
+        <button class="btn gh" id="recSheetClose">بستن</button>
+      </div>`, box => {
+      const go = el => {
+        const i = +(el.dataset.rec ?? el.getAttribute('data-rec'));
+        UI.closeModal();
+        this.pickReciter(i);
+      };
+      U.$$('#recSheetRows .rec-row').forEach(el => {
+        el.onclick = () => go(el);
+        el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(el); } };
+      });
+      U.$('#recSheetClose').onclick = () => UI.closeModal();
+    });
+  },
+
+  renderSurahs(){
+    const q = Store.get('quran');
+    const term = (this.picked ?? '').trim();
+    const num = +U.fa(term).replace(/[^\d]/g, '') || 0;
+    const list = QURAN.filter(s => !term || s.name.includes(term) ||
+      (num && String(s.n).padStart(3, '0').includes(String(num))));
+    U.$('#qPick').textContent = list.length ? U.fa(list.length) + ' سوره' : 'یافت نشد';
+    U.$('#qSurahs').innerHTML = list.map(s => `
+      <div class="qcard ${s.n === q.surah ? 'on' : ''}" data-s="${s.n}">
+        <b>${U.esc(s.name)}</b>
+        <small>${U.fa(s.count)} آیه</small>
+        <div class="qnum">${U.fa(s.n)}</div>
+      </div>`).join('') || '<div class="empty">سوره‌ای با این نام پیدا نشد</div>';
+    U.$$('#qSurahs .qcard').forEach(el => el.onclick = () => {
+      const s = +el.dataset.s;
+      Store.update(d => { d.quran.surah = s; d.quran.ayah = 1; });
+      Sound.tick();
+      this.renderSurahs(); this.renderAyahs();
+      Recite.playSurah(s, 1);
+      this.renderNow();
+    });
+  },
+
+  renderAyahs(){
+    const q = Store.get('quran');
+    const su = QURAN[U.clamp(q.surah || 1, 1, 114) - 1];
+    U.$('#qAyahInfo').textContent = `${U.esc(su.name)} — ${U.fa(su.count)} آیه`;
+    U.$('#qAyahs').innerHTML = Array.from({ length: su.count }, (_, i) => i + 1).map(a => {
+      const cls = a === q.ayah ? 'on' : (a < (q.ayah || 1) ? 'done' : '');
+      return `<button class="${cls}" data-a="${a}">${U.fa(a)}</button>`;
+    }).join('');
+    U.$$('#qAyahs button').forEach(el => el.onclick = () => {
+      const a = +el.dataset.a;
+      Store.update(d => d.quran.ayah = a);
+      this.renderAyahs();
+      Recite.play(su.n, a);
+      this.renderNow();
+    });
+    const qq = Store.get('quran');
+    U.label(U.$('#qRepeat'), qq.repeat > 0 ? `تکرار آیه: ${U.fa(qq.repeat)}×` : 'تکرار آیه: خاموش');
+    U.$('#qRepeat').classList.toggle('ok', qq.repeat > 0);
+    U.$('#qSpeed').textContent = `⏱ سرعت: ${U.fa(qq.speed === 1 ? '۱' : qq.speed)}×`;
+    U.$('#qSrcToggle').textContent = QSOURCES[qq.source]?.name || '—';
+    U.$('#qVol').value = Math.round((qq.vol ?? .9) * 100);
+    U.$('#qPlayAll').onclick = () => { Recite.playSurah(su.n, Store.get('quran').ayah || 1); this.renderNow(); };
+    U.$('#qRepeat').onclick = () => {
+      Store.update(d => d.quran.repeat = ({ 0:3, 3:5, 5:0 })[d.quran.repeat || 0] ?? 0);
+      this.renderAyahs();
+      UI.toast('🔁 تکرار: ' + (Store.get('quran').repeat || 'خاموش'), 'ok', 1400);
+    };
+    U.$('#qSpeed').onclick = () => {
+      const opts = [1, 1.25, 1.5, .75];
+      const i = (opts.indexOf(Store.get('quran').speed) + 1) % opts.length;
+      Store.update(d => d.quran.speed = opts[i]);
+      Recite.applyPrefs(); this.renderAyahs();
+    };
+    U.$('#qSrcToggle').onclick = () => {
+      const i = ((Store.get('quran').source || 0) + 1) % QSOURCES.length;
+      Store.update(d => d.quran.source = i);
+      this.renderAyahs();
+      UI.toast('🔊 منبع: ' + QSOURCES[i].name, 'ok', 1600);
+      const cur = Recite.cur; if(cur) Recite.play(cur.s, cur.a);
+    };
+    U.$('#qVol').oninput = e => {
+      Store.update(d => d.quran.vol = e.target.value / 100);
+      Recite.applyPrefs();
+    };
+  },
+
+  renderNow(){
+    const q = Store.get('quran');
+    const s = Recite.cur?.s ?? q.surah ?? 1, a = Recite.cur?.a ?? q.ayah ?? 1;
+    const su = QURAN[s - 1], r = Recite.reciter();
+    const st = Recite.state;
+    // اگر همان آیه است، کارت را از نو نساز؛ فقط نشانگرها را تازه کن
+    const key = `${s}:${a}:${q.reciter}`;
+    if(this._nowKey === key && U.$('#qToggle')){
+      U.$('#qToggle').innerHTML = Icon.of(st === 'playing' ? 'pause' : 'play');
+      U.$('#qNowSt').innerHTML = Icon.of(st === 'playing' ? 'volume' : st === 'loading' ? 'clock' : st === 'error' ? 'warn' : 'headphones');
+      U.$('.qwave')?.classList.toggle('pause', st !== 'playing');
+      U.$('#qRetry')?.classList.toggle('on', st === 'error');
+      return;
+    }
+    this._nowKey = key;
+    const bars = Array.from({ length: 24 }, (_, i) =>
+      `<i style="animation-delay:${(i * 0.07).toFixed(2)}s;animation-duration:${(0.8 + (i % 5) * 0.13).toFixed(2)}s"></i>`).join('');
+    U.$('#qNow').innerHTML = `
+      <div class="q-head">
+        ${this.medal(r, 48)}
+        <div style="flex:1;min-width:0">
+          <div class="q-name">سورهٔ ${U.esc(su.name)}</div>
+          <div class="q-meta">آیهٔ ${U.fa(a)} از ${U.fa(su.count)} • ${U.esc(r.name)}</div>
+        </div>
+        <div style="font-size:20px" id="qNowSt">${st === 'playing' ? '🔊' : st === 'loading' ? '⏳' : st === 'error' ? '⚠️' : '🎧'}</div>
+      </div>
+      <div class="q-ar" id="qAr">در حال آوردن متن آیه…</div>
+      <div class="q-tr" id="qTr"></div>
+      <div class="qwave ${st === 'playing' ? '' : 'pause'}">${bars}</div>
+      <div class="qctrls">
+        <button class="qsm" id="qPrev" title="آیهٔ قبل">${Icon.of('prev')}</button>
+        <button class="qbig" id="qToggle" title="پخش/توقف">${Icon.of(st === 'playing' ? 'pause' : 'play')}</button>
+        <button class="qsm" id="qNext" title="آیهٔ بعد">${Icon.of('next')}</button>
+        <button class="qsm ${st === 'error' ? 'on' : ''}" id="qRetry" title="تلاش دوباره">${Icon.of('retry')}</button>
+      </div>`;
+    U.$('#qToggle').onclick = () => { Sound.tick(); Recite.toggle(); };
+    U.$('#qPrev').onclick   = () => Recite.step(-1);
+    U.$('#qNext').onclick   = () => Recite.step(1);
+    U.$('#qRetry').onclick  = () => { Recite.srcTried = {}; Recite._try(Store.get('quran').source); };
+    this.loadText(s, a);
+  },
+
+  async loadText(s, a){
+    const ar = U.$('#qAr'), tr = U.$('#qTr');
+    if(!ar) return;
+    const my = `${s}:${a}`;
+    this._want = my;
+    const t = await QText.get(s, a);
+    if(this._want !== my || !U.$('#qAr')) return;   // کاربر آیه را عوض کرده
+    if(t && t.ar){
+      ar.textContent = t.ar;
+      tr.textContent = t.fa || '';
+    } else {
+      ar.innerHTML = '<span style="font-size:14px;color:var(--mut)">متن آیه به اینترنت نیاز دارد — ولی صوت پخش می‌شود</span>';
+      tr.textContent = '';
+    }
+  },
+
+  renderPicks(){
+    U.$('#qPicks').innerHTML = QPICKS.map(p => {
+      const su = QURAN[p.s - 1];
+      return `<div class="qcard" style="text-align:right;display:flex;align-items:center;gap:10px;margin-bottom:8px"
+                   data-p="${p.s}:${p.a}">
+        <div class="medal" style="width:38px;height:38px;background:linear-gradient(135deg,hsl(${su.n * 3 % 360} 78% 62%),hsl(${su.n * 3 % 360} 68% 38%))">${U.fa(p.s)}</div>
+        <div style="flex:1;min-width:0">
+          <b>${U.esc(su.name)} — آیهٔ ${U.fa(p.a)}</b>
+          <small style="display:block">${U.esc(p.why)}</small>
+        </div>
+        <span style="color:var(--gold)">${Icon.of('play')}</span>
+      </div>`;
+    }).join('');
+    U.$$('#qPicks .qcard').forEach(el => el.onclick = () => {
+      const [s, a] = el.dataset.p.split(':').map(Number);
+      Store.update(d => { d.quran.surah = s; d.quran.ayah = a; });
+      this.renderSurahs(); this.renderAyahs();
+      Recite.playSurah(s, a);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.renderNow();
+    });
+  },
+
+  /* نوار پخش کوچک، بالای نوار پایین */
+  syncMini(){
+    const bar = U.$('#miniQ'); if(!bar) return;
+    const c = Recite.cur;
+    const on = !!c && Recite.state !== 'idle';
+    bar.classList.toggle('on', on);
+    Install.place();
+    if(!on) return;
+    const su = QURAN[c.s - 1], r = Recite.reciter();
+    U.$('#mqArt').innerHTML = this.medal(r, 34);
+    U.$('#mqRecName').textContent = r.short;
+    U.$('#mqTitle').textContent = `${su.name} • آیهٔ ${U.fa(c.a)}`;
+    const how = Recite.state === 'playing' ? 'در حال پخش'
+              : Recite.state === 'loading' ? 'بارگذاری…'
+              : Recite.state === 'error' ? 'خطا در پخش' : 'آمادهٔ پخش';
+    const el = Recite.el;
+    const dur = el && isFinite(el.duration) && el.duration > 0 ? ' • ' + Recite.clock(el.currentTime || 0) + ' / ' + Recite.clock(el.duration) : '';
+    U.$('#mqSub').textContent = how + dur;
+    U.$('#mqPlay').innerHTML = Icon.of(Recite.state === 'playing' ? 'pause' : 'play');
+    Recite.tick();          // نوارِ پیشرفت بعد از هر تغییرِ وضعیت تازه شود
+    if(!U.$('#mqPlay').onclick){
+      U.$('#mqPlay').onclick = () => Recite.toggle();
+      U.$('#mqPrev').onclick = () => Recite.step(-1);
+      U.$('#mqNext').onclick = () => Recite.step(1);
+      U.$('#mqStop').onclick = () => { Recite.stop(); UI.toast('🎧 بسته شد', '', 1200); };
+    }
+    /* قاری از نوارِ پخش عوض می‌شود: بی ترکِ صفحه و بی قطعِ صدا. */
+    const rb = U.$('#mqRec');
+    if(rb && !rb.onclick) rb.onclick = () => this.reciterSheet();
+    Install.place();
+  }
+};
+Recite.on(() => QuranUI.renderNow());
+
+/* ═══════════════ 6.10.۵ مصحف‌نما — خواندن آیه‌به‌آیه ═══════════════
+   متن هر سوره یک بار از AlQuran Cloud گرفته و روی دستگاه می‌ماند؛
+   بار دوم حتی بدون اینترنت هم باز می‌شود.                              */
+const ReaderUI = {
+  s: 1, a: 1, data: null, loading: false, err: '', hi: -1, built: false,
+
+  pref(){ return Store.get('quran') || {}; },
+  size(){ return U.clamp(+this.pref().readSize || 25, 16, 54); },
+  showFa(){ return this.pref().showFa !== false; },
+
+  /* اندازه و اندازهٔ خط فونت را روی متغیرهای CSS می‌نشاند */
+  paint(){
+    const st = document.documentElement.style;
+    st.setProperty('--read-size', this.size() + 'px');
+    const l = U.$('#readSizeLbl'); if(l) l.textContent = U.fa(this.size()) + 'px';
+    const b = U.$('#readToggleFa');
+    if(b) b.textContent = this.showFa() ? '🇮🇷 ترجمه: روشن' : '🇮🇷 ترجمه: خاموش';
+  },
+
+  open(s, a){
+    const q = Store.get('quran');
+    this.s = U.clamp(+s || q.surah || 1, 1, 114);
+    this.a = U.clamp(+a || q.ayah || 1, 1, QURAN[this.s - 1].count);
+    if(Router.stack[Router.stack.length - 1] !== 'read') Router.go('read');
+    else this.render(true);
+  },
+
+  async render(force){
+    if(!U.$('#readBody')) return;
+    this.paint();
+    const s = this.s, meta = QURAN[s - 1];
+    const t = U.$('#readTitle'), sub = U.$('#readSub');
+    if(t) U.icLabel(t, 'book-open', `سورهٔ ${meta.name}`);
+    if(sub) sub.textContent = `سورهٔ ${U.fa(s)} • ${U.fa(meta.count)} آیه • ترجمهٔ ${this.trName()}`;
+
+    if(this.data && this.data.n === s && !force){ this.paintRow(); return; }
+    this.loading = true; this.err = '';
+    U.$('#readBody').innerHTML = '<div class="card" style="text-align:center;color:var(--mut)">⏳ در حال آوردن متن سوره…</div>';
+    let d = null;
+    const seq = this._seq = (this._seq || 0) + 1;
+    try{ d = await QText.surah(s); }catch(e){ d = null; }
+    /* اگر در این فاصله سورهٔ دیگری باز شده، پاسخِ کهنه را دور بریز؛ وگرنه
+       متنِ سورهٔ قبلی زیرِ عنوانِ سورهٔ تازه می‌نشست. */
+    if(seq !== this._seq || s !== this.s) return;
+    this.loading = false;
+    if(!d){
+      this.data = null;
+      U.$('#readBody').innerHTML = `<div class="card" style="text-align:center">
+        <p style="color:var(--mut);font-size:13px;line-height:2">
+          متن این سوره نیامد. برای بار نخست به اینترنت نیاز است — ولی صوت قاریان از بخش
+          «🎧 تلاوت» پخش می‌شود.</p>
+        <button class="btn gh sm" id="readRetry" style="margin-top:10px">${Icon.of('refresh')} تلاش دوباره</button></div>`;
+      const r = U.$('#readRetry'); if(r) r.onclick = () => this.render(true);
+      return;
+    }
+    this.data = d;
+    const rows = d.ar.map((ar, i) => {
+      const n = i + 1;
+      return `<div class="read-ayah" data-a="${n}">
+        <div class="read-num">${U.fa(n)}</div>
+        <div class="read-ar">${U.esc(ar)}</div>
+        ${this.showFa() && d.fa[i] ? `<div class="read-fa">${U.esc(d.fa[i])}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    let bism = '';
+    if(s !== 1 && s !== 9) bism = '<div class="bism">﷽</div>';
+
+    U.$('#readBody').innerHTML = `${bism}
+      <div class="read-card" id="readRows">${rows}</div>
+      ${Art.ornament(Art.gold)}
+      <div class="card" style="text-align:center;font-size:12px;color:var(--mut)">
+        ﴿ ${U.esc(meta.name)} ﴾ — ${U.fa(meta.count)} آیه • ترجمه: ${U.esc(this.trName())}
+      </div>`;
+
+    U.$$('#readRows .read-ayah').forEach(el => el.onclick = () => this.tap(+el.dataset.a));
+    this.paintRow();
+    /* اگر آیهٔ نشانه‌شده خیلی پایین است، آرام به آن برو */
+    const first = U.$(`#readRows .read-ayah[data-a="${this.a}"]`);
+    if(first && first.scrollIntoView) try{ first.scrollIntoView({ block: 'center' }); }catch(e){}
+    this.built = true;
+  },
+
+  trName(){
+    const id = QText.trId();
+    const t = TRANSLATIONS.find(x => x.id === id);
+    return t ? t.name : id;
+  },
+
+  /* فقط کلاسِ آیهٔ جاری را جابه‌جا می‌کند — نه بازسازی کل صفحه */
+  paintRow(){
+    if(!U.$('#readRows')) return;
+    U.$$('#readRows .read-ayah').forEach(el => el.classList.toggle('on', +el.dataset.a === this.hi));
+  },
+
+  tap(a){
+    this.a = a;
+    const q = Store.get('quran');
+    Store.update(d => { d.quran.surah = this.s; d.quran.ayah = a; d.quran.readAt = Date.now(); });
+    Sound.click();
+    const c = Recite.cur;
+    if(c && c.s === this.s && c.a === a && Recite.state === 'playing'){ Recite.toggle(); return; }
+    this.hi = a; this.paintRow();
+    Recite.playSurah(this.s, a);
+  },
+
+  /* با هر تغییر وضعیت پخش، آیهٔ روشن را هم‌گام کن */
+  sync(){
+    if(!this.built) return;
+    const c = Recite.cur;
+    const h = (c && c.s === this.s && Recite.state !== 'idle') ? c.a : -1;
+    if(h === this.hi) return;
+    this.hi = h;
+    if(h > 0 && h !== this.a) this.a = h;
+    this.paintRow();
+  },
+
+  step(dt){
+    const s = U.clamp(this.s + dt, 1, 114);
+    this.open(s, 1);
+  },
+
+  setSize(dt){
+    const n = U.clamp(this.size() + dt, 16, 54);
+    Store.update(d => d.quran.readSize = n);
+    this.paint();
+    Sound.tick();
+  },
+
+  toggleFa(){
+    const v = !this.showFa();
+    Store.update(d => d.quran.showFa = v);
+    this.render(true);
+    UI.toast(v ? '🇮🇷 ترجمه روشن شد' : 'ترجمه پنهان شد', 'ok', 1200);
+  },
+
+  copyAyah(a){
+    const d = this.data; if(!d) return;
+    const txt = `${d.ar[a - 1]}\n\n${d.fa[a - 1] || ''}\n\n— ${QURAN[this.s - 1].name}، آیهٔ ${a}`;
+    return txt;
+  },
+
+  /* زمانی که کاربر ترجمه یا فونت را عوض می‌کند، متن باید از نو خوانده شود */
+  reset(){ this.data = null; this.built = false; this.hi = -1; }
+};
+Recite.on(() => ReaderUI.sync());
+
+/* ═══════════════ 6.10.۶ آیهٔ روز ═══════════════
+   بی‌نیاز به اینترنت: متن از پیش در خود برنامه ذخیره شده و
+   انتخاب آیه با تاریخ روز تعیین می‌شود، پس در همهٔ دستگاه‌ها یکی است. */
+const Daily = {
+  idx(){
+    const d = new Date();
+    const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    /* هستهٔ ساده و قطعی — نه تصادفی */
+    let x = seed % 2147483647; if(x <= 0) x += 2147483646;
+    x = (x * 16807) % 2147483647;
+    return x % DAILY_AYAT.length;
+  },
+  cur(){ return DAILY_AYAT[this.idx()]; },
+
+  render(){
+    const box = U.$('#daily'); if(!box) return;
+    const it = this.cur(), su = QURAN[it.s - 1];
+    box.innerHTML = `
+      <div class="daily">
+        <button class="iconbtn playb" id="dayPlay" title="شنیدن این آیه">${Icon.of('play')}</button>
+        <div class="daily-tag">${Icon.of('moon')} آیهٔ امروز</div>
+        <div class="daily-ayah-ar ${it.long ? 'long' : ''}">${U.esc(it.ar)}</div>
+        <div class="daily-fa">${U.esc(it.fa)}</div>
+        <div class="ref">${U.esc(su.name)} — آیهٔ ${U.fa(it.a)} • ${U.esc(it.why)}</div>
+        <div class="ayah-actions">
+          <button class="ayah-action" id="dayRead">${Icon.of('book-open', 18)}<span>خواندن سوره</span></button>
+          <button class="ayah-action" id="dayCopy">${Icon.of('copy', 18)}<span>کپی آیه</span></button>
+        </div>
+      </div>`;
+    U.$('#dayPlay').onclick = e => {
+      e.stopPropagation();
+      Store.update(d => { d.quran.surah = it.s; d.quran.ayah = it.a; });
+      Recite.playSurah(it.s, it.a);
+    };
+    U.$('#dayRead').onclick = () => ReaderUI.open(it.s, it.a);
+    U.$('#dayCopy').onclick = async () => {
+      const ok = await copyText(`${it.ar}\n\n${it.fa}\n\n— ${su.name}، آیهٔ ${it.a}`);
+      UI.toast(ok ? '📋 رونوشت شد' : 'رونوشت نشد', ok ? 'ok' : 'err');
+    };
+  }
+};
+
+/* ═══════════════ 6.10.۷ گزینش سوره و فونت ═══════════════ */
+function pickSurah(onPick){
+  const rows = QURAN.map(s => `
+    <div class="qcard" data-s="${s.n}" style="text-align:right;display:flex;align-items:center;gap:10px">
+      <div class="medal" style="width:36px;height:36px;background:linear-gradient(135deg,hsl(${s.n * 3 % 360} 78% 62%),hsl(${s.n * 3 % 360} 68% 38%))">${U.fa(s.n)}</div>
+      <div style="flex:1;min-width:0"><b>${U.esc(s.name)}</b>
+        <small style="display:block">${U.fa(s.count)} آیه</small></div>
+    </div>`).join('');
+  UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('book-open')} گزینش سوره</h3>
+    <input class="inp" id="psSearch" placeholder="نام یا شمارهٔ سوره…" style="margin-bottom:10px">
+    <div class="qgrid" id="psList" style="max-height:52vh;overflow:auto">${rows}</div>`, box => {
+    const list = U.$('#psList', box);
+    const bind = () => U.$$('.qcard', list).forEach(el => el.onclick = () => {
+      UI.closeModal(); onPick(+el.dataset.s);
+    });
+    bind();
+    U.$('#psSearch', box).oninput = e => {
+      const q = U.norm(e.target.value.trim());
+      U.$$('.qcard', list).forEach(el => {
+        const s = QURAN[+el.dataset.s - 1];
+        const hit = !q || U.norm(s.name).includes(q) || String(s.n) === String(q) ||
+                    U.norm(s.name).replace(/^ال/, '').includes(q);
+        el.style.display = hit ? '' : 'none';
+      });
+    };
+  });
+}
+
+function openFontPicker(role){
+  const cur = Store.get('fonts')[role];
+  const title = role === 'quran' ? '✒️ فونت متن قرآن' : '🖋 فونت نمایشی (تیترها و نام نورستان)';
+  const demo = role === 'quran' ? 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ' : 'نورستان';
+  const note = role === 'quran'
+    ? 'برای خواندن طولانی، نسخِ درشت‌تر (لطیف یا شهرزاد) چشم را کمتر خسته می‌کند.'
+    : 'نستعلیق برای تیتر و نام زیباست؛ برای متن‌های ریز و پرشمار، فونت‌های «خوانا» بهترند.';
+  const rows = Fonts.grouped(role).map(g => `
+    <div class="fgroup">${U.esc(g.group)}</div>
+    ${g.keys.map(k => {
+      const f = FONTS[k];
+      const cls = f.nast ? 'fdemo nast' : (f.group === 'تیتری' ? 'fdemo kufi' : 'fdemo');
+      return `<div class="fpick ${k === cur ? 'on' : ''}" data-f="${k}">
+        <div class="fname"><b>${U.esc(f.name)}</b><small>${U.esc(f.note || '')}</small></div>
+        <div class="${cls}" style="font-family:${Fonts.family(k)},sans-serif;font-weight:${f.w || 400}">${U.esc(demo)}</div>
+        <span class="tick">✓</span>
+      </div>`;
+    }).join('')}`).join('');
+
+  /* پیش‌نمایشِ هر خط با «همان» قلم نوشته شده، ولی تا خودِ آن قلم نیامده
+     مرورگر جانشین را می‌کشد: همهٔ خط‌ها یک‌شکل می‌شوند و انتخاب بی‌معنا.
+     پیش‌تر فقط قلمِ انتخاب‌شده بار می‌شد، پس پیش‌نمایشِ بقیه همیشه دروغ
+     بود. حالا با باز شدنِ گزینشگر، همهٔ قلم‌های این نقش بار می‌شوند و
+     آن‌که نیامد، خودش را «بارگیری نشد» نشان می‌دهد. */
+  const keys = Fonts.grouped(role).flatMap(g => g.keys);
+
+  UI.modal(`<h3 style="margin-bottom:10px">${title}</h3>
+    <div class="fpicks" id="fpList" style="max-height:56vh;overflow:auto;padding-left:2px">${rows}</div>
+    <p style="font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.9">
+      ${note}<br>
+      فونت‌ها با تنبلی از jsDelivr بار می‌شوند؛ بار نخست به اینترنت نیاز دارد و بعد روی دستگاه می‌ماند.
+      هر خط نمونه با همان فونت واقعی نوشته شده است.</p>`, box => {
+    keys.forEach(k => {
+      if(FONTS[k].css || FONTS[k].faces)
+        Fonts.load(k).then(f => {
+          if(!f){
+            const el = U.$('.fpick[data-f="' + k + '"]', box);
+            if(el) el.classList.add('miss');
+          }
+        });
+    });
+    U.$$('.fpick', box).forEach(el => el.onclick = () => {
+      const k = el.dataset.f;
+      Store.update(d => { d.fonts[role] = k; });
+      Fonts.apply(Store.get('fonts'));
+      ReaderUI.reset();
+      const top = Router.stack[Router.stack.length - 1];
+      if(top === 'read') ReaderUI.render(true);
+      if(top === 'quran') QuranUI.render();
+      UI.closeModal();
+      UI.toast('🖋 ' + FONTS[k].name + ' اعمال شد', 'ok', 1500);
+    });
+  });
+}
+
+/* ═══════════════ 6.10 پردهٔ آغازین ═══════════════ */
+const Splash = {
+  timer: null, noteTimer: null, n: 0, hidden: false, pct: 0,
+  NOTES: [
+    '<b>﴿ وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ وَرَحْمَةٌ لِلْمُؤْمِنِينَ ﴾</b>',
+    'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+    '«خَیرُکُم مَن تَعَلَّمَ القُرآنَ و عَلَّمَهُ» — پیامبر اکرم ﷺ',
+    '<b>نورستان</b> — جای بازی، اندیشه و انس با قرآن',
+    'قرآن ۱۱۴ سوره، ۶۲۳۶ آیه و ۳۰ جزء دارد',
+    'هر حرف قرآن صد حسنه است — دریغ نکن 🌿'
+  ],
+  WHAT: ['آماده‌سازی خانه…', 'خواندن رکوردها…', 'چیدن بازی‌ها…', 'روشن کردن چراغ‌ها…', 'خوش آمدی 🌙'],
+
+  init(){
+    const el = U.$('#splash');
+    if(!el) return;
+    try{
+      const tile = Art.asBg(Art.patternTile('#f5c451', 60));
+      U.$('#spPat').style.backgroundImage = tile;
+      U.$('#bgArt').style.backgroundImage = tile;
+      U.$('#spArt').innerHTML = Art.mushaf();
+    }catch(e){ console.warn('splash art', e); }
+
+    let stars = '';
+    for(let i = 0; i < 52; i++){
+      const sz = (1 + Math.random() * 1.8).toFixed(1);
+      stars += `<i style="left:${(Math.random() * 100).toFixed(2)}%;top:${(Math.random() * 100).toFixed(2)}%;
+        width:${sz}px;height:${sz}px;animation-delay:${(Math.random() * 3.4).toFixed(2)}s"></i>`;
+    }
+    U.$('#spStars').innerHTML = stars;
+
+    /* ذرات بوم + غبار طلایی */
+    try{ FX.canvas(U.$('#spDust'), { count: 46, speed: .3, link: 84 }); }
+    catch(e){ console.warn('splash dust', e); }
+
+    /* ورود پله‌ای: هر بخش پرده با تأخیر کوچک می‌آید */
+    try{
+      ['.sp-basmala', '.sp-title', '.sp-latin', '.sp-sub', '.sp-roles',
+       '.sp-bar', '.sp-meta', '.sp-note', '.sp-skip'].forEach((sel, i) => {
+        const n = U.$(sel, el); if(!n || !n.animate || FX.reduced) return;
+        n.animate([{ opacity:0, transform:'translateY(14px)' }, { opacity:1, transform:'none' }],
+          { duration:520, delay:120 + i * 90, easing:'cubic-bezier(.22,.9,.3,1)', fill:'backwards' });
+      });
+      const st = U.$('#spArt', el);
+      if(st && st.animate && !FX.reduced){
+        st.animate([{ opacity:0, transform:'translateY(26px) scale(.92)' }, { opacity:1, transform:'none' }],
+          { duration:1100, delay:80, easing:'cubic-bezier(.2,.8,.25,1)', fill:'backwards' });
+      }
+    }catch(e){}
+
+    this.parallax(el);
+
+    this.showNote();
+    this.noteTimer = setInterval(() => this.showNote(), 2700);
+    U.$('#spSkip').onclick = () => this.hide(true);
+
+    const t0 = U.now();
+    this.timer = setInterval(() => {
+      const dt = U.now() - t0;
+      const ready = document.readyState === 'complete';
+      let p = Math.min(97, dt / 24);
+      if(ready && dt > 900) p = Math.min(99, p + 12);
+      this.set(p);
+      if((p >= 97 && dt > 1800) || dt > 5200) this.hide(false);
+    }, 70);
+  },
+
+  /* پارالاکس با نشانگر و ژیروسکوپ — لایه‌های پرده کم و نرم جابه‌جا می‌شوند */
+  parallax(){
+    if(FX.reduced || this._par) return; this._par = true;
+    const L = [['#spL1', 10], ['#spL2', -16], ['#spL3', -26]];
+    let tx = 0, ty = 0, cx = 0, cy = 0;
+    const apply = () => {
+      cx += (tx - cx) * .12; cy += (ty - cy) * .12;
+      L.forEach(([sel, k]) => {
+        const n = U.$(sel); if(!n) return;
+        n.style.transform = `translate3d(${(cx * k).toFixed(2)}px,${(cy * k).toFixed(2)}px,0)`;
+      });
+      if(Math.abs(tx - cx) > .01 || Math.abs(ty - cy) > .01) FX.raf(apply);
+    };
+    const kick = () => { if(!this._run) { this._run = true; FX.raf(apply); } else FX.raf(apply); };
+    window.addEventListener('pointermove', e => {
+      const w = window.innerWidth || 360, h = window.innerHeight || 640;
+      tx = ((e.clientX || 0) / w - .5) * 2; ty = ((e.clientY || 0) / h - .5) * 2;
+      kick();
+    }, { passive:true });
+    window.addEventListener('deviceorientation', e => {
+      if(e.gamma == null && e.beta == null) return;
+      tx = U.clamp((e.gamma || 0) / 26, -1, 1); ty = U.clamp(((e.beta || 0) - 45) / 30, -1, 1);
+      kick();
+    }, { passive:true });
+  },
+  set(p){
+    this.pct = p;
+    U.$('#spFill').style.width = p + '%';
+    U.$('#spPct').textContent = U.fa(Math.round(p)) + '٪';
+    const i = Math.min(this.WHAT.length - 1, Math.floor(p / (100 / this.WHAT.length)));
+    U.$('#spWhat').textContent = this.WHAT[i];
+  },
+  showNote(){
+    const el = U.$('#spNote'); if(!el) return;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.innerHTML = this.NOTES[this.n % this.NOTES.length];
+      this.n++;
+      el.style.opacity = '1';
+    }, 240);
+  },
+  hide(byUser){
+    if(this.hidden) return;
+    this.hidden = true;
+    clearInterval(this.timer); clearInterval(this.noteTimer);
+    this.set(100);
+    const el = U.$('#splash');
+    if(!el) return;
+    /* خروج: پرده (curtain) یا عنبیه (iris) — تصادفی برای تنوع */
+    const mode = (U.now() % 2) ? 'out-iris' : 'out-curtain';
+    el.classList.add(mode);
+    setTimeout(() => { el.classList.add('out'); }, 520);
+    setTimeout(() => {
+      try{ (FX._canvases || []).forEach(c => { try{ c.stop(); }catch(e){} }); }catch(e){}
+      try{ el.remove(); }catch(e){ el.style.display = 'none'; }
+    }, 1400);
+    if(byUser) UI.toast('🌙 به نورستان خوش آمدی', 'ok', 2200);
+    /* تازه‌وارد باید *پس از* کنار رفتن پرده بیاید، نه پشتش. پرده z-index
+       9999 دارد؛ صبر می‌کنیم تا انیمیشن خروجش تمام شود.
+
+       صفحهٔ ورود پیش از راهنمای آغاز می‌آید: راهنمای آغاز دربارهٔ *خودِ
+       برنامه* است و اگر کاربر هنوز تصمیم نگرفته، روی صفحهٔ ورود می‌افتد و
+       هیچ‌کدام دیده نمی‌شوند. */
+    setTimeout(() => {
+      let opened = false;
+      try{ opened = Gate.maybe(); }catch(e){ console.warn('gate', e); }
+      if(!opened){ try{ Onboarding.maybe(); }catch(e){ console.warn('onb', e); } }
+    }, 1500);
+  }
+};
+
+
+/* ─────────────────── 7. DATA (محتوا) ─────────────────── */
+const DATA = {
+  surah: [
+    {surah:'نصر',    n:110, a:1, before:'إِذَا جَاءَ نَصْرُ اللَّهِ',      ans:'وَالْفَتْحُ',  wrong:['وَالنَّصْرُ','وَالْفَلَقُ','وَالْخُسْرُ'],              tr:'هنگامی که یاری خدا و پیروزی فرا رسد'},
+    {surah:'اخلاص',  n:112, a:1, before:'قُلْ هُوَ اللَّهُ',               ans:'أَحَدٌ',       wrong:['الصَّمَدُ','الْوَالِدُ','الْمَوْلُودُ'],                tr:'بگو او خدای یکتاست'},
+    {surah:'فلق',    n:113, a:2, before:'مِنْ شَرِّ',                      ans:'مَا خَلَقَ',   wrong:['الْفَلَقِ','الْغَاسِقِ','النَّفَّاثَاتِ'],              tr:'از شر آنچه آفریده'},
+    {surah:'ناس',    n:114, a:6, before:'مِنَ الْجِنَّةِ',                 ans:'وَالنَّاسِ',   wrong:['الْوَسْوَاسِ','الْخَنَّاسِ','الْجِنَّةِ'],              tr:'از شر جن و انس'},
+    {surah:'عصر',    n:103, a:2, before:'إِنَّ',                           ans:'الْإِنْسَانَ', after:'لَفِى خُسْرٍ', wrong:['الْعَصْرِ','الَّذِينَ آمَنُوا','الْخُسْرِ'],          tr:'همانا انسان در زیان است'},
+    {surah:'کوثر',   n:108, a:1, before:'إِنَّا أَعْطَيْنَاكَ',            ans:'الْكَوْثَرَ',  wrong:['الْخَيْرَ','الْحَوْضَ','الْيَتِيمَ'],                  tr:'ما به تو خیر کثیر دادیم'},
+    {surah:'فاتحه',  n:1,   a:2, before:'الْحَمْدُ لِلَّهِ رَبِّ',          ans:'الْعَالَمِينَ',wrong:['الْمُؤْمِنِينَ','الْآخِرَةِ','الْكَوْنِ'],            tr:'ستایش مخصوص خداوند پروردگار جهانیان است'},
+    {surah:'قدر',    n:97,  a:1, before:'إِنَّا أَنْزَلْنَاهُ فِي لَيْلَةِ', ans:'الْقَدْرِ',   wrong:['الْجُمُعَةِ','الْبَرَكَةِ','النُّورِ'],                tr:'ما آن را در شب قدر نازل کردیم'},
+    {surah:'کافرون', n:109, a:1, before:'قُلْ يَا أَيُّهَا',                ans:'الْكَافِرُونَ',wrong:['الْمُنَافِقُونَ','النَّاسُ','الْمُشْرِكُونَ'],        tr:'بگو ای کافران'},
+    {surah:'زلزله',  n:99,  a:1, before:'إِذَا زُلْزِلَتِ الْأَرْضُ',       ans:'زِلْزَالَهَا', wrong:['زَلْزَلَتَهَا','حَمْلَهَا','أَثْقَالَهَا'],           tr:'هنگامی که زمین به شدت لرزانده شود'},
+    {surah:'تکاثر',  n:102, a:1, before:'أَلْهَاكُمُ',                     ans:'التَّكَاثُرُ', wrong:['الْمَالُ','التِّجَارَةُ','الْأَوْلَادُ'],             tr:'شما را افزون‌خواهی غافل کرد'},
+    {surah:'ماعون',  n:107, a:1, before:'أَرَأَيْتَ الَّذِي يُكَذِّبُ',      ans:'بِالدِّينِ',   wrong:['بِالْكِتَابِ','بِالرَّسُولِ','بِالْيَتِيمِ'],           tr:'آیا دیدی آن کس که دین را دروغ می‌شمارد؟'},
+
+    /* ── آیه‌های نامدار — همان‌ها که در منبر و مناجات می‌شنویم ── */
+    {surah:'احزاب',  n:33,  a:33, level:'آیهٔ تطهیر',
+     before:'إِنَّمَا يُرِيدُ ٱللَّهُ لِيُذْهِبَ عَنكُمُ ٱلرِّجْسَ', ans:'أَهْلَ ٱلْبَيْتِ',
+     after:'وَيُطَهِّرَكُمْ تَطْهِيرًۭا',
+     wrong:['أَهْلَ ٱلْكِتَٰبِ','أَهْلَ ٱلْمَدِينَةِ','ٱلْمُؤْمِنِينَ'],
+     tr:'همانا خدا می‌خواهد پلیدی را از شما خاندان [پیامبر] بزداید و پاکتان گرداند',
+     src:'قرآن ۳۳:۳۳ — آیهٔ تطهیر'},
+    {surah:'مائده',  n:5,   a:55, level:'آیهٔ ولایت',
+     before:'إِنَّمَا وَلِيُّكُمُ ٱللَّهُ وَرَسُولُهُۥ وَٱلَّذِينَ آمَنُوا', ans:'ٱلَّذِينَ يُقِيمُونَ ٱلصَّلَوٰةَ وَيُؤْتُونَ ٱلزَّكَوٰةَ وَهُمْ رَٰكِعُونَ',
+     wrong:['ٱلَّذِينَ يَصُومُونَ وَيُصَلُّونَ وَيَحُجُّونَ ٱلْبَيْتَ','ٱلَّذِينَ يُؤْمِنُونَ بِٱللَّهِ وَٱلْيَوْمِ ٱلْآخِرِ وَيَعْمَلُونَ ٱلصَّٰلِحَٰتِ','ٱلَّذِينَ يُنفِقُونَ أَمْوَٰلَهُمْ فِى ٱلسَّرَّآءِ وَٱلضَّرَّآءِ'],
+     tr:'سرپرست شما تنها خدا و پیامبر او و مؤمنانی هستند که نماز می‌خوانند و در حال رکوع زکات می‌دهند',
+     src:'قرآن ۵:۵۵ — آیهٔ ولایت'},
+    {surah:'مائده',  n:5,   a:67, level:'آیهٔ تبلیغ',
+     before:'يَٰٓأَيُّهَا ٱلرَّسُولُ', ans:'بَلِّغْ مَآ أُنزِلَ إِلَيْكَ مِن رَّبِّكَ',
+     after:'وَإِن لَّمْ تَفْعَلْ فَمَا بَلَّغْتَ رِسَالَتَهُۥ ۚ وَٱللَّهُ يَعْصِمُكَ مِنَ ٱلنَّاسِ ۗ إِنَّ ٱللَّهَ لَا يَهْدِى ٱلْقَوْمَ ٱلْكَٰفِرِينَ',
+     wrong:['قُلْ هَٰذِهِۦ سَبِيلِى أَدْعُوٓا۟ إِلَى ٱللَّهِ','قُمْ فَأَنذِرْ وَرَبَّكَ فَكَبِّرْ','ٱدْعُ إِلَىٰ سَبِيلِ رَبِّكَ بِٱلْحِكْمَةِ'],
+     tr:'ای پیامبر! آنچه از پروردگارت بر تو نازل شده برسان',
+     src:'قرآن ۵:۶۷ — آیهٔ تبلیغ'},
+    {surah:'مائده',  n:5,   a:3,  level:'آیهٔ اکمال',
+     before:'ٱلْيَوْمَ', ans:'أَكْمَلْتُ لَكُمْ دِينَكُمْ',
+     after:'وَأَتْمَمْتُ عَلَيْكُمْ نِعْمَتِى وَرَضِيتُ لَكُمُ ٱلْإِسْلَٰمَ دِينًۭا ۚ فَمَنِ ٱضْطُرَّ فِى مَخْمَصَةٍ غَيْرَ مُتَجَانِفٍۢ لِّإِثْمٍۢ ۙ فَإِنَّ ٱللَّهَ غَفُورٌۭ رَّحِيمٌۭ',
+     wrong:['أَتْمَمْتُ عَلَيْكُمْ نِعْمَتِى','حُرِّمَتْ عَلَيْكُمُ ٱلْمَيْتَةُ','يَئِسَ ٱلَّذِينَ كَفَرُوا۟'],
+     tr:'امروز دین شما را برایتان کامل کردم',
+     src:'قرآن ۵:۳ — آیهٔ اکمال'},
+    {surah:'آل عمران', n:3,   a:61, level:'آیهٔ مباهله',
+     before:'فَقُلْ تَعَالَوْا۟ نَدْعُ', ans:'أَبْنَآءَنَا وَأَبْنَآءَكُمْ',
+     after:'وَنِسَآءَنَا وَنِسَآءَكُمْ وَأَنفُسَنَا وَأَنفُسَكُمْ ثُمَّ نَبْتَهِلْ فَنَجْعَل لَّعْنَتَ ٱللَّهِ عَلَى ٱلْكَٰذِبِينَ',
+     wrong:['أَزْوَٰجَنَا وَأَزْوَٰجَكُمْ','إِخْوَٰنَنَا وَإِخْوَٰنَكُمْ','أَمْوَٰلَنَا وَأَمْوَٰلَكُمْ'],
+     tr:'بگو بیایید پسرانمان و پسرانتان را بخوانیم…',
+     src:'قرآن ۳:۶۱ — آیهٔ مباهله'},
+    {surah:'نساء', n:4, a:59, level:'آیهٔ اولی‌الامر',
+     before:'يَٰٓأَيُّهَا ٱلَّذِينَ آمَنُوٓا۟ أَطِيعُوا۟ ٱللَّهَ وَأَطِيعُوا۟ ٱلرَّسُولَ', ans:'وَأُو۟لِى ٱلْأَمْرِ مِنكُمْ',
+     after:'فَإِن تَنَٰزَعْتُمْ فِى شَىْءٍۢ فَرُدُّوهُ إِلَى ٱللَّهِ وَٱلرَّسُولِ إِن كُنتُمْ تُؤْمِنُونَ بِٱللَّهِ وَٱلْيَوْمِ ٱلْءَاخِرِ ۚ ذَٰلِكَ خَيْرٌۭ وَأَحْسَنُ تَأْوِيلًا',
+     wrong:['وَأُو۟لِى ٱلْقُرْبَىٰ وَٱلْيَتَٰمَىٰ','وَٱلْوَٰلِدَيْنِ وَٱلْأَقْرَبِينَ','وَلَا تُطِيعُوا۟ ٱلْمُنَٰفِقِينَ'],
+     tr:'ای مؤمنان! خدا را اطاعت کنید و پیامبر و صاحبان فرمان از خودتان را',
+     src:'قرآن ۴:۵۹ — آیهٔ اولی‌الامر'},
+    {surah:'نور',    n:24,  a:35, level:'آیهٔ نور',
+     before:'ٱللَّهُ نُورُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ مَثَلُ نُورِهِۦ', ans:'كَمِشْكَوٰةٍ فِيهَا مِصْبَاحٌ',
+     after:'ٱلْمِصْبَاحُ فِى زُجَاجَةٍ ۖ ٱلزُّجَاجَةُ كَأَنَّهَا كَوْكَبٌۭ دُرِّىٌّۭ يُوقَدُ مِن شَجَرَةٍۢ مُّبَٰرَكَةٍۢ زَيْتُونَةٍۢ لَّا شَرْقِيَّةٍۢ وَلَا غَرْبِيَّةٍۢ يَكَادُ زَيْتُهَا يُضِىٓءُ وَلَوْ لَمْ تَمْسَسْهُ نَارٌۭ ۚ نُّورٌ عَلَىٰ نُورٍۢ ۗ يَهْدِى ٱللَّهُ لِنُورِهِۦ مَن يَشَآءُ ۚ وَيَضْرِبُ ٱللَّهُ ٱلْأَمْثَٰلَ لِلنَّاسِ ۗ وَٱللَّهُ بِكُلِّ شَىْءٍ عَلِيمٌۭ',
+     wrong:['كَنَجْمٍ فِى ٱلسَّمَآءِ','كَشَجَرَةٍ مُّبَٰرَكَةٍ','كَبَحْرٍ لَا يُدْرَكُ قَعْرُهُ'],
+     tr:'خدا نور آسمان‌ها و زمین است؛ وصف نورش مانند چراغدانی است که در آن چراغی پر فروغ است',
+     src:'قرآن ۲۴:۳۵ — آیهٔ نور'},
+    {surah:'بقره',   n:2,   a:255, level:'آیةالکرسی',
+     before:'ٱللَّهُ لَآ إِلَٰهَ إِلَّا هُوَ', ans:'ٱلْحَىُّ ٱلْقَيُّومُ',
+     after:'لَا تَأْخُذُهُۥ سِنَةٌۭ وَلَا نَوْمٌۭ ۚ لَّهُۥ مَا فِى ٱلسَّمَٰوَٰتِ وَمَا فِى ٱلْأَرْضِ ۗ مَن ذَا ٱلَّذِى يَشْفَعُ عِندَهُۥٓ إِلَّا بِإِذْنِهِۦ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَىْءٍۢ مِّنْ عِلْمِهِۦٓ إِلَّا بِمَا شَآءَ ۚ وَسِعَ كُرْسِيُّهُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضَ ۖ وَلَا يَـُٔودُهُۥ حِفْظُهُمَا ۚ وَهُوَ ٱلْعَلِىُّ ٱلْعَظِيمُ',
+     wrong:['ٱلرَّحْمَٰنُ ٱلرَّحِيمُ','ٱلْغَفُورُ ٱلرَّحِيمُ','ٱلْعَزِيزُ ٱلْحَكِيمُ'],
+     tr:'خدا که جز او خدایی نیست، زندهٔ پایدار است',
+     src:'قرآن ۲:۲۵۵ — آیةالکرسی'},
+    {surah:'حشر',    n:59,  a:22, level:'خواتیم حشر',
+     before:'هُوَ ٱللَّهُ ٱلَّذِى لَآ إِلَٰهَ إِلَّا هُوَ ۖ', ans:'عَٰلِمُ ٱلْغَيْبِ وَٱلشَّهَٰدَةِ',
+     after:'هُوَ ٱلرَّحْمَٰنُ ٱلرَّحِيمُ',
+     wrong:['ٱلْمَلِكُ ٱلْقُدُّوسُ','ٱلْعَزِيزُ ٱلْحَكِيمُ','ٱلْخَٰلِقُ ٱلْبَارِئُ'],
+     tr:'او خدایی است که جز او خدایی نیست، دانای نهان و آشکار',
+     src:'قرآن ۵۹:۲۲ — خواتیم سورهٔ حشر'},
+    {surah:'علق',    n:96,  a:1,  level:'نخستین وحی',
+     before:'ٱقْرَأْ بِٱسْمِ رَبِّكَ ٱلَّذِى خَلَقَ ۝ خَلَقَ ٱلْإِنسَٰنَ', ans:'مِنْ عَلَقٍ',
+     wrong:['مِن طِينٍ','مِن نُّطْفَةٍ','مِن تُرَٰبٍ'],
+     tr:'بخوان به نام پروردگارت که آفرید؛ همان که انسان را از خون بسته آفرید',
+     src:'قرآن ۹۶:۱–۲ — نخستین آیات نازل‌شده'},
+    {surah:'آل عمران', n:3,   a:103, level:'ریسمان خدا',
+     before:'وَٱعْتَصِمُوا۟', ans:'بِحَبْلِ ٱللَّهِ جَمِيعًا وَلَا تَفَرَّقُوا۟',
+     after:'وَٱذْكُرُوا۟ نِعْمَتَ ٱللَّهِ عَلَيْكُمْ إِذْ كُنتُمْ أَعْدَآءًۭ فَأَلَّفَ بَيْنَ قُلُوبِكُمْ فَأَصْبَحْتُم بِنِعْمَتِهِۦٓ إِخْوَٰنًۭا وَكُنتُمْ عَلَىٰ شَفَا حُفْرَةٍۢ مِّنَ ٱلنَّارِ فَأَنقَذَكُم مِّنْهَا ۗ كَذَٰلِكَ يُبَيِّنُ ٱللَّهُ لَكُمْ ءَايَٰتِهِۦ لَعَلَّكُمْ تَهْتَدُونَ',
+     wrong:['بِٱلْعُرْوَةِ ٱلْوُثْقَىٰ لَا ٱنفِصَامَ لَهَا','بِٱلْكِتَٰبِ وَٱلْحِكْمَةِ وَٱلْمَوْعِظَةِ','بِٱلْإِيمَٰنِ وَٱلصَّبْرِ وَٱلصَّلَوٰةِ'],
+     tr:'و همگی به ریسمان خدا چنگ زنید و پراکنده نشوید',
+     src:'قرآن ۳:۱۰۳'},
+    {surah:'بقره',    n:2,   a:152, level:'یاد و سپاس',
+     before:'فَٱذْكُرُونِىٓ', ans:'أَذْكُرْكُمْ',
+     after:'وَٱشْكُرُوا۟ لِى وَلَا تَكْفُرُونِ',
+     wrong:['أَغْفِرْ لَكُمْ','أَسْتَجِبْ لَكُمْ','أَرْحَمْكُمْ'],
+     tr:'پس مرا یاد کنید تا شما را یاد کنم',
+     src:'قرآن ۲:۱۵۲'}
+  ],
+  quiz: [
+    {q:'چند سوره در قرآن کریم است؟', o:['۱۱۴','۱۱۰','۱۲۰','۱۰۰'], a:'۱۱۴', d:1,
+     why:'قرآن ۱۱۴ سوره دارد؛ ۸۶ سوره مکی و ۲۸ سوره مدنی.', src:'علوم قرآنی'},
+    {q:'چرا سورهٔ «یس» را «قلب قرآن» می‌نامند؟', o:['برای جایگاه ویژه‌اش در معارف توحیدی','چون کوتاه‌ترین سوره است','چون اول نازل شده','چون سجده دارد'], a:'برای جایگاه ویژه‌اش در معارف توحیدی', d:2,
+     why:'در روایات، سورهٔ یس «قلب قرآن» خوانده شده؛ محور آن توحید، نبوت و معاد است و در مجالس برای مردگان خوانده می‌شود.',
+     src:'روایات اسلامی — تفسیر نورالثقلین'},
+    {q:'کوتاه‌ترین سورهٔ قرآن کدام است؟', o:['الکوثر','الاخلاص','الناس','الفلق'], a:'الکوثر', d:1,
+     why:'سورهٔ کوثر سه آیه و ده کلمه است — کوتاه‌ترین سورهٔ قرآن.', src:'علوم قرآنی'},
+    {q:'چرا سورهٔ فاتحه «امّ‌الکتاب» خوانده می‌شود؟', o:['چون عصارهٔ معارف قرآن در آن است','چون اول نازل شده','چون بلندترین سوره است','چون در مدینه نازل شده'], a:'چون عصارهٔ معارف قرآن در آن است', d:2,
+     why:'«امّ» یعنی مادر و اصل؛ چون توحید، نبوت، معاد و هدایت — جان‌مایهٔ قرآن — در هفت آیهٔ فاتحه جمع شده است.',
+     src:'علوم قرآنی — المیزان'},
+    {q:'بلندترین سورهٔ قرآن با چند آیه کدام است؟', o:['البقره — ۲۸۶ آیه','آل‌عمران — ۲۰۰ آیه','النساء — ۱۷۶ آیه','المائده — ۱۲۰ آیه'], a:'البقره — ۲۸۶ آیه', d:2,
+     why:'سورهٔ بقره با ۲۸۶ آیه بلندترین سورهٔ قرآن است و آیةالکرسی (آیهٔ ۲۵۵) در آن قرار دارد.',
+     src:'علوم قرآنی'},
+    {q:'قرآن به چند جزء تقسیم شده است؟', o:['۳۰','۲۰','۴۰','۶۰'], a:'۳۰', d:1,
+     why:'۳۰ جزء، هر جزء ۲۰ حزب و هر حزب ۴ ربع — تقسیمی برای تلاوت روزانه.', src:'علوم قرآنی'},
+    {q:'نخستین آیاتی که بر پیامبر ﷺ نازل شد از کدام سوره بود؟', o:['علق','الفاتحه','الناس','الفلق'], a:'علق', d:1,
+     why:'پنج آیهٔ آغاز سورهٔ علق در غار حرا نازل شد و با فرمان «اقْرَأْ» — بخوان — آغاز شد.', src:'قرآن ۹۶:۱-۵'},
+    {q:'قرآن در کدام شب نازل شد؟', o:['شب قدر','شب معراج','شب برات','شب جمعه'], a:'شب قدر', d:1,
+     why:'«إِنَّا أَنزَلْنَاهُ فِي لَيْلَةِ الْقَدْرِ» — قرآن یک‌جا در شب قدر بر آسمان نازل شد و سپس تدریجی نازل گشت.',
+     src:'قرآن ۹۷:۱'},
+    {q:'نام چند پیامبر در قرآن آمده است؟', o:['۲۵','۱۲','۴۰','۷'], a:'۲۵', d:2,
+     why:'نام ۲۵ پیامبر در قرآن آمده؛ آدم، نوح، ابراهیم، موسی، عیسی و محمد ﷺ در شمار آنانند.',
+     src:'علوم قرآنی'},
+    {q:'تنها سوره‌ای که نام یک زن بر خود دارد کدام است؟', o:['مریم','خدیجه','زهرا','آسیه'], a:'مریم', d:1,
+     why:'سورهٔ نوزدهم قرآن «مریم» است — تنها سوره‌ای که نام یک بانو بر آن نهاده شده.', src:'قرآن، سورهٔ ۱۹'},
+    {q:'سورهٔ «نحل» به نام کدام جانور است؟', o:['زنبور عسل','مورچه','عنکبوت','شتر'], a:'زنبور عسل', d:1,
+     why:'«نحل» یعنی زنبور عسل؛ سورهٔ ۱۶ قرآن و مکی است.', src:'قرآن، سورهٔ ۱۶'},
+    {q:'«سبع المثانی» لقب کدام سوره است؟', o:['الفاتحه','البقره','یس','الاخلاص'], a:'الفاتحه', d:2,
+     why:'«سبع» یعنی هفت و «مثانی» یعنی دوباره‌خوانده‌شده؛ فاتحه هفت آیه دارد و در هر نماز دو بار خوانده می‌شود.',
+     src:'قرآن ۱۵:۸۷ — علوم قرآنی'},
+    {q:'کدام سوره با «تَبَارَكَ» آغاز می‌شود؟', o:['الملک','الفرقان','المؤمنون','نوح'], a:'الملک', d:2,
+     why:'سورهٔ ملک با «تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ» شروع می‌شود؛ در روایات، خواندنش شب‌ها سفارش شده است.',
+     src:'قرآن ۶۷:۱'},
+    {q:'قرآن در چند سال بر پیامبر ﷺ نازل شد؟', o:['۲۳','۱۳','۴۰','۱۰'], a:'۲۳', d:1,
+     why:'۱۳ سال در مکه و ۱۰ سال در مدینه — روی‌هم ۲۳ سال نزول تدریجی.', src:'علوم قرآنی'},
+    {q:'کدام سوره «عروس قرآن» لقب گرفته است؟', o:['الرحمن','یس','الکهف','النور'], a:'الرحمن', d:2,
+     why:'سورهٔ الرحمن را «عروس قرآن» می‌خوانند؛ آهنگ تکرار «فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ» سی‌ویک بار در آن طنین دارد.',
+     src:'روایات اسلامی — تفسیر'},
+    {q:'نخستین آیهٔ نازل‌شده چه فرمانی داشت؟', o:['خواندن','نماز','روزه','جهاد'], a:'خواندن', d:1,
+     why:'«اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ» — نخستین فرمان الهی، خواندن به نام پروردگار بود.',
+     src:'قرآن ۹۶:۱'},
+    {q:'چند سوره با «قُلْ» آغاز می‌شود؟', o:['۵','۳','۷','۲'], a:'۵', d:3,
+     why:'پنج سوره با «قُلْ» شروع می‌شود: کافرون، اخلاص، فلق، ناس و جن.', src:'علوم قرآنی'},
+    {q:'کدام سوره‌ها سجدهٔ واجب دارند؟', o:['السجده، فصلت، النجم، العلق','العلق، مریم، الکهف، یاسین','السجده، یاسین، ص، ق','النجم، الانشقاق، العلق، الرعد'], a:'السجده، فصلت، النجم، العلق', d:3,
+     why:'چهار سورهٔ «عزائم» سجدهٔ واجب دارند: السجده، فصلت، النجم و العلق. در سورهٔ العلق، آخرین آیه (۱۹) آیهٔ سجده است.',
+     src:'فقه جعفری — توضیح‌المسائل'},
+    {q:'کدام سوره به «توحید» شهرت دارد؟', o:['الاخلاص','الکوثر','الناس','الفلق'], a:'الاخلاص', d:1,
+     why:'سورهٔ اخلاص پاسخ فشردهٔ پرسش از حقیقت خداست: «قُلْ هُوَ اللَّهُ أَحَدٌ».', src:'قرآن، سورهٔ ۱۱۲'},
+    {q:'سورهٔ بقره چند آیه دارد؟', o:['۲۸۶','۲۲۰','۳۰۰','۱۷۶'], a:'۲۸۶', d:2,
+     why:'۲۸۶ آیه — بلندترین سورهٔ قرآن. سورهٔ نساء با ۱۷۶ آیه پس از آن در گزینه‌ها آمده است.',
+     src:'علوم قرآنی'},
+    {q:'قرآن در کدام ماه نازل شد؟', o:['رمضان','محرم','رجب','شعبان'], a:'رمضان', d:1,
+     why:'«شَهْرُ رَمَضَانَ الَّذِي أُنزِلَ فِيهِ الْقُرْآنُ» — ماه رمضان، ماه نزول قرآن و ماه روزه است.',
+     src:'قرآن ۲:۱۸۵'},
+    {q:'«آیةالکرسی» در کدام سوره و کدام شماره است؟', o:['البقره — آیهٔ ۲۵۵','آل‌عمران — آیهٔ ۲','النساء — آیهٔ ۱','الأنعام — آیهٔ ۵۹'], a:'البقره — آیهٔ ۲۵۵', d:2,
+     why:'آیةالکرسی آیهٔ ۲۵۵ سورهٔ بقره است؛ از پیامبر ﷺ نقل شده که خواندنش نگهبان شب است.',
+     src:'قرآن ۲:۲۵۵'},
+    {q:'کدام پرنده خبر ملکهٔ سبأ را برای سلیمان ﷺ آورد؟', o:['هدهد','کبوتر','عقاب','طاووس'], a:'هدهد', d:2,
+     why:'«وَتَفَقَّدَ الطَّيْرَ فَقَالَ مَا لِيَ لَا أَرَى الْهُدْهُدَ» — سلیمان هدهد را جست و او خبر سبأ را آورد.',
+     src:'قرآن ۲۷:۲۰ (سورهٔ نمل)'},
+    {q:'ترتیب سوره‌های قرآن چگونه تعیین شده است؟', o:['به دستور پیامبر ﷺ (توقیفی)','به ترتیب نزول','بر اساس الفبای نام‌ها','بر اساس شمارهٔ نزول'], a:'به دستور پیامبر ﷺ (توقیفی)', d:2,
+     why:'ترتیب سوره‌ها «توقیفی» است؛ یعنی خود پیامبر ﷺ جای هر سوره را تعیین کردند و اجتهادی نیست.',
+     src:'علوم قرآنی — الاتقان'},
+    {q:'در آیهٔ تطهیر، خداوند پلیدی را از چه کسانی می‌زداید؟', o:['اهل بیت پیامبر ﷺ','همهٔ مؤمنان','مهاجران','انصار'], a:'اهل بیت پیامبر ﷺ', d:2,
+     why:'«إِنَّمَا يُرِيدُ اللَّهُ لِيُذْهِبَ عَنكُمُ الرِّجْسَ أَهْلَ الْبَيْتِ وَيُطَهِّرَكُمْ تَطْهِيرًا» — به تصریح روایات فریقین، دربارهٔ پنج تن آل عبا نازل شده است.',
+     src:'قرآن ۳۳:۳۳ — حدیث کساء'},
+    {q:'آیهٔ «إِنَّمَا وَلِيُّكُمُ اللَّهُ وَرَسُولُهُ...» به کدام مناسبت نازل شد؟', o:['امامت علی (ع) در حال رکوعِ نماز','فتح مکه','صلح حدیبیه','غزوهٔ بدر'], a:'امامت علی (ع) در حال رکوعِ نماز', d:3,
+     why:'این آیه که با «وَهُمْ رَاكِعُونَ» پایان می‌یابد، «آیهٔ ولایت» است و دربارهٔ علی بن ابی‌طالب (ع) هنگام بخشیدن انگشتر در رکوع نازل شد.',
+     src:'قرآن ۵:۵۵ — المیزان'},
+    {q:'حدیث «مَنْ كُنْتُ مَوْلَاهُ فَهَذَا عَلِيٌّ مَوْلَاهُ» در کجا فرموده شد؟', o:['غدیر خم','کربلا','مسجد النبی','حنین'], a:'غدیر خم', d:2,
+     why:'در بازگشت از حجةالوداع، در غدیر خم پیامبر ﷺ دست علی (ع) را برافراشت و این سخن را فرمود — «حدیث غدیر».',
+     src:'حدیث غدیر — خطبهٔ غدیر'},
+    {q:'در حدیث ثقلین، پیامبر ﷺ کنار قرآن چه چیزی را به‌جا گذاشت؟', o:['اهل بیت خود','اصحاب خود','سنت قریش','مسجد النبی'], a:'اهل بیت خود', d:2,
+     why:'«إِنِّي تَارِكٌ فِيكُمُ الثَّقَلَيْنِ: كِتَابَ اللَّهِ وَعِتْرَتِي أَهْلَ بَيْتِي» — این حدیث در منابع شیعه و سنی نقل شده است.',
+     src:'حدیث ثقلین — صحیح مسلم و منابع شیعه'},
+    {q:'چرا حضرت فاطمه (س) «کوثر» خوانده می‌شود؟', o:['چون سورهٔ کوثر در شأن او نازل شد','چون در مکّه زاده شد','چون دختر پیامبر است','چون همسر علی (ع) است'], a:'چون سورهٔ کوثر در شأن او نازل شد', d:2,
+     why:'سورهٔ کوثر در پاسخ به کسی نازل شد که پیامبر ﷺ را بی‌نسل می‌خواند؛ «کوثر» یعنی خیر فراوان و مصداق والای آن فاطمه (س) است.',
+     src:'قرآن ۱۰۸ — تفسیر المیزان'},
+    {q:'سورهٔ «الإنسان» (هل أتى) در روایات دربارهٔ چه کسانی است؟', o:['اهل بیت پیامبر ﷺ','مهاجران','انصار','اهل کتاب'], a:'اهل بیت پیامبر ﷺ', d:3,
+     why:'در روایات شیعه و سنی، آیات نخست سورهٔ انسان دربارهٔ علی و فاطمه و حسن و حسین (ع) است که سه روز افطارشان را به مسکین و یتیم و اسیر دادند.',
+     src:'قرآن ۷۶:۵-۹ — تفسیر'},
+    {q:'آیهٔ مباهله میان پیامبر ﷺ و مسیحیان نجران، همراهان پیامبر چه کسانی بودند؟', o:['علی، فاطمه، حسن و حسین (ع)','ابوبکر و عمر','مهاجران و انصار','تنها پیامبر ﷺ'], a:'علی، فاطمه، حسن و حسین (ع)', d:3,
+     why:'در آیهٔ مباهله (آل‌عمران ۶۱)، «أَبْنَاءَنَا وَنِسَاءَنَا وَأَنفُسَنَا» به حسن و حسین، فاطمه و علی (ع) تفسیر شده است.',
+     src:'قرآن ۳:۶۱ — حدیث مباهله'}
+  ],
+  meaning: [
+    {q:'معنی «اللَّهُ» چیست؟', o:['خدا','پیامبر','فرشته','قرآن'], a:'خدا', d:1,
+     why:'«اللَّهُ» نام ذات مقدس خداوند است؛ «لا إله إلا الله» یعنی هیچ معبودی جز خدا نیست.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «رَحْمَة» چیست؟', o:['رحمت','عذاب','نعمت','هدایت'], a:'رحمت', d:1,
+     why:'از ریشهٔ «ر-ح-م»؛ هر سورهٔ قرآن (جز توبه) با «بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ» آغاز می‌شود.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «صَلَاة» چیست؟', o:['نماز','روزه','زکات','حج'], a:'نماز', d:1,
+     why:'«صَلَاة» در قرآن به معنای نماز است و «أَقِيمُوا الصَّلَاةَ» پرتکرارترین فرمان قرآنی است.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «صَبْر» چیست؟', o:['شکیبایی','شکر','توکل','تقوا'], a:'شکیبایی', d:1,
+     why:'«إِنَّ اللَّهَ مَعَ الصَّابِرِينَ» — خدا با شکیبایان است.', src:'قرآن ۲:۱۵۳'},
+    {q:'معنی «نُور» چیست؟', o:['روشنایی','تاریکی','آتش','باد'], a:'روشنایی', d:1,
+     why:'در «اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ» خداوند نور آسمان‌ها و زمین خوانده شده است.', src:'قرآن ۲۴:۳۵'},
+    {q:'معنی «عِلْم» چیست؟', o:['دانش','نادانی','کردار','گفتار'], a:'دانش', d:1,
+     why:'«هَلْ يَسْتَوِي الَّذِينَ يَعْلَمُونَ وَالَّذِينَ لَا يَعْلَمُونَ» — دانایان و نادانان یکسان نیستند.', src:'قرآن ۳۹:۹'},
+    {q:'معنی «قَلْب» چیست؟', o:['دل','چشم','دست','پا'], a:'دل', d:1,
+     why:'در قرآن دل کانون ایمان و اندیشه است: «أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ».', src:'قرآن ۱۳:۲۸'},
+    {q:'معنی «سَمَاء» چیست؟', o:['آسمان','زمین','دریا','کوه'], a:'آسمان', d:1,
+     why:'«سَمَاء» به معنای آسمان و در جایی نیز به معنای باران آمده است.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «مَاء» چیست؟', o:['آب','آتش','خاک','هوا'], a:'آب', d:1,
+     why:'«وَجَعَلْنَا مِنَ الْمَاءِ كُلَّ شَيْءٍ حَيٍّ» — هر چیز زنده‌ای را از آب پدید آوردیم.', src:'قرآن ۲۱:۳۰'},
+    {q:'معنی «أَرْض» چیست؟', o:['زمین','آسمان','کوه','دشت'], a:'زمین', d:1,
+     why:'در «وَإِلَيْهِ تُرْجَعُونَ» زمین و آسمان هر دو از نشانه‌های خدا شمرده شده‌اند.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «لَيْل» چیست؟', o:['شب','روز','سپیده','غروب'], a:'شب', d:1,
+     why:'«وَاللَّيْلِ إِذَا يَغْشَى» — خداوند به شب سوگند یاد کرده است.', src:'قرآن ۹۲:۱'},
+    {q:'معنی «كِتَاب» چیست؟', o:['کتاب','قلم','لوح','نامه'], a:'کتاب', d:1,
+     why:'در قرآن «الْكِتَاب» بیشتر به قرآن و کتاب‌های آسمانی پیشین اشاره دارد.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «رَسُول» چیست؟', o:['فرستادهٔ خدا','فرشته','امام','خلیفه'], a:'فرستادهٔ خدا', d:1,
+     why:'«رَسُول» از «ر-س-ل» یعنی فرستادن؛ پیامبری که با پیام و کتاب الهی فرستاده شده است.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «إِيمَان» چیست؟', o:['باور قلبی','انکار','تردید','دانش'], a:'باور قلبی', d:1,
+     why:'ایمان باور قلبی، اقرار زبانی و عمل به ارکان است — نه تنها دانستن.', src:'معارف اسلامی'},
+    {q:'معنی «شُكْر» چیست؟', o:['سپاسگزاری','فراموشی','شکیبایی','ترس'], a:'سپاسگزاری', d:1,
+     why:'«وَاشْكُرُوا لِي وَلَا تَكْفُرُونِ» — سپاسگزاری در قرآن در برابر کفران نعمت آمده است.', src:'قرآن ۲:۱۵۲'},
+    {q:'معنی «عَدْل» چیست؟', o:['دادگری','ستم','بخشش','قدرت'], a:'دادگری', d:1,
+     why:'«إِنَّ اللَّهَ يَأْمُرُ بِالْعَدْلِ وَالْإِحْسَانِ» — خدا به دادگری و نیکوکاری فرمان می‌دهد.', src:'قرآن ۱۶:۹۰'},
+    {q:'معنی «حِكْمَة» چیست؟', o:['فرزانگی','دانش','قدرت','مال'], a:'فرزانگی', d:2,
+     why:'حکمت، دانش همراه با درک درست و عمل است؛ «وَمَن يُؤْتَ الْحِكْمَةَ فَقَدْ أُوتِيَ خَيْرًا كَثِيرًا».',
+     src:'قرآن ۲:۲۶۹'},
+    {q:'معنی «يَقِين» چیست؟', o:['باور استوار','گمان','شک','تردید'], a:'باور استوار', d:2,
+     why:'یقین بالاترین درجهٔ معرفت است؛ قرآن آن را در برابر گمان و شک می‌نشاند.', src:'واژه‌نامهٔ قرآن'},
+    {q:'معنی «أَمِير» چیست؟', o:['فرمانده','سرباز','وزیر','قاضی'], a:'فرمانده', d:1,
+     why:'«أمیر» یعنی فرمانده و پیشوا؛ «أمیرالمؤمنین» لقب امام علی (ع) است.', src:'واژه‌نامهٔ عربی'},
+    {q:'معنی «سَلَام» چیست؟', o:['آرامش','جنگ','ترس','درد'], a:'آرامش', d:1,
+     why:'«سَلَامٌ هِيَ حَتَّى مَطْلَعِ الْفَجْرِ» — شب قدر سراسر آرامش است.', src:'قرآن ۹۷:۵'},
+    {q:'معنی «وَلَايَة» در کاربرد قرآنی‌اش چیست؟', o:['سرپرستی و پیشوایی','دوستی ساده','مالکیت','فرمانبرداری از سلطان'], a:'سرپرستی و پیشوایی', d:3,
+     why:'«إِنَّمَا وَلِيُّكُمُ اللَّهُ وَرَسُولُهُ» — ولایت یعنی سرپرستی و رهبری امور، نه فقط دوستی.',
+     src:'قرآن ۵:۵۵ — المیزان'},
+    {q:'معنی «تَقْوَى» چیست؟', o:['پرهیزگاری و خودنگهداری','ترس از مردم','زهد در مال','پرهیز از خوردن'], a:'پرهیزگاری و خودنگهداری', d:2,
+     why:'«إِنَّ أَكْرَمَكُمْ عِندَ اللَّهِ أَتْقَاكُمْ» — معیار برتری نزد خدا، تقوا است.',
+     src:'قرآن ۴۹:۱۳'},
+    {q:'معنی «خُمُس» در فقه چیست؟', o:['یک‌پنجم درآمد مازاد سالانه','یک‌دهم محصول کشاورزی','مالیات بر زمین','هزینهٔ حج'], a:'یک‌پنجم درآمد مازاد سالانه', d:2,
+     why:'خمس یعنی یک‌پنجم درآمد و سود سالانه؛ نیم آن سهم سادات و نیم دیگر سهم امام (ع) است.',
+     src:'فقه جعفری — قرآن ۸:۴۱'},
+    {q:'معنی «زَكَاة» چیست؟', o:['مالی واجب بر دارایی','مالی مستحب','هزینهٔ سفر','نذر'], a:'مالی واجب بر دارایی', d:2,
+     why:'زکات از ارکان فروع دین است و بر نُه چیز — از جمله گندم، جو، خرما، طلا و نقره — واجب می‌شود.',
+     src:'فقه جعفری — قرآن ۹:۱۰۳'}
+  ],
+  iran: [
+    {c:'تاریخ',   q:'پایتخت هخامنشیان؟', o:['تخت جمشید','شوش','همدان','پاسارگاد'], a:'تخت جمشید', d:1,
+     why:'تخت جمشید (پارسه) آیین‌شهر هخامنشیان بود؛ شوش و همدان پایتخت‌های دیگر و پاسارگاد آرامگاه کوروش است.',
+     src:'تاریخ ایران باستان'},
+    {c:'تاریخ',   q:'کوروش بنیان‌گذار کدام سلسله است؟', o:['هخامنشیان','ساسانیان','اشکانیان','صفویان'], a:'هخامنشیان', d:1,
+     why:'کوروش بزرگ هخامنشیان را بنیان نهاد و منشور او نخستین سند شناختهٔ حقوق بشر خوانده می‌شود.',
+     src:'تاریخ ایران باستان'},
+    {c:'تاریخ',   q:'کدام پادشاه ساسانی «انوشیروان» خوانده می‌شود؟', o:['خسرو اول','اردشیر اول','شاپور اول','یزدگرد سوم'], a:'خسرو اول', d:2,
+     why:'خسرو اول لقب «انوشیروان دادگر» داشت و در دورهٔ او جندی‌شاپور به اوج رسید.',
+     src:'تاریخ ایران باستان'},
+    {c:'تاریخ',   q:'کدام سلسله ایران را در سال ۱۵۰۱ میلادی یکپارچه کرد؟', o:['صفویان','افشاریان','زندیان','قاجار'], a:'صفویان', d:2,
+     why:'شاه اسماعیل صفوی تبریز را پایتخت کرد و ایران را یکپارچه ساخت؛ مذهب شیعه در این دوره رسمی شد.',
+     src:'تاریخ ایران'},
+    {c:'تاریخ',   q:'کریم‌خان زند چه لقبی داشت؟', o:['وکیل‌الرعایا','شاهنشاه','امیرکبیر','سلطان'], a:'وکیل‌الرعایا', d:2,
+     why:'کریم‌خان شیراز را پایتخت کرد و خود را «وکیل‌الرعایا» — نمایندهٔ رعیت — خواند، نه شاه.',
+     src:'تاریخ ایران'},
+    {c:'جغرافیا', q:'بلندترین قلهٔ ایران کدام است؟', o:['دماوند','علم‌کوه','زردکوه','سبلان'], a:'دماوند', d:1,
+     why:'دماوند با بلندی نزدیک ۵٬۶۱۰ متر، بام ایران و بلندترین قلهٔ خاورمیانه است.',
+     src:'جغرافیای ایران'},
+    {c:'جغرافیا', q:'طولانی‌ترین رود ایران کدام است؟', o:['کارون','سفیدرود','زاینده‌رود','ارس'], a:'کارون', d:2,
+     why:'کارون در جنوب غرب ایران جریان دارد و تنها رود ایران است که به آب‌های آزاد — خلیج فارس — می‌ریزد.',
+     src:'جغرافیای ایران'},
+    {c:'جغرافیا', q:'بزرگ‌ترین دریاچهٔ درون‌مرزی ایران کدام است؟', o:['ارومیه','هامون','بختگان','طشک'], a:'ارومیه', d:2,
+     why:'دریاچهٔ ارومیه بزرگ‌ترین دریاچهٔ داخلی ایران است؛ دریای خزر اگرچه بزرگ‌تر است، دریا شمرده می‌شود نه دریاچه.',
+     src:'جغرافیای ایران'},
+    {c:'جغرافیا', q:'گسترده‌ترین استان ایران کدام است؟', o:['کرمان','سیستان و بلوچستان','خراسان جنوبی','فارس'], a:'کرمان', d:3,
+     why:'کرمان با حدود ۱۸۳ هزار کیلومتر مربع، پهناورترین استان ایران است.',
+     src:'جغرافیای ایران'},
+    {c:'جغرافیا', q:'رود کارون به کدام پهنهٔ آبی می‌ریزد؟', o:['خلیج فارس','دریای عمان','دریای خزر','دریای سرخ'], a:'خلیج فارس', d:1,
+     why:'کارون با گذر از اهواز و خرمشهر به اروندرود می‌پیوندد و به خلیج فارس می‌ریزد.',
+     src:'جغرافیای ایران'},
+    {c:'فرهنگ',   q:'نوروز در چه ماهی جشن گرفته می‌شود؟', o:['فروردین','اردیبهشت','خرداد','اسفند'], a:'فروردین', d:1,
+     why:'نوروز با آغاز بهار و ماه فروردین هم‌زمان است و در فهرست میراث ناملموس جهانی ثبت شده است.',
+     src:'فرهنگ ایرانی — میراث ناملموس'},
+    {c:'فرهنگ',   q:'شاهنامه اثر کیست؟', o:['فردوسی','سعدی','حافظ','مولوی'], a:'فردوسی', d:1,
+     why:'حکیم ابوالقاسم فردوسی سرایش شاهنامه را در پایان و با حدود شصت هزار بیت به انجام رساند.',
+     src:'شاهنامهٔ فردوسی'},
+    {c:'فرهنگ',   q:'«گلستان» نوشتهٔ کیست؟', o:['سعدی','حافظ','نظامی','خیام'], a:'سعدی', d:1,
+     why:'سعدی شیرازی گلستان را در نثر و بوستان را در نظم سرود؛ گلستان نثر آهنگین دارد.',
+     src:'گلستان سعدی'},
+    {c:'فرهنگ',   q:'خالق «مثنوی معنوی» کیست؟', o:['مولوی','عطار','جامی','سنایی'], a:'مولوی', d:1,
+     why:'مولانا جلال‌الدین بلخی؛ مثنوی را «قرآن پارسی» خوانده‌اند و بر شش دفتر است.',
+     src:'مثنوی معنوی'},
+    {c:'فرهنگ',   q:'کیهان کلهر نوازندهٔ کدام ساز است؟', o:['کمانچه','تار','سنتور','نی'], a:'کمانچه', d:2,
+     why:'کیهان کلهر کمانچه‌نواز و آهنگساز ایرانی است؛ سنتور ساز پرویز مشکاتیان بود.',
+     src:'موسیقی ایرانی'},
+    {c:'فرهنگ',   q:'«تاریخ بیهقی» نوشتهٔ کیست؟', o:['ابوالفضل بیهقی','ابوریحان بیرونی','ناصرخسرو','عنصرالمعالی'], a:'ابوالفضل بیهقی', d:2,
+     why:'ابوالفضل بیهقی دبیر دربار غزنویان و نویسندهٔ تاریخ بیهقی — شاهکار نثر فارسی — است.',
+     src:'تاریخ بیهقی'},
+    {c:'علمی',    q:'خوارزمی چه دانشی را بنیان نهاد؟', o:['جبر','هندسه','فیزیک','شیمی'], a:'جبر', d:2,
+     why:'محمد بن موسی خوارزمی با کتاب «الجبر والمقابله» جبر را بنیان نهاد؛ واژهٔ Algorithm از نام اوست.',
+     src:'تاریخ ریاضیات'},
+    {c:'علمی',    q:'ابن‌سینا بیشتر در چه زمینه‌ای نام‌آور است؟', o:['پزشکی','ریاضی','نجوم','شیمی'], a:'پزشکی', d:1,
+     why:'«قانون» ابن‌سینا سال‌ها کتاب درسی پزشکی در اروپا بود؛ «شفا» اثر فلسفی اوست.',
+     src:'تاریخ پزشکی'},
+    {c:'علمی',    q:'رصدخانهٔ مراغه در زمان چه کسی ساخته شد؟', o:['خواجه نصیرالدین طوسی','ابن‌سینا','بیرونی','زکریای رازی'], a:'خواجه نصیرالدین طوسی', d:2,
+     why:'خواجه نصیرالدین طوسی رصدخانهٔ مراغه را بنیان نهاد؛ تیم بزرگ دانشمندان در آن جدول نجومی «زیج ایلخانی» را پدید آوردند.',
+     src:'تاریخ نجوم'},
+    {c:'علمی',    q:'کدام پزشک ایرانی الکل را در پزشکی به کار برد؟', o:['زکریای رازی','بیرونی','ابن‌سینا','خوارزمی'], a:'زکریای رازی', d:2,
+     why:'زکریای رازی پزشک و شیمی‌دان بزرگ ایرانی بود که در «الحاوی» دانش پزشکی زمانه را گرد آورد.',
+     src:'تاریخ پزشکی'},
+    {c:'علمی',    q:'بیرونی با اندازه‌گیری زاویهٔ میلِ خورشید، کدام کمیت را یافت؟', o:['شعاع زمین','فاصلهٔ ماه','جرم خورشید','سرعت نور'], a:'شعاع زمین', d:3,
+     why:'ابوریحان بیرونی با روش مثلثاتی و اندازه‌گیری از کوه، شعاع زمین را با دقت چشمگیری برآورد کرد.',
+     src:'تاریخ نجوم'},
+    {c:'علمی',    q:'دانشگاه جندی‌شاپور در زمان کدام سلسله بنیان نهاده شد؟', o:['ساسانیان','هخامنشیان','صفویان','سلجوقیان'], a:'ساسانیان', d:2,
+     why:'شاپور اول ساسانی جندی‌شاپور را در خوزستان بنیان کرد و در دورهٔ انوشیروان به اوج رسید؛ پناهگاه دانشمندان نسطوری و سریانی بود.',
+     src:'تاریخ ایران باستان'},
+    {c:'عمومی',   q:'واحد پول ژاپن کدام است؟', o:['یِن','یوان','وون','دلار'], a:'یِن', d:1,
+     why:'یِن واحد پول ژاپن است؛ یوان چین و وون کرهٔ جنوبی است.', src:'دانستنی‌های عمومی'},
+    {c:'عمومی',   q:'خط «نستعلیق» در کدام سرزمین پدید آمد؟', o:['ایران','مصر','ترکیه','هند'], a:'ایران', d:2,
+     why:'نستعلیق در سدهٔ هشتم و نهم هجری در ایران از ترکیب «نسخ» و «تعلیق» پدید آمد و «عروس خطوط اسلامی» خوانده می‌شود.',
+     src:'تاریخ خوشنویسی'}
+  ],
+  /* ── چهارده معصوم و امامت — 26 پرسش، از منابع شیعی ── */
+  ahlulbayt: [
+  {"q":"شیعیان دوازده‌امامی به امامت چند امام اعتقاد دارند؟", "o": ["دوازده امام", "ده امام", "چهارده امام", "هفت امام"],"a":"دوازده امام", "d":1,"why":"شیعه اثنی‌عشریه به دوازده امام معصوم پس از پیامبر(ص) اعتقاد دارد که نخستین آنان امام علی(ع) و آخرین آنان امام مهدی(عج) است.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"عقیدهٔ «چهارده معصوم» شامل چه کسانی است؟", "o": ["پیامبر(ص)، حضرت زهرا(س) و دوازده امام", "پیامبر(ص)، حضرت زهرا(س)، دوازده امام و حضرت عباس(ع)", "پیامبر(ص) و سیزده امام", "پیامبر(ص)، حضرت زهرا(س) و یازده امام"],"a":"پیامبر(ص)، حضرت زهرا(س) و دوازده امام", "d":1,"why":"چهارده معصوم عبارت‌اند از پیامبر اکرم(ص)، حضرت فاطمه زهرا(س) و دوازده امام که همه معصوم شمرده می‌شوند.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام اول شیعیان چه کسی است؟", "o": ["امام علی(ع)", "امام حسن مجتبی(ع)", "امام حسین(ع)", "امام سجاد(ع)"],"a":"امام علی(ع)", "d":1,"why":"امام علی بن ابی‌طالب(ع) نخستین امام و جانشین بلافصل پیامبر(ص) است.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام هشتم شیعیان چه کسی است؟", "o": ["امام رضا(ع)", "امام جواد(ع)", "امام کاظم(ع)", "امام هادی(ع)"],"a":"امام رضا(ع)", "d":1,"why":"حضرت علی بن موسی الرضا(ع) هشتمین امام شیعیان و فرزند امام کاظم(ع) است.", "src":"شیخ صدوق، عیون اخبار الرضا"},
+  {"q":"امام نهم شیعیان چه کسی است؟", "o": ["امام جواد(ع)", "امام رضا(ع)", "امام هادی(ع)", "امام عسکری(ع)"],"a":"امام جواد(ع)", "d":1,"why":"حضرت محمد بن علی الجواد(ع) نهمین امام و فرزند امام رضا(ع) است.", "src":"شیخ کلینی، الکافی"},
+  {"q":"آخرین امام شیعیان چه کسی است؟", "o": ["امام مهدی(عج)", "امام حسن عسکری(ع)", "امام هادی(ع)", "امام جواد(ع)"],"a":"امام مهدی(عج)", "d":1,"why":"حضرت محمد بن حسن(عج)، دوازدهمین امام و مهدی موعود است که در غیبت به سر می‌برد.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"امام علی(ع) در کدام شهر دفن شده است؟", "o": ["نجف", "کربلا", "کاظمین", "سامرا"],"a":"نجف", "d":1,"why":"مرقد مطهر امام علی(ع) در نجف اشرف در عراق قرار دارد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"کدام دو امام در حرم کاظمین دفن شده‌اند؟", "o": ["امام کاظم(ع) و امام جواد(ع)", "امام هادی(ع) و امام عسکری(ع)", "امام باقر(ع) و امام صادق(ع)", "امام سجاد(ع) و امام باقر(ع)"],"a":"امام کاظم(ع) و امام جواد(ع)", "d":1,"why":"حرم کاظمین در شمال بغداد، آرامگاه امام هفتم موسی بن جعفر(ع) و نوه‌اش امام نهم محمد بن علی الجواد(ع) است.", "src":"ویکی‌شیعه، مدخل حرم کاظمین"},
+  {"q":"کدام دو امام در سامرا دفن شده‌اند؟", "o": ["امام هادی(ع) و امام حسن عسکری(ع)", "امام کاظم(ع) و امام جواد(ع)", "امام باقر(ع) و امام صادق(ع)", "امام حسن مجتبی(ع) و امام سجاد(ع)"],"a":"امام هادی(ع) و امام حسن عسکری(ع)", "d":1,"why":"امام دهم و یازدهم در حرم عسکریین در شهر سامرای عراق مدفون‌اند و لقب «عسکری» از همین اقامت اجباری در سامرا گرفته شده است.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام رضا(ع) در کدام شهر دفن شده است؟", "o": ["مشهد", "نجف", "کاظمین", "سامرا"],"a":"مشهد", "d":1,"why":"مرقد امام رضا(ع) در شهر مشهد (منطقه سناباد) قرار دارد و همان‌جا علت نام‌گذاری این شهر است.", "src":"شیخ صدوق، عیون اخبار الرضا"},
+  {"q":"امام حسن مجتبی(ع) در کدام قبرستان دفن شده است؟", "o": ["بقیع در مدینه", "نجف", "کربلا", "سامرا"],"a":"بقیع در مدینه", "d":2,"why":"بنا بر نقل منابع، بنی‌امیه مانع دفن امام حسن(ع) کنار قبر پیامبر(ص) شدند و پیکر او در قبرستان بقیع به خاک سپرده شد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"چند امام در قبرستان بقیع مدینه دفن شده‌اند؟", "o": ["چهار امام", "دو امام", "سه امام", "شش امام"],"a":"چهار امام", "d":2,"why":"ائمه بقیع چهار تن‌اند: امام حسن مجتبی(ع)، امام سجاد(ع)، امام باقر(ع) و امام صادق(ع).", "src":"ویکی‌شیعه، مدخل بقیع"},
+  {"q":"کدام امام به لقب «سید الشهداء» مشهور است؟", "o": ["امام حسین(ع)", "امام حسن مجتبی(ع)", "امام علی(ع)", "امام سجاد(ع)"],"a":"امام حسین(ع)", "d":1,"why":"امام حسین(ع) به سبب شهادت مظلومانه در کربلا به «سید الشهداء» مشهور شده است.", "src":"شیخ مفید، الارشاد"},
+  {"q":"کدام امام به لقب «باقرالعلوم» مشهور است؟", "o": ["امام محمد باقر(ع)", "امام جعفر صادق(ع)", "امام سجاد(ع)", "امام رضا(ع)"],"a":"امام محمد باقر(ع)", "d":1,"why":"لقب مشهور امام پنجم «باقر» یا «باقرالعلم» است، یعنی شکافنده دانش.", "src":"شیخ کلینی، الکافی"},
+  {"q":"کدام امام به لقب‌های «زین‌العابدین» و «سید الساجدین» مشهور است؟", "o": ["امام سجاد(ع)", "امام باقر(ع)", "امام صادق(ع)", "امام حسن مجتبی(ع)"],"a":"امام سجاد(ع)", "d":1,"why":"امام علی بن الحسین(ع) به سبب عبادت بسیار به زین‌العابدین و سید الساجدین مشهور شد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"کدام امام به لقب «عسکری» مشهور است؟", "o": ["امام حسن عسکری(ع)", "امام هادی(ع)", "امام جواد(ع)", "امام کاظم(ع)"],"a":"امام حسن عسکری(ع)", "d":2,"why":"لقب عسکری به اقامت اجباری امام یازدهم در محله عسکر شهر سامرا اشاره دارد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"کنیهٔ مشهور امام محمد باقر(ع) چیست؟", "o": ["ابوجعفر", "ابوعبدالله", "ابوالحسن", "ابوتراب"],"a":"ابوجعفر", "d":2,"why":"کنیهٔ امام باقر(ع) «ابوجعفر» است و از این رو به او ابوجعفر اول نیز گفته‌اند.", "src":"شیخ کلینی، الکافی"},
+  {"q":"مادر امام رضا(ع) چه نام داشت؟", "o": ["نجمه", "حمیده", "سبیکه", "سمانه"],"a":"نجمه", "d":2,"why":"نجمه، کنیز حمیده همسر امام صادق(ع) بود که به امام کاظم(ع) بخشیده شد و مادر امام رضا(ع) و حضرت معصومه(س) است.", "src":"شیخ صدوق، عیون اخبار الرضا"},
+  {"q":"مادر امام جواد(ع) چه نام داشت؟", "o": ["سبیکه", "نجمه", "حمیده", "نرجس"],"a":"سبیکه", "d":3,"why":"سبیکه نوبیه، همسر امام رضا(ع) و مادر امام جواد(ع) بود که امام رضا(ع) نام خیزران را برای او برگزید.", "src":"شیخ صدوق، عیون اخبار الرضا"},
+  {"q":"مادر امام کاظم(ع) چه نام داشت؟", "o": ["حمیده", "نجمه", "سبیکه", "سمانه"],"a":"حمیده", "d":2,"why":"حمیده (حمیدة المصَفّاة) همسر امام صادق(ع) و مادر امام کاظم(ع) بود.", "src":"شیخ کلینی، الکافی"},
+  {"q":"مادر امام صادق(ع) چه نام داشت؟", "o": ["ام فروة", "حمیده", "فاطمه بنت الحسن", "ام البنین"],"a":"ام فروة", "d":3,"why":"ام فروة دختر قاسم بن محمد بن ابی‌بکر، همسر امام باقر(ع) و مادر امام صادق(ع) بود.", "src":"شیخ مفید، الارشاد"},
+  {"q":"مادر امام باقر(ع) که نسبش به امام حسن(ع) می‌رسد چه نام داشت؟", "o": ["فاطمه دختر امام حسن مجتبی(ع)", "ام فروة", "حمیده", "فاطمه بنت اسد"],"a":"فاطمه دختر امام حسن مجتبی(ع)", "d":3,"why":"مادر امام باقر(ع) فاطمه، دختر امام حسن مجتبی(ع) بود؛ از این رو او نخستین کسی است که نسبش هم به امام حسن و هم به امام حسین(ع) می‌رسد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"مادر امام علی(ع) چه نام داشت؟", "o": ["فاطمه بنت اسد", "فاطمه زهرا(س)", "حمیده", "ام فروة"],"a":"فاطمه بنت اسد", "d":2,"why":"پدر امام علی(ع) ابوطالب و مادرش فاطمه بنت اسد بود.", "src":"شیخ مفید، الارشاد"},
+  {"q":"مادر امام حسن و امام حسین(ع) کیست؟", "o": ["حضرت فاطمه زهرا(س)", "ام البنین", "فاطمه بنت اسد", "ام فروة"],"a":"حضرت فاطمه زهرا(س)", "d":1,"why":"امام حسن و امام حسین(ع) تنها فرزندان حضرت علی(ع) از حضرت فاطمه زهرا(س) هستند.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام سجاد(ع) فرزند کدام امام است؟", "o": ["امام حسین(ع)", "امام حسن مجتبی(ع)", "امام علی(ع)", "امام باقر(ع)"],"a":"امام حسین(ع)", "d":1,"why":"امام علی بن الحسین السجاد(ع) فرزند امام حسین(ع) است و در واقعه کربلا به سبب بیماری نتوانست بجنگد و به اسارت رفت.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام جواد(ع) فرزند کدام امام است؟", "o": ["امام رضا(ع)", "امام کاظم(ع)", "امام هادی(ع)", "امام عسکری(ع)"],"a":"امام رضا(ع)", "d":1,"why":"امام محمد بن علی الجواد(ع) فرزند امام رضا(ع) و در زمان شهادت پدر خردسال بود.", "src":"شیخ صدوق، عیون اخبار الرضا"}
+  ],
+
+  /* ── عاشورا و کربلا — 16 پرسش، از منابع شیعی ── */
+  karbala: [
+  {"q":"واقعه عاشورا در چه تاریخی رخ داد؟", "o": ["۱۰ محرم سال ۶۱ هجری قمری", "۱۰ محرم سال ۶۰ هجری قمری", "۹ محرم سال ۶۱ هجری قمری", "۱۰ صفر سال ۶۱ هجری قمری"],"a":"۱۰ محرم سال ۶۱ هجری قمری", "d":1,"why":"شهادت امام حسین(ع) و یارانش در روز دهم محرم سال ۶۱ قمری در کربلا رخ داد و این روز «عاشورا» نام گرفت.", "src":"شیخ مفید، الارشاد"},
+  {"q":"واقعه کربلا در کدام سرزمین رخ داد؟", "o": ["کربلا در عراق", "نجف در عراق", "شام", "مدینه"],"a":"کربلا در عراق", "d":1,"why":"امام حسین(ع) در سرزمین کربلا، کنار نهر علقمه در عراق امروزی، به شهادت رسید و همان‌جا دفن شد.", "src":"شیخ مفید، الارشاد"},
+  {"q":"شمار شهیدان کربلا در منابع مشهور چه اندازه است؟", "o": ["حدود ۷۲ نفر", "حدود ۴۰ نفر", "حدود ۳۱۳ نفر", "حدود ۲۰۰ نفر"],"a":"حدود ۷۲ نفر", "d":1,"why":"بر پایه منابع مشهور، شمار یاران و خاندان امام حسین(ع) که در روز عاشورا به شهادت رسیدند حدود هفتاد و دو تن بود.", "src":"شیخ مفید، الارشاد؛ ویکی‌شیعه، مدخل واقعه کربلا"},
+  {"q":"فرماندهٔ لشکر کوفه در روز عاشورا چه کسی بود؟", "o": ["عمر بن سعد", "عبیدالله بن زیاد", "شمر بن ذی‌الجوشن", "خیولی"],"a":"عمر بن سعد", "d":2,"why":"عمر بن سعد از سوی عبیدالله بن زیاد به فرماندهی لشکر کوفه منصوب شد و آغازگر جنگ در روز عاشورا بود.", "src":"تاریخ طبری؛ شیخ مفید، الارشاد"},
+  {"q":"در زمان شهادت امام حسین(ع)، خلیفهٔ اموی چه کسی بود؟", "o": ["یزید بن معاویه", "معاویه بن ابی‌سفیان", "مروان بن حکم", "عبدالملک بن مروان"],"a":"یزید بن معاویه", "d":1,"why":"به دستور یزید بن معاویه، دومین حاکم اموی، امام حسین(ع) و یارانش در کربلا به شهادت رسیدند.", "src":"تاریخ طبری"},
+  {"q":"کدام یک از یاران امام حسین(ع) علمدار و «سقای کربلا» لقب گرفت؟", "o": ["حضرت عباس(ع)", "حبیب بن مظاهر", "حر بن یزید ریاحی", "مسلم بن عقیل"],"a":"حضرت عباس(ع)", "d":1,"why":"حضرت ابوالفضل العباس(ع) برادر امام حسین(ع) بود که با عنوان قمر بنی‌هاشم و سقای کربلا شناخته می‌شود.", "src":"شیخ مفید، الارشاد"},
+  {"q":"مادر حضرت عباس(ع) چه نام داشت؟", "o": ["ام البنین", "ام فروة", "لیلی", "رباب"],"a":"ام البنین", "d":2,"why":"فاطمه بنت حزام مشهور به ام‌البنین، همسر امام علی(ع) و مادر حضرت عباس(ع) و سه برادر دیگر او بود که همه در کربلا شهید شدند.", "src":"ویکی‌شیعه، مدخل ام‌البنین"},
+  {"q":"کدام یادگار امام حسین(ع) که فرزند شیرخوارهٔ اوست در کربلا شهید شد؟", "o": ["علی‌اصغر(ع)", "علی‌اکبر(ع)", "قاسم بن الحسن(ع)", "عبدالله بن الحسن(ع)"],"a":"علی‌اصغر(ع)", "d":2,"why":"کودک شیرخوارهٔ امام حسین(ع) که در دامان پدر به شهادت رسید در میان شیعیان به «علی‌اصغر» مشهور است.", "src":"شیخ مفید، الارشاد"},
+  {"q":"امام حسین(ع) کدام شهید خود را شبیه‌ترین مردم به پیامبر(ص) در چهره و اخلاق معرفی کرد؟", "o": ["علی‌اکبر(ع)", "علی‌اصغر(ع)", "قاسم بن الحسن(ع)", "حضرت عباس(ع)"],"a":"علی‌اکبر(ع)", "d":2,"why":"علی‌اکبر(ع) فرزند امام حسین(ع) و نخستین شهید بنی‌هاشم در روز عاشوراست که امام او را شبیه‌ترین مردم به پیامبر(ص) خواند.", "src":"شیخ مفید، الارشاد"},
+  {"q":"فرماندهٔ جناح راست سپاه امام حسین(ع) در روز عاشورا که بود؟", "o": ["حبیب بن مظاهر اسدی", "حر بن یزید ریاحی", "زهیر بن قین", "نافع بن هلال"],"a":"حبیب بن مظاهر اسدی", "d":3,"why":"حبیب بن مظاهر اسدی از یاران خاص امام علی(ع) و از شهدای کربلا بود که فرماندهی جناح راست سپاه امام را بر عهده داشت.", "src":"ویکی‌شیعه، مدخل حبیب بن مظاهر"},
+  {"q":"کدام فرمانده سپاه کوفه در روز عاشورا به امام حسین(ع) پیوست و توبه کرد؟", "o": ["حر بن یزید ریاحی", "عمر بن سعد", "شمر بن ذی‌الجوشن", "حصین بن نمیر"],"a":"حر بن یزید ریاحی", "d":2,"why":"حر بن یزید ریاحی که نخست مأمور بستن راه بر امام حسین(ع) بود، در روز عاشورا توبه کرد و در رکاب امام به شهادت رسید.", "src":"تاریخ طبری؛ شیخ مفید، الارشاد"},
+  {"q":"امام حسین(ع) چه کسی را به نمایندگی خود به کوفه فرستاد؟", "o": ["مسلم بن عقیل", "حبیب بن مظاهر", "قیس بن مسهر", "عبدالله بن یقطر"],"a":"مسلم بن عقیل", "d":1,"why":"مسلم بن عقیل پسرعموی امام حسین(ع) بود که به عنوان نمایندهٔ امام به کوفه رفت و در همان شهر به شهادت رسید.", "src":"شیخ مفید، الارشاد"},
+  {"q":"کدام نوجوان از فرزندان امام حسن(ع) در روز عاشورا به شهادت رسید؟", "o": ["قاسم بن الحسن(ع)", "عبدالله بن الحسن(ع)", "محمد بن الحسن(ع)", "عباس بن الحسن(ع)"],"a":"قاسم بن الحسن(ع)", "d":2,"why":"قاسم بن الحسن(ع) از فرزندان امام حسن مجتبی(ع) بود که در شب عاشورا مرگ را از عسل شیرین‌تر خواند و در روز عاشورا شهید شد.", "src":"ویکی‌شیعه، مدخل قاسم بن الحسن"},
+  {"q":"روز «تاسوعا» چندم ماه محرم است؟", "o": ["نهم محرم", "دهم محرم", "هشتم محرم", "هفتم محرم"],"a":"نهم محرم", "d":1,"why":"تاسوعا نهمین روز محرم است و در آن شب، امام حسین(ع) و یارانش در کربلا آخرین شب خود را گذراندند.", "src":"شیخ مفید، الارشاد"},
+  {"q":"«اربعین» حسینی چه روزی است؟", "o": ["بیستم صفر", "چهلم محرم", "اول صفر", "بیستم محرم"],"a":"بیستم صفر", "d":2,"why":"اربعین، چهلمین روز شهادت امام حسین(ع) یعنی بیستم صفر است که زیارت اربعین در آن مستحب شمرده شده است.", "src":"شیخ طوسی، مصباح المتهجد"},
+  {"q":"پس از واقعه عاشورا، کاروان اسیران اهلبیت(ع) به کدام شهرها برده شد؟", "o": ["کوفه و سپس شام", "مکه و سپس مدینه", "بصره و سپس یمن", "مدینه و سپس کوفه"],"a":"کوفه و سپس شام", "d":2,"why":"امام سجاد(ع)، حضرت زینب(س) و دیگر بازماندگان کربلا نخست به کوفه و سپس به شام نزد یزید فرستاده شدند و حضرت زینب(س) در همان‌جا به روشنگری پرداخت.", "src":"شیخ مفید، الارشاد"}
+  ],
+
+  /* ── غدیر و ولایت — 11 پرسش، از منابع شیعی ── */
+  ghadir: [
+  {"q":"واقعه غدیر خم در چه روزی رخ داد؟", "o": ["۱۸ ذی‌الحجه", "۱۸ محرم", "۲۷ رجب", "۱۵ شعبان"],"a":"۱۸ ذی‌الحجه", "d":1,"why":"پیامبر اکرم(ص) در روز هجدهم ذی‌الحجه سال دهم قمری در غدیر خم، امام علی(ع) را به جانشینی خود معرفی کرد.", "src":"شیخ مفید، الارشاد؛ قرآن ۵:۶۷"},
+  {"q":"غدیر خم در کدام مسیر قرار دارد؟", "o": ["میان مکه و مدینه، نزدیک جحفه", "میان مدینه و شام", "میان کوفه و بصره", "در خود شهر مکه"],"a":"میان مکه و مدینه، نزدیک جحفه", "d":2,"why":"غدیر خم در مسیر بازگشت از حجة الوداع، میان مکه و مدینه و نزدیک جحفه (یکی از میقات‌ها) قرار دارد.", "src":"ویکی‌شیعه، مدخل غدیر خم"},
+  {"q":"جملهٔ «من کنت مولاه فهذا علی مولاه» از کدام معصوم نقل شده است؟", "o": ["پیامبر اکرم(ص)", "امام علی(ع)", "امام صادق(ع)", "امام رضا(ع)"],"a":"پیامبر اکرم(ص)", "d":1,"why":"پیامبر(ص) در خطبهٔ غدیر فرمود: «من کنت مولاه فعلیّ مولاه»، و این حدیث در منابع شیعه و اهل سنت نقل شده است.", "src":"شیخ مفید، الارشاد؛ علامه امینی، الغدیر"},
+  {"q":"آیهٔ «یا اَیُّهَا الرَّسولُ بَلِّغ ما اُنزِلَ اِلَیکَ» (آیهٔ تبلیغ) کدام آیه است؟", "o": ["سورهٔ مائده، آیهٔ ۶۷", "سورهٔ مائده، آیهٔ ۳", "سورهٔ مائده، آیهٔ ۵۵", "سورهٔ نساء، آیهٔ ۵۹"],"a":"سورهٔ مائده، آیهٔ ۶۷", "d":2,"why":"آیهٔ تبلیغ (مائده: ۶۷) دربارهٔ ابلاغ ولایت امام علی(ع) در واقعه غدیر نازل شده است.", "src":"قرآن ۵:۶۷"},
+  {"q":"آیهٔ «اَلیَومَ اَکمَلتُ لَکُم دینَکُم» (آیهٔ اکمال) کدام آیه است؟", "o": ["سورهٔ مائده، آیهٔ ۳", "سورهٔ مائده، آیهٔ ۶۷", "سورهٔ احزاب، آیهٔ ۳۳", "سورهٔ آل‌عمران، آیهٔ ۶۱"],"a":"سورهٔ مائده، آیهٔ ۳", "d":2,"why":"آیهٔ اکمال، بخشی از آیهٔ سوم سورهٔ مائده است که شیعیان بر پایه روایات، نزول آن را در روز غدیر و دربارهٔ اعلام جانشینی امام علی(ع) می‌دانند.", "src":"قرآن ۵:۳"},
+  {"q":"آیهٔ تطهیر (اِنَّما یُریدُ اللهُ لِیُذهِبَ عَنکُمُ الرِّجسَ) در کدام سوره است؟", "o": ["سورهٔ احزاب", "سورهٔ مائده", "سورهٔ نساء", "سورهٔ آل‌عمران"],"a":"سورهٔ احزاب", "d":2,"why":"آیهٔ تطهیر، آیهٔ ۳۳ سورهٔ احزاب است که دربارهٔ پاکی اهل بیت(ع) نازل شده و شیعیان با آن بر عصمت امامان استدلال می‌کنند.", "src":"قرآن ۳۳:۳۳"},
+  {"q":"آیهٔ اولی‌الامر (اَطیعُوا اللهَ وَ اَطیعُوا الرَّسولَ وَ اُولِی الاَمرِ مِنکُم) کدام آیه است؟", "o": ["سورهٔ نساء، آیهٔ ۵۹", "سورهٔ مائده، آیهٔ ۵۵", "سورهٔ احزاب، آیهٔ ۳۳", "سورهٔ آل‌عمران، آیهٔ ۶۱"],"a":"سورهٔ نساء، آیهٔ ۵۹", "d":2,"why":"آیهٔ اولی‌الامر (نساء: ۵۹) به اطاعت از خدا، پیامبر و اولی‌الامر فرمان می‌دهد و شیعیان مصداق اولی‌الامر را امامان معصوم می‌دانند.", "src":"قرآن ۴:۵۹"},
+  {"q":"آیهٔ مباهله کدام آیه است؟", "o": ["سورهٔ آل‌عمران، آیهٔ ۶۱", "سورهٔ آل‌عمران، آیهٔ ۳۳", "سورهٔ مائده، آیهٔ ۶۷", "سورهٔ نساء، آیهٔ ۵۹"],"a":"سورهٔ آل‌عمران، آیهٔ ۶۱", "d":3,"why":"آیهٔ ۶۱ سورهٔ آل‌عمران به واقعهٔ مباهلهٔ پیامبر(ص) با مسیحیان نجران اشاره دارد.", "src":"قرآن ۳:۶۱"},
+  {"q":"در واقعهٔ مباهله با مسیحیان نجران، همراهان پیامبر(ص) چه کسانی بودند؟", "o": ["امام علی(ع)، حضرت فاطمه(س)، امام حسن(ع) و امام حسین(ع)", "امام علی(ع) و سلمان فارسی", "خلفای نخستین", "امام علی(ع)، حمزه و جعفر طیار"],"a":"امام علی(ع)، حضرت فاطمه(س)، امام حسن(ع) و امام حسین(ع)", "d":2,"why":"پیامبر(ص) در مباهله تنها این چهار تن (پنج‌تن آل عبا) را با خود برد و همین بر فضیلت آنان دلالت دارد.", "src":"قرآن ۳:۶۱؛ شیخ مفید، الارشاد"},
+  {"q":"مضمون حدیث ثقلین که پیامبر(ص) در غدیر فرمود چیست؟", "o": ["میراث گذاشتن قرآن و اهلبیت(ع) در میان مسلمانان", "فرمان به نماز و روزه", "بیعت با خلفا", "حرام بودن جنگ پس از پیامبر"],"a":"میراث گذاشتن قرآن و اهلبیت(ع) در میان مسلمانان", "d":2,"why":"پیامبر(ص) فرمود: «اِنّی تارِکٌ فیکُمُ الثَّقَلَینِ کِتابَ اللهِ وَ عِترَتی اَهلَ بَیتی»؛ یعنی قرآن و اهلبیت(ع) را در میان امت به یادگار می‌گذارم.", "src":"شیخ کلینی، الکافی؛ مسلم، صحیح"},
+  {"q":"آیهٔ ولایت (اِنَّما وَلِیُّکُمُ اللهُ وَ رَسولُهُ وَ الَّذینَ آمَنوا...) در شأن چه کسی نازل شد؟", "o": ["امام علی(ع)", "حضرت حمزه", "ابوذر غفاری", "سلمان فارسی"],"a":"امام علی(ع)", "d":2,"why":"شیعیان بر پایه روایات، این آیه (مائده: ۵۵) را دربارهٔ امام علی(ع) می‌دانند که در حال رکوع انگشتری خود را به فقیر داد.", "src":"قرآن ۵:۵۵"}
+  ],
+
+  /* ── احکام و فقه جعفری — 20 پرسش، از منابع شیعی ── */
+  ahkam: [
+  {"q":"مجموع رکعت‌های نمازهای واجب یومیه چند رکعت است؟", "o": ["۱۷ رکعت", "۱۵ رکعت", "۱۹ رکعت", "۱۴ رکعت"],"a":"۱۷ رکعت", "d":1,"why":"نمازهای یومیه عبارت‌اند از صبح دو رکعت، ظهر چهار، عصر چهار، مغرب سه و عشا چهار رکعت که مجموعاً ۱۷ رکعت می‌شود.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"نماز مغرب چند رکعت است؟", "o": ["سه رکعت", "دو رکعت", "چهار رکعت", "پنج رکعت"],"a":"سه رکعت", "d":1,"why":"نماز مغرب در حضر سه رکعت است و در سفر نیز شکسته نمی‌شود.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"مسافر باید کدام نمازها را شکسته (دو رکعتی) بخواند؟", "o": ["نمازهای چهاررکعتی: ظهر، عصر و عشا", "همهٔ نمازهای واجب", "فقط نماز صبح و مغرب", "نماز مغرب و عشا"],"a":"نمازهای چهاررکعتی: ظهر، عصر و عشا", "d":2,"why":"در سفر، نمازهای چهاررکعتی (ظهر، عصر و عشا) دو رکعتی خوانده می‌شوند اما نماز صبح و مغرب تغییری نمی‌کند.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"برای جاری شدن حکم شکسته شدن نماز مسافر، مسافت سفر باید دست‌کم چه اندازه باشد؟", "o": ["هشت فرسخ شرعی", "چهار فرسخ شرعی", "ده فرسخ شرعی", "یک فرسخ شرعی"],"a":"هشت فرسخ شرعی", "d":2,"why":"بنابر فقه شیعه، مسافت شرعی سفر حداقل هشت فرسخ (رفت یا مجموع رفت و برگشت) است تا نماز شکسته شود.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"در وضو، پای‌ها چگونه تطهیر می‌شوند؟", "o": ["با مسح از سر انگشتان تا برآمدگی روی پا", "با شستن از زانو به پایین", "با شستن از پایین به بالا", "با شستن با آب جدید"],"a":"با مسح از سر انگشتان تا برآمدگی روی پا", "d":2,"why":"در فقه شیعه پاها مانند سر مسح می‌شوند، برخلاف اهل سنت که شستن پاها را واجب می‌دانند.", "src":"قرآن ۵:۶؛ توضیح‌المسائل مراجع"},
+  {"q":"وضوی صحیح در فقه شیعه بر چه چیزی انجام می‌شود و مسح سر با چه آبی صورت می‌گیرد؟", "o": ["مسح سر و پاها با رطوبت باقی‌ماندهٔ وضو", "مسح سر با آب تازه", "مسح سر لازم نیست", "مسح سر با آب مضاف"],"a":"مسح سر و پاها با رطوبت باقی‌ماندهٔ وضو", "d":2,"why":"در فقه شیعه مسح سر و پاها باید با رطوبت باقی‌ماندهٔ وضو انجام شود و استفاده از آب جدید لازم نیست.", "src":"قرآن ۵:۶؛ توضیح‌المسائل مراجع"},
+  {"q":"وضو گرفتن با کدام آب صحیح است؟", "o": ["آب مطلق", "آب گلاب", "آب میوه", "آب مضاف"],"a":"آب مطلق", "d":1,"why":"وضو و غسل باید با آب مطلق (مانند آب چاه، باران و آب لوله) انجام شود و آب مضاف برای وضو کافی نیست.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"تیمم جانشین کدام عبادت‌های طهارتی است؟", "o": ["وضو و غسل", "فقط وضو", "فقط غسل", "نماز و روزه"],"a":"وضو و غسل", "d":2,"why":"تیمم در جایی که آب در دسترس نباشد یا استفاده از آن زیان‌آور باشد، جانشین وضو و غسل می‌شود.", "src":"قرآن ۵:۶؛ توضیح‌المسائل مراجع"},
+  {"q":"کدام یک از غسل‌های زیر واجب است؟", "o": ["غسل جنابت", "غسل جمعه", "غسل زیارت", "غسل توبه"],"a":"غسل جنابت", "d":2,"why":"غسل‌های واجب شش‌تاست: جنابت، مس میت، میت، حیض، نفاس و استحاضه؛ غسل جمعه و زیارت مستحب‌اند.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"در فقه شیعه چند چیز ذاتاً نجس شمرده می‌شود؟", "o": ["ده چیز", "هفت چیز", "پنج چیز", "دوازده چیز"],"a":"ده چیز", "d":3,"why":"اعیان نجس ده‌گانه عبارت‌اند از خون، ادرار، مدفوع، منی، مردار، سگ، خوک، کافر، شراب و فقاع (آبجو).", "src":"توضیح‌المسائل مراجع؛ ویکی‌شیعه، مدخل نجاسات"},
+  {"q":"کدام مورد از مبطلات روزه است؟", "o": ["دروغ بستن به خدا و پیامبر(ص)", "مسواک زدن", "بوییدن گل", "فرو بردن آب دهان"],"a":"دروغ بستن به خدا و پیامبر(ص)", "d":2,"why":"در فقه شیعه، بستن دروغ به خدا، پیامبر و امامان از مبطلات روزه است؛ مسواک زدن و بوییدن گل روزه را باطل نمی‌کند.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"کفارهٔ افطار عمدی روزهٔ ماه رمضان چیست؟", "o": ["دو ماه روزه یا سیر کردن شصت فقیر (به‌همراه قضا)", "سه روز روزه", "اطعام یک فقیر", "فقط قضای همان روز"],"a":"دو ماه روزه یا سیر کردن شصت فقیر (به‌همراه قضا)", "d":3,"why":"کفارهٔ عمدی افطار روزهٔ رمضان، آزاد کردن بنده یا دو ماه روزه یا اطعام شصت فقیر است و قضای آن روز نیز واجب می‌شود.", "src":"توضیح‌المسائل مراجع؛ شیخ طوسی، المبسوط"},
+  {"q":"زکات در فقه شیعه بر چند قلم کالا واجب است؟", "o": ["نُه قلم", "پنج قلم", "هفت قلم", "دوازده قلم"],"a":"نُه قلم", "d":2,"why":"زکات بر نُه چیز واجب است: طلا و نقره (نقدین)، شتر و گاو و گوسفند (انعام ثلاثه) و گندم، جو، خرما و کشمش (غلات اربعه).", "src":"توضیح‌المسائل مراجع؛ ویکی‌شیعه، مدخل زکات"},
+  {"q":"کدام یک از موارد نُه‌گانهٔ زکات است؟", "o": ["گندم", "برنج", "ذرت", "سیب"],"a":"گندم", "d":2,"why":"غلات اربعه که زکات بر آن‌ها واجب است عبارت‌اند از گندم، جو، خرما و کشمش؛ برنج و ذرت زکات واجب ندارند.", "src":"توضیح‌المسائل مراجع"},
+  {"q":"خمس به چند چیز تعلق می‌گیرد؟", "o": ["هفت چیز", "پنج چیز", "نُه چیز", "سه چیز"],"a":"هفت چیز", "d":2,"why":"موارد وجوب خمس هفت‌تاست: مازاد درآمد، معدن، گنج، مال حلال مخلوط به حرام، جواهر به‌دست‌آمده از غواصی، غنیمت جنگی و زمینی که کافر ذمی از مسلمان بخرد.", "src":"توضیح‌المسائل مراجع؛ ویکی‌شیعه، مدخل خمس"},
+  {"q":"خمس به چند سهم تقسیم می‌شود؟", "o": ["دو سهم: سهم امام و سهم سادات", "سه سهم", "چهار سهم", "یک سهم"],"a":"دو سهم: سهم امام و سهم سادات", "d":2,"why":"نیمی از خمس سهم امام(ع) و نیم دیگر سهم سادات است که به سادات فقیر داده می‌شود.", "src":"توضیح‌المسائل مراجع؛ ویکی‌شیعه، مدخل خمس"},
+  {"q":"سوره‌های «عزائم» که سجدهٔ واجب دارند چند سوره‌اند؟", "o": ["چهار سوره", "دو سوره", "سه سوره", "پنج سوره"],"a":"چهار سوره", "d":2,"why":"عزائم یا عزائم‌السجود چهار سوره‌اند: سجده، فصلت، نجم و علق که با خواندن یا شنیدن آیهٔ سجدهٔ آن‌ها سجده واجب می‌شود.", "src":"ویکی‌شیعه، مدخل عزائم؛ توضیح‌المسائل مراجع"},
+  {"q":"کدام سوره سجدهٔ واجب دارد؟", "o": ["سورهٔ نجم", "سورهٔ یاسین", "سورهٔ الرحمن", "سورهٔ ملک"],"a":"سورهٔ نجم", "d":2,"why":"سورهٔ نجم یکی از چهار سورهٔ عزائم است که در آن آیهٔ سجده واجب وجود دارد.", "src":"ویکی‌شیعه، مدخل عزائم"},
+  {"q":"نماز آیات چند رکعت است و هر رکعت چند رکوع دارد؟", "o": ["دو رکعت، هر رکعت پنج رکوع", "دو رکعت، هر رکعت دو رکوع", "سه رکعت، هر رکعت پنج رکوع", "دو رکعت، هر رکعت هفت رکوع"],"a":"دو رکعت، هر رکعت پنج رکوع", "d":3,"why":"نماز آیات برای حوادثی چون زلزله و خورشیدگرفتگی و ماه‌گرفتگی واجب می‌شود و دو رکعت است که هر رکعت آن پنج رکوع دارد.", "src":"توضیح‌المسائل مراجع؛ ویکی‌شیعه، مدخل نماز آیات"},
+  {"q":"قرائت حمد و سوره در نماز صبح چگونه است؟", "o": ["بلند (جهر)", "آهسته (اخفات)", "اختیاری است", "فقط حمد بلند خوانده می‌شود"],"a":"بلند (جهر)", "d":2,"why":"در نماز صبح، مردان باید حمد و سوره را بلند بخوانند؛ در نماز ظهر و عصر قرائت آهسته است.", "src":"توضیح‌المسائل مراجع"}
+  ],
+
+  /* ── ادعیه و زیارات — 16 پرسش، از منابع شیعی ── */
+  dua: [
+  {"q":"دعای کمیل از کدام معصوم و به درخواست چه کسی صادر شده است؟", "o": ["امام علی(ع) به درخواست کمیل بن زیاد نخعی", "امام سجاد(ع) به درخواست ابوحمزه ثمالی", "امام صادق(ع) به درخواست صفوان بن مهران", "امام زمان(عج) به درخواست محمد بن عثمان"],"a":"امام علی(ع) به درخواست کمیل بن زیاد نخعی", "d":1,"why":"امام علی(ع) دعای کمیل را به کمیل بن زیاد نخعی تعلیم داد؛ این دعا مضامینی بلند در شناخت خدا و آمرزش گناهان دارد.", "src":"شیخ طوسی، مصباح المتهجد؛ علامه مجلسی، بحارالانوار"},
+  {"q":"دعای کمیل در چه زمانی خوانده می‌شود؟", "o": ["شب‌های جمعه و شب نیمهٔ شعبان", "شب‌های چهارشنبه", "صبح روز جمعه", "سحرهای ماه رمضان"],"a":"شب‌های جمعه و شب نیمهٔ شعبان", "d":1,"why":"دعای کمیل از دعاهای رایج شیعیان است که در شب‌های جمعه و شب نیمهٔ شعبان خوانده می‌شود.", "src":"شیخ طوسی، مصباح المتهجد؛ سید بن طاووس، اقبال الاعمال"},
+  {"q":"شیعیان معمولاً دعای توسل را در کدام شب به‌صورت جمعی می‌خوانند؟", "o": ["شب چهارشنبه", "شب جمعه", "شب شنبه", "شب‌های قدر"],"a":"شب چهارشنبه", "d":2,"why":"دعای توسل که مضمون آن توسل به چهارده معصوم است، در ایران معمولاً در شب‌های چهارشنبه و به‌صورت جمعی خوانده می‌شود.", "src":"علامه مجلسی، بحارالانوار؛ ویکی‌شیعه، مدخل دعای توسل"},
+  {"q":"دعای ندبه بیشتر در کدام روز خوانده می‌شود؟", "o": ["روز جمعه", "شب جمعه", "شب چهارشنبه", "شب نیمهٔ شعبان"],"a":"روز جمعه", "d":2,"why":"خواندن دعای ندبه در روز جمعه و نیز در اعیاد فطر، قربان و غدیر مستحب شمرده شده است؛ موضوع آن استغاثه از امام زمان(عج) و اندوه بر غیبت اوست.", "src":"سید بن طاووس، اقبال الاعمال؛ ویکی‌شیعه، مدخل دعای ندبه"},
+  {"q":"زیارت عاشورا از کدام امام نقل شده است؟", "o": ["امام باقر(ع)", "امام صادق(ع)", "امام سجاد(ع)", "امام رضا(ع)"],"a":"امام باقر(ع)", "d":2,"why":"زیارت عاشورا در کتاب کامل‌الزیارات و مصباح المتهجد از امام باقر(ع) و به روایت علقمه بن محمد حضرمی نقل شده است.", "src":"ابن‌قولویه، کامل‌الزیارات؛ شیخ طوسی، مصباح المتهجد"},
+  {"q":"زیارت وارث از کدام امام نقل شده و در چه زمانی خوانده می‌شود؟", "o": ["امام صادق(ع)؛ شب و روز عرفه و عید قربان", "امام باقر(ع)؛ روز عاشورا", "امام سجاد(ع)؛ شب جمعه", "امام رضا(ع)؛ روز غدیر"],"a":"امام صادق(ع)؛ شب و روز عرفه و عید قربان", "d":3,"why":"زیارت وارث به روایت صفوان بن مهران از امام صادق(ع) است و خواندن آن در شب و روز عرفه و عید قربان توصیه شده است.", "src":"شیخ طوسی، مصباح المتهجد؛ ویکی‌شیعه، مدخل زیارت وارث"},
+  {"q":"صحیفهٔ سجادیه اثر کدام امام است؟", "o": ["امام سجاد(ع)", "امام باقر(ع)", "امام صادق(ع)", "امام رضا(ع)"],"a":"امام سجاد(ع)", "d":1,"why":"صحیفهٔ سجادیه مجموعهٔ دعاهای امام سجاد(ع) است که پس از قرآن و نهج‌البلاغه از مهم‌ترین میراث مکتوب شیعه شمرده می‌شود.", "src":"صحیفهٔ سجادیه"},
+  {"q":"صحیفهٔ سجادیه امروز شامل چند دعا است؟", "o": ["۵۴ دعا", "۷۵ دعا", "۴۰ دعا", "۱۰۰ دعا"],"a":"۵۴ دعا", "d":3,"why":"صحیفهٔ سجادیه نخست در قالب ۷۵ دعا بود اما بخشی از دعاها از میان رفت و نسخه‌های امروزی آن ۵۴ دعا دارد.", "src":"ویکی‌شیعه، مدخل صحیفهٔ سجادیه"},
+  {"q":"دعای مکارم‌الاخلاق کدامین دعای صحیفهٔ سجادیه است؟", "o": ["دعای بیستم", "دعای اول", "دعای چهل‌وچهارم", "دعای پنجاه‌وچهارم"],"a":"دعای بیستم", "d":3,"why":"دعای مکارم‌الاخلاق، دعای بیستم صحیفهٔ سجادیه از امام سجاد(ع) است که دربارهٔ کسب اخلاق نیک و دوری از رذائل است.", "src":"صحیفهٔ سجادیه، دعای ۲۰"},
+  {"q":"دعای ابوحمزهٔ ثمالی از کدام امام نقل شده و در چه زمانی خوانده می‌شود؟", "o": ["امام سجاد(ع)؛ سحرهای ماه رمضان", "امام صادق(ع)؛ شب‌های جمعه", "امام باقر(ع)؛ روز عرفه", "امام زمان(عج)؛ شب نیمهٔ شعبان"],"a":"امام سجاد(ع)؛ سحرهای ماه رمضان", "d":2,"why":"دعای ابوحمزهٔ ثمالی را ابوحمزه ثمالی از امام سجاد(ع) نقل کرده و بیشتر در سحرهای ماه رمضان خوانده می‌شود.", "src":"شیخ طوسی، مصباح المتهجد؛ ویکی‌شیعه، مدخل دعای ابوحمزه"},
+  {"q":"دعای عرفهٔ مشهور که در روز نهم ذی‌الحجه در صحرای عرفات خوانده می‌شود از کدام امام است؟", "o": ["امام حسین(ع)", "امام علی(ع)", "امام صادق(ع)", "امام رضا(ع)"],"a":"امام حسین(ع)", "d":2,"why":"دعای عرفهٔ معروف، منقول از امام حسین(ع) است که در روز عرفه (نهم ذی‌الحجه) در صحرای عرفات خوانده می‌شود.", "src":"کفعمی، البلد الامین؛ علامه مجلسی، بحارالانوار"},
+  {"q":"دعای جوشن کبیر چند بند (فصل) دارد؟", "o": ["۱۰۰ بند", "۵۰ بند", "۲۰۰ بند", "۱۰ بند"],"a":"۱۰۰ بند", "d":3,"why":"دعای جوشن کبیر منقول از پیامبر(ص) است که ۱۰۰ بند دارد و هر بند آن ۱۰ نام از نام‌های خداوند را دربر می‌گیرد.", "src":"کفعمی، المصباح؛ علامه مجلسی، بحارالانوار"},
+  {"q":"دعای فرج معروف با عبارت «الهی عَظُمَ البلاء» از کدام معصوم صادر شده است؟", "o": ["امام زمان(عج)", "امام صادق(ع)", "امام سجاد(ع)", "امام علی(ع)"],"a":"امام زمان(عج)", "d":2,"why":"دعای فرج (الهی عظم البلاء) از دعاهای صادرشده از امام زمان(عج) است که راوی آن محمد بن احمد بن ابی‌لیث است.", "src":"طبرسی، کنوز النجاح؛ سید بن طاوس، جمال الاسبوع"},
+  {"q":"زیارت جامعهٔ کبیره از کدام امام نقل شده است؟", "o": ["امام هادی(ع)", "امام رضا(ع)", "امام صادق(ع)", "امام عسکری(ع)"],"a":"امام هادی(ع)", "d":3,"why":"زیارت جامعهٔ کبیره از زیارت‌نامه‌های مأثور از امام هادی(ع) است و دربارهٔ امامت و مقام ائمه اطهار(ع) سخن می‌گوید.", "src":"شیخ صدوق، من لا یحضره الفقیه؛ ویکی‌شیعه، مدخل زیارت جامعه کبیره"},
+  {"q":"دعای عهد که در آن تجدید بیعت با امام زمان(عج) صورت می‌گیرد از کدام امام است؟", "o": ["امام صادق(ع)", "امام سجاد(ع)", "امام هادی(ع)", "امام عسکری(ع)"],"a":"امام صادق(ع)", "d":3,"why":"دعای عهد از دعاهای صادرشده از امام صادق(ع) است که موضوع آن تجدید بیعت با امام زمان(عج) در دوران غیبت است.", "src":"ابن‌مشهدی، المزار الکبیر؛ علامه مجلسی، بحارالانوار"},
+  {"q":"دعای ندبه با چه موضوعی خوانده می‌شود؟", "o": ["استغاثه از امام زمان(عج) و اندوه بر غیبت او", "درخواست باران", "آمرزش گناهان", "شکرگزاری برای نعمت‌ها"],"a":"استغاثه از امام زمان(عج) و اندوه بر غیبت او", "d":2,"why":"دعای ندبه شامل حمد الهی، درود بر پیامبر و آل او، بیان فضایل اولیا و استغاثه و اظهار اشتیاق به امام زمان(عج) و درخواست تعجیل فرج است.", "src":"ویکی‌شیعه، مدخل دعای ندبه"}
+  ],
+
+  /* ── مهدویت و غیبت — 13 پرسش، از منابع شیعی ── */
+  mahdavi: [
+  {"q":"نام امام دوازدهم شیعیان چیست؟", "o": ["محمد", "حسن", "علی", "مهدی بن علی"],"a":"محمد", "d":2,"why":"نام امام دوازدهم «محمد» است؛ او فرزند امام حسن عسکری(ع) و مشهور به مهدی و قائم آل محمد(ص) است.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"کنیهٔ امام زمان(عج) که با کنیهٔ پیامبر اکرم(ص) یکی است چیست؟", "o": ["ابوالقاسم", "ابوعبدالله", "ابوجعفر", "ابوالحسن"],"a":"ابوالقاسم", "d":3,"why":"کنیهٔ امام زمان(عج) ابوالقاسم است که همان کنیهٔ پیامبر اکرم(ص) است و روایات از هم‌نامی و هم‌کنیه‌بودن او با پیامبر خبر داده‌اند.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"امام زمان(عج) در چه تاریخ و کجا به دنیا آمد؟", "o": ["۱۵ شعبان سال ۲۵۵ قمری در سامرا", "۱۵ شعبان سال ۲۶۰ قمری در کاظمین", "۹ ربیع‌الاول سال ۲۵۵ قمری در سامرا", "۱۵ رمضان سال ۲۵۵ قمری در مدینه"],"a":"۱۵ شعبان سال ۲۵۵ قمری در سامرا", "d":1,"why":"امام مهدی(عج) در نیمهٔ شعبان سال ۲۵۵ قمری در شهر سامرا به دنیا آمد.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"مادر امام زمان(عج) چه نام داشت؟", "o": ["نرجس خاتون", "حمیده", "نجمه", "سمانه"],"a":"نرجس خاتون", "d":1,"why":"نرجس، همسر امام حسن عسکری(ع) و مادر امام زمان(عج) است و نام‌های دیگری چون سوسن و صقیل نیز برای او ذکر شده است.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"پدر امام زمان(عج) کدام امام است؟", "o": ["امام حسن عسکری(ع)", "امام هادی(ع)", "امام رضا(ع)", "امام جواد(ع)"],"a":"امام حسن عسکری(ع)", "d":1,"why":"امام زمان(عج) تنها فرزند امام حسن عسکری(ع)، یازدهمین امام شیعیان، است.", "src":"شیخ صدوق، کمال‌الدین"},
+  {"q":"امامت امام زمان(عج) از چه سالی آغاز شد؟", "o": ["سال ۲۶۰ قمری", "سال ۲۵۵ قمری", "سال ۳۲۹ قمری", "سال ۲۴۷ قمری"],"a":"سال ۲۶۰ قمری", "d":2,"why":"با شهادت امام حسن عسکری(ع) در سال ۲۶۰ قمری، امامت امام دوازدهم آغاز شد و غیبت صغری از همان سال شروع گردید.", "src":"شیخ صدوق، کمال‌الدین؛ شیخ مفید، الارشاد"},
+  {"q":"غیبت صغری امام زمان(عج) از چه سالی تا چه سالی ادامه داشت؟", "o": ["از ۲۶۰ تا ۳۲۹ قمری", "از ۲۵۵ تا ۳۲۹ قمری", "از ۲۶۰ تا ۳۰۰ قمری", "از ۲۶۵ تا ۳۴۰ قمری"],"a":"از ۲۶۰ تا ۳۲۹ قمری", "d":2,"why":"غیبت صغری از سال ۲۶۰ قمری آغاز و در سال ۳۲۹ قمری با درگذشت آخرین نایب خاص پایان یافت؛ این مدت حدود ۶۹ سال بود.", "src":"شیخ طوسی، الغیبة؛ شیخ صدوق، کمال‌الدین"},
+  {"q":"غیبت صغری حدوداً چند سال به طول انجامید؟", "o": ["حدود ۶۹ سال", "حدود ۴۰ سال", "حدود ۱۰۰ سال", "حدود ۱۲ سال"],"a":"حدود ۶۹ سال", "d":2,"why":"دورهٔ غیبت صغری از ۲۶۰ تا ۳۲۹ قمری یعنی حدود ۶۹ سال بود که در آن امام زمان(عج) از طریق نواب خاص با شیعیان ارتباط داشت.", "src":"شیخ طوسی، الغیبة"},
+  {"q":"نواب اربعه (نایبان خاص امام زمان) چند نفر بودند؟", "o": ["چهار نفر", "دو نفر", "سه نفر", "پنج نفر"],"a":"چهار نفر", "d":1,"why":"در دوران غیبت صغری چهار نایب خاص واسطهٔ میان امام زمان(عج) و شیعیان بودند.", "src":"شیخ طوسی، الغیبة"},
+  {"q":"نخستین نایب خاص امام زمان(عج) چه کسی بود؟", "o": ["عثمان بن سعید عمری", "محمد بن عثمان عمری", "حسین بن روح نوبختی", "علی بن محمد سمری"],"a":"عثمان بن سعید عمری", "d":2,"why":"عثمان بن سعید عمری نخستین نفر از نواب اربعه بود که پیش از آن نیز از نمایندگان امام هادی(ع) و امام عسکری(ع) شمرده می‌شد.", "src":"شیخ طوسی، الغیبة"},
+  {"q":"کدام یک از نواب اربعه، آخرین نایب خاص امام زمان(عج) است؟", "o": ["علی بن محمد سمری", "حسین بن روح نوبختی", "محمد بن عثمان عمری", "عثمان بن سعید عمری"],"a":"علی بن محمد سمری", "d":2,"why":"علی بن محمد سمری چهارمین نایب خاص بود که در سال ۳۲۹ قمری درگذشت و با او غیبت صغری پایان یافت و غیبت کبری آغاز شد.", "src":"شیخ طوسی، الغیبة"},
+  {"q":"غیبت کبری امام زمان(عج) از چه سالی آغاز شد؟", "o": ["سال ۳۲۹ قمری", "سال ۲۶۰ قمری", "سال ۳۰۰ قمری", "سال ۳۶۰ قمری"],"a":"سال ۳۲۹ قمری", "d":2,"why":"با درگذشت چهارمین نایب خاص در سال ۳۲۹ قمری، نیابت خاصه پایان یافت و غیبت کبری آغاز شد که تا امروز ادامه دارد.", "src":"شیخ طوسی، الغیبة؛ شیخ صدوق، کمال‌الدین"},
+  {"q":"لقب «بقیةالله» به کدام معصوم اختصاص دارد؟", "o": ["امام زمان(عج)", "امام حسین(ع)", "امام علی(ع)", "امام رضا(ع)"],"a":"امام زمان(عج)", "d":2,"why":"از لقب‌های مشهور امام دوازدهم، «بقیةالله»، «قائم آل محمد»، «منتظر» و «صاحب‌الزمان» است.", "src":"شیخ صدوق، کمال‌الدین"}
+  ],
+
+  /* ── اصول و فروع دین — 8 پرسش، از منابع شیعی ── */
+  usul: [
+  {"q":"شیعیان اصول دین را چند اصل می‌دانند؟", "o": ["پنج اصل", "سه اصل", "هفت اصل", "چهار اصل"],"a":"پنج اصل", "d":2,"why":"شیعیان اصول دین را پنج اصل می‌دانند: توحید، نبوت، معاد، عدل و امامت؛ سه اصل نخست میان همهٔ مسلمانان مشترک است.", "src":"ویکی‌شیعه، مدخل اصول دین"},
+  {"q":"کدام یک از موارد زیر از اصول دین شیعه نیست؟", "o": ["حج", "توحید", "عدل", "امامت"],"a":"حج", "d":2,"why":"حج از فروع دین است، نه از اصول دین؛ اصول دین باورهای بنیادین‌اند و فروع دین احکام عملی.", "src":"ویکی‌شیعه، مدخل اصول دین"},
+  {"q":"«اصول مذهب» که شیعه را از دیگر مذاهب جدا می‌کند کدام‌اند؟", "o": ["عدل و امامت", "توحید و نبوت", "معاد و نبوت", "نماز و روزه"],"a":"عدل و امامت", "d":2,"why":"همهٔ مسلمانان توحید و نبوت و معاد را می‌پذیرند، اما اصول مذهب شیعه علاوه بر آن‌ها شامل عدل و امامت نیز می‌شود.", "src":"ویکی‌شیعه، مدخل اصول دین"},
+  {"q":"«عدل» به عنوان یکی از اصول دین شیعه به چه معناست؟", "o": ["خداوند از هر کار زشتی پاک است و به بندگان ستم نمی‌کند", "خداوند هر کاری را بدون حکمت انجام می‌دهد", "انسان در کارهایش مجبور است", "عدالت تنها وظیفهٔ حاکمان است"],"a":"خداوند از هر کار زشتی پاک است و به بندگان ستم نمی‌کند", "d":3,"why":"اصل عدل یعنی خداوند عادل است، کارهای او حکیمانه است و به بندگان ستم نمی‌کند؛ این اصل از اصول مذهب شیعه و معتزله است.", "src":"شیخ صدوق، الاعتقادات"},
+  {"q":"فروع دین چند مورد است؟", "o": ["ده مورد", "پنج مورد", "هفت مورد", "دوازده مورد"],"a":"ده مورد", "d":2,"why":"فروع دین ده‌تاست: نماز، روزه، حج، زکات، خمس، جهاد، امر به معروف، نهی از منکر، تولی و تبری.", "src":"ویکی‌شیعه، مدخل فروع دین"},
+  {"q":"کدام یک از موارد زیر از فروع دین است؟", "o": ["خمس", "توحید", "عدل", "امامت"],"a":"خمس", "d":1,"why":"خمس از احکام عملی و از فروع دین است، در حالی که توحید، عدل و امامت از اصول دین به شمار می‌آیند.", "src":"ویکی‌شیعه، مدخل فروع دین"},
+  {"q":"«تولی و تبری» در فروع دین به چه معناست؟", "o": ["دوستی با اولیای خدا و بیزاری از دشمنان خدا", "پرداخت خمس و زکات", "زیارت قبور ائمه(ع)", "جهاد با دشمنان"],"a":"دوستی با اولیای خدا و بیزاری از دشمنان خدا", "d":2,"why":"تولی یعنی محبت و دوستی با خدا، پیامبر و اهل بیت(ع) و تبری یعنی دشمنی و بیزاری از دشمنان آنان.", "src":"ویکی‌شیعه، مدخل فروع دین"},
+  {"q":"عقیده به امامت و جانشینی امام علی(ع) پس از پیامبر(ص) در کدام دسته جای می‌گیرد؟", "o": ["اصول دین", "فروع دین", "احکام طهارت", "مبطلات نماز"],"a":"اصول دین", "d":2,"why":"امامت در نگاه شیعه یک اصل اعتقادی و از اصول دین (و از اصول مذهب) است، نه یک حکم عملی.", "src":"ویکی‌شیعه، مدخل اصول دین"}
+  ],
+  scramble: [
+    {word:'قرآن',  hint:'کتاب آسمانی مسلمانان'},
+    {word:'نماز',  hint:'ستون دین'},
+    {word:'روزه',  hint:'واجب ماه رمضان'},
+    {word:'زکات',  hint:'مالی واجب'},
+    {word:'حج',    hint:'زیارت خانه خدا'},
+    {word:'تقوا',  hint:'پرهیزگاری'},
+    {word:'صبر',   hint:'شکیبایی'},
+    {word:'علم',   hint:'دانش'},
+    {word:'توکل',  hint:'اعتماد به خدا'},
+    {word:'شفاء',  hint:'درمان'},
+    {word:'نوروز', hint:'آغاز سال ایرانی'},
+    {word:'دماوند',hint:'بام ایران'},
+    {word:'کارون', hint:'بلندترین رود ایران'},
+    {word:'فردوسی',hint:'سراینده شاهنامه'},
+    {word:'خوارزمی',hint:'پدر جبر'},
+    {word:'سعدی',  hint:'سراینده گلستان'}
+  ],
+  esmFamil: [
+    {id:'name',    label:'👤 اسم'},
+    {id:'family',  label:'👨‍👩‍👧 فامیل'},
+    {id:'city',    label:'🏙️ شهر'},
+    {id:'country', label:'🌍 کشور'},
+    {id:'food',    label:'🍽️ غذا'},
+    {id:'animal',  label:'🐾 حیوان'}
+  ],
+  letters: ['ا','ب','پ','ت','ث','ج','چ','ح','خ','د','ر','ز','ژ','س','ش','ص','ض','ط','ظ','ع','غ','ف','ق','ک','گ','ل','م','ن','و','ه','ی'],
+  badges: [
+    {id:'first',      icon:'🥇', name:'اولین قدم',    desc:'اولین پاسخ صحیح'},
+    {id:'perfect',    icon:'🌟', name:'بی‌نقص',        desc:'۳ ستاره در یک بازی'},
+    {id:'score100',   icon:'💎', name:'۱۰۰ امتیاز',    desc:'رسیدن به ۱۰۰'},
+    {id:'score500',   icon:'🏆', name:'۵۰۰ امتیاز',    desc:'رسیدن به ۵۰۰'},
+    {id:'score2000',  icon:'👑', name:'۲۰۰۰ امتیاز',   desc:'رسیدن به ۲۰۰۰'},
+    {id:'combo5',     icon:'🔥', name:'کمبو ۵',       desc:'۵ پاسخ پیوسته'},
+    {id:'combo10',    icon:'☄️', name:'کمبو ۱۰',      desc:'۱۰ پاسخ پیوسته'},
+    {id:'daily',      icon:'🌙', name:'چالش روزانه',   desc:'تکمیل چالش'},
+    {id:'streak3',    icon:'📅', name:'سه روز پیوسته', desc:'۳ روز چالش پیاپی'},
+    {id:'streak7',    icon:'🗓️', name:'هفت روز پیوسته',desc:'۷ روز چالش پیاپی'},
+    {id:'quizmaster', icon:'📚', name:'دانشمند',      desc:'۱۰۰ پاسخ قرآنی'},
+    {id:'iranexpert', icon:'🇮🇷', name:'ایران‌شناس',    desc:'۳۰ پاسخ ایران'},
+    {id:'tttwinner',  icon:'❌', name:'قهرمان دوز',    desc:'برد در دوز'},
+    {id:'networker',  icon:'🌐', name:'شبکه‌ساز',      desc:'ساخت ۳ روم'},
+    {id:'duelist',    icon:'⚔️', name:'دوئلیست',      desc:'برد آنلاین'},
+    {id:'memorymaster',icon:'🧠',name:'حافظه طلایی',  desc:'۵ بازی حافظه'},
+    {id:'fast',       icon:'⚡', name:'سریع',          desc:'پاسخ زیر ۲ ثانیه'},
+    {id:'speedster',  icon:'🏎️', name:'برق‌آسا',       desc:'۱۰ برد سرعت نور'},
+    {id:'surah',      icon:'📖', name:'سفر تمام',      desc:'همه سوره‌ها را کامل کن'},
+    {id:'level5',     icon:'⭐', name:'سطح ۵',         desc:'رسیدن به سطح ۵'},
+    {id:'level10',    icon:'🌠', name:'سطح ۱۰',        desc:'رسیدن به سطح ۱۰'},
+    {id:'exams',      icon:'🏅', name:'معارف‌شناس',     desc:'۳ آزمون معارف'},
+    {id:'ahlulbayt',  icon:'🕌', name:'دوستدار اهلبیت', desc:'۲۰ پاسخ درست از معارف اهلبیت'},
+    {id:'ahkamexpert',icon:'📜', name:'فقیه‌نوآموز',    desc:'۱۵ پاسخ درست احکام'}
+  ],
+  categories: [
+    { id:'quran',   icon:'📖', title:'آموزش قرآن کریم', desc:'سوره‌ها، ترجمه و معنی',
+      games:['ayahlight','recite','surah','scramble','quiz','meaning','exam','nahj','hadith','imams','dua','bookmarks','reciters'] },
+    { id:'brain',   icon:'🧠', title:'بازی‌های فکری',    desc:'حافظه، تطبیق و سرعت',
+      games:['memory','match','speed','iran','tree'] },
+    { id:'online',  icon:'🌐', title:'چندنفره آنلاین',   desc:'با دوستانت بازی کن',
+      games:['online-lobby','dooz','esmfamil','friends'] },
+    { id:'daily',   icon:'🌙', title:'چالش روزانه',      desc:'هر روز یک جایزه',
+      games:['daily','missions','collection'] },
+    { id:'account', icon:'👤', title:'حساب من',          desc:'آمار، نشان‌ها و تنظیمات',
+      games:['stats','badges','leaderboard','settings'] }
+  ],
+  GAMES: {
+    ayahlight: { name:'نورِ آیه‌ها', icon:'🕌', desc:'ترتیب آیه، واژهٔ گمشده و شناخت سوره', tag:'new' },
+    recite:    { name:'تلاوت قرآن',   icon:'🎧', desc:'۱۰ قاری نامدار جهان، آیه‌به‌آیه', tag:'new' },
+    surah:     { name:'سفر سوره‌ها', icon:'📖', desc:'کلمه گمشده هر سوره را پیدا کن', tag:'hot' },
+    scramble:  { name:'پازل حروف',   icon:'🧩', desc:'حروف را بچین و کلمه بساز',       tag:'new' },
+    quiz:      { name:'سوالات قرآنی', icon:'📚', desc:'دانش قرآنی را محک بزن' },
+    meaning:   { name:'معنی کلمه',   icon:'🔤', desc:'معنی درست را انتخاب کن' },
+    match:     { name:'تطبیق',       icon:'🔗', desc:'کلمه و معنی را جفت کن' },
+    memory:    { name:'حافظه',       icon:'🧠', desc:'جفت‌های همسان را پیدا کن' },
+    speed:     { name:'سرعت نور',    icon:'⚡', desc:'۱۰ ثانیه برای هر سوال',  tag:'new' },
+    iran:      { name:'اطلاعات ایران',icon:'🇮🇷', desc:'تاریخ، جغرافیا و فرهنگ', tag:'ir' },
+    dooz:      { name:'دوز',         icon:'❌⭕', desc:'کلاسیک، تک‌نفره یا آنلاین', tag:'net' },
+    esmfamil:  { name:'اسم فامیل',   icon:'📝', desc:'با حرف داده‌شده کلمه بنویس', tag:'net' },
+    'online-lobby': { name:'محفل نور', icon:'🌐', desc:'اتصال واقعی به بازیکنان', tag:'net' },
+    daily:     { name:'چالش روزانه', icon:'🌙', desc:'امتیاز و زنجیره روزانه' },
+    shop:      { name:'فروشگاه',     icon:'🛒', desc:'سکه را به جان، پوسته و چهرک بدل کن', tag:'new' },
+    onboarding:{ name:'راهنمای آغاز', icon:'🎬', desc:'چهار اسلاید کوتاه برای شروع' },
+    profile:   { name:'پروفایل',     icon:'🙂', desc:'چهرک، نام، شعار و شناسنامه' },
+    stats:     { name:'آمار',        icon:'📊', desc:'آمار تفصیلی من' },
+    badges:    { name:'نشان‌ها',      icon:'🎖️', desc:'نشان‌های کسب‌شده' },
+    leaderboard:{ name:'رکوردها',    icon:'🏆', desc:'برترین رکوردهای من' },
+    settings:  { name:'تنظیمات',     icon:'⚙️', desc:'تم، صدا، نام' },
+    exam:      { name:'آزمون معارف',  icon:'🏅', desc:'موضوع و سطح را خودت بچین', tag:'new' },
+    nahj:      { name:'نهج‌البلاغه',  icon:'📜', desc:'حکمت‌های امام علی (ع) با ترجمه', tag:'new' },
+    hadith:    { name:'حدیث‌یاب',     icon:'📜', desc:'واژهٔ جاافتادهٔ حدیث را پیدا کن', tag:'new' },
+    imams:     { name:'چهارده معصوم', icon:'🕌', desc:'نام‌ها، لقب‌ها و جایگاه‌ها',      tag:'new' },
+    dua:       { name:'نجوا',         icon:'🤲', desc:'واژه‌های دعا را به ترتیب بچین',   tag:'new' },
+    collection:{ name:'کلکسیون نشان‌ها', icon:'🎖️', desc:'همهٔ نشان‌ها در یک نگاه',      tag:'new' },
+    tree:      { name:'درخت دانش',    icon:'🌳', desc:'شاخه‌های دانشت را ببین',          tag:'new' },
+    missions:  { name:'مأموریت‌های امروز', icon:'🎯', desc:'سه کار تازه هر روز',         tag:'new' },
+    bookmarks: { name:'نشانه‌های من',  icon:'🔖', desc:'آیه‌های نشان‌شده و ادامهٔ خواندن' },
+    friends:   { name:'دوستان',       icon:'👥', desc:'دوست اضافه کن و دعوت بفرست', tag:'net' },
+    reciters:  { name:'قاریان',       icon:'🎙', desc:'انتخاب قاری با پیش‌نمایش' }
+  },
+/* ── نهج‌البلاغه — ۲۵ سخن سنجیده با شمارهٔ صبحی صالح ── */
+  nahj: [
+  {"ar":"كُنْ فِي الْفِتْنَةِ كَابْنِ اللَّبُونِ، لاَ ظَهْرٌ فَيُرْكَبَ، وَلاَ ضَرْعٌ فَيُحْلَبَ.", "fa":"هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود.", "src":"نهج‌البلاغه، حکمت ۱" },
+  {"ar":"الْعَجْزُ آفَةٌ، وَالصَّبْرُ شَجَاعَةٌ، وَالزُّهْدُ ثَرْوَةٌ، وَالْوَرَعُ جُنَّةٌ، وَنِعْمَ الْقَرِينُ الرِّضَى.", "fa":"ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "src":"نهج‌البلاغه، حکمت ۴" },
+  {"ar":"الْعِلْمُ وِرَاثَةٌ كَرِيمَةٌ، وَالْآدَابُ حُلَلٌ مُجَدَّدَةٌ، وَالْفِكْرُ مِرْآةٌ صَافِيَةٌ.", "fa":"دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف.", "src":"نهج‌البلاغه، حکمت ۵" },
+  {"ar":"مَا أَضْمَرَ أَحَدٌ شَيْئاً إِلَّا ظَهَرَ فِي فَلَتَاتِ لِسَانِهِ وَصَفَحَاتِ وَجْهِهِ.", "fa":"هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد.", "src":"نهج‌البلاغه، حکمت ۲۶" },
+  {"ar":"قَدْرُ الرَّجُلِ عَلَى قَدْرِ هِمَّتِهِ، وَصِدْقُهُ عَلَى قَدْرِ مُرُوءَتِهِ، وَشَجَاعَتُهُ عَلَى قَدْرِ أَنَفَتِهِ، وَعِفَّتُهُ عَلَى قَدْرِ غَيْرَتِهِ.", "fa":"ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او.", "src":"نهج‌البلاغه، حکمت ۴۷" },
+  {"ar":"لَا غِنَى كَالْعَقْلِ، وَلَا فَقْرَ كَالْجَهْلِ، وَلَا مِيرَاثَ كَالْأَدَبِ، وَلَا ظَهِيرَ كَالْمُشَاوَرَةِ.", "fa":"هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "src":"نهج‌البلاغه، حکمت ۵۴" },
+  {"ar":"الصَّبْرُ صَبْرَانِ، صَبْرٌ عَلَى مَا تَكْرَهُ، وَصَبْرٌ عَمَّا تُحِبُ.", "fa":"شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "src":"نهج‌البلاغه، حکمت ۵۵" },
+  {"ar":"لَا تَرَى الْجَاهِلَ إِلَّا مُفْرِطاً أَوْ مُفَرِّطاً.", "fa":"نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند.", "src":"نهج‌البلاغه، حکمت ۷۰" },
+  {"ar":"مَنْ نَصَبَ نَفْسَهُ لِلنَّاسِ إِمَاماً، فَلْيَبْدَأْ بِتَعْلِيمِ نَفْسِهِ قَبْلَ تَعْلِيمِ غَيْرِهِ، وَ لْيَكُنْ تَأْدِيبُهُ بِسِيرَتِهِ قَبْلَ تَأْدِيبِهِ بِلِسَانِهِ؛ وَ مُعَلِّمُ نَفْسِهِ وَ مُؤَدِّبُهَا، أَحَقُّ بِالْإِجْلَالِ مِنْ مُعَلِّمِ النَّاسِ وَ مُؤَدِّبِهِمْ.", "fa":"آن که خود را پیشوای مردم سازد، باید پیش از تعلیم دیگری خود را تعلیم دهد، و ادب کردنش به رفتارش باشد پیش از ادب کردنش به زبانش؛ و آن که خود را تعلیم دهد و ادب کند، سزاوارتر به احترام است از آن که مردم را تعلیم دهد و ادب کند.", "src":"نهج‌البلاغه، حکمت ۷۳" },
+  {"ar":"خُذِ الْحِكْمَةَ أَنَّى كَانَتْ، فَإِنَّ الْحِكْمَةَ تَكُونُ فِي صَدْرِ الْمُنَافِقِ، فَتَلَجْلَجُ فِي صَدْرِهِ حَتَّى تَخْرُجَ فَتَسْكُنَ إِلَى صَوَاحِبِهَا فِي صَدْرِ الْمُؤْمِنِ.", "fa":"حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "src":"نهج‌البلاغه، حکمت ۷۹" },
+  {"ar":"الْحِكْمَةُ ضَالَّةُ الْمُؤْمِنِ، فَخُذِ الْحِكْمَةَ وَلَوْ مِنْ أَهْلِ النِّفَاقِ.", "fa":"حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "src":"نهج‌البلاغه، حکمت ۸۰" },
+  {"ar":"قِيمَةُ كُلِّ امْرِئٍ مَا يُحْسِنُهُ.", "fa":"ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "src":"نهج‌البلاغه، حکمت ۸۱" },
+  {"ar":"الْمَرْءُ مَخْبُوءٌ تَحْتَ لِسَانِهِ.", "fa":"آدمی نهفته در زیر زبان خویش است.", "src":"نهج‌البلاغه، حکمت ۱۴۸" },
+  {"ar":"الْفَقْرُ، الْمَوْتُ الْأَكْبَرُ.", "fa":"تنگدستی مرگ بزرگ‌تر است.", "src":"نهج‌البلاغه، حکمت ۱۶۳" },
+  {"ar":"بِئْسَ الزَّادُ إِلَى الْمَعَادِ، الْعُدْوَانُ عَلَى الْعِبَادِ.", "fa":"بد توشه‌ای است برای آن جهان، ستم بر بندگان.", "src":"نهج‌البلاغه، حکمت ۲۲۱" },
+  {"ar":"الْكَرَمُ، أَعْطَفُ مِنَ الرَّحِمِ.", "fa":"جوانمردی مهرآورتر از خویشاوندی است.", "src":"نهج‌البلاغه، حکمت ۲۴۷" },
+  {"ar":"إِذَا أَرْذَلَ اللَّهُ عَبْداً، حَظَرَ عَلَيْهِ الْعِلْمَ.", "fa":"هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "src":"نهج‌البلاغه، حکمت ۲۸۸" },
+  {"ar":"مَنْ كَثُرَ كَلَامُهُ كَثُرَ خَطَؤُهُ، وَمَنْ كَثُرَ خَطَؤُهُ قَلَّ حَيَاؤُهُ.", "fa":"هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "src":"نهج‌البلاغه، حکمت ۳۴۹ (این دو جمله، فرازی از حکمت ۳۴۹ است، نه حکمتی مستقل)" },
+  {"ar":"رُبَّ مَفْتُونٍ بِحُسْنِ الْقَوْلِ فِيه.", "fa":"بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "src":"نهج‌البلاغه، حکمت ۴۶۲" },
+  {"ar":"الْغِيبَةُ جُهْدُ الْعَاجِزِ.", "fa":"بدگویی پشت سر مردم، تلاش ناتوان است.", "src":"نهج‌البلاغه، حکمت ۴۶۱" },
+  {"ar":"أَمَّا وَاللَّهِ لَقَدْ تَقَمَّصَهَا فُلَانٌ، وَإِنَّهُ لَيَعْلَمُ أَنَّ مَحَلِّي مِنْهَا مَحَلُّ الْقُطْبِ مِنَ الرَّحَى، يَنْحَدِرُ عَنِّي السَّيْلُ وَلَا يَرْقَى إِلَيَّ الطَّيْرُ.", "fa":"به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "src":"نهج‌البلاغه، خطبه ۳ (شقشقیه)" },
+  {"ar":"أَمَّا بَعْدُ، فَإِنَّ الْجِهَادَ بَابٌ مِنْ أَبْوَابِ الْجَنَّةِ فَتَحَهُ اللَّهُ لِخَاصَّةِ أَوْلِيَائِهِ، وَهُوَ لِبَاسُ التَّقْوَى، وَدِرْعُ اللَّهِ الْحَصِينَةُ، وَجُنَّتُهُ الْوَثِيقَةُ.", "fa":"پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "src":"نهج‌البلاغه، خطبه ۲۷" },
+  {"ar":"فَهُمْ وَالْجَنَّةُ كَمَنْ قَدْ رَآهَا فَهُمْ فِيهَا مُنَعَّمُونَ، وَهُمْ وَالنَّارُ كَمَنْ قَدْ رَآهَا فَهُمْ فِيهَا مُعَذَّبُونَ.", "fa":"آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "src":"نهج‌البلاغه، خطبه ۱۹۳ (خطبه متقین/همّام)" },
+  {"ar":"وَلَا تَكُنْ عَبْدَ غَيْرِكَ وَقَدْ جَعَلَكَ اللَّهُ حُرًّا.", "fa":"و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "src":"نهج‌البلاغه، نامه ۳۱ (به امام حسن)" },
+  {"ar":"فَإِنَّهُمْ صِنْفَانِ: إِمَّا أَخٌ لَكَ فِي الدِّينِ، وَإِمَّا نَظِيرٌ لَكَ فِي الْخَلْقِ.", "fa":"که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "src":"نهج‌البلاغه، نامه ۵۳ (عهدنامه مالک اشتر)" }
+  ],
+  /* ── پرسش‌های معنی حکمت‌ها — از همان بانک نهج‌البلاغه ── */
+  nahjPick: [
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ كُنْ فِي الْفِتْنَةِ كَابْنِ اللَّبُونِ، لاَ ظَهْرٌ فَيُرْكَبَ، وَلاَ ضَرْعٌ فَيُحْلَبَ. ﴾", "o": ["هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود.", "ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد."],"a":"هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود.", "d":2,"why":"هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود.", "src":"نهج‌البلاغه، حکمت ۱" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْعَجْزُ آفَةٌ، وَالصَّبْرُ شَجَاعَةٌ، وَالزُّهْدُ ثَرْوَةٌ، وَالْوَرَعُ جُنَّةٌ، وَنِعْمَ الْقَرِينُ الرِّضَى. ﴾", "o": ["ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد)."],"a":"ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "d":2,"why":"ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "src":"نهج‌البلاغه، حکمت ۴" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْعِلْمُ وِرَاثَةٌ كَرِيمَةٌ، وَالْآدَابُ حُلَلٌ مُجَدَّدَةٌ، وَالْفِكْرُ مِرْآةٌ صَافِيَةٌ. ﴾", "o": ["دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف.", "که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد."],"a":"دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف.", "d":2,"why":"دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف.", "src":"نهج‌البلاغه، حکمت ۵" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ مَا أَضْمَرَ أَحَدٌ شَيْئاً إِلَّا ظَهَرَ فِي فَلَتَاتِ لِسَانِهِ وَصَفَحَاتِ وَجْهِهِ. ﴾", "o": ["هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد.", "شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود."],"a":"هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد.", "d":1,"why":"هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد.", "src":"نهج‌البلاغه، حکمت ۲۶" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ قَدْرُ الرَّجُلِ عَلَى قَدْرِ هِمَّتِهِ، وَصِدْقُهُ عَلَى قَدْرِ مُرُوءَتِهِ، وَشَجَاعَتُهُ عَلَى قَدْرِ أَنَفَتِهِ، وَعِفَّتُهُ عَلَى قَدْرِ غَيْرَتِهِ. ﴾", "o": ["ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او.", "آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است."],"a":"ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او.", "d":2,"why":"ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او.", "src":"نهج‌البلاغه، حکمت ۴۷" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ لَا غِنَى كَالْعَقْلِ، وَلَا فَقْرَ كَالْجَهْلِ، وَلَا مِيرَاثَ كَالْأَدَبِ، وَلَا ظَهِيرَ كَالْمُشَاوَرَةِ. ﴾", "o": ["هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد)."],"a":"هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "d":2,"why":"هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "src":"نهج‌البلاغه، حکمت ۵۴" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الصَّبْرُ صَبْرَانِ، صَبْرٌ عَلَى مَا تَكْرَهُ، وَصَبْرٌ عَمَّا تُحِبُ. ﴾", "o": ["شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد.", "ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود."],"a":"شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "d":2,"why":"شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "src":"نهج‌البلاغه، حکمت ۵۵" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ لَا تَرَى الْجَاهِلَ إِلَّا مُفْرِطاً أَوْ مُفَرِّطاً. ﴾", "o": ["نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند.", "حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده."],"a":"نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند.", "d":2,"why":"نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند.", "src":"نهج‌البلاغه، حکمت ۷۰" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ مَنْ نَصَبَ نَفْسَهُ لِلنَّاسِ إِمَاماً، فَلْيَبْدَأْ بِتَعْلِيمِ نَفْسِهِ قَبْلَ تَعْلِيمِ غَيْرِهِ، وَ لْيَكُنْ تَأْدِيبُهُ بِسِيرَتِهِ قَبْلَ تَأْدِيبِهِ بِلِسَانِهِ؛ وَ مُعَلِّمُ نَفْسِهِ وَ مُؤَدِّبُهَا، أَحَقُّ بِالْإِجْلَالِ مِنْ مُعَلِّمِ النَّاسِ وَ مُؤَدِّبِهِمْ. ﴾", "o": ["آن که خود را پیشوای مردم سازد، باید پیش از تعلیم دیگری خود را تعلیم دهد، و ادب کردنش به رفتارش باشد پیش از ادب کردنش به زبانش؛ و آن که خود را تعلیم دهد و ادب کند، سزاوارتر به احترام است از آن که مردم را تعلیم دهد و ادب کند.", "به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند."],"a":"آن که خود را پیشوای مردم سازد، باید پیش از تعلیم دیگری خود را تعلیم دهد، و ادب کردنش به رفتارش باشد پیش از ادب کردنش به زبانش؛ و آن که خود را تعلیم دهد و ادب کند، سزاوارتر به احترام است از آن که مردم را تعلیم دهد و ادب کند.", "d":2,"why":"آن که خود را پیشوای مردم سازد، باید پیش از تعلیم دیگری خود را تعلیم دهد، و ادب کردنش به رفتارش باشد پیش از ادب کردنش به زبانش؛ و آن که خود را تعلیم دهد و ادب کند، سزاوارتر به احترام است از آن که مردم را تعلیم دهد و ادب کند.", "src":"نهج‌البلاغه، حکمت ۷۳" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ خُذِ الْحِكْمَةَ أَنَّى كَانَتْ، فَإِنَّ الْحِكْمَةَ تَكُونُ فِي صَدْرِ الْمُنَافِقِ، فَتَلَجْلَجُ فِي صَدْرِهِ حَتَّى تَخْرُجَ فَتَسْكُنَ إِلَى صَوَاحِبِهَا فِي صَدْرِ الْمُؤْمِنِ. ﴾", "o": ["حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است.", "هیچ بی‌نیازی چون خرد نیست، و هیچ درویشی چون نادانی، و هیچ میراثی چون ادب، و هیچ پشتیبانی چون رایزنی.", "ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او."],"a":"حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "d":2,"why":"حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "src":"نهج‌البلاغه، حکمت ۷۹" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْحِكْمَةُ ضَالَّةُ الْمُؤْمِنِ، فَخُذِ الْحِكْمَةَ وَلَوْ مِنْ أَهْلِ النِّفَاقِ. ﴾", "o": ["حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند."],"a":"حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "d":2,"why":"حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "src":"نهج‌البلاغه، حکمت ۸۰" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ قِيمَةُ كُلِّ امْرِئٍ مَا يُحْسِنُهُ. ﴾", "o": ["ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "هنگام فتنه چون شتر دو ساله باش؛ نه پشتی که بر آن سوار شوند و نه پستانی که دوشیده شود.", "شکیبایی دو گونه است: شکیبایی بر آنچه ناخوش می‌داری، و شکیبایی از آنچه دوست می‌داری.", "هیچ‌کس چیزی را در دل نهان نکرد، جز که در سخنان بی‌اندیشه‌اش و در چهره‌اش آشکار شد."],"a":"ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "d":1,"why":"ارزش هر کس آن است که نیک می‌داند (ارزش هر کس به اندازه کاری است که نیک انجام می‌دهد).", "src":"نهج‌البلاغه، حکمت ۸۱" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْمَرْءُ مَخْبُوءٌ تَحْتَ لِسَانِهِ. ﴾", "o": ["آدمی نهفته در زیر زبان خویش است.", "جوانمردی مهرآورتر از خویشاوندی است.", "بدگویی پشت سر مردم، تلاش ناتوان است.", "تنگدستی مرگ بزرگ‌تر است."],"a":"آدمی نهفته در زیر زبان خویش است.", "d":1,"why":"آدمی نهفته در زیر زبان خویش است.", "src":"نهج‌البلاغه، حکمت ۱۴۸" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْفَقْرُ، الْمَوْتُ الْأَكْبَرُ. ﴾", "o": ["تنگدستی مرگ بزرگ‌تر است.", "آدمی نهفته در زیر زبان خویش است.", "جوانمردی مهرآورتر از خویشاوندی است.", "بدگویی پشت سر مردم، تلاش ناتوان است."],"a":"تنگدستی مرگ بزرگ‌تر است.", "d":1,"why":"تنگدستی مرگ بزرگ‌تر است.", "src":"نهج‌البلاغه، حکمت ۱۶۳" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ بِئْسَ الزَّادُ إِلَى الْمَعَادِ، الْعُدْوَانُ عَلَى الْعِبَادِ. ﴾", "o": ["بد توشه‌ای است برای آن جهان، ستم بر بندگان.", "بدگویی پشت سر مردم، تلاش ناتوان است.", "جوانمردی مهرآورتر از خویشاوندی است.", "و بنده دیگری مباش، که خداوند تو را آزاد آفریده است."],"a":"بد توشه‌ای است برای آن جهان، ستم بر بندگان.", "d":2,"why":"بد توشه‌ای است برای آن جهان، ستم بر بندگان.", "src":"نهج‌البلاغه، حکمت ۲۲۱" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْكَرَمُ، أَعْطَفُ مِنَ الرَّحِمِ. ﴾", "o": ["جوانمردی مهرآورتر از خویشاوندی است.", "بدگویی پشت سر مردم، تلاش ناتوان است.", "آدمی نهفته در زیر زبان خویش است.", "بد توشه‌ای است برای آن جهان، ستم بر بندگان."],"a":"جوانمردی مهرآورتر از خویشاوندی است.", "d":2,"why":"جوانمردی مهرآورتر از خویشاوندی است.", "src":"نهج‌البلاغه، حکمت ۲۴۷" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ إِذَا أَرْذَلَ اللَّهُ عَبْداً، حَظَرَ عَلَيْهِ الْعِلْمَ. ﴾", "o": ["هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند."],"a":"هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "d":2,"why":"هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "src":"نهج‌البلاغه، حکمت ۲۸۸" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ مَنْ كَثُرَ كَلَامُهُ كَثُرَ خَطَؤُهُ، وَمَنْ كَثُرَ خَطَؤُهُ قَلَّ حَيَاؤُهُ. ﴾", "o": ["هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف."],"a":"هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "d":2,"why":"هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "src":"نهج‌البلاغه، حکمت ۳۴۹ (این دو جمله، فرازی از حکمت ۳۴۹ است، نه حکمتی مستقل)" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ رُبَّ مَفْتُونٍ بِحُسْنِ الْقَوْلِ فِيه. ﴾", "o": ["بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "نادان را نبینی جز که از اندازه بگذرد یا از اندازه فرو ماند."],"a":"بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "d":2,"why":"بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "src":"نهج‌البلاغه، حکمت ۴۶۲" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ الْغِيبَةُ جُهْدُ الْعَاجِزِ. ﴾", "o": ["بدگویی پشت سر مردم، تلاش ناتوان است.", "جوانمردی مهرآورتر از خویشاوندی است.", "آدمی نهفته در زیر زبان خویش است.", "بد توشه‌ای است برای آن جهان، ستم بر بندگان."],"a":"بدگویی پشت سر مردم، تلاش ناتوان است.", "d":1,"why":"بدگویی پشت سر مردم، تلاش ناتوان است.", "src":"نهج‌البلاغه، حکمت ۴۶۱" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ أَمَّا وَاللَّهِ لَقَدْ تَقَمَّصَهَا فُلَانٌ، وَإِنَّهُ لَيَعْلَمُ أَنَّ مَحَلِّي مِنْهَا مَحَلُّ الْقُطْبِ مِنَ الرَّحَى، يَنْحَدِرُ عَنِّي السَّيْلُ وَلَا يَرْقَى إِلَيَّ الطَّيْرُ. ﴾", "o": ["به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "آن که خود را پیشوای مردم سازد، باید پیش از تعلیم دیگری خود را تعلیم دهد، و ادب کردنش به رفتارش باشد پیش از ادب کردنش به زبانش؛ و آن که خود را تعلیم دهد و ادب کند، سزاوارتر به احترام است از آن که مردم را تعلیم دهد و ادب کند."],"a":"به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "d":3,"why":"به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "src":"نهج‌البلاغه، خطبه ۳ (شقشقیه)" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ أَمَّا بَعْدُ، فَإِنَّ الْجِهَادَ بَابٌ مِنْ أَبْوَابِ الْجَنَّةِ فَتَحَهُ اللَّهُ لِخَاصَّةِ أَوْلِيَائِهِ، وَهُوَ لِبَاسُ التَّقْوَى، وَدِرْعُ اللَّهِ الْحَصِينَةُ، وَجُنَّتُهُ الْوَثِيقَةُ. ﴾", "o": ["پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "به خدا سوگند، فلانی جامه خلافت را پوشید، در حالی که می‌دانست جایگاه من در خلافت چون محور سنگ آسیا به آسیاست؛ سیل دانش از وجودم سرازیر می‌شود و مرغ اندیشه به قله منزلتم نمی‌رسد.", "آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او."],"a":"پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "d":3,"why":"پس از ستایش پروردگار، جهاد در راه خدا دری از درهای بهشت است که خدا آن را به روی دوستان مخصوص خود گشوده است؛ جهاد لباس تقوا، و زره محکم، و سپر مطمئن خداوند است.", "src":"نهج‌البلاغه، خطبه ۲۷" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ فَهُمْ وَالْجَنَّةُ كَمَنْ قَدْ رَآهَا فَهُمْ فِيهَا مُنَعَّمُونَ، وَهُمْ وَالنَّارُ كَمَنْ قَدْ رَآهَا فَهُمْ فِيهَا مُعَذَّبُونَ. ﴾", "o": ["آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "ارزش مرد به اندازه همت اوست، و راستی‌اش به اندازه جوانمردی او، و شجاعتش به اندازه بلندهمتی‌اش، و پاکدامنی‌اش به اندازه غیرت او.", "حکمت را از هر جا باشد فراگیر، که حکمت در سینه منافق می‌ماند و آرام نمی‌گیرد تا بیرون آید و در سینه مؤمن جای گیرد.", "ناتوانی آفت است، و شکیبایی شجاعت، و بی‌رغبتی به دنیا ثروت، و پرهیزگاری سپر، و خوش‌ترین همدم خشنودی است."],"a":"آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "d":3,"why":"آنان با بهشت چونان کسانی‌اند که آن را به چشم دیده و در آن متنعم‌اند، و با آتش دوزخ چونان کسانی‌اند که آن را دیده و در آن معذب‌اند.", "src":"نهج‌البلاغه، خطبه ۱۹۳ (خطبه متقین/همّام)" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ وَلَا تَكُنْ عَبْدَ غَيْرِكَ وَقَدْ جَعَلَكَ اللَّهُ حُرًّا. ﴾", "o": ["و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "بسا شیفته‌دلداده بدان که نام نیکش بر زبان‌ها افتاده.", "هر گاه خدا بنده‌ای را خوار دارد، دانش را بر او ببندد.", "بد توشه‌ای است برای آن جهان، ستم بر بندگان."],"a":"و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "d":3,"why":"و بنده دیگری مباش، که خداوند تو را آزاد آفریده است.", "src":"نهج‌البلاغه، نامه ۳۱ (به امام حسن)" },
+  {"q":"معنی این سخن امام علی (ع) کدام است؟\n﴿ فَإِنَّهُمْ صِنْفَانِ: إِمَّا أَخٌ لَكَ فِي الدِّينِ، وَإِمَّا نَظِيرٌ لَكَ فِي الْخَلْقِ. ﴾", "o": ["که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "هر که پرگفتار شد خطایش بسیار گشت، و هر که خطایش بسیار شد شرمش کم شد.", "حکمت گم‌شده مؤمن است؛ پس حکمت را فراگیر، هر چند از منافقان باشد.", "دانش میراثی گران‌بهاست، و آداب زیورهایی همیشه نو، و اندیشه آیینه‌ای صاف."],"a":"که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "d":3,"why":"که آنان دو گروه‌اند: یا برادر دینی تو هستند، یا آفریده‌ای همانند تو.", "src":"نهج‌البلاغه، نامه ۵۳ (عهدنامه مالک اشتر)" }
+  ],
+
+  /* ── دفتر موضوع‌های آزمون معارف ──
+     هر موضوع یک «بانک» دارد؛ QuizPick آن‌ها را به هم می‌بافد و از
+     سطوح ۱ (آسان) تا ۳ (دشوار) صافی می‌کند. برای افزودن موضوع تازه
+     فقط یک ردیف همین‌جا و یک بانک در DATA لازم است. */
+  TOPICS_DEF: [
+    { id:'quran',   icon:'📖', name:'دانش قرآنی',      desc:'سوره‌ها، آیات و شأن نزول',  bank:'quiz' },
+    { id:'meaning', icon:'🔤', name:'معنی و واژه',      desc:'معنی واژه‌های قرآنی',        bank:'meaning' },
+    { id:'surah',   icon:'🕌', name:'سفر سوره‌ها',      desc:'کلمهٔ گمشدهٔ آیه‌ها',         bank:'surahPick' },
+    { id:'iran',    icon:'🇮🇷', name:'ایران‌شناسی',      desc:'تاریخ، جغرافیا و فرهنگ',     bank:'iran' },
+    { id:'ahlulbayt', icon:'🕌', name:'چهارده معصوم', desc:'امامان، مادران و لقب‌ها',   bank:'ahlulbayt' },
+    { id:'karbala',   icon:'🕯️', name:'عاشورا و کربلا', desc:'یاران، روزها و رویدادها',  bank:'karbala' },
+    { id:'ghadir',    icon:'🤲', name:'غدیر و ولایت',   desc:'آیه‌ها و حدیث‌های ولایت',   bank:'ghadir' },
+    { id:'ahkam',     icon:'📜', name:'احکام جعفری',    desc:'نماز، وضو، روزه، خمس',     bank:'ahkam' },
+    { id:'dua',       icon:'📿', name:'ادعیه و زیارات',  desc:'کمیل، عرفه، عاشورا',        bank:'dua' },
+    { id:'mahdavi',   icon:'🌙', name:'مهدویت و غیبت',   desc:'غیبت صغری و نواب اربعه',   bank:'mahdavi' },
+    { id:'usul',      icon:'⚖️', name:'اصول و فروع دین', desc:'اصول مذهب و فروع ده‌گانه',  bank:'usul' },
+    { id:'nahj',      icon:'📜', name:'نهج‌البلاغه',     desc:'حکمت‌ها و فرازهای خطبه‌ها', bank:'nahjPick' }
+  ],
+  /* ── بانک تأییدشدهٔ دعا و چهارده معصوم (نسخهٔ ۱۵) ── */
+  duas: [
+    {
+      "title": "دعای فرج (عظم البلاء) — بند نخست",
+      "ar": "إِلٰهِى عَظُمَ الْبَلاءُ، وَبَرِحَ الْخَفاءُ",
+      "fa": "خدایا گرفتاری بزرگ شد و پوشیده آشکار گشت",
+      "words": [
+        "إِلٰهِى",
+        "عَظُمَ",
+        "الْبَلاءُ،",
+        "وَبَرِحَ",
+        "الْخَفاءُ"
+      ],
+      "src": "مفاتیح الجنان — دعای فرج (عظم البلاء)؛ به نقل مصباح المتهجد شیخ طوسی",
+      "d": 1
+    },
+    {
+      "title": "دعای فرج (عظم البلاء) — یا محمّد یا علی",
+      "ar": "يَا مُحَمَّدُ يَا عَلِىُّ، يَا عَلِىُّ يَا مُحَمَّدُ اكْفِيانِى",
+      "fa": "ای محمّد و ای علی، ای علی و ای محمّد، مرا کفایت کنید که تنها شما کفایت‌کنندگان من هستید",
+      "words": [
+        "يَا",
+        "مُحَمَّدُ",
+        "يَا",
+        "عَلِىُّ،",
+        "يَا",
+        "عَلِىُّ",
+        "يَا",
+        "مُحَمَّدُ",
+        "اكْفِيانِى"
+      ],
+      "src": "مفاتیح الجنان — دعای فرج (عظم البلاء)",
+      "d": 2
+    },
+    {
+      "title": "دعای فرج (عظم البلاء) — الغوث الغوث",
+      "ar": "الْغَوْثَ الْغَوْثَ الْغَوْثَ، أَدْرِكْنِى أَدْرِكْنِى أَدْرِكْنِى",
+      "fa": "فریادرس، فریادرس، فریادرس، مرا دریاب، مرا دریاب، مرا دریاب",
+      "words": [
+        "الْغَوْثَ",
+        "الْغَوْثَ",
+        "الْغَوْثَ،",
+        "أَدْرِكْنِى",
+        "أَدْرِكْنِى",
+        "أَدْرِكْنِى"
+      ],
+      "src": "مفاتیح الجنان — دعای فرج (عظم البلاء)",
+      "d": 2
+    },
+    {
+      "title": "دعای سلامتی امام زمان (اللهم کن لولیک)",
+      "ar": "وَلِیاً وَ حَافِظاً وَ قَائِداً وَ نَاصِراً",
+      "fa": "سرپرست و نگهبان و پیشوا و یاور باش",
+      "words": [
+        "وَلِیاً",
+        "وَ",
+        "حَافِظاً",
+        "وَ",
+        "قَائِداً",
+        "وَ",
+        "نَاصِراً"
+      ],
+      "src": "شیخ طوسی، مصباح المتهجد — دعای سلامتی امام زمان (دعای اللهم کن لولیک)",
+      "d": 3
+    },
+    {
+      "title": "دعای حضرت موسی (ع) — ربّ اشرح لی صدری",
+      "ar": "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي",
+      "fa": "پروردگارا، سینه‌ام را گشاده گردان و کارم را برای من آسان ساز",
+      "words": [
+        "رَبِّ",
+        "اشْرَحْ",
+        "لِي",
+        "صَدْرِي",
+        "وَيَسِّرْ",
+        "لِي",
+        "أَمْرِي"
+      ],
+      "src": "قرآن، سورهٔ طه، آیهٔ ۲۵ و ۲۶ (ترجمهٔ فولادوند)",
+      "d": 1
+    },
+    {
+      "title": "دعای پدر و مادر — ربّ ارحمهما",
+      "ar": "رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا",
+      "fa": "پروردگارا، آن دو را رحمت کن چنان‌که مرا در خردی پروردند",
+      "words": [
+        "رَبِّ",
+        "ارْحَمْهُمَا",
+        "كَمَا",
+        "رَبَّيَانِي",
+        "صَغِيرًا"
+      ],
+      "src": "قرآن، سورهٔ اسراء، آیهٔ ۲۴ (ترجمهٔ فولادوند)",
+      "d": 2
+    },
+    {
+      "title": "آیةالکرسی (بند نخست)",
+      "ar": "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ",
+      "fa": "خداست که معبودی جز او نیست؛ زنده و برپادارنده است",
+      "words": [
+        "اللَّهُ",
+        "لَا",
+        "إِلَٰهَ",
+        "إِلَّا",
+        "هُوَ",
+        "الْحَيُّ",
+        "الْقَيُّومُ"
+      ],
+      "src": "قرآن، سورهٔ بقره، آیهٔ ۲۵۵ (آیةالکرسی) — ترجمهٔ فولادوند",
+      "d": 2
+    },
+    {
+      "title": "ذکر یونسیه",
+      "ar": "لَا إِلَٰهَ إِلَّا أَنْتَ سُبْحَانَكَ إِنِّي كُنْتُ مِنَ الظَّالِمِينَ",
+      "fa": "معبودی جز تو نیست، منزّهی تو، راستی که من از ستمکاران بودم",
+      "words": [
+        "لَا",
+        "إِلَٰهَ",
+        "إِلَّا",
+        "أَنْتَ",
+        "سُبْحَانَكَ",
+        "إِنِّي",
+        "كُنْتُ",
+        "مِنَ",
+        "الظَّالِمِينَ"
+      ],
+      "src": "قرآن، سورهٔ انبیاء، آیهٔ ۸۷ (ذکر یونسیه) — ترجمهٔ فولادوند",
+      "d": 2
+    },
+    {
+      "title": "لا حول ولا قوّة إلا بالله — تعقیب نماز",
+      "ar": "وَلَا حَوْلَ وَلَا قُوَّةَ إِلّا بِاللّٰهِ الْعَلِيِّ الْعَظِيمِ",
+      "fa": "هیچ توان و نیرویی نیست جز از سوی خدای بلندمرتبهٔ بزرگ",
+      "words": [
+        "وَلَا",
+        "حَوْلَ",
+        "وَلَا",
+        "قُوَّةَ",
+        "إِلّا",
+        "بِاللّٰهِ",
+        "الْعَلِيِّ",
+        "الْعَظِيمِ"
+      ],
+      "src": "مفاتیح الجنان — تعقیبات مشترکهٔ نمازها",
+      "d": 2
+    },
+    {
+      "title": "صلوات — تعقیب نماز",
+      "ar": "اللّٰهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَآلِ مُحَمَّدٍ",
+      "fa": "خدایا! درود فرست بر محمّد و خاندان محمّد",
+      "words": [
+        "اللّٰهُمَّ",
+        "صَلِّ",
+        "عَلَىٰ",
+        "مُحَمَّدٍ",
+        "وَآلِ",
+        "مُحَمَّدٍ"
+      ],
+      "src": "مفاتیح الجنان — تعقیبات مشترکهٔ نمازها",
+      "d": 1
+    },
+    {
+      "title": "تسبیح تعقیب نماز — سبحان الله کلّما سبّح الله شیء",
+      "ar": "سُبْحانَ اللّٰهِ كُلَّما سَبَّحَ اللّٰهَ شَيْءٌ",
+      "fa": "پاک و منزّه است خداوند، هرگاه چیزی او را به پاکی بستاید",
+      "words": [
+        "سُبْحانَ",
+        "اللّٰهِ",
+        "كُلَّما",
+        "سَبَّحَ",
+        "اللّٰهَ",
+        "شَيْءٌ"
+      ],
+      "src": "مفاتیح الجنان — تعقیبات مشترکهٔ نمازها",
+      "d": 3
+    },
+    {
+      "title": "استغفار تعقیب نماز",
+      "ar": "أَسْتَغْفِرُ اللّٰهَ الَّذى لَا إِلٰهَ إِلّا هُوَ الْحَىُّ الْقَيُّوْمُ",
+      "fa": "از خدا که جز او معبودی نیست، آن زنده و پاینده آمرزش می‌خواهم",
+      "words": [
+        "أَسْتَغْفِرُ",
+        "اللّٰهَ",
+        "الَّذى",
+        "لَا",
+        "إِلٰهَ",
+        "إِلّا",
+        "هُوَ",
+        "الْحَىُّ",
+        "الْقَيُّوْمُ"
+      ],
+      "src": "مفاتیح الجنان — تعقیبات مشترکهٔ نمازها",
+      "d": 2
+    },
+    {
+      "title": "زیارت عاشورا — سلام بر فرزند رسول خدا",
+      "ar": "السَّلامُ عَلَيْكَ يَا ابْنَ رَسُولِ اللّٰهِ",
+      "fa": "سلام بر تو ای فرزند رسول خدا",
+      "words": [
+        "السَّلامُ",
+        "عَلَيْكَ",
+        "يَا",
+        "ابْنَ",
+        "رَسُولِ",
+        "اللّٰهِ"
+      ],
+      "src": "مفاتیح الجنان — زیارت عاشورا",
+      "d": 1
+    },
+    {
+      "title": "دعای کمیل — یا من اسمه دواء",
+      "ar": "يَا مَنِ اسْمُهُ دَوَاءٌ، وَذِكْرُهُ شِفاءٌ",
+      "fa": "ای آن‌که نامش دوا و یادش درمان است",
+      "words": [
+        "يَا",
+        "مَنِ",
+        "اسْمُهُ",
+        "دَوَاءٌ،",
+        "وَذِكْرُهُ",
+        "شِفاءٌ"
+      ],
+      "src": "مفاتیح الجنان — دعای کمیل (شیخ طوسی، مصباح المتهجد)",
+      "d": 3
+    }
+  ],
+  imams: [
+    {
+      "name": "محمد بن عبدالله (ص)",
+      "title": "مصطفی",
+      "titles": [
+        "مصطفی",
+        "امین",
+        "رحمة للعالمین",
+        "حبیب‌الله",
+        "صفی‌الله",
+        "خاتم النبیین",
+        "نبی امّی",
+        "نبی‌الله",
+        "رسول‌الله"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «حضرت محمد صلی الله علیه و آله»",
+      "father": "عبدالله بن عبدالمطلب",
+      "mother": "آمنه بنت وهب",
+      "rank": "پیامبر خدا و خاتم‌النبیین",
+      "shrine": "مدینه، مسجدالنبی (حجرهٔ پیامبر)",
+      "note": "سال ولادت مورد اختلاف است (میان ۵۵۰ تا ۵۷۰ میلادی؛ عام‌الفیل یا چند سال پیش یا پس از آن) و روز آن نیز میان شیعه (۱۷ ربیع‌الاول) و اهل‌سنت (۱۲ ربیع‌الاول) مختلف است؛ از این‌رو ثبت نشد."
+    },
+    {
+      "name": "فاطمه بنت محمد (س)",
+      "title": "زهرا",
+      "titles": [
+        "زهرا",
+        "بتول",
+        "کوثر",
+        "صدیقه",
+        "سیدة نساء العالمین",
+        "محدثه"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «حضرت فاطمه زهرا سلام الله علیها»",
+      "father": "حضرت محمد (ص)",
+      "mother": "حضرت خدیجه (س)",
+      "rank": "دختر پیامبر (ص) و همسر امام علی (ع)",
+      "shrine": null,
+      "note": "روز ولادت در هر دو منبع ۲۰ جمادی‌الثانی است، اما سال آن (پنج سال پیش یا پنج سال پس از بعثت) مورد اختلاف است؛ از این‌رو ثبت نشد. آرامگاه او در منابع «مورد اختلاف» و قبرش نامعلوم است؛ از این‌رو shrine تهی ماند."
+    },
+    {
+      "name": "علی بن ابی‌طالب (ع)",
+      "title": "امیرالمؤمنین",
+      "titles": [
+        "امیرالمؤمنین",
+        "صالح المؤمنین",
+        "زوج البتول",
+        "ساقی کوثر",
+        "اسدالله",
+        "صدیق",
+        "فاروق",
+        "قسیم النار و الجنة",
+        "حیدر",
+        "ولی‌الله",
+        "یعسوب‌ الدین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام علی علیه‌السلام»",
+      "father": "ابوطالب بن عبدالمطلب",
+      "mother": "فاطمه بنت اسد",
+      "rank": "امام اول شیعیان",
+      "shrine": "نجف، حرم امام علی (ع)",
+      "note": "زادهٔ ۱۳ رجب سال ۳۰ عام‌الفیل (۲۳ سال پیش از هجرت) در مکه، به گزارش مشهور درون کعبه."
+    },
+    {
+      "name": "حسن بن علی (ع)",
+      "title": "مجتبی",
+      "titles": [
+        "مجتبی",
+        "کریم اهل‌بیت",
+        "ریحانة نبیّ الله",
+        "سبط النبی"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسن مجتبی علیه‌السلام»",
+      "father": "علی بن ابی‌طالب (ع)",
+      "mother": "فاطمه زهرا (س)",
+      "rank": "امام دوم شیعیان",
+      "shrine": "مدینه، قبرستان بقیع",
+      "note": "زادهٔ ۱۵ رمضان سال ۳ قمری در مدینه."
+    },
+    {
+      "name": "حسین بن علی (ع)",
+      "title": "سیدالشهداء",
+      "titles": [
+        "سیدالشهداء",
+        "مصباح الهدی",
+        "ثار الله",
+        "قتیل العبرات"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسین علیه‌السلام»",
+      "father": "علی بن ابی‌طالب (ع)",
+      "mother": "فاطمه زهرا (س)",
+      "rank": "امام سوم شیعیان",
+      "shrine": "کربلا، حرم امام حسین (ع)",
+      "note": "زادهٔ ۳ شعبان سال ۴ قمری در مدینه."
+    },
+    {
+      "name": "علی بن حسین (ع)",
+      "title": "سجاد",
+      "titles": [
+        "سجاد",
+        "سید الساجدین",
+        "زین العابدین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام سجاد علیه‌السلام»",
+      "father": "حسین بن علی (ع)",
+      "mother": null,
+      "rank": "امام چهارم شیعیان",
+      "shrine": "مدینه، قبرستان بقیع",
+      "note": "سال ولادت ۳۸ قمری در مدینه؛ روز آن (۴ یا ۵ شعبان، یا ۱۵ جمادی‌الثانی) مورد اختلاف است. نام مادرش (شهربانو یا کنیزی دیگر) مورد اختلاف است؛ از این‌رو mother تهی ماند."
+    },
+    {
+      "name": "محمد بن علی (ع)",
+      "title": "باقر",
+      "titles": [
+        "باقر",
+        "باقرالعلوم",
+        "صادقین"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام محمد باقر علیه‌السلام»",
+      "father": "علی بن حسین (ع)",
+      "mother": "فاطمه دختر امام حسن مجتبی (ع) — مشهور به اُمّ عبدالله",
+      "rank": "امام پنجم شیعیان",
+      "shrine": "مدینه، قبرستان بقیع",
+      "note": "سال ولادت ۵۷ قمری در مدینه؛ روز آن (۱ رجب یا ۳ صفر) مورد اختلاف است."
+    },
+    {
+      "name": "جعفر بن محمد (ع)",
+      "title": "صادق",
+      "titles": [
+        "صادق",
+        "صادقین",
+        "شیخ‌الائمه"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام صادق علیه‌السلام»",
+      "father": "محمد بن علی (ع)",
+      "mother": "اُمّ فروه",
+      "rank": "امام ششم شیعیان",
+      "shrine": "مدینه، قبرستان بقیع",
+      "note": "زادهٔ ۱۷ ربیع‌الاول سال ۸۳ قمری در مدینه."
+    },
+    {
+      "name": "موسی بن جعفر (ع)",
+      "title": "کاظم",
+      "titles": [
+        "کاظم",
+        "باب‌الحوائج",
+        "عبد صالح"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام موسی کاظم علیه‌السلام»",
+      "father": "جعفر بن محمد (ع)",
+      "mother": "حمیده بربریه",
+      "rank": "امام هفتم شیعیان",
+      "shrine": "کاظمین (بغداد)، حرم کاظمین",
+      "note": "سال ولادت مورد اختلاف است (ذی‌الحجهٔ ۱۲۷ یا ۷ صفر ۱۲۸ قمری) و زادگاه او شهر ابواء گزارش شده است؛ از این‌رو ثبت نشد."
+    },
+    {
+      "name": "علی بن موسی (ع)",
+      "title": "رضا",
+      "titles": [
+        "رضا",
+        "عالم آل محمد",
+        "ضامن آهو",
+        "غریب‌ الغربا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام رضا علیه‌السلام»",
+      "father": "موسی بن جعفر (ع)",
+      "mother": "نجمه (تکتم)",
+      "rank": "امام هشتم شیعیان",
+      "shrine": "مشهد، حرم امام رضا (ع)",
+      "note": "سال و روز ولادت مورد اختلاف است (۱۱ ذی‌القعدهٔ ۱۴۸ یا ۱۵۳ قمری و اقوال دیگر)؛ از این‌رو ثبت نشد. زادگاه او مدینه است."
+    },
+    {
+      "name": "محمد بن علی (ع)",
+      "title": "جواد",
+      "titles": [
+        "جواد",
+        "تقی",
+        "ابن الرضا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام جواد علیه‌السلام»",
+      "father": "علی بن موسی (ع)",
+      "mother": "سبیکه (خیزران)",
+      "rank": "امام نهم شیعیان",
+      "shrine": "کاظمین (بغداد)، حرم کاظمین",
+      "note": "زادهٔ ۱۰ رجب سال ۱۹۵ قمری در مدینه."
+    },
+    {
+      "name": "علی بن محمد (ع)",
+      "title": "هادی",
+      "titles": [
+        "هادی",
+        "نقی",
+        "عسکریین",
+        "ابن‌الرضا"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام هادی علیه‌السلام»",
+      "father": "محمد بن علی (ع)",
+      "mother": "سمانه مغربیه",
+      "rank": "امام دهم شیعیان",
+      "shrine": "سامرا، حرم عسکریین",
+      "note": "زادهٔ ۱۵ ذی‌الحجه سال ۲۱۲ قمری در روستای صریا در مدینه (به گزارش ویکی‌شیعه)."
+    },
+    {
+      "name": "حسن بن علی (ع)",
+      "title": "عسکری",
+      "titles": [
+        "عسکری",
+        "ابن‌الرضا",
+        "صامت",
+        "هادی",
+        "رفیق",
+        "زکی"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام حسن عسکری علیه‌السلام»",
+      "father": "علی بن محمد (ع)",
+      "mother": null,
+      "rank": "امام یازدهم شیعیان",
+      "shrine": "سامرا، حرم عسکریین",
+      "note": "سال ولادت ۲۳۲ قمری در مدینه؛ روز آن (۸ یا ۱۰ ربیع‌الثانی) مورد اختلاف است. نام مادرش (حدیث، سوسن، سلیل و جز آن) مورد اختلاف است؛ از این‌رو mother تهی ماند."
+    },
+    {
+      "name": "محمد بن حسن (ع)",
+      "title": "مهدی",
+      "titles": [
+        "مهدی",
+        "امام زمان",
+        "قائم آل محمد",
+        "ناحیه مقدسه",
+        "بقیةالله",
+        "منتظر"
+      ],
+      "laqabSrc": "ویکی‌شیعه، «امام مهدی عجل الله تعالی فرجه»",
+      "father": "حسن بن علی عسکری (ع)",
+      "mother": "نرجس خاتون",
+      "rank": "امام دوازدهم شیعیان",
+      "shrine": null,
+      "note": "زادهٔ ۱۵ شعبان سال ۲۵۵ قمری در سامرا (برخی ۲۵۶ نیز گفته‌اند). او در غیبت است و آرامگاه مشخصی ندارد؛ از این‌رو shrine تهی ماند."
+    }
+  ],
+  /* ── پایان بانک تأییدشده ── */
+  /* ── بانک حدیث (نسخهٔ ۱۵) ── */
+  hadith: [
+    {
+      "ar": "وَ لا تَجْعَلْ عِرْضَكَ غَرَضاً لِنِبالِ الْقَوْلِ.",
+      "fa": "آبرويت را آماج تيرهاى گفتار قرار مده .",
+      "src": "نهج البلاغه ، ن 69، ص 1067.",
+      "key": "عِرْضَكَ",
+      "wrong": [
+        "مالَكَ",
+        "دينَكَ",
+        "نَفْسَكَ"
+      ],
+      "d": 2,
+      "why": "آبروى خود را در تيررس طعنه و سخن‌چينى قرار مده.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "مَنْ ضَنَّ بِعِرْضِهِ فَلْيَدَعِ الْمِراءَ.",
+      "fa": "هر كه آبروى خود را دوست دارد، بايد از بگو مگو بپرهيزد.",
+      "src": "همان ، ح 354، ص 1255.",
+      "key": "الْمِراءَ",
+      "wrong": [
+        "الْكَلامَ",
+        "الضَّحِكَ",
+        "السَّفَرَ"
+      ],
+      "d": 2,
+      "why": "آن‌كه آبرويش را مى‌خواهد، ستيزه‌جويى را رها كند.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "فَتَزَوَّدُوا فِى اَيّامِ الْفَناءِ لاَِيّامِ الْبَقاءِ.",
+      "fa": "مردم ! در روزهاى فناپذير، براى روزگار جاودان ، توشه برگيريد.",
+      "src": "نهج البلاغه ، خ 157، ص 462.",
+      "key": "الْفَناءِ",
+      "wrong": [
+        "الشَّقاءِ",
+        "الرَّخاءِ",
+        "الْعَناءِ"
+      ],
+      "d": 1,
+      "why": "در روزهاى گذراى دنيا براى روزهاى ماندگار آخرت توشه برگيريد.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْعَمَلُ الصّالِحُ حَرْثُ الاَّْخِرَةِ.",
+      "fa": "كردارِ نيك ، كِشته اى براى آخرت است .",
+      "src": "همان ، خ 23، ص 84.",
+      "key": "حَرْثُ",
+      "wrong": [
+        "زادُ",
+        "بابُ",
+        "دارُ"
+      ],
+      "d": 1,
+      "why": "كردار نيك، كشتزار آخرت است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَشْرَفُ الْغِنى ، تَرْكُ الْمُنى .",
+      "fa": "شرافتمندانه ترين توانگرى ها، وانهادن آرزوها است .",
+      "src": "نهج البلاغه ، ح 33، ص 1103.",
+      "key": "تَرْكُ",
+      "wrong": [
+        "حُبُّ",
+        "جَمْعُ",
+        "طَلَبُ"
+      ],
+      "d": 2,
+      "why": "برترين توانگرى، رها كردن آرزوهاى دور و دراز است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "مَنْ اَطالَ الاَْمَلَ اَساءَ الْعَمَلَ.",
+      "fa": "كسى كه به آرزوى دراز دل سپارد عملش به بدى مى گرايد.",
+      "src": "نهج البلاغه ، ح 35، ص 1103.",
+      "key": "اَطالَ",
+      "wrong": [
+        "اَحَبَّ",
+        "اَكْثَرَ",
+        "اَخَّرَ"
+      ],
+      "d": 1,
+      "why": "آن‌كه آرزوى دراز دارد، كردارش بد مى‌شود.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلاَْمانِىُّ شيمَةُ الحُمْقى .",
+      "fa": "آرزوها [ى بسيار داشتن ] خصلت كم خردان است .",
+      "src": "شرح غررالحكم ، ج 1، ص 119.",
+      "key": "الحُمْقى",
+      "wrong": [
+        "الْمُلُوكِ",
+        "الاَْغْنِياءِ",
+        "الْكُبَراءِ"
+      ],
+      "d": 3,
+      "why": "آرزوبافى، خوى نابخردان است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "لا تَكُنْ عَبْدَ غَيْرِكَ وَ قَدْ جَعَلَكَ اللّهُ حُرّاً.",
+      "fa": "بنده ديگران مباش ، در حالى كه خداوند تو را آزاد آفريده است .",
+      "src": "نهج البلاغه ، ن 31، ص 929.",
+      "key": "حُرّاً",
+      "wrong": [
+        "عَزيزاً",
+        "غَنِيّاً",
+        "قَوِيّاً"
+      ],
+      "d": 1,
+      "why": "بندهٔ ديگرى مباش، كه خدا تو را آزاد آفريده است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلْحَريصُ عَبْدُ الْمَطامِعِ.",
+      "fa": "انسان حريص ، برده آزمندى ها [ى خود] است .",
+      "src": "شرح غررالحكم ، ج 1، ص 165.",
+      "key": "الْمَطامِعِ",
+      "wrong": [
+        "الدَّراهِمِ",
+        "الْمَصالِحِ",
+        "الْمَنافِعِ"
+      ],
+      "d": 2,
+      "why": "آزمند، بندهٔ خواسته‌هاى خويش است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلْحَريصُ فَقيرٌ وَلَوْ مَلَكَ الدُّنْيا بِحَذافيرِها.",
+      "fa": "آزمند همواره فقير است هر چند تمام دنيا را مالك شود.",
+      "src": "شرح غررالحكم ، ج 2، ص 39.",
+      "key": "بِحَذافيرِها",
+      "wrong": [
+        "بِاَجْمَعِها",
+        "بِكُنْهِها",
+        "بِاَسْرِها"
+      ],
+      "d": 3,
+      "why": "آزمند تهيدست است، هرچند همهٔ دنيا را در اختيار داشته باشد.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَعْقَلُ النّاسِ اَنْظَرُهُمْ فِى الْعَواقِبِ.",
+      "fa": "عاقل ترين مردم كسى است كه بيشتر در عاقبت كارهايش بينديشد.",
+      "src": "شرح غررالحكم ، ج 2، ص 484.",
+      "key": "الْعَواقِبِ",
+      "wrong": [
+        "الْمَصالِحِ",
+        "الْمَنازِلِ",
+        "الْمَراتِبِ"
+      ],
+      "d": 2,
+      "why": "خردمندترين مردم، آينده‌نگرترين آن‌هاست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "مَنْ راقَبَ الْعَواقِبَ سَلُمَ مِنَ النَّوائِب .",
+      "fa": "آن كه در عاقبت كارها دقيق شود از گرفتارى ها مصون مى ماند.",
+      "src": "همان ، ج 5، ص 346.",
+      "key": "النَّوائِبِ",
+      "wrong": [
+        "الذُّنُوبِ",
+        "الْحُسّادِ",
+        "الاَْعْداءِ"
+      ],
+      "d": 2,
+      "why": "آن‌كه فرجام‌ها را بنگرد، از گرفتارى‌ها در امان ماند.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَحْسِنْ كَما تُحِبُّ اَنْ يُحْسَنَ اِلَيْكَ.",
+      "fa": "[به ديگران ] نيكى كن ، چنان كه دوست مى دارى به تو نيكى شود.",
+      "src": "نهج البلاغه ، ن 31، ص 921.",
+      "key": "تُحِبُّ",
+      "wrong": [
+        "تَكْرَهُ",
+        "تَرْجُو",
+        "تَخافُ"
+      ],
+      "d": 1,
+      "why": "نيكى كن، چنان‌كه دوست دارى به تو نيكى كنند.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اِفْعَلُوا الْخَيْرَ وَ لا تَحْقِرُوا مِنْهُ شَيْئاً فَاِنَّ صَغِيرَهُ كَبيرٌ وَ قَلِيلَهُ كَثِيرٌ.",
+      "fa": "نيكوكار باشيد و نيكوكارى را كوچك مشمريد، چرا كه خُردِ آن بزرگ و اندكش بسيار است .",
+      "src": "نهج البلاغه ، ح 414، ص 1284.",
+      "key": "تَحْقِرُوا",
+      "wrong": [
+        "تَمْنَعُوا",
+        "تُؤَخِّرُوا",
+        "تَتْرُكُوا"
+      ],
+      "d": 2,
+      "why": "كار نيك را كوچك نشماريد؛ كه اندكش بسيار است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَكْرَمُ الْحَسَبِ حُسْنُ الْخُلْقِ.",
+      "fa": "گرامى ترين حسب و اصالت خانوادگى ، خوش خُلقى است .",
+      "src": "نهج البلاغه ، ح 37، ص 1104.",
+      "key": "الْحَسَبِ",
+      "wrong": [
+        "الْمالِ",
+        "الْعِلْمِ",
+        "الْجاهِ"
+      ],
+      "d": 1,
+      "why": "برترين شرافت، خوش‌خويى است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "لا ميراثَ كَالاَْدَبِ.",
+      "fa": "ميراثى ماندگارتر و سودمندتر از ادب نيست .",
+      "src": "نهج البلاغه ، ح 109، ص 1139.",
+      "key": "ميراثَ",
+      "wrong": [
+        "خَليلَ",
+        "قَرينَ",
+        "جَليسَ"
+      ],
+      "d": 1,
+      "why": "هيچ ميراثى چون ادب نيست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "قُمْ عَنْ مَجْلِسِكَ لاَِبيكَ وَ مُعَلِّمِكَ وَ إِنْ كُنْتَ اءَميراً.",
+      "fa": "به احترام پدر و معلّمت از جاى برخيز. اگر چه فرمانروا باشى .",
+      "src": "همان ، ج 2، ص 191.",
+      "key": "مُعَلِّمِكَ",
+      "wrong": [
+        "اَخيكَ",
+        "جَليسِكَ",
+        "صَديقِكَ"
+      ],
+      "d": 2,
+      "why": "براى پدر و آموزگارت برخيز، هرچند امير باشى.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَدِّ الاَْمانَةَ اِلى مَنِ ائْتَمَنَك وَ لا تَخُنْ مَنْ خانَكَ.",
+      "fa": "امانت آن كس كه تو را امين دانسته ادا كن و به آن كس كه به تو خيانت كرده است خيانت مكن .",
+      "src": "شرح غررالحكم ، ج 2، ص 188.",
+      "key": "ائْتَمَنَك",
+      "wrong": [
+        "وَعَدَكَ",
+        "اَعْطاكَ",
+        "اَمَرَكَ"
+      ],
+      "d": 2,
+      "why": "امانت را به امانت‌دار بازگردان و به خائن خيانت مكن.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلاِْنْصافُ شيمَةُ الاَْشْرافِ.",
+      "fa": "انصاف خصلت بزرگان است .",
+      "src": "شرح غررالحكم ، ج 1، ص 152.",
+      "key": "اَلاِْنْصافُ",
+      "wrong": [
+        "الاِْحْسانُ",
+        "الاِْيمانُ",
+        "الاِْسْلامُ"
+      ],
+      "d": 2,
+      "why": "انصاف، خوى بزرگواران است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "كُنْ سَمْحاً وَ لا تَكُنْ مُبَذِّراً.",
+      "fa": "بخشنده باش ولى نه به حد اسراف و بى جا.",
+      "src": "نهج البلاغه ، ح 32، ص 1103.",
+      "key": "مُبَذِّراً",
+      "wrong": [
+        "مُتَكَبِّراً",
+        "مُتَجَبِّراً",
+        "مُغْتَرّاً"
+      ],
+      "d": 1,
+      "why": "بخشنده باش، نه ولخرج.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "فَاسْاءَلُونى قَبْلَ اَنْ تَفْقِدُونى .",
+      "fa": "پس (آنچه مى خواهيد) از من بپرسيد پيش از آن كه مرا از دست دهيد.",
+      "src": "همان ، خ 92، ص 273.",
+      "key": "تَفْقِدُونى",
+      "wrong": [
+        "تَكْرَهُونى",
+        "تُكَذِّبونى",
+        "تَتْرُكُونى"
+      ],
+      "d": 2,
+      "why": "پيش از آن‌كه مرا از دست بدهيد، از من بپرسيد.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلاِْيْمانُ مَعْرِفَةٌ بِالْقَلْبِ، وَ اِقْرارٌ بِاللِّسانِ، وَ عَمَلٌ بِالاَْرْكانِ.",
+      "fa": "ايمان معرفت است از روى دل ، اقرار است به زبان و عمل است به اركان (اعضا و جوارح ).",
+      "src": "نهج البلاغه ، ح 218، ص 1186.",
+      "key": "بِالاَْرْكانِ",
+      "wrong": [
+        "بِالْجَوارِحِ",
+        "بِالْيَقينِ",
+        "بِالنِّيَّةِ"
+      ],
+      "d": 2,
+      "why": "ايمان، شناخت قلبى و اقرار زبانى و عمل با اندام‌هاست.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْجُودُ حارِسُ الاَْعْراضِ.",
+      "fa": "بخشندگى ، نگهبان حيثيت هاست .",
+      "src": "نهج البلاغه ، ح 202، ص 1181 .",
+      "key": "حارِسُ",
+      "wrong": [
+        "زينَةُ",
+        "صَديقُ",
+        "جارُ"
+      ],
+      "d": 2,
+      "why": "بخشش، نگهبان آبروهاست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "قَدْرُ الرَّجُلِ عَلى قَدْرِ هِمَّتِهِ.",
+      "fa": "ارزش هر كس به اندازه همّت اوست .",
+      "src": "شرح غررالحكم ، ج 4، ص 500.",
+      "key": "هِمَّتِهِ",
+      "wrong": [
+        "مالِهِ",
+        "عِلْمِهِ",
+        "عَقْلِهِ"
+      ],
+      "d": 1,
+      "why": "ارزش هر كس به اندازهٔ همت اوست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "ذَهابُ الْبَصَرِ خَيْرٌ مِنَ عَمْىِ الْبَصيرَةِ.",
+      "fa": "كور چشمى به كه كوردلى .",
+      "src": "شرح غررالحكم ، ج 4، ص 32.",
+      "key": "الْبَصيرَةِ",
+      "wrong": [
+        "الْقَلْبِ",
+        "الْعَقْلِ",
+        "النَّظَرِ"
+      ],
+      "d": 2,
+      "why": "از دست دادن چشم، بهتر از كورى بصيرت است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "لا عِزَّ كَالْحِلْمِ.",
+      "fa": "هيچ عزت و سربلنديى همچون حلم و بردبارى ، نيست .",
+      "src": "نهج البلاغه ، ح 109، ص 1139.",
+      "key": "كَالْحِلْمِ",
+      "wrong": [
+        "كَالْعِلْمِ",
+        "كَالْمالِ",
+        "كَالْعَقْلِ"
+      ],
+      "d": 1,
+      "why": "هيچ عزتى چون بردبارى نيست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلْحِلْمُ رَاءْسُ الرِّياسَةِ.",
+      "fa": "بردبارى سر[لوحه ] رياست است .",
+      "src": "شرح غررالحكم ، ج 1، ص 197.",
+      "key": "رَاءْسُ",
+      "wrong": [
+        "اَصْلُ",
+        "بابُ",
+        "زَيْنُ"
+      ],
+      "d": 2,
+      "why": "بردبارى سرآمد رياست است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَحْىِ قَلْبَكَ بِالْمَوْعِظَةِ.",
+      "fa": "دلت را با موعظه زنده بدار.",
+      "src": "نهج البلاغه ، ن 31، ص 909.",
+      "key": "بِالْمَوْعِظَةِ",
+      "wrong": [
+        "بِالذِّكْرِ",
+        "بِالْحِكْمَةِ",
+        "بِالْقُرْآنِ"
+      ],
+      "d": 2,
+      "why": "دلت را با پند زنده كن.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اءَفْضَلُ الْعِبادَةِ الْفِكْرُ.",
+      "fa": "برترين عبادت ها انديشيدن است .",
+      "src": "شرح غررالحكم ، ج 2، ص 381.",
+      "key": "الْفِكْرُ",
+      "wrong": [
+        "الصَّبْرُ",
+        "الشُّكْرُ",
+        "الدُّعاءُ"
+      ],
+      "d": 1,
+      "why": "برترين عبادت، انديشيدن است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلتَّقْوى رَئيسُ الاَْخْلاقِ.",
+      "fa": "پرهيزگارى ، سرآمد خصلت هاى نيكو است .",
+      "src": "شرح غررالحكم ، ج 1، ص 194.",
+      "key": "رَئيسُ",
+      "wrong": [
+        "زينَةُ",
+        "اَصْلُ",
+        "رُوحُ"
+      ],
+      "d": 2,
+      "why": "پرهيزگارى سرآمد اخلاق است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "ما تَكَبَّرَ اِلاَ الْوَضيعُ.",
+      "fa": "جز فرومايه كبر نورزد.",
+      "src": "شرح غررالحكم ، ج 6، ص 53.",
+      "key": "الْوَضيعُ",
+      "wrong": [
+        "الْفَقيرُ",
+        "الْغَنيُّ",
+        "الضَّعيفُ"
+      ],
+      "d": 2,
+      "why": "جز فرومایه كسى تكبر نمى‌ورزد.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "مَنِ اسْتَبَدَّ بِرَاءْيِهِ هَلَكَ.",
+      "fa": "هر كه به راءى خود تكيه زند هلاك شود.",
+      "src": "نهج البلاغه ، ح 161، ص 1163.",
+      "key": "هَلَكَ",
+      "wrong": [
+        "نَدِمَ",
+        "ضَلَّ",
+        "خَسِرَ"
+      ],
+      "d": 1,
+      "why": "آن‌كه به رأى خود استبداد كند، نابود شود.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اَلاِْعْجابُ ضِدُّ الصَّوابِ وَ آفَةُ الاَْلْبابِ.",
+      "fa": "عُجب و خودپسندى ، مايه خطا و باعث تضعيف قواى فكرى است .",
+      "src": "همان ، ن 31، ص 921.",
+      "key": "اَلاَْلْبابِ",
+      "wrong": [
+        "الاَْنْفُسِ",
+        "الاَْجْسامِ",
+        "الاَْعْمالِ"
+      ],
+      "d": 3,
+      "why": "خودپسندى، ضد درستى و آفت خردهاست.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اِتَّقُوا مَعاصِىَ اللّهِ فِى الْخَلَواتِ، فَاِنَّ الشّاهِدَ هُوَ الْحاكِمُ.",
+      "fa": "از نافرمانى خدا در خلوتگاه ها بپرهيزيد زيرا آن كه بيننده است هم او داورى كننده است .",
+      "src": "نهج البلاغه ، ح 316، ص 1240.",
+      "key": "الْخَلَواتِ",
+      "wrong": [
+        "الْعَلانِيَةِ",
+        "الْمَجالِسِ",
+        "الشَّدائِدِ"
+      ],
+      "d": 2,
+      "why": "از گناهان در خلوت بپرهيزيد، كه گواه همان داور است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "لا تَسْتَحْىِ مِنْ إِعْطاءِ الْقَلِيلِ فَإِنَّ الْحِرْمانَ اءَقَلُّ مِنْهُ.",
+      "fa": "از بخشش اندك شرم مدار، كه محروم ساختن از آن ، اندك تر است .",
+      "src": "همان ، ح 64، ص 1115.",
+      "key": "الْحِرْمانَ",
+      "wrong": [
+        "الْفَقْرَ",
+        "النَّدَمَ",
+        "الْخُسْرانَ"
+      ],
+      "d": 3,
+      "why": "از بخشيدن اندك شرم مكن، كه محروم كردن از آن كمتر است.",
+      "topic": "nahj"
+    },
+    {
+      "ar": "اِغْتَنِمْ خَمْسا قَبْلَ خَمْسٍ: شَبابَكَ قَبْلَ هِرَمِكَ، وَ صِحَّتَكَ قَبْلَ سُقْمِكَ، وَ غِناكَ قَبْلَ فَقْرِكَ، وَفَراغَكَ قَبْلَ شُغْلِكَ، وَ حَياتَكَ قَبْلَ مَوْتِكَ.",
+      "fa": "پنج چيز را قبل از پنج چيز، غنيمت شمار، 1 ـ جوانى ات را قبل از پيرى ات، 2 ـ تندرستى ات را قبل از بيمارى ات، 3 ـ توانگرى ات را قبل از تهيدستى ات، 4 ـ آسودگى ات را قبل از گرفتارى ات، 5 ـ زندگى ات را قبل از مرگت.",
+      "src": "مكارم الاخلاق، ص 459",
+      "key": "خَمْسا",
+      "wrong": [
+        "اَرْبَعاً",
+        "سِتّاً",
+        "ثَلاثاً"
+      ],
+      "d": 2,
+      "why": "پنج چيز را پيش از پنج چيز غنيمت شمار.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلا اَدُلُّكُمْ عَلى خَيْرِ اَخْلاقِ الدُّنيا وَ الآخِرَةِ؟ تَصِلُ مَنْ قَطَعَكَ وَ تُعْطى مَنْ حَرَمَكَ وَتَعْفُو عَمَّنْ ظَلَمَكَ.",
+      "fa": "آيا شما را به بهترين اخلاق دنيا و آخرت راهنمايى كنم؟ آن است كه با هركس كه از توگسسته است، بپيوندى به هر كس كه تو را محروم كرده، عطا كنى و هر كس را كه به تو ستم كرده است، عفو كنى.",
+      "src": "تحف العقول، ص 45",
+      "key": "اَخْلاقِ",
+      "wrong": [
+        "اَعْمالِ",
+        "اَحْوالِ",
+        "اَمْوالِ"
+      ],
+      "d": 2,
+      "why": "بهترين اخلاق، پيوند با كسى است كه از تو گسسته است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "مَنْ عَمِلَ عَلى غَيْرِ عِلْمٍ كانَ ما يُفْسِدُ اَكْثَرَ مِمّا يُصْلِحُ.",
+      "fa": "هركس كه بدون علم و آگاهى كار كند، بيش از آنكه اصلاح كند، خراب مى كند!",
+      "src": "بحارالانوار، ج 74 ص 150",
+      "key": "يُفْسِدُ",
+      "wrong": [
+        "يَعْمَلُ",
+        "يَنْفَعُ",
+        "يَشْهَدُ"
+      ],
+      "d": 1,
+      "why": "آن‌كه بي‌دانش كار كند، تباهش بيش از آباديش است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْعِلْمُ خَزائِنُ وَ مَفاتيحُهُ السُّؤالُ، فَاسْألُوا رَحِمَكُمُ اللّه ُ فَاِنَّهُ يُؤْجَرُ اَرْبَعَةٌ: السّائِلُ وَالْمُتَكَلِّمُ وَالْمُسْتَمِعُ وَالْمُحِبُّ لَهُمْ.",
+      "fa": "دانش، گنجينه هايى است كه كليد آن «سؤال» است. پس بپرسيد، خدا رحمتتان كند، چرا كه در پرسش چهار نفر بهره و اجر مى برند: 1 ـ سؤال كننده، 2 ـ گوينده، 3 ـ شنونده 4 ـ دوستدار آنان.",
+      "src": "بحارالانوار، ج 74 ص 144",
+      "key": "مَفاتيحُهُ",
+      "wrong": [
+        "اَبْوابُهُ",
+        "اَسْرارُهُ",
+        "حَقائِقُهُ"
+      ],
+      "d": 2,
+      "why": "دانش گنجينه‌هايى است كه كليدش پرسيدن است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَحِبُّوا الصِّبْيانَ وَ ارْحَمُوهُمْ، فَاِذا وَعَدْتُمُوهُمْ فَفُوا لَهُمْ، فَاِنَّهُمْ لايَرَوْنَ اِلاّ اَنَّكُمْ تَرْزُقُونَهُمْ.",
+      "fa": "كودكان را دوست بداريد و به آنان مهربانى كنيد، هرگاه به آنان وعده اى داديد، به وعده خود وفا كنيد، چون شما را جز اينگونه نمى بينند كه شماييد كه روزى آنها را مى دهيد!",
+      "src": "مكارم الاخلاق، ص 219",
+      "key": "الصِّبْيانَ",
+      "wrong": [
+        "الْفُقَراءَ",
+        "الْيَتامى",
+        "الْجيرانَ"
+      ],
+      "d": 1,
+      "why": "كودكان را دوست بداريد و به وعده‌هاى خود با آنان وفا كنيد.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْمُؤْمِنُ مَنْ اَمِنَهُ المُسلِمونَ عَلى اَمْوالِهِمْ وَدِمائِهِمْ وَالْمُسْلِمُ مَنْ سَلِمَ الْمُسْلِمُونَ مِنْ يَدِهِ وَ لِسانِهِ، وَ الْمُهاجِرُ مَنْ هَجَرَ السَّيّئاتِ.",
+      "fa": "مؤمن كسى است كه مسلمانان او را بر مال و جان خويش، امين بدانند، مسلمان كسى است كه مسلمانان از دست و زبانش در امان باشند. مهاجر كسى است كه از بدى ها هجرت كند و گناهان را واگذارد.",
+      "src": "من لايحضره الفقيه، ج 4 ص 362",
+      "key": "اَمْوالِهِمْ",
+      "wrong": [
+        "اَنْفُسِهِمْ",
+        "اَعْراضِهِمْ",
+        "اَسْرارِهِمْ"
+      ],
+      "d": 1,
+      "why": "مؤمن كسى است كه مسلمانان مال و جانشان را از او ايمن بدانند.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْجَليسُ الصّالِحُ خَيرٌ مِنَ الوَحْدَةِ وَ الْوَحْدَةُ خَيرٌ مِنْ جَليسِ السُّوءِ وَ اِمْلاءُ الْخَيْرِ خَيْرٌ مِنَ السُّكُوتِ وَ السُّكُوتُ خيرٌ مِنْ اِمْلاءِ الشَّرِّ.",
+      "fa": "همنشين شايسته و خوب، بهتر از تنهايى است و تنهايى بهتر از همنشين بد است. ياد دادن نيكى بهتر از سكوت است و سكوت، بهتر از ياد دادن بدى است.",
+      "src": "بحارالانوار، ج 74 ص 84",
+      "key": "الْجَليسُ",
+      "wrong": [
+        "الْقَرينُ",
+        "الرَّفيقُ",
+        "الصَّديقُ"
+      ],
+      "d": 1,
+      "why": "هم‌نشين شايسته از تنهايى بهتر است و تنهايى از هم‌نشين بد.",
+      "topic": "usul"
+    },
+    {
+      "ar": "صَنايِعُ الْمَعْرُوفِ يَقى مَصارِعَ السُّوءِ، وَالَصَّدَقَةُ خَفِيّا تُطْفِى ءُ غَضَبَ الرَّبِّ وَ صِلَةُ الرَّحِمِ زيادَةٌ فِى الْعُمْرِ وَ كُلُّ مَعْرُوفٍ صَدَقَةٌ.",
+      "fa": "كارهاى خوب، انسان را از مرگهاى بد، نگه مى دارد، صدقه پنهانى، خشم خدا را خاموش مى سازد، صله رحم، عمر را زياد مى كند، و هر كار نيكى، صدقه است.",
+      "src": "وسائل الشيعه، ج 11 ص 536",
+      "key": "مَصارِعَ",
+      "wrong": [
+        "مَصائِبَ",
+        "مَخازى",
+        "مَكارِهَ"
+      ],
+      "d": 3,
+      "why": "نيكوكارى‌ها از فرجام‌هاى بد نگه مى‌دارند و صدقهٔ پنهان خشم خدا را خاموش مى‌كند.",
+      "topic": "usul"
+    },
+    {
+      "ar": "مَنْ ماتَ وَ لَيْسَ لَهُ اِمامٌ يَسْمَعُ لَهُ وَ يُطيعُ، ماتَ مِيتَةً جاهِلِيَّةً.",
+      "fa": "هر كس از دنيا برود، در حالى كه او را امام و پيشوايى نباشد كه مطيع و گوش به فرمان او باشد، به مرگ جاهليّت مرده است.",
+      "src": "الاختصاص، ص 269",
+      "key": "اِمامٌ",
+      "wrong": [
+        "وَصِيٌّ",
+        "اَميرٌ",
+        "هادٍ"
+      ],
+      "d": 2,
+      "why": "آن‌كه بدون امام بميرد، به مرگ جاهليت مرده است.",
+      "topic": "ahlulbayt"
+    },
+    {
+      "ar": "اِزالَةُ الْجِبالِ اَهْوَنُ مِنْ اِزالَةِ قَلْبٍ عَنْ مَوْضِعِهِ.",
+      "fa": "كوه كندن از دل كندن آسانتر است.",
+      "src": "تحف العقول/ 240.",
+      "key": "الْجِبالِ",
+      "wrong": [
+        "الْحِجارَةِ",
+        "الْمَدانِ",
+        "الْقِلاعِ"
+      ],
+      "d": 3,
+      "why": "بركندن كوه‌ها آسان‌تر از برگرداندن دلى از جاى خود است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اِنّا اَهْلَ بَيْتٍ مُرُوَّتُنا العَفوُ عَمَّنْ ظَلَمَنا.",
+      "fa": "ما خاندانى هستيم كه مردانگى ما گذشت از كسى است كه به ما ستم كرده است.",
+      "src": "ميزان الحكمه ص 3834 به نقل از امالى صدوق ص 238 ح 7",
+      "key": "مُرُوَّتُنا",
+      "wrong": [
+        "مَحَبَّتُنا",
+        "سُنَّتُنا",
+        "طَريقَتُنا"
+      ],
+      "d": 3,
+      "why": "مردانگى ما خاندان، گذشت از ستمكار است.",
+      "topic": "ahlulbayt"
+    },
+    {
+      "ar": "ما ضَعُفَ بَدَنٌ عَمّا قَوِيَتْ عَلَيْهِ النِّيَّةُ.",
+      "fa": "در موردى كه نيت و اراده آدمى قوى باشد، بدن دچار ضعف و ناتوانى نمى گردد.",
+      "src": "وسائل الشيعه، ج 1، باب استحباب نية الخير.",
+      "key": "النِّيَّةُ",
+      "wrong": [
+        "الْعَزيمَةُ",
+        "الْهِمَّةُ",
+        "الْقُوَّةُ"
+      ],
+      "d": 3,
+      "why": "بدن در برابر آنچه نيت بر آن توانا شود، ناتوان نمى‌گردد.",
+      "topic": "usul"
+    },
+    {
+      "ar": "ألا بَشِّرِ المَشّائينَ فِى الظُلُماتِ إلَى المَساجِدِ بِالنُّورِ السّاطِعِ يَومَ القِيامَةِ .",
+      "fa": "هان، بشارت ده آنانى را كه در تاريكى ها به سوى مساجد مى روند، به نور درخشانى كه در روز واپسين بر آنان پرتو افكن خواهد بود.",
+      "src": "ثواب الاعمال، ص45 ح 1.",
+      "key": "الْمَساجِدِ",
+      "wrong": [
+        "الْمَجالِسِ",
+        "الْمَدارِسِ",
+        "الْمَشاهِدِ"
+      ],
+      "d": 2,
+      "why": "مژده به روندگان در تاريكى به سوى مسجد، به نور درخشان قيامت.",
+      "topic": "ahkam"
+    },
+    {
+      "ar": "السُّجُودُ مُنتَهَى العِبادَةِ مِن بَنى آدَمَ.",
+      "fa": "سجده، اوج عبادت بنى آدم است.",
+      "src": "ميزان الحكمه ص 2380 ح 8272",
+      "key": "مُنْتَهَى",
+      "wrong": [
+        "اَوَّلُ",
+        "اَفْضَلُ",
+        "اَكْمَلُ"
+      ],
+      "d": 2,
+      "why": "سجده، اوج عبادت آدميان است.",
+      "topic": "ahkam"
+    },
+    {
+      "ar": "ما مِنْ شَى ءٍ اَحَبَّ إلَى اللّه ِ مِنْ أنْ يُسْألَ ما عِنْدَهُ.",
+      "fa": "هيچ چيز در نزد خدا آن قدر مطلوب و محبوب نيست كه آنچه نزد اوست از وى درخواست و تقاضا شود.",
+      "src": "المحاسن، ص 292، جامع الاحاديث، ص 183.",
+      "key": "يُسْألَ",
+      "wrong": [
+        "يُذْكَرَ",
+        "يُشْكَرَ",
+        "يُعْبَدَ"
+      ],
+      "d": 2,
+      "why": "هيچ چيز نزد خدا محبوب‌تر از درخواست از او نيست.",
+      "topic": "dua"
+    },
+    {
+      "ar": "ألخَيرُ وَ الشَّرُّ يُضاعَفُ يَوْمَ الجُمُعَةِ.",
+      "fa": "كار خير و شرّ در روز جمعه دو چندان مى گردد. ( يعنى پاداش و كيفرش دو برابر است. )",
+      "src": "جامع الاحاديث، ص 156.",
+      "key": "يُضاعَفُ",
+      "wrong": [
+        "يُكْتَبُ",
+        "يُقْبَلُ",
+        "يُؤَخَّرُ"
+      ],
+      "d": 3,
+      "why": "نيكى و بدى در روز جمعه دو چندان مى‌شود.",
+      "topic": "ahkam"
+    },
+    {
+      "ar": "الرِّضا بِمَكْرُوهِ الْقَضاءِ اَرْفَعُ دَرَجاتِ الْيَقينِ.",
+      "fa": "خوشنودى به قضاى ناخوشايند الهى عالى ترين پايه هاى ايمان و يقين است.",
+      "src": "تحف العقول، ص 318.",
+      "key": "الرِّضا",
+      "wrong": [
+        "الصَّبْرُ",
+        "الشُّكْرُ",
+        "التَّوَكُّلُ"
+      ],
+      "d": 2,
+      "why": "خشنودى به قضاى ناخوشايند، بالاترين درجهٔ يقين است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "نَظَرُ الْمُؤمِنِ فى وَجْهِ اخيهِ الْمُؤمِنِ لِلْمَوَدَّةِ وَالمَحَبَّةِ لَهُ عِبادَةٌ.",
+      "fa": "نگاه مؤمن از روى دوستى و مهربانى به سيماى برادر مؤمِنش عبادت است.",
+      "src": "تحف العقول، علميه اسلاميه ص 332.",
+      "key": "نَظَرُ",
+      "wrong": [
+        "سَماعُ",
+        "كَلامُ",
+        "لِقاءُ"
+      ],
+      "d": 3,
+      "why": "نگاه محبت‌آميز مؤمن به برادر مؤمنش عبادت است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "فَقْدْ الاَْحِبَّةِ غُرْبَةٌ.",
+      "fa": "از دست دادن دوستان نوعى «غريبى» است.",
+      "src": "كشف الغمه، ج 2، ص 75 و 102.",
+      "key": "غُرْبَةٌ",
+      "wrong": [
+        "مَصيبَةٌ",
+        "حَسْرَةٌ",
+        "نِقْمَةٌ"
+      ],
+      "d": 2,
+      "why": "از دست دادن دوستان، غربت است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اِنَّ اَبْدانَكم لَيْسَ لَها ثَمَنٌ اِلاَّ الْجَنَّةُ، فَلاتَبيعُوها بِغَيْرِها.",
+      "fa": "همانا بدنهاى شما را بهايى جز بهشت نيست. پس آنرا به غير بهشت نفروشيد.",
+      "src": "تحف العقول، ص 389.",
+      "key": "ثَمَنٌ",
+      "wrong": [
+        "عِوَضٌ",
+        "بَدَلٌ",
+        "خَطَرٌ"
+      ],
+      "d": 2,
+      "why": "بدن‌هاى شما را بهايى جز بهشت نيست.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْمَغْبُونُ مَن غَبَنَ مِنْ عُمْرِهِ ساعَةً.",
+      "fa": "زيانكار، كسى است كه ساعتى از عمر خويش را باخته است.",
+      "src": "حياة الامام موسى بن جعفر عليه السلام ، ج 1 ص 280.",
+      "key": "ساعَةً",
+      "wrong": [
+        "يَوْماً",
+        "لَحْظَةً",
+        "شَهْراً"
+      ],
+      "d": 3,
+      "why": "زيانكار كسى است كه ساعتى از عمر خويش را باخته است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اِسْتَحْيُوا مِنَ اللّه ِ فى سَرائِرِكُمْ كَما تَسْتَحْيُونَ مِنَ النّاسِ فى عَلانِيَتِكُمْ.",
+      "fa": "در پنهان هايتان از خداوند شرم كنيد، همچنان كه در آشكارِ خود از مردم خجالت مى كشيد.",
+      "src": "تحف العقول، ص 394",
+      "key": "سَرائِرِكُمْ",
+      "wrong": [
+        "خَلَواتِكُمْ",
+        "اَعْمالِكُمْ",
+        "نُفوسِكُمْ"
+      ],
+      "d": 3,
+      "why": "در پنهان از خدا شرم كنيد، همچنان‌كه در آشكار از مردم.",
+      "topic": "usul"
+    },
+    {
+      "ar": "مَنْ لَمْ يَشْكُرِ الْمُنْعِمَ مِنَ الْمَخْلُوقينَ، لَمْ يَشْكُرِ اللّه َ عَزَّ وَ جَلَّ.",
+      "fa": "هركس كه صاحبان نعمت و نيكى را از مردم، تشكّر و سپاس نكند، خداى متعال را هم سپاس نكرده است.",
+      "src": "عيون اخبار الرضا عليه السلام، ج 2، ص 27.",
+      "key": "الْمُنْعِمَ",
+      "wrong": [
+        "الْوالِدَ",
+        "الْعالِمَ",
+        "الْمُؤْمِنَ"
+      ],
+      "d": 2,
+      "why": "آن‌كه از مردم سپاسگزار نباشد، خدا را سپاس نگفته است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اِنَّ الإمامَةَ زِمامُ الدّينِ وَ نِظامُ الْمُسْلِمينَ وَ صَلاحُ الدُّنيا وَ عِزُّ الْمُؤْمِنينَ.",
+      "fa": "امامت و رهبرى، رشته دارى دين و نظام بخشى مسلمانان است و موجب اصلاح دنيا و عزّت و سربلندى مؤمنان است.",
+      "src": "اصول كافى، ج 1، ص 200.",
+      "key": "زِمامُ",
+      "wrong": [
+        "اَساسُ",
+        "عِمادُ",
+        "رُكْنُ"
+      ],
+      "d": 2,
+      "why": "امامت رشتهٔ دين و نظام مسلمانان است.",
+      "topic": "ahlulbayt"
+    },
+    {
+      "ar": "إذا نَزَلَ الْقَضاءُ ضاقَ الْفَضاءُ.",
+      "fa": "آنگاه كه قضاى الهى فرا رسد، فضا هم بر انسان تنگ مى شود.",
+      "src": "بحار 78/364",
+      "key": "الْقَضاءُ",
+      "wrong": [
+        "الْبَلاءُ",
+        "الْمَوْتُ",
+        "الْحِسابُ"
+      ],
+      "d": 3,
+      "why": "چون قضاى الهى فرارسد، جهان بر انسان تنگ شود.",
+      "topic": "usul"
+    },
+    {
+      "ar": "مَنْ اَصْغى اِلى ناطِقٍ فَقَدْ عَبَدَهُ، فَإنْ كانَ النّاطِقُ عَنِ اللّه ِ فَقَدْ عَبَدَاللّه َ، وَاِنْ كانَ النّاطِقُ يَنْطِقُ عَنْ لِسانِ إبْلِيسَ فَقَدْ عَبَدَ إبْليسَ.",
+      "fa": "هركس به گوينده اى گوش دهد (از او حرف شنوى داشته باشد) او را پرستيده، پس اگر گوينده سخن از خدا بگويد، او نيز خدا را عبادت كرده است، و اگر از شيطان بگويد، او هم بنده شيطان شده است.",
+      "src": "تحف العقول، ص 726.",
+      "key": "اَصْغى",
+      "wrong": [
+        "نَظَرَ",
+        "اَحَبَّ",
+        "صَدَّقَ"
+      ],
+      "d": 3,
+      "why": "هر كه به گوينده‌اى گوش سپارد، او را پرستيده است.",
+      "topic": "usul"
+    },
+    {
+      "ar": "اَلْمُؤمِنُ يَحْتاجُ اِلى تَوْفيقٍ مِنَ اللّه ِ وَواعِظٍ مِنْ نَفْسِهِ وَقَبُولٍ مِمَّنْ يَنْصَحُهُ.",
+      "fa": "مؤمن به سه چيز محتاج است: 1 ـ توفيق الهى، كه كارها را بخوبى به پيش ببرد. 2 ـ واعظ درونى كه هرلحظه او را پند و انذار دهد. 3 ـ پذيرش نصحيت كسى كه او را پند مى دهد.",
+      "src": "تحف العقول، ص 729.",
+      "key": "تَوْفيقٍ",
+      "wrong": [
+        "هِدايَةٍ",
+        "رَحْمَةٍ",
+        "عِصْمَةٍ"
+      ],
+      "d": 3,
+      "why": "مؤمن به توفيق الهى، پند درونى و پذيرش نصيحت نيازمند است.",
+      "topic": "usul"
+    }
+  ],
+  /* ── پایان بانک حدیث ── */
+};
+/* همان ۲۴ جای خالی «سفر سوره‌ها» به پرسش چهارگزینه‌ای تبدیل می‌شود تا
+   آزمون معارف بتواند از آن هم پرسش بردارد. */
+/* سازندهٔ بانکِ «سفر سوره‌ها» — *یک* جا تعریف می‌شود و هر دو جا
+   (اینجا و `Content.apply`) از همان می‌سازند. پیش‌تر دو نسخه بود:
+   `Content.apply` هنگامِ راه‌اندازی و بعد از هر ویرایش، بانک را از
+   نسخهٔ کهنه بازمی‌ساخت و دنبالهٔ آیه را بی‌صدا می‌انداخت. */
+const surahPickBuild = () => DATA.surah.map(l => ({
+  /* دنبالهٔ آیه هم می‌آید. بی آن، پرسش «﴿ إِنَّ … ﴾» بود و کاربر نمی‌دانست
+     آیه کجاست — در حالی که خودِ آیه «إِنَّ الْإِنْسَانَ لَفِي خُسْرٍ» است. */
+  q: `جای خالی را کامل کن: ﴿ ${l.before} … ${l.after || ''} ﴾`.replace(/\s+/g, ' ').trim(),
+  o: [l.ans, ...l.wrong],
+  a: l.ans,
+  d: (l.a % 3) + 1,
+  why: `${l.tr} — ${l.surah}، آیهٔ ${l.a}`,
+  src: l.src || `قرآن، سورهٔ ${l.surah}`
+}));
+DATA.surahPick = surahPickBuild();
+/* سوره‌های یکتا: «مائده» سه بار و «بقره» دو بار در بانک آمده. شمردنِ
+   ورودی‌ها به‌جای سوره‌ها، «۵ از ۲۴» می‌ساخت که با «۲۰ سورهٔ یکتا»
+   نمی‌خواند و کاربر را گمراه می‌کرد. */
+DATA.surahNames = [...new Set(DATA.surah.map(l => l.surah))];
+DATA.surahDoneCount = (done) => DATA.surahNames.filter(n => done && done[n]).length;
+const TOPICS = DATA.TOPICS_DEF.map(t => ({ ...t, bank: () => DATA[t.bank] || [] }));
+/* ─────────────────── 8. NET — لایه شبکه واقعی ───────────────────
+   دو حالت، یک پروتکل:
+     · ws     → اتصال به سرور واقعی (server.js) روی WebSocket
+     · local  → بدون سرور؛ تب‌های همین دستگاه از طریق BroadcastChannel
+                و یک «سرور کوچک» که تب میزبان اجرا می‌کند به هم وصل می‌شوند.
+   منطق بازی سمت میزبان/سرور اعتبارسنجی می‌شود، نه سمت بازیکن.
+   قالب پیام:  { ns:'noorestan', from, to, t, ... }
+     to = '*'  |  '<peerId>'  |  'room:<code>'
+   ─────────────────────────────────────────────────────────────── */
+/* ─────────────────── 7.9 میزبان — «آیا خودِ همین سرور ما را سرو کرده؟» ───
+   یک سؤالِ ساده که دو باگِ بزرگ از آن می‌آمد:
+
+   اگر صفحه را `node server.js` سرو کرده باشد، یعنی سرورِ نورستان همین‌جا
+   بالا است و سوکت هم روی *همان خاستگاه* باز می‌شود. ولی برنامه این را
+   نمی‌فهمید: `serverUrl` خالی بود، پس `Net.connect('')` به «حالت محلی»
+   می‌افتاد. نتیجه دو تا رمزِ ادمین (یکی روی سرور، یکی محلی) و شناسهٔ
+   محلی به‌جای شناسهٔ سروری.
+
+   چرا `/api/health` و نه حدس از روی نامِ میزبان: روی `localhost` یا
+   `192.168.*` می‌شود حدس زد، ولی روی دامنهٔ واقعی نه. پرسیدنِ یک نقطهٔ
+   پایانی، جوابِ درست را در هر سه حالت می‌دهد — و اگر سرور نبود، فقط
+   همان یک درخواست هدر می‌رود و حالت محلی سرِ جایش می‌ماند.
+
+   یک قولِ نگه‌داشته (`asked`) که هر کس منتظرِ جوابش بماند، چون تصمیمِ
+   «سروری یا محلی» نباید دو بار و دو جور گرفته شود. */
+const Host = {
+  asked: null,          // Promise<boolean> | null
+  _yes: null,           // boolean | null — پس از پاسخ
+  _info: null,
+
+  /* خاستگاهِ سوکت اگر صفحه از http(s) باز شده باشد. `file:` و
+     `blob:` هیچ میزبانی ندارند و باید به حالت محلی بروند. */
+  wsUrl(){
+    try{
+      if(typeof location === 'undefined') return '';
+      if(!/^https?:$/.test(location.protocol)) return '';
+      if(!location.host) return '';
+      /* سرور روی خودِ خاستگاه upgrade را می‌پذیرد. افزودنِ بی‌دلیل `/ws`
+         پشت بعضی reverse proxyها 404 می‌داد و با قرارداد عمومیِ نشانیِ
+         برنامه هم نمی‌خواند؛ مسیر ریشه در اجرای مستقیم و پروکسی کار می‌کند. */
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+    }catch(e){ return ''; }
+  },
+
+  /* یک بار می‌پرسد، همیشه همان جواب. */
+  ready(){
+    if(this.asked) return this.asked;
+    this.asked = (async () => {
+      const url = this.wsUrl();
+      if(!url) return false;
+      try{
+        const r = await SMS.req('/api/health', { method: 'GET', ms: 3500 });
+        const j = r && r.json;
+        /* امضای نورستان: `ok` به‌علاوهٔ چیزی که فقط این سرور می‌دهد.
+           یک `{ok:true}`ِ قالبی از هر میزبانی می‌آید و کافی نیست. */
+        const yes = !!(r && r.ok && j && j.ok === true &&
+                       (typeof j.version !== 'undefined' || typeof j.rooms === 'number'));
+        this._yes = yes; this._info = yes ? j : null;
+        return yes;
+      }catch(e){ this._yes = false; return false; }
+    })();
+    return this.asked;
+  },
+
+  /* پاسخِ همگام، برای جاهایی که نمی‌شود منتظر ماند. تا وقتی نپرسیده
+     `false` است — یعنی «نمی‌دانم»، که محافظه‌کارانه است. */
+  yes(){ return this._yes === true; },
+  info(){ return this._info; },
+  /* نشانیِ پیش‌فرضِ سوکت: اگر کاربر خودش آدرسی داده، همان مقدم است. */
+  defaultUrl(){ return this.yes() ? this.wsUrl() : ''; }
+};
+
+const Net = {
+  mode: 'ws', status: 'offline', id: U.uid(),
+  url: '', ws: null,
+  peers: new Map(), roomMap: new Map(), board: [], friendList: [],
+  room: null, listeners: new Map(),
+  hbId: null, retry: 0, wantOnline: false, serverInfo: null,
+
+  on(evt, fn){ if(!this.listeners.has(evt)) this.listeners.set(evt, []); this.listeners.get(evt).push(fn); },
+  emit(evt, data){ (this.listeners.get(evt) || []).forEach(fn => { try{ fn(data); }catch(e){ console.warn(e); } }); },
+  setStatus(s, info){ this.status = s; UI.busy('#netState,#gboard', s === 'connecting'); UI.busy('#players', s === 'connecting', true); this.emit('state', { status: s, mode: this.mode, info }); },
+
+  /* ── ارسال از سمت این کلاینت ── */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// تب میزبان باید پیام خودش را هم پردازش کند
+post(env){
+ if(!this.ws||this.ws.readyState!==1)return false;
+ try{this.ws.send(JSON.stringify({ns:SERVER_KEY,from:this.id,to:'*',...env}));return true;}catch(e){return false;}
+},
+
+  /* ── ارسال از سمت سرور/میزبان ── */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// بقیه تب‌ها
+// تب خودم
+srv(){return false;},
+
+  /* ── تحویل پیام ورودی به برنامه ── */
+  deliver(msg){
+    if(!msg || msg.ns !== SERVER_KEY) return;
+    if(msg.from === this.id) return;
+    const to = msg.to || '*';
+    const mine = to === '*' || to === this.id;
+    const inRoom = to.startsWith('room:') && this.room && this.room.code === to.slice(5);
+    if(!mine && !inRoom) return;
+    this.handle(msg);
+  },
+
+  /* ── اتصال ── */
+  /* ── یکدست‌کردنِ نشانیِ سوکت ──
+     باگی که این را آورد: کاربر `ws://91.247.171.117` را ذخیره کرده بود —
+     بی پورت. `savedUrl` بر همهٔ مسیرها مقدم است، پس سوکت هرگز وصل نمی‌شد
+     و «سرور پاسخ نداد» می‌ماند؛ سرورِ نورستان روی ۸۷۸۷ گوش می‌دهد.
+
+     قاعده، به ترتیب:
+       ۱) پورت اگر نوشته شده، دست‌نخورده می‌ماند.
+       ۲) وگرنه از خاستگاهِ خودِ صفحه قرض گرفته می‌شود (`:8787` روی صفحهٔ
+          `http://1.2.3.4:8787` همان است که کاربر می‌خواهد).
+       ۳) وگرنه فقط برای میزبانِ IP یا localhost پورتِ پیش‌فرض می‌نشیند.
+          دامنهٔ واقعی دست‌نخورده می‌ماند تا پشتِ پروکسیِ ۴۴۳ نشکند. */
+  normUrl(url){
+    const raw = String(url || '').trim();
+    if(!/^wss?:\/\//i.test(raw)) return raw;
+    const m = raw.match(/^(wss?):\/\/(\[[^\]]+\]|[^\/:]+)(?::(\d+))?(\/.*)?$/i);
+    if(!m) return raw;
+    const scheme = m[1], host = m[2], rest = m[4] || '';
+    let port = m[3];
+    if(!port){
+      const o = (typeof location !== 'undefined' && location.port) ? location.port : '';
+      if(o) port = o;
+      else if(/^\[/.test(host) || /^localhost$/i.test(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host))
+        port = String(SERVER_PORT);
+    }
+    return scheme + '://' + host + (port ? ':' + port : '') + rest;
+  },
+
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// سرور محلی: هر تبی که روم بسازد میزبان می‌شود
+connect(url){
+ const clean=this.normUrl(url);this.teardown();this.roomMap.clear();this.peers.clear();this.board=[];
+ if(!Session.user()&&!Session.admin()){this.setStatus('offline');return false;}
+ if(!/^wss?:\/\//i.test(clean)){this.url='';this.setStatus('unavailable');return false;}
+ this.wantOnline=true;this.mode='ws';this.url=clean;this.setStatus('connecting');this.openWS(clean);this.startHeartbeat();return true;
+},
+
+  /* آنچه هنگامِ ورود به سرور اعلام می‌شود.
+     `userToken` تنها چیزی است که سرور را متقاعد می‌کند این اتصال مالِ فلان
+     شماره است. `userId` تنها یک ادعاست و سرور بی نشانه به آن اعتنا نمی‌کند؛
+     می‌فرستیمش تا در فهرستِ مهمان‌ها شناسه‌مان معلوم باشد، نه برای اختیار. */
+  selfInfo(){
+    const u = User.get();
+    if(Session.admin())return {id:Net.id,name:'مدیریت',adminToken:Admin.token()};
+    return { id: Net.id, name: Store.get('playerName'), level: Store.get('level'),
+             score: Store.get('score'), userId: u ? u.id : '',
+             userToken: (typeof Store.get('userToken') === 'string' && Store.get('userTokenExp') > U.now())
+                        ? Store.get('userToken') : '' };
+  },
+
+  openWS(url){
+    let ws;
+    try{ ws = new WebSocket(url); }catch(e){ this.setStatus('offline'); UI.toast('آدرس سرور نامعتبر است', 'err'); return; }
+    this.ws = ws;
+    const fail = U.now();
+    ws.onopen = () => {
+      if(this.ws!==ws)return;
+      this.retry = 0;
+      this.ws.send(JSON.stringify({ ns: SERVER_KEY, from: this.id, to: 'server', t: 'hello', ...this.selfInfo() }));
+      // وضعیت آنلاین تنها پس از پذیرش هویت در سرور اعلام می‌شود.
+    };
+    ws.onmessage = e => {
+      if(this.ws!==ws)return;
+      let m; try{ m = JSON.parse(e.data); }catch(err){ return; }
+      if(m.t === 'welcome'){
+        if(m.id) this.id = m.id;
+        this.serverInfo = m;
+        return;
+      }
+      if(m.t==='authenticated'){this.setStatus('online');if(Session.user()){this.requestRooms();this.requestBoard();}else Admin.render();return;}
+      if(m.t==='auth:error'){this.wantOnline=false;this.setStatus('offline');Session.role='';Session.layout();Gate.open();return;}
+      this.deliver(m);
+    };
+    ws.onerror = () => { /* onclose ادامه می‌دهد */ };
+    ws.onclose = () => {
+      if(this.ws!==ws) return;
+      const hadRoom=!!this.room;this.room=null;this.roomMap.clear();this.peers.clear();this.emit('rooms',[]);
+      if(hadRoom){Timers.clearPage();Router.go('online');}
+      this.setStatus('offline');
+      if(ws.__manual) return;
+      if(this.wantOnline && this.retry < 5){
+        this.retry++;
+        const wait = Math.min(15000, 1200 * Math.pow(1.7, this.retry));
+        UI.toast(`❌ قطع شد — تلاش ${U.fa(this.retry)} تا ${U.fa(Math.round(wait/1000))} ثانیه دیگر`, 'err');
+        Timers.after(() => { if(this.wantOnline && this.ws===ws && this.mode === 'ws') this.openWS(this.url); }, wait, 'sys');
+      } else {
+        UI.toast('❌ اتصال به سرور برقرار نشد', 'err');
+      }
+    };
+    setTimeout(() => { if(ws.readyState === 0 && U.now() - fail > 7000){ try{ ws.close(); }catch(e){} } }, 7000);
+  },
+
+  teardown(){
+ this.wantOnline=false;if(this.ws){this.ws.__manual=true;try{this.ws.close();}catch(e){}this.ws=null;}
+ if(this.hbId){Timers.clear(this.hbId);this.hbId=null;}this.mode='ws';this.retry=0;this.room=null;
+},
+
+  disconnect(){
+    this.post({ t: 'bye' });
+    this.teardown();
+    this.setStatus('offline');
+    this.peers.clear();
+    this.roomMap.clear();
+  },
+
+  announce(){
+    this.post({ t: 'hello', ...this.selfInfo(), isSelf: true });
+  },
+
+  startHeartbeat(){
+    if(this.hbId) Timers.clear(this.hbId);
+    this.hbId = Timers.every(() => {
+      const now = U.now();
+      if(this.ws && this.ws.readyState === 1) this.post({ t: 'hb' });
+      // پاکسازی
+      let changed = false;
+      for(const [id, p] of this.peers){
+        if(now - p.lastSeen > (this.mode === 'ws' ? 25000 : 16000)){ this.peers.delete(id); changed = true; }
+      }
+      for(const [code, r] of this.roomMap){
+        if(now - r._seen > 20000){ this.roomMap.delete(code); changed = true; }
+      }
+      if(this.mode === 'ws' && this.ws?.readyState === 1) this.requestRooms();
+      if(changed) this.emit('peers', this.peerList());
+      this.emit('rooms', this.rooms());
+      this.emit('tick');
+    }, 5000, 'sys');
+  },
+
+  peerList(){ return [...this.peers.values()].sort((a, b) => (b.score || 0) - (a.score || 0)); },
+  rooms(){ return [...this.roomMap.values()].sort((a, b) => b._seen - a._seen); },
+  requestRooms(){ this.post({ t: 'rooms:list' }); },
+  requestBoard(){ this.post({ t: 'lb:get' }); },
+
+  /* ── توابع کمکی برای UI ── */
+  /* اگر از قبل در رومی هستیم، اول خارج می‌شویم تا سرور ساخت روم تازه را بپذیرد
+     (ترتیب پیام‌ها روی یک سوکت تضمین شده است، پس leave قبل از create پردازش می‌شود) */
+  createRoom(name, game){
+    if(this.room) this.post({ t: 'room:leave' });
+    this.room = null;
+    this.post({ t: 'room:create', name, game });
+  },
+  joinRoom(code){ this.post({ t: 'room:join', code }); },
+  leaveRoom(){ this.post({ t: 'room:leave' }); this.room = null; },
+  startMatch(game){ this.post({ t: 'room:start', game, code: this.room?.code }); },
+  say(text){ this.post({ t: 'chat', text, room: this.room?.code || '' }); },
+  /* ارسال به روم فعلی (یا به همه، اگر در رومی نیستیم).
+     تا پیش از نسخهٔ ۱۵ این تابع وجود نداشت و «تایپ»، «واکنش» و
+     «مذاکرهٔ صوتی» بی‌صدا از دست می‌رفتند. */
+  send(env, to){
+    return this.post({ to: to || (this.room ? 'room:' + this.room.code : '*'), ...env });
+  },
+  /* دور بعد اسم فامیل — روی سرور واقعی یا میزبان محلی */
+  nextRound(){return this.post({t:'room:game',game:'esmfamil',phase:'next',code:this.room?.code});},
+
+  /* ── پروتکل ورودی ── */
+  handle(msg){
+    switch(msg.t){
+      case 'hello':
+        this.trackPeer(msg, true);
+        break;
+      case 'hb':
+        this.trackPeer(msg, false);
+        break;
+      case 'welcome':
+        if(msg.id) this.id = msg.id;
+        this.serverInfo = msg;
+        break;
+      /* کارنامهٔ خودِ کاربر از سرور — تنها راهِ اینکه دستگاه بفهمد پیامکِ
+         خوش‌آمدگویی رفت یا نه. بی این، وضعیتِ پروفایل تا ابد «⏳ در راه»
+         می‌ماند چون فرستادنش ناهمگام است و پاسخِ ورود زودتر می‌رسد. */
+      case 'me':
+        User.serverState(msg);
+        break;
+      case 'peers':
+        if(this.mode === 'ws'){
+          this.peers.clear();
+          (msg.list || []).forEach(p => { if(p.id !== this.id) this.peers.set(p.id, { ...p, lastSeen: U.now() }); });
+          this.emit('peers', this.peerList());
+        }
+        break;
+      case 'rooms':
+        (msg.list || []).forEach(r => this.roomMap.set(r.code, { ...r, _seen: U.now() }));
+        this.emit('rooms', this.rooms());
+        break;
+      case 'room:joined':
+        this.room = { code: msg.code, name: msg.name, game: msg.game, host: msg.host, isHost: !!msg.isHost,
+                      codeText: msg.code, spectator:!!msg.spectator, members: msg.members || [] };
+        UI.closeModal();
+        Router.go('room');
+        renderRoom();
+        appendChat({ sys: true, text: `وارد روم «${msg.name}» شدی — کد ${msg.code}` });
+        break;
+      case 'room:update':
+        if(this.room && this.room.code === msg.code){
+          this.room.members = msg.members || [];
+          this.room.host = msg.host;
+          this.room.isHost = (msg.host === this.id);
+          this.room.spectator=!!this.room.members.find(m=>m.id===this.id)?.spectator;
+          renderRoom();
+        }
+        break;
+      case 'room:left':
+        this.room = null;
+        UI.toast('از روم خارج شدی', '');
+        if(Router.stack[Router.stack.length-1] === 'room') Router.go('online');
+        break;
+      case 'room:error':
+        UI.toast('⚠️ ' + (msg.msg || 'خطای روم'), 'err');
+        break;
+      case 'chat':
+        Typing.hide();
+        appendChat({ name: msg.name, text: msg.text, sys: !!msg.sys });
+        if(msg.sys) break;
+        /* هر کس در روم پیام بدهد، خودکار به دوستان اضافه می‌شود */
+        try{ if(msg.from && msg.from !== this.id) Friends.add(msg.from, msg.name); }catch(e){}
+        break;
+      case 'typing':
+        if(msg.from !== this.id) Typing.show(msg.name);
+        break;
+      case 'react':
+        if(msg.from !== this.id) Reactions.incoming(msg.emoji);
+        break;
+      case 'rtc':
+        try{ Voice.handle(msg); }catch(e){ console.warn('rtc', e); }
+        break;
+      case 'spectate':
+        if(this.room){ this.room.spectator = true; renderRoom(); UI.toast('👁 حالت تماشاچی', 'ok', 2000); }
+        break;
+      case 'friends':
+        this.friendList = Array.isArray(msg.list) ? msg.list : [];
+        this.emit('friends', this.friendList);
+        break;
+      case 'friend:req':
+        Friends.incoming(msg);
+        break;
+      case 'friend:ok':
+        if(msg.name){ Friends.add(msg.from, msg.name); UI.toast(`🤝 ${msg.name} پیشنهاد دوستی را پذیرفت`, 'ok', 2600); }
+        break;
+      case 'friend:no':
+        UI.toast('پیشنهاد دوستی پذیرفته نشد', '', 2000);
+        break;
+      case 'game:cancelled':
+        Timers.clearPage();Router.go('room');UI.toast(msg.msg||'این دور پایان یافت.','');break;
+      case 'game':
+        GameLink.apply(msg);
+        break;
+      case 'notif':
+        pushNotif(msg.title || 'اعلان', msg.desc || '', msg.icon || '📢');
+        break;
+      /* ── پاسخ‌های مدیریتی ──
+         همه از سرور می‌آیند و سرور پیش از فرستادن، نشانهٔ مدیر را سنجیده
+         است. کلاینت اینجا فقط نشان می‌دهد؛ تصمیمِ دسترسی جای دیگری گرفته
+         شده. */
+      case 'admin:users':
+        Admin.gotUsers(msg.list);
+        break;
+      case 'admin:user:sms':
+        Admin.smsResult(msg);
+        break;
+      case 'admin:user:err':
+        UI.toast('⚠️ ' + (msg.msg || 'انجام نشد'), 'err', 3200);
+        break;
+      case 'lb':
+        Sync.finish();
+        this.board = Array.isArray(msg.list) ? msg.list : [];
+        this.emit('board', this.board);
+        break;
+      case 'bye':
+        this.peers.delete(msg.from);
+        this.emit('peers', this.peerList());
+        break;
+    }
+  },
+
+  trackPeer(msg, isHello){
+    if(msg.from === this.id) return;
+    const ex = this.peers.get(msg.from);
+    if(ex){
+      ex.lastSeen = U.now();
+      if(msg.name) ex.name = msg.name;
+      if(msg.level) ex.level = msg.level;
+      if(msg.score != null) ex.score = msg.score;
+    } else {
+      this.peers.set(msg.from, { id: msg.from, name: msg.name || 'بازیکن', level: msg.level || 1,
+                                 score: msg.score || 0, lastSeen: U.now() });
+      this.emit('peers', this.peerList());
+    }
+
+  }
+};
+
+/* ─────────────────── 8.1 MINI SERVER (میزبان محلی) ───────────────────
+   همان منطقی که server.js اجرا می‌کند، درون تبی که روم ساخته.
+   ───────────────────────────────────────────────────────────────── */
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* رمز مدیر این‌جا ثابت نیست.
+         پیش‌تر یک کپیِ جداگانهٔ هشِ «noor2024» همین‌جا بود:
+           - با تغییر رمز در تنظیمات هم عوض نمی‌شد، پس روی حالت محلی بی‌اثر بود
+           - رمزِ عمومیِ منتشرشده در مخزن، تا ابد کار می‌کرد
+         حالا از خودِ Store خوانده می‌شود؛ یک منبع حقیقت، نه دو تا. */
+/* در حالتِ محلی، «سرور» همین تبِ میزبان است و میزبان صاحبِ
+               دستگاه. پس پیامِ مدیریتی از دیگری پذیرفته نمی‌شود.
+               پیش‌تر اینجا هشِ رمز مقایسه می‌شد؛ ولی هش دیگر روی سیم نمی‌رود
+               (کلاینت فقط نشانهٔ سرور را می‌فرستد)، پس آن شرط همیشه بسته بود
+               و فقط این توهم را می‌ساخت که دروازه‌ای هست. حالا صریح است:
+               ایستگاهِ خودِ میزبان.
+               رد کردن *بی‌پاسخ* است، مثل خودِ سرور: فرستنده نباید از پاسخ
+               بفهمد دروازه کجاست یا چه می‌خواهد. */
+/* ── اعتبارسنجی حرکت بازی، سمت میزبان ── */
+// پروتکل یکسان در هر دو حالت: دور بعد هم از همین مسیر می‌آید
+// نوبت تو نیست
+// خانه نامعتبر
+// پاکسازی دوره‌ای
+
+
+/* ─────────────────── 8.2 GAME LINK ───────────────────
+   پیام‌های بازی آنلاین را به موتور مربوطه می‌رساند.
+   ───────────────────────────────────────────────────── */
+const GameLink = {
+  apply(msg){
+    if(!Net.room)return;
+    if(Net.room.spectator && msg.game==='esmfamil'){
+      Router.go('play');U.$('#pgTitle').textContent='تماشای اسم فامیل';
+      U.$('#pgBar').textContent='حالت تماشاچی';
+      U.$('#pgBody').innerHTML='<div class="card">'+U.esc(msg.phase==='results'?'نتیجهٔ دور':msg.phase==='done'?'بازی تمام شد':'حرف این دور: '+(msg.letter||'—'))+'</div>';return;
+    }
+    const cur = Router.stack[Router.stack.length - 1];
+    if(msg.game === 'dooz'){
+      if(cur !== 'play'){ Router.go('play'); }
+      DoozEngine.online(msg);
+    } else if(msg.game === 'esmfamil'){
+      if(cur !== 'play'){ Router.go('play'); }
+      EsmFamilEngine.online(msg);
+    }
+  }
+};
+/* ─────────────────── 9. PROGRESSION (امتیاز، کمبو، جان، رکورد) ─────────────────── */
+const Combo = {
+  n: 0, best: 0,
+  hit(){ this.n++; this.best = Math.max(this.best, this.n); return this.n; },
+  reset(){ this.n = 0; },
+  label(){ return this.n >= 2 ? `<span class="pill">${Icon.of('flame')} کمبو <b>${U.fa(this.n)}</b></span>` : ''; }
+};
+
+const Progress = {
+  award({ game, pts = 0, ok = true, ms = null, silent = false, topic = null }){
+    const d = Store.data;
+    /* مهرِ سبز/سرخ روی حلقهٔ پیشرفت — تنها جایی که «درست/نادرست»ِ بازی‌ها
+       یک‌جا از آن می‌گذرد. `silent` (پاداشِ هفتگی) بازی نیست. */
+    if(!silent) U.progState(ok);
+    if(ok){
+      d.score += pts; d.xp += pts;
+      d.stats.totalCorrect++;
+      /* شمار پاسخ‌های درست هر موضوع — برای نشان‌های معارف */
+      if(topic){
+        if(!d.stats.topics) d.stats.topics = {};
+        d.stats.topics[topic] = (d.stats.topics[topic] || 0) + 1;
+        if(!d.tree) d.tree = {};
+        d.tree[topic] = (d.tree[topic] || 0) + 1;
+      }
+      if(game){ d.gamesPlayed = d.gamesPlayed || {}; d.gamesPlayed[game] = (d.gamesPlayed[game] || 0) + 1; }
+      const n = Combo.hit();
+      d.stats.maxCombo = Math.max(d.stats.maxCombo, n);
+      if(ms != null) d.stats.fastestAnswer = Math.min(d.stats.fastestAnswer, ms / 1000);
+      if(n >= 3 && !silent){ Sound.combo(n); UI.toast(`🔥 کمبو ${U.fa(n)}!`, 'ok', 1200); }
+    } else {
+      d.stats.totalWrong++;
+      Combo.reset();
+    }
+    Store.save();
+    checkLevelUp();
+    checkBadges();
+    Sync.push();
+    /* ── نسخهٔ ۱۵: مأموریت روزانه، درخت دانش و جایزهٔ هفته ── */
+    try{
+      if(ok) Missions.refresh(true);
+    }catch(e){ /* اگر یکی از این‌ها نبود، بازی نباید بشکند */ }
+  },
+  record(game, value, higher = true){
+    const d = Store.data;
+    const cur = d.best[game];
+    const better = cur == null || (higher ? value > cur : value < cur);
+    if(better){ d.best[game] = value; Store.save(); return true; }
+    return false;
+  },
+  recordLabel(game){
+    const v = Store.get('best')[game];
+    return v == null ? '' : v;
+  }
+};
+
+/* همگام‌سازی رکورد با سرور (اگر وصل باشیم) */
+const Sync = {
+  last: 0, timer: null,
+  finish(){ UI.busy('#gboard,#meLbRefresh', false); if(this.timer) Timers.clear(this.timer); this.timer = null; },
+  push(force = false){
+    const now = U.now();
+    if(!force && now - this.last < 4000) return;
+    this.last = now;
+    saveLeaderboard();
+    if(Net.status === 'online'){
+      this.finish(); UI.busy('#gboard,#meLbRefresh', true);
+      this.timer = Timers.after(() => this.finish(), 6000, 'sys');
+      Net.post({ t: 'lb:put', name: Store.get('playerName'), score: Store.get('score') });
+    }
+  }
+};
+
+/* ─────────────────── 10. GAME ENGINES ─────────────────── */
+
+/* ── 10.1 آزمون (عادی و سرعت نور) ── */
+const QuizEngine = {
+  state: null, opts: null,
+  start(opts){
+    this.opts = opts;
+    const { qs, title, sub, mode = 'normal', count = 10, onDone, hearts = false, resume = null,
+            game = 'quiz' } = opts;
+    /* `game: null` یعنی «این را نشمار» — آزمونِ خودِ برنامه (selfTest) بازی
+       کاربر نیست و اگر شمرده شود، آمارِ پنل مدیریت را دروغین می‌کند. */
+    if(game) Stats.track(game);
+    /* resume: بازی نیمه‌کاره‌ای که Autosave برگردانده — پرسش‌ها و پیشرفت را
+       از همان برمی‌داریم تا کاربر سرِ همان سوال ادامه بدهد. فهرست پرسش‌ها
+       باید ذخیره شده باشد، وگرنه بر زدن دوبارهٔ بانک ترتیب را عوض می‌کند. */
+    const keep = (resume && Array.isArray(resume.qs) && resume.qs.length) ? resume.qs : null;
+    const n = Math.min(count, (qs || []).length);
+    this.state = { qs: keep || Adaptive.pick(qs, n), i: 0, correct: 0,
+                   mode, title, sub, onDone, hearts, pts: 0, times: [], timer: null, t0: U.now(), locked: false };
+    if(keep){
+      this.state.i       = U.clamp(Math.floor(+resume.i) || 0, 0, keep.length - 1);
+      this.state.correct = Math.max(0, Math.floor(+resume.correct) || 0);
+      this.state.pts     = Math.max(0, Math.floor(+resume.pts) || 0);
+      this.state.times   = Array.isArray(resume.times) ? resume.times.slice(0, 200).filter(t => typeof t === 'number') : [];
+    }
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline(title);
+    U.$('#pgSub').textContent = sub;
+    U.$('#pgProgWrap').classList.toggle('timer', mode === 'speed');
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    if(s.i >= s.qs.length) return this.finish();
+    if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    const q = s.qs[s.i];
+    s.locked = false;
+    U.$('#pgBar').innerHTML =
+      `<span class="pill">سوال <b>${U.fa(s.i + 1)}</b> از <b>${U.fa(s.qs.length)}</b></span>
+       <span class="pill">${Icon.of('check')} <b>${U.fa(s.correct)}</b></span>
+       ${Combo.label()}
+       ${s.hearts ? HeartBar.hud() : ''}
+       ${s.mode === 'speed' ? `<span class="pill" id="qTime">⏱ <b>${U.fa(12)}</b></span>` : ''}`;
+    /* سؤالِ جاری *شروع* شده، پس باید شمرده شود. «s.i / n» در پرسشِ
+       آخر هرگز به ۱۰۰٪ نمی‌رسید و نوار ناتمام می‌ماند. */
+    U.prog((s.i + 1) / s.qs.length * 100, { cur: s.i + 1, total: s.qs.length, cap: 'سؤال' });
+    const labels = ['الف','ب','پ','ت'];
+    const opts = U.shuffle(q.o);
+    const dTag = q.d ? `<span class="qhint d${q.d}">${['','آسان','متوسط','دشوار'][q.d]}</span>` : '';
+    /* «رکوردت را بزن» و «سطح سازگار» فقط یک بار، پیش از نخستین پرسش —
+       تکرارشان در هر پرسش، صفحه را شلوغ می‌کند. */
+    const meta = s.i === 0
+      ? Beat.label(s.mode === 'speed' ? 'speed_best' : 'quiz_best') + Adaptive.note()
+      : '';
+    U.$('#pgBody').innerHTML = `${meta}
+      <div class="qbox q-enter" id="qbox">
+        ${q.src ? `<div class="qsrc">📚 ${U.esc(q.src)}</div>` : ''}
+        <div class="qq">${U.esc(q.q)}</div>
+        ${dTag}
+        ${q.hint ? `<div class="tiny" style="margin-top:6px">${Icon.of('bulb')} ${U.esc(q.hint)}</div>` : ''}
+      </div>
+      <div class="opts" id="opts">
+        ${opts.map((o, i) => `<button class="opt" data-v="${U.esc(o)}" style="--i:${i}">
+          <span class="n">${labels[i]}</span><span>${U.esc(o)}</span></button>`).join('')}
+      </div>
+      <div id="qWhy"></div>`;
+    U.$$('#opts .opt').forEach(btn => btn.onclick = () => this.answer(btn, q.a));
+    s.t0 = U.now();
+    if(s.mode === 'speed') this.startTimer();
+    this.autosave();
+  },
+
+  /* ── ذخیرهٔ خودکار ──
+     snapshot باید JSON-پذیر باشد: تابع و شناسهٔ تایمر و گرهٔ DOM در آن جا
+     نمی‌گیرند. اگر بازی callback پایان داشته باشد اصلاً ذخیره نمی‌کنیم. */
+  snapshot(){
+    const s = this.state;
+    if(!s || s.onDone || !Array.isArray(s.qs) || !s.qs.length) return null;
+    return { resume: true, game: this.opts?.game, qs: s.qs, title: s.title, sub: s.sub, mode: s.mode, hearts: s.hearts,
+             label: s.title, i: s.i, correct: s.correct, pts: s.pts,
+             times: s.times.slice(-50) };
+  },
+  autosave(){ const x = this.snapshot(); if(x) Autosave.put('quiz', x, x.label); },
+
+  /* پس از پاسخ: توضیح کوتاه و منبع — تا آدم چیزی یاد بگیرد، نه فقط امتیاز */
+  explain(q, isOk){
+    const s = this.state;
+    const box = U.$('#qWhy');
+    if(!box || !q.why && !q.src) return false;
+    const instant = s.mode === 'speed';
+    box.innerHTML = `<div class="qwhy ${isOk ? 'good' : 'bad'}">
+      <div class="qwhy-h">${isOk ? '✅ درست بود' : '❌ پاسخ درست: ' + U.esc(q.a)}</div>
+      ${q.why ? `<div class="qwhy-b">${U.esc(q.why)}</div>` : ''}
+      ${q.src ? `<div class="qwhy-s">📚 منبع: ${U.esc(q.src)}</div>` : ''}
+      ${instant ? '' : '<button class="btn gh sm" id="qNext" style="margin-top:10px">سوال بعدی ⏭</button>'}
+    </div>`;
+    if(instant) return false;
+    const nx = U.$('#qNext');
+    if(nx) nx.onclick = () => { if(s.advance){ Timers.clear(s.advance); s.advance = null; } s.i++; this.render(); };
+    return true;   // یعنی «کمی صبر کن تا بخوانَد»
+  },
+  startTimer(){
+    const s = this.state;
+    s.timeLeft = 12;
+    s.timer = Timers.every(() => {
+      s.timeLeft--;
+      const el = U.$('#qTime');
+      if(el) el.innerHTML = `⏱ <b>${U.fa(s.timeLeft)}</b>`;
+      U.prog((s.i + (1 - s.timeLeft / 12)) / s.qs.length * 100,
+             { cur: s.i + 1, total: s.qs.length, cap: 'سؤال' });
+      if(s.timeLeft <= 3 && s.timeLeft > 0) Sound.tick();
+      if(s.timeLeft <= 0){ Timers.clear(s.timer); s.timer = null; this.timeout(); }
+    }, 1000);
+  },
+  timeout(){
+    /* تیک تایمر ممکن است پس از پاک شدن وضعیت برسد (خروج از صفحه، شروع
+       بازی تازه). بی‌این نگهبان، همان تیک برنامه را می‌خواباند. */
+    const s = this.state;
+    if(!s || s.locked) return;
+    s.locked = true;
+    const q = s.qs[s.i];
+    Sound.buzz(); Haptic.hit(40);
+    U.$('#qbox')?.classList.add('flash-no');
+    U.$$('#opts .opt').forEach(b => { b.disabled = true; if(b.dataset.v === q.a) b.classList.add('right'); });
+    Progress.award({ game: 'speed', ok: false });
+    if(this.penalty()) return;
+    this.explain(q, false);
+    Timers.after(() => { s.i++; this.render(); }, 1600);
+  },
+  penalty(){
+    const s = this.state;
+    if(!s.hearts) return;
+    const had = Store.get('hearts');   // پیش از خرج، تا بدانیم کدام قلب خالی شد
+    if(!Store.spendHeart()){
+      this.gameOver();
+      return true;
+    }
+    HeartBar.paint();
+    HeartBar.break(had - 1);
+    UI.toast('💔 یک جان کم شد', 'err', 1500);
+  },
+  answer(btn, correct){
+    const s = this.state;
+    if(s.locked) return;
+    s.locked = true;
+    if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    const q = s.qs[s.i];
+    const ms = U.now() - s.t0;
+    s.times.push(ms);
+    const isOk = btn.dataset.v === correct;
+    U.$$('#opts .opt').forEach(b => b.disabled = true);
+    if(isOk){
+      btn.classList.add('right');
+      U.$('#qbox')?.classList.add('flash-ok');
+      s.correct++;
+      let pts = 15;
+      if(s.mode === 'speed'){
+        const bonus = Math.round(Math.max(0, (12 - ms / 1000) / 12) * 10);
+        pts = 10 + bonus;
+        if(ms < 2000) UI.toast('⚡ برق‌آسا!', 'ok', 1000);
+      }
+      s.pts += pts;
+      Sound.play(true); Haptic.hit(15);
+      /* ── پاسخ درست: نبض سبز + ستاره‌های پرتابی ── */
+      FX.burstAtEl(btn, 12);
+      Progress.award({ game: s.mode === 'speed' ? 'speed' : 'quiz', pts, ok: true, ms, topic: q.topic });
+      if(s.mode === 'speed') Store.update(d => d.stats.speed++);
+      /* ── کمبو: پاپ و چرخش نوار بالا + ذرات آتش ── */
+      const head = U.$('#pgBar');
+      if(head && Combo.n >= 3){
+        FX.pop(head);
+        FX.burstAtEl(head, 8, ['🔥', '🔥', '✨']);
+        /* نوار کمبو با هر پاسخ درست یک پله پرتر می‌شود */
+        head.style.setProperty('--cb', Math.min(100, Combo.n * 12) + '%');
+      }
+      if(s.correct && s.correct % 5 === 0) FX.levelBurst(U.$('#pgProg'));
+    } else {
+      btn.classList.add('wrong');
+      U.$('#qbox')?.classList.add('flash-no');
+      U.$$('#opts .opt').forEach(b => { if(b.dataset.v === correct) b.classList.add('right'); });
+      Sound.play(false); Haptic.hit(40);
+      FX.shake(btn);
+      FX.vibrate([30, 50, 30]);
+      Progress.award({ game: s.mode === 'speed' ? 'speed' : 'quiz', ok: false });
+      if(this.penalty()) return;
+    }
+    /* اگر توضیحی هست، درنگ بیشتر تا خوانده شود؛ در حالت سرعت همان ۹۰۰ms */
+    const slow = this.explain(q, isOk);
+    const wait = slow ? 3400 : 900;
+    if(s.advance){ Timers.clear(s.advance); }
+    s.advance = Timers.after(() => { s.advance = null; s.i++; this.render(); }, wait);
+  },
+  gameOver(){
+    const s = this.state;
+    Autosave.clear();                       // جان‌ها تمام شد؛ ادامه‌ای در کار نیست
+    Sound.buzz();
+    UI.result({
+      icon: '💔',
+      title: 'جان‌هایت تمام شد',
+      pct: null,
+      detail: `تا سوال ${U.fa(s.i + 1)} رسیدی و ${U.fa(s.correct)} پاسخ درست دادی.<br>جان‌ها هر ۳ دقیقه یکی‌یکی برمی‌گردند.`,
+      stars: null,
+      extraHtml: `<div style="margin-top:12px;font-size:12px;color:var(--mut)" id="heartTimer"></div>`,
+      onAgain: () => QuizEngine.start({ ...s, qs: s.qs })
+    });
+    const tick = Timers.every(() => {
+      const ms = Store.heartsLeftMs();
+      const el = U.$('#heartTimer');
+      if(!el){ Timers.clear(tick); return; }
+      el.textContent = ms ? `⏳ جان بعدی تا ${U.fmtTime(ms/1000)}` : '❤️ جان‌ها پر شد';
+    }, 1000);
+    updateHearts();
+  },
+  finish(){
+    const s = this.state;
+    if(s.timer) Timers.clear(s.timer);
+    Autosave.clear();                       // بازی تمام شد؛ دیگر چیزی برای ادامه نمانده
+    const pct = Math.round(s.correct / s.qs.length * 100);
+    const stars = Math.round(pct / 33.4);
+    const avg = s.times.length ? Math.round(s.times.reduce((a, b) => a + b, 0) / s.times.length) : 0;
+    if(s.mode === 'speed'){
+      Store.update(d => d.stats.plays++);
+      if(pct >= 80) Beat.check('speed_best', s.pts);
+    } else {
+      Store.update(d => { d.stats.quizzes++; d.stats.plays++; });
+      if(pct >= 80) Beat.check('quiz_best', pct);
+    }
+    if(stars >= 3) Store.update(d => d.stats.perfectRuns++);
+    if(pct >= 60) confetti();
+    checkBadges();
+    UI.result({
+      icon: pct >= 80 ? '🎉' : pct >= 50 ? '👏' : '📝',
+      title: pct >= 80 ? 'درخشان!' : pct >= 50 ? 'خوب بود' : 'تلاش بیشتر',
+      pct, stars,
+      detail: `${U.fa(s.correct)} از ${U.fa(s.qs.length)} صحیح (${U.fa(pct)}%)
+               ${avg ? `• میانگین پاسخ ${U.fa((avg/1000).toFixed(1))} ثانیه` : ''}
+               ${s.pts ? `<br>امتیاز این دور: <b style="color:var(--gold)">${U.fa(s.pts)}</b>` : ''}`,
+      onAgain: () => QuizEngine.start({ ...s, qs: s.qs })
+    });
+    s.onDone && s.onDone(pct);
+  }
+};
+
+/* ── 10.2 سفر سوره‌ها (همه سوره‌ها در یک سفر) ── */
+const SurahEngine = {
+  state: null,
+  start(){
+    Stats.track('surah');
+    const list = U.shuffle(DATA.surah);
+    this.state = { list, i: 0, correct: 0, pts: 0, stars: {}, timer: null, t0: 0, locked: false };
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('📖 سفر سوره‌ها');
+    U.$('#pgSub').textContent = `${U.fa(list.length)} سوره — کلمه گمشده هر آیه را پیدا کن`;
+    U.$('#pgProgWrap').classList.remove('timer');
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    if(s.i >= s.list.length) return this.finish();
+    const lvl = s.list[s.i];
+    const opts = U.shuffle([lvl.ans, ...lvl.wrong]);
+    s.locked = false;
+    U.$('#pgBar').innerHTML =
+      `<span class="pill">سوره <b>${U.esc(lvl.surah)}</b></span>
+       <span class="pill">${U.fa(s.i + 1)} از ${U.fa(s.list.length)}</span>
+       <span class="pill">${Icon.of('check')} <b>${U.fa(s.correct)}</b></span>
+       ${Combo.label()}`;
+    /* پیش‌تر `s.i / n` بود: در سؤالِ نهم از ۲۴، ۳۳٪ نشان می‌داد و در سؤالِ
+       آخر هرگز به ۱۰۰ نمی‌رسید. سؤالِ جاری *شروع* شده، پس باید شمرده شود. */
+    U.prog((s.i + 1) / s.list.length * 100, { cur: s.i + 1, total: s.list.length, cap: 'آیه' });
+    U.$('#pgBody').innerHTML = `
+      <div class="qbox" id="qbox">
+        ${lvl.level ? `<div class="qsrc">🕌 ${U.esc(lvl.level)}</div>` : ''}
+        <div class="ar">${U.esc(lvl.before)} <span style="color:var(--gold)">______</span>${lvl.after ? ' ' + U.esc(lvl.after) : ''}</div>
+        <div class="hint">${U.esc(lvl.tr)}</div>
+        ${lvl.src ? `<div class="qhint d3" style="margin-top:8px">📚 ${U.esc(lvl.src)}</div>` : ''}
+        ${lvl.n ? `<div class="row" style="gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button class="btn gh sm" id="surahListen">${Icon.of('headphones')} شنیدن این آیه</button>
+          <button class="btn gh sm" id="surahOpen">${Icon.of('book-open')} خواندن سوره در مصحف‌نما</button>
+        </div>` : ''}
+      </div>
+      <div class="opts" id="opts">
+        ${opts.map((o, i) => `<button class="opt" data-v="${U.esc(o)}">
+          <span class="n">${U.fa(i + 1)}</span>
+          <span style="font-size:17px">${U.esc(o)}</span></button>`).join('')}
+      </div>
+      <div id="surahRes"></div>`;
+    U.$$('#opts .opt').forEach(btn => btn.onclick = () => this.answer(btn, lvl));
+    const listen = U.$('#surahListen');
+    if(listen) listen.onclick = () => {
+      Sound.click();
+      Recite.play(lvl.n, lvl.a);
+      UI.toast(`🎧 ${lvl.surah} — آیهٔ ${U.fa(lvl.a)}`, 'ok', 1600);
+    };
+    const open2 = U.$('#surahOpen');
+    if(open2) open2.onclick = () => { Sound.page(); ReaderUI.open(lvl.n, lvl.a); };
+    s.t0 = U.now();
+  },
+  answer(btn, lvl){
+    const s = this.state;
+    if(s.locked) return;
+    s.locked = true;
+    const ms = U.now() - s.t0;
+    const ok = btn.dataset.v === lvl.ans;
+    U.$$('#opts .opt').forEach(b => b.disabled = true);
+    if(ok){
+      btn.classList.add('right');
+      U.$('#qbox')?.classList.add('flash-ok');
+      s.correct++; s.pts += 30;
+      s.stars[lvl.surah] = 3;
+      Sound.play(true); confetti(24); Haptic.success();
+      Progress.award({ game: 'surah', pts: 30, ok: true, ms });
+      Store.update(d => { d.stars[lvl.surah] = 3; d.completed[lvl.surah] = true; });
+      U.$('#surahRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('check')} آفرین! +۳۰ امتیاز</div>`;
+    } else {
+      btn.classList.add('wrong');
+      U.$('#qbox')?.classList.add('flash-no');
+      U.$$('#opts .opt').forEach(b => { if(b.dataset.v === lvl.ans) b.classList.add('right'); });
+      Sound.play(false); Haptic.hit(40);
+      s.stars[lvl.surah] = 1;
+      Progress.award({ game: 'surah', ok: false });
+      Store.update(d => { if(!d.stars[lvl.surah]) d.stars[lvl.surah] = 1; d.completed[lvl.surah] = true; });
+      U.$('#surahRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">${Icon.of('close')} پاسخ درست: ${U.esc(lvl.ans)}<br><small>${U.esc(lvl.tr)}</small></div>`;
+    }
+    checkBadges();
+    Timers.after(() => { s.i++; this.render(); }, ok ? 900 : 1800);
+  },
+  finish(){
+    const s = this.state;
+    const pct = Math.round(s.correct / s.list.length * 100);
+    const done = DATA.surahDoneCount(Store.get('completed'));
+    if(pct >= 80) Beat.check('surah_best', pct);
+    Store.update(d => d.stats.plays++);
+    if(pct >= 60) confetti();
+    checkBadges();
+    UI.result({
+      icon: pct >= 80 ? '📖' : '🌙',
+      title: pct >= 80 ? 'سفر تمام شد!' : 'سفر نیمه‌تمام',
+      pct,
+      stars: Math.round(pct / 33.4),
+      detail: `${U.fa(s.correct)} از ${U.fa(s.list.length)} سوره درست • ${U.fa(s.pts)} امتیاز
+               <br>سوره‌های کامل‌شده: ${U.fa(done)} از ${U.fa(DATA.surahNames.length)}`,
+      onAgain: () => SurahEngine.start()
+    });
+  }
+};
+
+/* ── 10.3 پازل حروف ── */
+const ScrambleEngine = {
+  state: null,
+  start(){
+    Stats.track('scramble');
+    const w = U.rand(DATA.scramble);
+    this.state = { word: w.word, hint: w.hint, pool: U.shuffle(w.word.split('')).map(ch => ({ ch, used: false })),
+                   chosen: [], solved: false, t0: U.now() };
+    Router.go('play');
+    U.icLabel(U.$('#pgTitle'), 'plus', 'پازل حروف');
+    U.$('#pgSub').textContent = 'حروف را بچین و کلمه را بساز';
+    U.$('#pgProgWrap').classList.remove('timer');
+    /* پازلِ حروف پرسش‌شمار نیست؛ نوارِ آغازینش همان ۳۰٪ می‌ماند. */
+    U.prog(30, { cap: 'پازل' });
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('plus')} <b>${U.fa(s.word.length)}</b> حرف</span>${Combo.label()}`;
+    U.$('#pgBody').innerHTML = `
+      <div class="qbox"><div class="qq">${U.esc(s.hint)}</div>
+        <div class="hint">${U.fa(s.word.length)} حرفی</div></div>
+      <div class="slot" id="slot">${s.chosen.map((pi, k) =>
+        `<span class="lchip" data-k="${k}">${U.esc(s.pool[pi].ch)}</span>`).join('')}</div>
+      <div class="chipsrow" id="pool">${s.pool.map((p, i) =>
+        `<button class="lchip ${p.used ? 'used' : ''}" data-i="${i}">${U.esc(p.ch)}</button>`).join('')}</div>
+      <div class="row" style="justify-content:center">
+        <button class="btn gh" id="scClear">${Icon.of('broom')} پاک</button>
+        <button class="btn" id="scCheck">${Icon.of('check')} بررسی</button>
+      </div>
+      <div id="scRes"></div>`;
+    U.$$('#pool .lchip').forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      if(s.pool[i].used || s.chosen.length >= s.word.length) return;
+      s.pool[i].used = true; s.chosen.push(i);
+      Sound.tick(); this.render();
+    });
+    U.$$('#slot .lchip').forEach(el => el.onclick = () => {
+      const k = +el.dataset.k;
+      const pi = s.chosen[k];
+      s.pool[pi].used = false;          // ← باگ نسخه قبل: حرف در خانه اشتباه آزاد می‌شد
+      s.chosen.splice(k, 1);
+      this.render();
+    });
+    U.$('#scClear').onclick = () => { s.pool.forEach(p => p.used = false); s.chosen = []; this.render(); };
+    U.$('#scCheck').onclick = () => this.check();
+  },
+  check(){
+    const s = this.state;
+    /* پازل حل شده و تا ۱٫۵ ثانیهٔ بعد صفحه دست‌نخورده می‌ماند تا پازلِ
+       تازه بیاید. در این فاصله هر ضربهٔ دیگر روی «بررسی» یک `Progress.award`
+       و یک `stats.puzzles++` و یک تایمرِ تازه ثبت می‌کرد. */
+    if(s.solved) return;
+    const guess = s.chosen.map(i => s.pool[i].ch).join('');
+    if(s.chosen.length < s.word.length){
+      Sound.buzz();
+      U.$('#scRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">حروف کافی نیست</div>`;
+      return;
+    }
+    if(guess === s.word){
+      const ms = U.now() - s.t0;
+      s.solved = true;
+      Sound.play(true); confetti(); Haptic.success();
+      const pts = Math.max(15, 30 - Math.floor(ms / 3000) * 3);
+      Progress.award({ game: 'scramble', pts, ok: true, ms });
+      Store.update(d => d.stats.puzzles++);
+      U.$('#scRes').innerHTML = `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('party')} درست! +${U.fa(pts)} امتیاز</div>`;
+      Timers.after(() => this.start(), 1500);
+    } else {
+      Sound.play(false); Haptic.hit(40);
+      Progress.award({ game: 'scramble', ok: false });
+      U.$('#scRes').innerHTML = `<div class="toast err" style="text-align:center;margin-top:14px">${Icon.of('close')} اشتباه بود — دوباره تلاش کن</div>`;
+    }
+  }
+};
+
+/* ── 10.4 حافظه ── */
+const MemoryEngine = {
+  state: null,
+  start(saved = null){
+    Stats.track('memory');
+    /* saved: تختهٔ نیمه‌کاره از Autosave. فقط کارت‌ها و پیشرفت بازمی‌گردند؛
+       کارت‌های رو شده عمداً بسته می‌شوند تا پاسخ لو نرود. */
+    let cards;
+    if(saved && Array.isArray(saved.cards) && saved.cards.length && saved.cards.length % 2 === 0){
+      cards = saved.cards.map(c => ({ id: String(c.id), pair: +c.pair, face: String(c.face), matched: !!c.matched }));
+    } else {
+      const words = U.shuffle(DATA.meaning).slice(0, 6);
+      const pairs = words.map(w => ({ word: w.q.replace(/معنی «|» چیست؟/g, ''), meaning: w.a }));
+      cards = [];
+      pairs.forEach((p, i) => {
+        cards.push({ id: i + 'a', pair: i, face: p.word });
+        cards.push({ id: i + 'b', pair: i, face: p.meaning });
+      });
+      cards = U.shuffle(cards);
+    }
+    /* زمان سپری‌شده جابه‌جا می‌شود تا «ثانیه»ی نتیجه مسخره نشود */
+    const spent = (saved && typeof saved.spent === 'number') ? Math.max(0, saved.spent) : 0;
+    this.state = { cards, flipped: [], matched: 0, moves: 0, busy: false, t0: U.now() - spent };
+    if(saved){
+      this.state.matched = U.clamp(Math.floor(+saved.matched) || 0, 0, cards.length / 2);
+      this.state.moves   = Math.max(0, Math.floor(+saved.moves) || 0);
+    }
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('🧠 حافظه');
+    U.$('#pgSub').textContent = 'جفت‌های همسان را پیدا کن';
+    U.$('#pgProgWrap').classList.remove('timer');
+    /* تختهٔ نیمه‌کاره ممکن است چند جفتِ رفته داشته باشد؛ حلقه باید از
+       همان‌جا شروع کند، نه از صفر. */
+    U.prog(this.state.matched / (cards.length / 2) * 100,
+           { cur: this.state.matched, total: cards.length / 2, cap: 'جفت' });
+    this.render();
+    /* اگر تختهٔ بازگردانده‌شده پیش‌تر تمام شده بود، همان‌جا ببندش */
+    if(this.state.matched === this.state.cards.length / 2) this.finish();
+  },
+  snapshot(){
+    const s = this.state;
+    if(!s || !Array.isArray(s.cards) || !s.cards.length) return null;
+    return { cards: s.cards, matched: s.matched, moves: s.moves, spent: Math.max(0, U.now() - s.t0) };
+  },
+  autosave(){ const x = this.snapshot(); if(x) Autosave.put('memory', x, '🧠 حافظه'); },
+  render(){
+    const s = this.state;
+    U.$('#pgBar').innerHTML =
+      `<span class="pill">${Icon.of('target')} <b id="mgMove">${U.fa(s.moves)}</b> حرکت</span>
+       <span class="pill">${Icon.of('plus')} <b>${U.fa(s.matched)}</b>/${U.fa(s.cards.length / 2)}</span>`;
+    U.$('#pgBody').innerHTML = `
+      <div class="mgrid">${s.cards.map((c, i) => `
+        <div class="mcard ${c.matched ? 'done flip' : ''}" data-i="${i}">
+          <div class="cover">${U.esc(c.face.charAt(0))}</div>
+          <div class="face">${U.esc(c.face)}</div>
+        </div>`).join('')}</div>`;
+    U.$$('.mcard').forEach(card => card.onclick = () => this.flip(+card.dataset.i));
+    this.autosave();
+  },
+  flip(i){
+    const s = this.state;
+    if(s.busy || s.cards[i].matched || s.flipped.includes(i) || s.flipped.length >= 2) return;
+    s.flipped.push(i);
+    U.$(`.mcard[data-i="${i}"]`)?.classList.add('flip');
+    Sound.tick();
+    if(s.flipped.length < 2) return;
+    s.moves++;
+    U.$('#mgMove') && (U.$('#mgMove').textContent = U.fa(s.moves));
+    const [a, b] = s.flipped;
+    if(s.cards[a].pair === s.cards[b].pair){
+      s.busy = true;
+      Timers.after(() => {
+        s.cards[a].matched = s.cards[b].matched = true;
+        s.matched++; s.flipped = []; s.busy = false;
+        Sound.play(true); Haptic.hit(15);
+        /* حافظه `Progress.award`ِ هر جفت را ندارد (جریمه‌ای هم ندارد)، پس
+           حلقه را همین‌جا جلو می‌بریم و مهرِ سبز می‌زنیم. */
+        U.prog(s.matched / (s.cards.length / 2) * 100,
+               { cur: s.matched, total: s.cards.length / 2, cap: 'جفت' });
+        U.progState(true);
+        this.render();
+        if(s.matched === s.cards.length / 2) this.finish();
+      }, 420);
+    } else {
+      s.busy = true;
+      Sound.play(false);
+      U.progState(false);
+      Timers.after(() => {
+        U.$(`.mcard[data-i="${a}"]`)?.classList.remove('flip');
+        U.$(`.mcard[data-i="${b}"]`)?.classList.remove('flip');
+        s.flipped = []; s.busy = false;
+      }, 850);
+    }
+  },
+  finish(){
+    const s = this.state;
+    Autosave.clear();                      // تخته تمام شد
+    const perfect = s.cards.length / 2;
+    const ms = U.now() - s.t0;
+    const pts = Math.max(20, 60 - Math.max(0, s.moves - perfect) * 3);
+    Store.update(d => d.stats.memory++);
+    /* کمترین حرکت بهتر است — پس higherIsBetter = false. Beat.check خودش
+       رکورد را ثبت می‌کند و جشن می‌گیرد، پس توست جداگانه لازم نیست. */
+    if(s.moves === perfect) Beat.check('memory_best', s.moves, false);
+    confetti(); Sound.levelUp();
+    Progress.award({ game: 'memory', pts, ok: true, ms });
+    UI.result({
+      icon: '🧠', title: 'همه جفت‌ها پیدا شد!', pct: 100, stars: s.moves <= perfect + 3 ? 3 : s.moves <= perfect + 7 ? 2 : 1,
+      detail: `${U.fa(s.moves)} حرکت • ${U.fa(Math.round(ms / 1000))} ثانیه • +${U.fa(pts)} امتیاز`,
+      onAgain: () => MemoryEngine.start()
+    });
+  }
+};
+
+/* ── 10.5 تطبیق ── */
+const MatchEngine = {
+  state: null,
+  start(){
+    Stats.track('match');
+    const items = U.shuffle(DATA.meaning).slice(0, 5);
+    this.state = {
+      left: items.map((it, i) => ({ i, text: it.q.replace(/معنی «|» چیست؟/g, '') })),
+      right: U.shuffle(items.map((it, i) => ({ i, text: it.a }))),
+      sel: null, matched: 0, wrong: 0, t0: U.now()
+    };
+    Router.go('play');
+    U.icLabel(U.$('#pgTitle'), 'link', 'تطبیق');
+    U.$('#pgSub').textContent = 'کلمه و معنی را جفت کن';
+    U.$('#pgProgWrap').classList.remove('timer');
+    U.prog(0, { cur: this.state.matched, total: this.state.left.length, cap: 'جفت' });
+    this.render();
+  },
+  render(){
+    const s = this.state;
+    U.$('#pgBar').innerHTML =
+      `<span class="pill">${Icon.of('target')} <b id="mtMatched">${U.fa(s.matched)}</b>/${U.fa(s.left.length)}</span>
+       <span class="pill">${Icon.of('close')} <b id="mtWrong">${U.fa(s.wrong)}</b></span>`;
+    U.$('#pgBody').innerHTML = `
+      <div class="mcols">
+        <div>${s.left.map((it, i) => `<div class="mitem" data-side="L" data-i="${i}">${U.esc(it.text)}</div>`).join('')}</div>
+        <div>${s.right.map((it, i) => `<div class="mitem" data-side="R" data-i="${i}">${U.esc(it.text)}</div>`).join('')}</div>
+      </div>`;
+    U.$$('.mitem').forEach(el => el.onclick = () => this.pick(el));
+  },
+  pick(el){
+    const s = this.state;
+    if(el.classList.contains('done')) return;
+    if(!s.sel){ s.sel = el; el.classList.add('sel'); Sound.tick(); return; }
+    if(s.sel === el){ el.classList.remove('sel'); s.sel = null; return; }
+    if(s.sel.dataset.side === el.dataset.side){ s.sel.classList.remove('sel'); s.sel = el; el.classList.add('sel'); return; }
+    const L = s.sel.dataset.side === 'L' ? s.sel : el;
+    const R = s.sel.dataset.side === 'R' ? s.sel : el;
+    const match = s.left[+L.dataset.i].i === s.right[+R.dataset.i].i;
+    if(match){
+      L.classList.add('done'); R.classList.add('done');
+      L.classList.remove('sel'); R.classList.remove('sel');
+      Sound.play(true); Haptic.hit(15);
+      s.matched++;
+      U.$('#mtMatched').textContent = U.fa(s.matched);
+      U.prog(s.matched / s.left.length * 100,
+             { cur: s.matched, total: s.left.length, cap: 'جفت' });
+      Progress.award({ game: 'match', pts: 12, ok: true });
+      if(s.matched === s.left.length) this.finish();
+    } else {
+      Sound.play(false); Haptic.hit(40);
+      s.wrong++;
+      U.$('#mtWrong') && (U.$('#mtWrong').textContent = U.fa(s.wrong));
+      L.classList.add('wrong'); R.classList.add('wrong');
+      Progress.award({ game: 'match', ok: false });
+      Timers.after(() => { L.classList.remove('wrong', 'sel'); R.classList.remove('wrong', 'sel'); }, 500);
+    }
+    s.sel = null;
+  },
+  finish(){
+    const s = this.state;
+    Store.update(d => d.stats.match++);
+    const ms = U.now() - s.t0;
+    const pts = Math.max(15, 40 - s.wrong * 5);
+    Progress.award({ game: 'match', pts, ok: true, ms });
+    confetti(); Sound.levelUp();
+    UI.result({ icon: '🔗', title: 'همه را جفت کردی!', pct: 100,
+      stars: s.wrong === 0 ? 3 : s.wrong <= 2 ? 2 : 1,
+      detail: `${U.fa(s.wrong)} خطا • ${U.fa(Math.round(ms/1000))} ثانیه • +${U.fa(pts)} امتیاز`,
+      onAgain: () => MatchEngine.start() });
+  }
+};
+
+/* ── 10.6 دوز (تک‌نفره با minimax + آنلاین با سرور) ── */
+const DoozEngine = {
+  state: null,
+  LINES: [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]],
+  winnerOf(board){
+    for(const line of this.LINES){
+      const [a, b, c] = line;
+      if(board[a] && board[a] === board[b] && board[a] === board[c]) return { line, player: board[a] };
+    }
+    return null;
+  },
+
+  start(online = false, saved = null){
+    Stats.track('dooz');
+    const room = Net.room;
+    /* saved: تختهٔ نیمه‌کارهٔ آفلاین. بازی آنلاین هرگز از تختهٔ محلی ادامه
+       نمی‌شود — وضعیت آن‌جا تنها مرجعش سرور است، نه حافظهٔ این دستگاه. */
+    const ok = saved && !online && Array.isArray(saved.board) && saved.board.length === 9 &&
+               saved.board.every(c => c === null || c === 'X' || c === 'O');
+    this.state = { board: ok ? saved.board.slice() : Array(9).fill(null),
+                   turn: ok && saved.turn === 'O' ? 'O' : 'X',
+                   over: false, winner: null, last: -1, settled: false,
+                   online: !!online, mySide: 'X', waiting: !!online, thinking: false };
+    if(ok){ this.state.last = Number.isInteger(saved.last) ? saved.last : -1; }
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('❌⭕ دوز');
+    U.$('#pgSub').textContent = online ? `آنلاین — روم ${room?.code || ''}` : 'بازی با کامپیوتر';
+    U.$('#pgProgWrap').classList.remove('timer');
+    /* دوز پرسش‌شمار نیست — حلقه فقط خالی می‌مانَد. */
+    U.prog(0, { cap: 'بازی' });
+    if(online){
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} در انتظار شروع از طرف میزبان…</span>`;
+      U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
+        <div style="font-size:40px;margin-bottom:10px">⏳</div>
+        <b>منتظر شروع بازی</b>
+        <p style="color:var(--mut);font-size:12.5px;margin-top:8px">
+          ${Net.room?.isHost ? 'تو میزبانی — دکمه «شروع بازی» را در صفحه روم بزن.'
+                             : 'میزبان باید بازی را شروع کند.'}</p>
+        <button class="btn gh w" style="margin-top:14px" id="dzBackRoom">${Icon.of('home')} رفتن به روم</button>
+      </div>`;
+      U.$('#dzBackRoom').onclick = () => Router.go('room');
+      return;
+    }
+    this.render();
+    /* اگر بازگردانی مربوط به نوبت کامپیوتر بود، همان‌جا جوابش را بده */
+    if(ok && !this.state.over && this.state.turn === 'O') this.think();
+  },
+
+  snapshot(){
+    const s = this.state;
+    if(!s || s.online || s.over || s.waiting) return null;
+    return { board: s.board, turn: s.turn, last: s.last };
+  },
+  autosave(){ const x = this.snapshot(); if(x) Autosave.put('dooz', x, '❌⭕ دوز'); },
+
+  /* پیام‌های سرور/میزبان */
+  online(msg){
+    const s = this.state;
+    if(!s || !s.online) this.start(true);
+    const st = this.state;
+    if(msg.phase === 'start'){
+      st.board = msg.state.board; st.turn = msg.state.turn; st.over = !!msg.state.over;
+      st.winner = msg.state.winner; st.last = msg.state.last; st.waiting = false;
+      st.mySide = msg.state.sides?.X === Net.id ? 'X' : msg.state.sides?.O === Net.id ? 'O' : '';
+      UI.toast(st.mySide?`🎮 بازی شروع شد — تو ${st.mySide === 'X' ? '❌' : '⭕'} هستی`:'در حال تماشای بازی','ok');
+      this.render();
+      return;
+    }
+    if(msg.phase === 'state'){
+      st.board = msg.state.board; st.turn = msg.state.turn;
+      st.over = msg.state.over; st.winner = msg.state.winner; st.last = msg.state.last;
+      st.waiting = false;
+      /* قفلِ خوش‌بینانه باید همین‌جا باز شود. `click` پس از فرستادنِ حرکت
+         `thinking` را ۳ ثانیه قفل می‌کند تا پاسخِ سرور برسد؛ ولی پیامِ
+         سرور آن را باز نمی‌کرد، پس اگر نوبت زود برمی‌گشت کاربر تا ۳ ثانیه
+         می‌توانست هیچ خانه‌ای را نزند. */
+      st.thinking = false;
+      this.render();
+      if(st.over) this.settleOnline();
+    }
+  },
+
+  render(){
+    const s = this.state;
+    if(s.waiting){
+      U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
+        <div style="font-size:40px;margin-bottom:10px">⏳</div><b>در انتظار بازیکن دوم…</b>
+        <p style="color:var(--mut);font-size:12.5px;margin-top:8px">کد روم: <span class="code">${U.esc(Net.room?.code || '')}</span></p>
+      </div>`;
+      return;
+    }
+    const myTurn = !s.online || s.turn === s.mySide;
+    U.$('#pgBar').innerHTML =
+      `<span class="pill ${myTurn && !s.over ? '' : 'danger'}">نوبت: <b>${s.turn === 'X' ? '❌' : '⭕'}</b>
+        ${s.online ? (myTurn ? ' (تو)' : ' (حریف)') : ''}</span>
+       ${s.online ? `<span class="pill">تو: <b>${s.mySide === 'X' ? '❌' : '⭕'}</b></span>` : ''}
+       <span class="pill">${Icon.of('trophy')} <b>${U.fa(Store.get('stats').tttWins)}</b></span>`;
+    U.$('#pgBody').innerHTML = `
+      <div class="dooz" id="dzBoard">
+        ${s.board.map((c, i) => `<div class="dcell ${i === s.last ? 'last' : ''} ${s.winner && this.winLine().includes(i) ? 'win' : ''}"
+          data-i="${i}">${c === 'X' ? '✕' : c === 'O' ? '◯' : ''}</div>`).join('')}
+      </div>
+      <div id="dzRes"></div>`;
+    U.$$('.dcell').forEach(cell => cell.onclick = () => this.click(+cell.dataset.i));
+    if(s.winner && s.winner !== 'D') this.winLine().forEach(i => U.$(`.dcell[data-i="${i}"]`)?.classList.add('win'));
+    if(s.over && !U.$('#dzRes').innerHTML) this.settleRender();
+  },
+  winLine(){ const w = this.winnerOf(this.state.board); return w ? w.line : []; },
+
+  click(i){
+    const s = this.state;
+    if(s.over || s.board[i] || s.thinking) return;
+    if(s.online){
+      if(Net.room?.spectator||!s.mySide)return;
+      if(s.turn !== s.mySide){ UI.toast('نوبت حریف است', ''); return; }
+      // حرکت را به سرور می‌فرستیم؛ خودمان خوش‌بینانه رسم می‌کنیم
+      Net.post({ t: 'room:game', game: 'dooz', index: i, code: Net.room?.code });
+      const optimistic = [...s.board]; optimistic[i] = s.mySide;
+      s.board = optimistic; s.last = i; s.thinking = true;
+      this.render();
+      Timers.after(() => { s.thinking = false; }, 3000);
+      return;
+    }
+    this.place(i, s.turn);
+  },
+  place(i, player){
+    const s = this.state;
+    if(s.board[i] || s.over) return;
+    s.board[i] = player; s.last = i;
+    Sound.tick(); Haptic.hit(12);
+    const w = this.winnerOf(s.board);
+    /* برندهٔ واقعی به settle می‌رود، نه یک 'X' ثابت. پیش‌تر این‌جا همیشه
+       'X' پاس می‌شد، پس وقتی کامپیوتر می‌برد هم کاربر «بردی! +۵۰ امتیاز»
+       می‌گرفت، `tttWins` بالا می‌رفت و جشن می‌شد — پیام درست بود (از
+       `s.winner` خوانده می‌شد) ولی پاداش دروغ. */
+    if(w){ s.over = true; s.winner = w.player; this.render(); this.settle(w.player); return; }
+    if(s.board.every(Boolean)){ s.over = true; s.winner = 'D'; this.render(); this.settle(null); return; }
+    s.turn = player === 'X' ? 'O' : 'X';
+    this.render();
+    this.autosave();
+    this.think();
+  },
+  /* نوبت کامپیوتر — با درنگ کوتاه تا حرکتش دیده شود.
+     پس از بازگردانی تختهٔ نیمه‌کاره هم همین صدا زده می‌شود. */
+  think(){
+    const s = this.state;
+    if(!s || s.online || s.over || s.turn !== 'O') return;
+    s.thinking = true;
+    Timers.after(() => {
+      if(this.state !== s || s.over) return;
+      s.thinking = false;
+      const mv = this.best();
+      if(mv >= 0) this.place(mv, 'O');
+    }, 420);
+  },
+  settleOnline(){
+    if(Net.room?.spectator||!this.state?.mySide)return;
+    const s = this.state;
+    /* هر بازی فقط یک بار حساب می‌شود. سرور می‌تواند حالتِ پایانی را دوباره
+       بفرستد (اتصال دوباره، پیام تکراری)، و بی این نگهبان هر بار ۶۰ امتیاز
+       و یک برد دیگر به حساب می‌رفت. */
+    if(s.settled) return;
+    s.settled = true;
+    const iWon = s.winner === s.mySide;
+    if(s.winner === 'D'){ Store.update(d => d.stats.tttDraw++); }
+    else if(iWon){
+      Store.update(d => { d.stats.tttWins++; d.stats.onlineWins++; d.score += 60; d.xp += 45; });
+      checkLevelUp(); checkBadges(); Sync.push();
+    } else { Store.update(d => d.stats.tttLoss++); }
+    if(iWon){ Sound.levelUp(); confetti(); }
+    this.settleRender();
+  },
+  settle(winner){
+    const s = this.state;
+    if(s.settled) return;
+    s.settled = true;
+    s.over = true;
+    Autosave.clear();                      // بازی تمام شد؛ تخته دیگر «ادامه» ندارد
+    Store.update(d => d.stats.plays++);
+    if(winner === 'X'){
+      Store.update(d => { d.stats.tttWins++; d.score += 50; d.xp += 40; });
+      Sound.levelUp(); confetti(); Haptic.success();
+      Progress.record('dooz_best', 1);
+      checkLevelUp(); checkBadges(); Sync.push();
+    } else if(winner === null) Store.update(d => d.stats.tttDraw++);
+    else Store.update(d => d.stats.tttLoss++);
+    this.settleRender();
+  },
+  settleRender(){
+    const s = this.state;
+    const el = U.$('#dzRes');
+    if(!el) return;
+    if(s.winner === 'D'){
+      el.innerHTML = `<div class="toast" style="text-align:center">${Icon.of('handshake')} مساوی شد</div>
+        <button class="btn w" style="margin-top:12px" id="dzAgain">${Icon.of('refresh')} بازی جدید</button>`;
+    } else if(s.online){
+      const won = s.winner === s.mySide;
+      el.innerHTML = `<div class="toast ${won ? 'ok' : 'err'}" style="text-align:center">${won ? '🎉 بردی! +۶۰ امتیاز' : '😔 باختی'}</div>
+        <button class="btn gh w" style="margin-top:12px" id="dzAgain">${Icon.of('home')} برگشت به روم</button>`;
+      U.$('#dzAgain').onclick = () => Router.go('room');
+      return;
+    } else {
+      el.innerHTML = `<div class="toast ${s.winner === 'X' ? 'ok' : 'err'}" style="text-align:center">${s.winner === 'X' ? '🎉 بردی! +۵۰ امتیاز' : '😔 کامپیوتر برد'}</div>
+        <button class="btn w" style="margin-top:12px" id="dzAgain">${Icon.of('refresh')} بازی جدید</button>`;
+    }
+    U.$('#dzAgain').onclick = () => this.start(s.online);
+  },
+
+  /* ── هوش مصنوعی: minimax کامل با هرس آلفا-بتا ── */
+  best(){
+    const b = [...this.state.board];
+    // اگر می‌تواند ببرد، ببرد
+    for(let i = 0; i < 9; i++) if(!b[i]){ b[i] = 'O'; if(this.winnerOf(b)){ b[i] = null; return i; } b[i] = null; }
+    // اگر حریف می‌تواند ببرد، ببندد
+    for(let i = 0; i < 9; i++) if(!b[i]){ b[i] = 'X'; if(this.winnerOf(b)){ b[i] = null; return i; } b[i] = null; }
+    let bestScore = -Infinity, bestMove = -1;
+    for(let i = 0; i < 9; i++){
+      if(b[i]) continue;
+      b[i] = 'O';
+      const sc = this.minimax(b, 0, false, -Infinity, Infinity);
+      b[i] = null;
+      if(sc > bestScore){ bestScore = sc; bestMove = i; }
+    }
+    return bestMove;
+  },
+  minimax(b, depth, maximizing, alpha, beta){
+    const w = this.winnerOf(b);
+    if(w) return (w.player === 'O' ? 10 : -10) - depth;
+    if(b.every(Boolean)) return 0;
+    if(maximizing){
+      let best = -Infinity;
+      for(let i = 0; i < 9; i++){
+        if(b[i]) continue;
+        b[i] = 'O';
+        best = Math.max(best, this.minimax(b, depth + 1, false, alpha, beta));
+        b[i] = null;
+        alpha = Math.max(alpha, best);
+        if(beta <= alpha) break;
+      }
+      return best;
+    }
+    let best = Infinity;
+    for(let i = 0; i < 9; i++){
+      if(b[i]) continue;
+      b[i] = 'X';
+      best = Math.min(best, this.minimax(b, depth + 1, true, alpha, beta));
+      b[i] = null;
+      beta = Math.min(beta, best);
+      if(beta <= alpha) break;
+    }
+    return best;
+  }
+};
+
+/* ── 10.7 اسم فامیل (تک‌نفره و آنلاین) ── */
+const EsmFamilEngine = {
+  state: null,
+  ROUND_TIME: 90,
+
+  start(online = false){
+    Stats.track('esmfamil');
+    const s = { online, letter: U.rand(DATA.letters), round: 1, total: 3,
+                time: this.ROUND_TIME, timer: null, phase: 'round', results: null,
+                answers: {}, submitted: false };
+    this.state = s;
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('📝 اسم فامیل');
+    U.$('#pgSub').textContent = online ? `آنلاین — روم ${Net.room?.code || ''}` : 'با حرف داده‌شده کلمه بنویس';
+    U.$('#pgProgWrap').classList.remove('timer');
+    if(online){
+      s.phase = 'waiting';
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر شروع از طرف میزبان</span>`;
+      U.$('#pgBody').innerHTML = `<div class="card" style="text-align:center;padding:34px">
+        <div style="font-size:40px;margin-bottom:10px">⏳</div><b>منتظر شروع</b>
+        <p style="color:var(--mut);font-size:12.5px;margin-top:8px">میزبان بازی را شروع می‌کند.</p>
+        <button class="btn gh w" style="margin-top:14px" id="efBackRoom">${Icon.of('home')} رفتن به روم</button></div>`;
+      U.$('#efBackRoom').onclick = () => Router.go('room');
+      return;
+    }
+    this.render();
+  },
+
+  online(msg){
+    if(!this.state || !this.state.online) this.start(true);
+    const s = this.state;
+    if(msg.phase === 'round'){
+      s.letter = msg.letter; s.round = msg.round; s.total = msg.total || 3;
+      s.phase = 'round'; s.submitted = false; s.results = null; s.resultPaid = false;
+      this.render();
+    } else if(msg.phase === 'waiting'){
+      UI.toast(`⏳ ${U.fa(msg.got)} از ${U.fa(msg.total)} پاسخ دادند`, '');
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر بقیه بازیکنان…</span>`;
+    } else if(msg.phase === 'results'){
+      s.phase = 'results'; s.results = msg.results;
+      this.renderResults(msg.results);
+    } else if(msg.phase === 'done'){
+      s.phase = 'done';
+      const best = (msg.scores ? Object.values(msg.scores) : [0]).reduce((a, b) => a + b, 0);
+      UI.result({ icon: '📝', title: 'اسم فامیل تمام شد!', pct: null, stars: null,
+        detail: `مجموع امتیاز روم: ${U.fa(best)}`, onAgain: null });
+    }
+  },
+
+  render(){
+    const s = this.state;
+    if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    /* هر رندر، آغازِ یک دورِ تازه است — پس مهرِ «ثبت شد» برداشته می‌شود.
+       پیش‌تر فقط مسیرِ آنلاین این کار را می‌کرد؛ در بازیِ تک‌نفره دورِ دوم
+       و سوم مرده بودند: `submit()` همان اول برمی‌گشت، تایمرِ دور هم که به
+       صفر می‌رسید همان‌جا می‌مرد و صفحه تا ابد روی «دور ۲/۳» می‌ماند. */
+    s.submitted = false;
+    s.time = this.ROUND_TIME;
+    U.prog((s.round - 1) / s.total * 100, { cur: s.round, total: s.total, cap: 'دور' });
+    U.$('#pgBar').innerHTML =
+      `<span class="pill">⏱ <b id="efTime">${U.fa(s.time)}</b></span>
+       <span class="pill">دور <b id="efRound">${U.fa(s.round)}</b>/${U.fa(s.total)}</span>`;
+    U.$('#pgBody').innerHTML = `
+      <div class="card" style="text-align:center;margin-bottom:14px">
+        <div style="font-size:12px;color:var(--mut);margin-bottom:8px">حرف این دور</div>
+        <div class="letter">${U.esc(s.letter)}</div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:6px">هر کلمه باید با «${U.esc(s.letter)}» شروع شود و حداقل ۲ حرف داشته باشد</div>
+      </div>
+      <div class="efgrid">
+        ${DATA.esmFamil.map(c => `
+          <div class="efrow">
+            <span>${c.label}</span>
+            <input class="inp" data-cat="${c.id}" autocomplete="off" placeholder="با «${U.esc(s.letter)}»">
+          </div>`).join('')}
+      </div>
+      <button class="btn ok w" id="efSubmit" style="margin-top:14px">${Icon.of('check')} ثبت پاسخ‌ها</button>
+      <div id="efRes"></div>`;
+    U.$('#efSubmit').onclick = () => this.submit();
+    s.timer = Timers.every(() => {
+      s.time--;
+      const el = U.$('#efTime');
+      if(el){ el.textContent = U.fa(s.time); if(s.time <= 15) el.style.color = 'var(--red)'; }
+      if(s.time === 10) UI.toast('⏳ ۱۰ ثانیه مانده!', 'err', 1500);
+      if(s.time <= 0){ Timers.clear(s.timer); s.timer = null; this.submit(); }
+    }, 1000);
+  },
+
+  /* اعتبارسنجی واقعی: حرف اول درست، طول کافی، تکراری نباشد */
+  valid(value, letter){
+    const v = U.norm(value);
+    if(!v || v.length < 2) return false;
+    if(!v.startsWith(U.norm(letter))) return false;
+    if(/^\d+$/.test(v)) return false;
+    if(v === U.norm(letter)) return false;
+    return true;
+  },
+
+  submit(){
+    const s = this.state;
+    if(s.submitted) return;
+    s.submitted = true;
+    if(s.timer){ Timers.clear(s.timer); s.timer = null; }
+    const inputs = U.$$('#pgBody .inp[data-cat]');
+    const answers = {}; let score = 0, validCount = 0;
+    inputs.forEach(inp => {
+      const raw = inp.value.trim();
+      inp.disabled = true;
+      answers[inp.dataset.cat] = raw;
+      const ok = this.valid(raw, s.letter);
+      if(ok){
+        validCount++;
+        const pts = 10 + Math.min(10, U.norm(raw).length - 2);
+        score += pts;
+        inp.style.borderColor = 'var(--grn)';
+        inp.style.background = 'rgba(47,211,155,.1)';
+      } else if(raw){
+        inp.style.borderColor = 'var(--red)';
+        inp.style.background = 'rgba(255,95,109,.1)';
+      }
+    });
+    s.answers = answers; s.score = score;
+    Progress.record('esmfamil_best', score);
+    Store.update(d => d.stats.esmFamilBest = Math.max(d.stats.esmFamilBest, score));
+    const good = validCount >= inputs.length * 0.5;
+    /* در بازیِ آنلاین پاداش همین‌جا داده نمی‌شود: سرور نتیجه را برای همه
+       می‌فرستد و `renderResults` همان امتیاز را می‌نشاند. پیش‌تر هر دو
+       مسیر می‌دادند و هر دور دو برابر امتیاز و XP حساب می‌شد. */
+    if(good && !s.online){
+      Store.update(d => { d.score += score; d.xp += score; });
+      checkLevelUp(); confetti(30);
+    }
+    Sound.play(good);
+    U.$('#efRes').innerHTML = good
+      ? `<div class="toast ok" style="text-align:center;margin-top:14px">${Icon.of('party')} ${U.fa(validCount)} پاسخ معتبر!${s.online ? ' — امتیاز در پایان دور' : ` +${U.fa(score)} امتیاز`}</div>`
+      : `<div class="toast" style="text-align:center;margin-top:14px">${Icon.of('pen')} ${U.fa(validCount)} از ${U.fa(inputs.length)} معتبر — امتیاز ${U.fa(score)}</div>`;
+    checkBadges(); Sync.push();
+
+    if(s.online){
+      U.$('#pgBar').innerHTML = `<span class="pill">${Icon.of('clock')} منتظر بقیه بازیکنان…</span>`;
+      Net.post({ t: 'room:game', game: 'esmfamil', answers, score, code: Net.room?.code, phase: 'submit' });
+      if(Net.room?.isHost) {
+        U.$('#efRes').innerHTML += `<button class="btn gh w" style="margin-top:10px" id="efNext">▶️ دور بعد</button>`;
+        U.$('#efNext').onclick = () => Net.nextRound();
+      }
+      return;
+    }
+    if(s.round < s.total){
+      s.round++;
+      Timers.after(() => { s.letter = U.rand(DATA.letters); this.render(); }, 1800);
+    } else {
+      Timers.after(() => {
+        UI.result({ icon: '📝', title: 'اسم فامیل تمام شد!', pct: null, stars: null,
+          detail: `مجموع این دور: ${U.fa(score)} امتیاز • بهترین رکورد تو: ${U.fa(Progress.recordLabel('esmfamil_best') || 0)}`,
+          onAgain: () => EsmFamilEngine.start(false) });
+      }, 1800);
+    }
+  },
+
+  renderResults(results){
+    const s = this.state;
+    U.prog(s.round / s.total * 100, { cur: s.round, total: s.total, cap: 'دور' });
+    U.$('#pgBar').innerHTML = `<span class="pill">نتایج دور <b>${U.fa(s.round)}</b> — حرف «${U.esc(s.letter)}»</span>`;
+    const mine = results.find(r => r.id === Net.id);
+    U.$('#pgBody').innerHTML = `
+      <div class="list">
+        ${results.map(r => `
+          <div class="card" style="margin-bottom:10px">
+            <div class="row"><b>${U.esc(r.name)}${r.id === Net.id ? ' (تو)' : ''}</b>
+              <div class="sp" style="flex:1"></div>
+              <span class="chip wr">${U.fa(r.score)} امتیاز</span></div>
+            <div class="sep"></div>
+            ${DATA.esmFamil.map(c => {
+              const a = r.answers[c.id] || '—';
+              const ok = this.valid(a, s.letter);
+              return `<div class="kv"><span>${c.label} ${ok ? '✅' : '❌'}</span><b style="color:${ok ? 'var(--grn)' : 'var(--mut)'}">${U.esc(a)}</b></div>`;
+            }).join('')}
+          </div>`).join('')}
+      </div>
+      ${Net.room?.isHost ? `<button class="btn ok w" id="efNext" style="margin-top:12px">▶️ دور بعد</button>` : ''}`;
+    /* تنها جایِ دادنِ امتیاز در حالت آنلاین. `checkLevelUp` هم لازم است:
+       پیش‌تر XP اضافه می‌شد ولی سطح هرگز بالا نمی‌رفت. */
+    if(mine && mine.score && !s.resultPaid){
+      s.resultPaid = true;   // بستهٔ تکراری/اتصالِ دوباره نباید دوباره امتیاز بدهد
+      Store.update(d => { d.score += mine.score; d.xp += mine.score; });
+      checkLevelUp(); Sound.play(true); confetti(24);
+    }
+    if(Net.room?.isHost) U.$('#efNext').onclick = () => Net.nextRound();
+  }
+};
+/* ── 10.9 گزینشگر آزمون: موضوع و سطح ──
+   یک آزمون خوب آزمونی است که خودت بچینی: از کدام موضوع، در چه سطحی. */
+const QuizPick = {
+  diff: 0,          // ۰ = همه، ۱ آسان، ۲ متوسط، ۳ دشوار
+  on: null,         // شناسهٔ موضوع‌های انتخاب‌شده
+  count: 12,
+
+  pool(ids, d){
+    const out = [];
+    TOPICS.filter(t => ids.includes(t.id)).forEach(t => {
+      (t.bank() || []).forEach(q => {
+        if(d && (q.d || 1) !== d) return;
+        out.push({ ...q, topic: t.id });
+      });
+    });
+    return out;
+  },
+  summary(ids){
+    const all = this.pool(ids, 0);
+    return all.length;
+  },
+
+  open(ids, d){
+    this.on = ids && ids.length ? [...ids] : TOPICS.map(t => t.id);
+    this.diff = d || 0;
+    this.modal();
+  },
+
+  modal(){
+    const rooms = [
+      { d: 0, name: 'همه',    icon: '🎲' },
+      { d: 1, name: 'آسان',   icon: '🌱' },
+      { d: 2, name: 'متوسط',  icon: '🌿' },
+      { d: 3, name: 'دشوار',  icon: '🔥' }
+    ];
+    UI.modal(`<h3 style="margin-bottom:4px">${Icon.of('medal')} آزمون معارف</h3>
+      <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
+        موضوع‌ها و سطح را خودت بچین — هر پاسخ توضیح و منبع دارد.</p>
+
+      <div class="fgroup">سطح دشواری</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        ${rooms.map(r => `<button class="btn ${this.diff === r.d ? '' : 'gh'} sm" data-d="${r.d}"
+          style="flex:1;min-width:64px">${Glyph.of(r.icon)} ${r.name}</button>`).join('')}
+      </div>
+
+      <div class="fgroup">موضوع‌ها</div>
+      <div id="tpList">${TOPICS.map(t => {
+        const c = t.bank().length;
+        return `<div class="fpick ${this.on.includes(t.id) ? 'on' : ''}" data-t="${t.id}">
+          <span class="gi19">${Glyph.of(t.icon)}</span>
+          <div class="fname"><b>${U.esc(t.name)}</b><small>${U.esc(t.desc)} • ${U.fa(c)} سوال</small></div>
+          <span class="tick">✓</span>
+        </div>`;
+      }).join('')}</div>
+
+      <div class="row" style="gap:6px;margin-top:12px">
+        <button class="btn gh sm" id="tpAll">${Icon.of('check')} همه</button>
+        <button class="btn gh sm" id="tpNone">${Icon.of('close')} هیچ‌کدام</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--mut);margin-top:10px" id="tpCount"></p>
+      <button class="btn w" id="tpGo" style="margin-top:12px">${Icon.of('flag')} شروع آزمون</button>`, box => {
+      const paint = () => {
+        U.$$('.fpick', box).forEach(el => el.classList.toggle('on', this.on.includes(el.dataset.t)));
+        const n2 = this.summary(this.on);
+        U.$('#tpCount', box).innerHTML = n2
+          ? `${U.fa(n2)} سوال در دسترس است؛ ${U.fa(Math.min(this.count, n2))} سوال پرسیده می‌شود.`
+          : '<b style="color:#f08b8b">هیچ سوالی با این ترکیب نیست — سطح یا موضوع را عوض کن.</b>';
+        U.$('#tpGo', box).disabled = !n2;
+      };
+      U.$$('[data-d]', box).forEach(b => b.onclick = () => {
+        this.diff = +b.dataset.d;
+        U.$$('[data-d]', box).forEach(x => x.classList.toggle('gh', +x.dataset.d !== this.diff));
+        paint();
+      });
+      U.$$('.fpick', box).forEach(el => el.onclick = () => {
+        const id = el.dataset.t;
+        this.on = this.on.includes(id) ? this.on.filter(x => x !== id) : [...this.on, id];
+        paint(); Sound.click();
+      });
+      U.$('#tpAll', box).onclick = () => { this.on = TOPICS.map(t => t.id); paint(); };
+      U.$('#tpNone', box).onclick = () => { this.on = []; paint(); };
+      U.$('#tpGo', box).onclick = () => {
+        const pool = this.pool(this.on, this.diff);
+        if(!pool.length) return;
+        UI.closeModal();
+        Sound.chime();
+        QuizEngine.start({
+          qs: pool, title: '🏅 آزمون معارف', count: this.count, game: 'exam',
+          sub: `${U.fa(pool.length)} سوال از ${U.fa(this.on.length)} موضوع — با توضیح و منبع`,
+          onDone: pct => {
+            Progress.record('exam_best', pct);
+            Store.update(d => d.stats.exams = (d.stats.exams || 0) + 1);
+            checkBadges();
+          }
+        });
+      };
+      paint();
+    });
+  }
+};
+
+/* ── 10.95 گنجینهٔ نهج‌البلاغه ──
+   بیست‌وپنج سخن سنجیده، با متن عربی و ترجمهٔ فارسی و شمارهٔ صبحی صالح.
+   دکمهٔ آزمون، همان سخن‌ها را به پرسش «معنی کدام است؟» تبدیل می‌کند. */
+const NahjUI = {
+  open(){
+    const n = DATA.nahj.length;
+    UI.modal(`<h3 style="margin-bottom:4px">${Icon.of('scroll')} گنجینهٔ نهج‌البلاغه</h3>
+      <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
+        ${U.fa(n)} سخن از امام علی (ع) — متن عربی و ترجمهٔ فارسی، با شمارهٔ صبحی صالح.</p>
+      <div class="nahj-list">
+        ${DATA.nahj.map((h, i) => `<div class="nahj-card">
+          <div class="nahj-n">${U.fa(i + 1)}</div>
+          <div class="nahj-ar">﴿ ${U.esc(h.ar)} ﴾</div>
+          <div class="nahj-fa">${U.esc(h.fa)}</div>
+          <div class="nahj-src">📚 ${U.esc(h.src)}</div>
+        </div>`).join('')}
+      </div>
+      <button class="btn w" id="nqGo" style="margin-top:14px">${Icon.of('medal')} آزمون معنی حکمت‌ها</button>`, box => {
+      U.$('#nqGo', box).onclick = () => {
+        UI.closeModal();
+        Sound.chime();
+        QuizEngine.start({
+          qs: DATA.nahjPick, title: '📜 آزمون نهج‌البلاغه', game: 'nahj',
+          sub: `${U.fa(DATA.nahjPick.length)} سخن — معنی درست را پیدا کن`,
+          count: 10, onDone: pct => Progress.record('nahj_best', pct)
+        });
+      };
+    });
+  }
+};
+
+/* ─────────────────── 10.97 نشانه‌ها و ادامهٔ خواندن ───────────────────
+   کاربر می‌تواند هر آیه را نشان کند و برنامه آخرین جای خوانده‌شده را
+   نگه می‌دارد تا بار بعد از همان‌جا ادامه دهد.
+   ─────────────────────────────────────────────────────────────────── */
+const Bookmarks = {
+  get list(){ const b = Store.get('bookmarks'); return Array.isArray(b) ? b : []; },
+  has(s, a){ return this.list.some(b => b.s === s && b.a === a); },
+  add(s, a, note = ''){
+    if(s < 1 || s > 114 || a < 1) return false;
+    if(this.has(s, a)){ UI.toast('🔖 از قبل نشان شده', '', 1500); return false; }
+    Store.update(d => {
+      d.bookmarks.unshift({ s, a, name: QURAN[s - 1].name, at: U.now(), note: String(note).slice(0, 60) });
+      d.bookmarks = d.bookmarks.slice(0, 200);
+      d.stats.shared = d.stats.shared || 0;
+    });
+    Sound.chime(); Haptic.success();
+    UI.toast(`🔖 ${QURAN[s - 1].name}، آیهٔ ${U.fa(a)} نشان شد`, 'ok', 2000);
+    checkBadges();
+    return true;
+  },
+  remove(s, a){
+    Store.update(d => { d.bookmarks = d.bookmarks.filter(b => !(b.s === s && b.a === a)); });
+    Sound.tick(); UI.toast('🗑 نشان برداشته شد', '', 1400);
+  },
+  toggle(s, a){ this.has(s, a) ? this.remove(s, a) : this.add(s, a); },
+  /* آخرین جای خوانده‌شده — برای نوار «ادامه بده» */
+  resumeAt(){
+    const l = this.list;
+    if(l.length) return l[0];
+    const q = Store.get('quran');
+    if(q && q.surah) return { s: q.surah, a: q.ayah || 1, name: QURAN[(q.surah || 1) - 1].name, at: 0 };
+    return null;
+  },
+  bar(){
+    const r = this.resumeAt();
+    if(!r || !r.s) return '';
+    const su = QURAN[r.s - 1];
+    return `<div class="resume-bar" id="bmResume">
+      <span style="font-size:18px">🔖</span>
+      <span class="rb"><b>ادامهٔ خواندن:</b> سورهٔ ${U.esc(su.name)}، آیهٔ ${U.fa(r.a)}
+        <span class="tiny"> — ${U.esc(this.list.length ? 'آخرین نشانهٔ تو' : 'آخرین جای خوانده‌شده')}</span></span>
+      <button class="btn sm" id="bmGo">▶ ادامه</button></div>`;
+  },
+  open(){
+    const l = this.list;
+    UI.modal(`<h3>${Icon.of('mark')} نشانه‌های من <span class="chip wr">${U.fa(l.length)}</span></h3>
+      ${l.length ? `<div style="max-height:56vh;overflow-y:auto;margin-top:10px">${l.map(b => `
+        <div class="bm-row" data-s="${b.s}" data-a="${b.a}">
+          <span class="bi">📖</span>
+          <span class="bb"><b>سورهٔ ${U.esc(b.name)}</b> — آیهٔ ${U.fa(b.a)}
+            ${b.note ? `<div class="bd">📝 ${U.esc(b.note)}</div>` : ''}
+            <div class="bd">🕒 ${U.esc(new Date(b.at || U.now()).toLocaleDateString('fa-IR'))}</div></span>
+          <button class="bx" data-del="1" title="برداشتن">${Icon.of('trash')}</button>
+        </div>`).join('')}</div>`
+        : '<div class="empty" style="margin-top:12px">هنوز آیه‌ای نشان نکرده‌ای.<br>در مصحف‌نما روی 🔖 بزن.</div>'}`);
+    U.$$('#modal .bm-row').forEach(row => {
+      const s = +row.dataset.s, a = +row.dataset.a;
+      row.onclick = e => {
+        if(e.target.closest('[data-del]')){ this.remove(s, a); UI.closeModal(); this.open(); return; }
+        UI.closeModal(); Store.update(d => { d.quran.surah = s; d.quran.ayah = a; });
+        ReaderUI.open(s, a); Recite.playSurah(s, a);
+      };
+    });
+  }
+};
+
+/* ─────────────────── 10.98 حالت تمرکز (Focus Mode) ───────────────────
+   هر چیزی که حواس را پرت می‌کند کنار می‌رود: نوار بالا، نوار پایین،
+   کارت آیهٔ روز، دسته‌ها و آمار. فقط متن می‌ماند.
+   ─────────────────────────────────────────────────────────────────── */
+const Focus = {
+  on(){ return !!Store.get('quran').focus; },
+  toggle(force){
+    const v = typeof force === 'boolean' ? force : !this.on();
+    Store.update(d => d.quran.focus = v);
+    this.paint();
+    Sound.tick();
+    UI.toast(v ? '🧘 حالت تمرکز روشن شد — فقط متن' : '🧘 حالت تمرکز خاموش شد', 'ok', 1900);
+    if(v) window.scrollTo({ top:0, behavior:'smooth' });
+  },
+  paint(){
+    const on = this.on();
+    document.body.classList.toggle('focus', on);
+    const b = U.$('#focusExit');
+    if(b) b.classList.toggle('hide', !on);
+    const t = U.$('#qFocus');
+    if(t){ t.textContent = on ? '🧘 تمرکز: روشن' : '🧘 تمرکز'; t.classList.toggle('ok', on); }
+  }
+};
+
+/* ─────────────────── 10.985 گزینشگر قاری با پیش‌نمایش ۵ ثانیه ─────────────────── */
+const ReciterUI = {
+  prev: null, timer: null,
+  /** چهرهٔ قاری: گرادیانِ خودِ قاری، و اگر تصویر داشت همان.
+      پیش‌تر این‌جا برای هر ده قاری یک مسیر ساختگی `avatars/reciter-N.webp`
+      ساخته می‌شد که هیچ‌کدام وجود نداشتند: ده درخواستِ شکست‌خورده در هر
+      بار باز کردنِ پنجره، و در عمل همان نگارهٔ جانشین نشان داده می‌شد.
+      حالا تصویر فقط‌وقتی خواسته می‌شود که در دادهٔ قاری نشانی باشد
+      (`img:'avatars/reciter-1.webp'`) — افزودنِ عکس یک خط تغییر داده است،
+      نه بازنویسیِ این تابع. */
+  face(r){
+    const grad = `background:linear-gradient(140deg,hsl(${r.hue} 74% 52%),hsl(${r.hue} 62% 26%))`;
+    const fallback = `<span class="rav" style="${grad}">${U.esc(r.short.slice(0, 2))}</span>`;
+    if(!r.img) return fallback;
+    return Assets.imageOrSvg(r.img, fallback, { alt: '', cls: 'art-img' });
+  },
+  /** همهٔ قاریان، هر کدام با یک چهره */
+  rows(){
+    const cur = Store.get('quran').reciter || 0;
+    return RECITERS.map((r, i) => `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
+        ${this.face(r)}
+        <span class="rn">${U.esc(r.name)}<div class="rc">${U.esc(r.note)}</div></span>
+        <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">${Icon.of('play')}</button>
+      </div>`).join('');
+  },
+  open(){
+    UI.modal(`<h3>${Icon.of('mic')} قاری قرآن</h3>
+      <div class="tiny" style="margin:8px 0 12px">روی ▶ بزن تا ۵ ثانیه بشنوی، روی نام بزن تا انتخاب شود.</div>
+      <div class="rec-grid" style="max-height:58vh;overflow-y:auto">${this.rows()}</div>`);
+    U.$$('#modal .rec').forEach(el => {
+      const i = +el.dataset.rec;
+      el.onclick = e => {
+        if(e.target.closest('[data-prev]')){ this.preview(i, e.target.closest('[data-prev]')); return; }
+        /* نمونهٔ ۵ ثانیه‌ای اگر در جریان باشد، جایش را به پخش اصلی می‌دهد */
+        this.stopPreview();
+        Haptic.hit();
+        U.$$('#modal .rec').forEach(x => x.classList.remove('on'));
+        el.classList.add('on');
+        /* همین مسیرِ بی‌قطع: اگر پخشی در جریان است، از همان لحظه ادامه بده */
+        QuranUI.pickReciter(i);
+        QuranUI.renderReciters();
+      };
+    });
+  },
+  preview(i, btn){
+    const r = RECITERS[i];
+    if(this.prev && this.prev.dataset.prev === String(i)){ this.stopPreview(); return; }
+    this.stopPreview();
+    this.prev = btn; btn.classList.add('on'); btn.innerHTML = Icon.of('pause');
+    Sound.tick();
+    /* نمونهٔ کوتاه: آیةالکرسی — سراسری ۲۶۲ است، پس از هر منبعی که هست می‌خوانیم */
+    const s = 2, a = 255;
+    try{
+      const url = (QSOURCES[0].url(r, s, a) || QSOURCES[1].url(r, s, a));
+      const au = new Audio(url);
+      au.volume = Math.min(1, (Store.get('quran').vol ?? .9));
+      au.playbackRate = 1;
+      au.play().catch(() => {});
+      const stop = () => { try{ au.pause(); }catch(e){} this.stopPreview(); };
+      this.timer = setTimeout(stop, 5000);
+      au.onended = stop;
+      this._au = au;
+    }catch(e){ this.stopPreview(); }
+  },
+  stopPreview(){
+    clearTimeout(this.timer); this.timer = null;
+    try{ if(this._au) this._au.pause(); }catch(e){}
+    if(this.prev){ this.prev.classList.remove('on'); this.prev.innerHTML = Icon.of('play'); this.prev = null; }
+  }
+};
+
+/* ─────────────────── 10.984 اشتراک‌گذاری آیه به‌صورت تصویر PNG ───────────────────
+   با Canvas 2D ساخته می‌شود: قاب طلایی، متن عثمانی، ترجمه و نام سوره.
+   هیچ کتابخانه‌ای لازم نیست. روی مرورگرهای بی‌Canvas، رونوشت متن می‌دهد.
+   ─────────────────────────────────────────────────────────────────── */
+const ShareCard = {
+  W: 1080, H: 1350,
+  async render(s, a, tr, arText){
+    const cv = document.createElement('canvas');
+    cv.width = this.W; cv.height = this.H;
+    const c = cv.getContext && cv.getContext('2d');
+    if(!c) return null;
+    const su = QURAN[s - 1];
+    /* پس‌زمینهٔ شبانه + هالهٔ طلایی */
+    const g = c.createLinearGradient(0, 0, 0, this.H);
+    g.addColorStop(0, '#122c58'); g.addColorStop(.45, '#0b1a35'); g.addColorStop(1, '#04070e');
+    c.fillStyle = g; c.fillRect(0, 0, this.W, this.H);
+    const rad = c.createRadialGradient(this.W / 2, this.H * .34, 30, this.W / 2, this.H * .34, this.W * .82);
+    rad.addColorStop(0, 'rgba(245,196,81,.20)'); rad.addColorStop(1, 'rgba(245,196,81,0)');
+    c.fillStyle = rad; c.fillRect(0, 0, this.W, this.H);
+    /* قاب دوخطی طلایی */
+    c.strokeStyle = '#f5c451'; c.lineWidth = 5;
+    this.roundRect(c, 52, 52, this.W - 104, this.H - 104, 34); c.stroke();
+    c.strokeStyle = 'rgba(245,196,81,.42)'; c.lineWidth = 2;
+    this.roundRect(c, 74, 74, this.W - 148, this.H - 148, 26); c.stroke();
+    /* سرصفحه */
+    c.textAlign = 'center';
+    c.fillStyle = '#ffe3a3'; c.font = '54px serif';
+    c.fillText('﷽', this.W / 2, 190);
+    c.fillStyle = '#f5c451'; c.font = 'bold 40px sans-serif';
+    c.fillText('نورستان', this.W / 2, 258);
+    /* متن عثمانی — شکسته در چند سطر */
+    c.fillStyle = '#fff6e0'; c.font = '52px serif'; c.direction = 'rtl';
+    const ar = String(arText || '').slice(0, 900);
+    const lines = this.wrap(c, ar, this.W - 240);
+    let y = 430;
+    const maxY = this.H - 420;
+    for(const ln of lines){
+      if(y > maxY){ c.fillText('…', this.W / 2, y); break; }
+      c.fillText(ln, this.W / 2, y); y += 82;
+    }
+    /* ترجمه */
+    c.fillStyle = '#b9c8e6'; c.font = '34px sans-serif';
+    const tl = this.wrap(c, String(tr || '').slice(0, 700), this.W - 260);
+    y += 26;
+    for(const ln of tl){
+      if(y > this.H - 250){ c.fillText('…', this.W / 2, y); break; }
+      c.fillText(ln, this.W / 2, y); y += 56;
+    }
+    /* پاصفحه */
+    c.fillStyle = '#f5c451'; c.font = 'bold 32px sans-serif';
+    c.fillText(`سورهٔ ${su.name} — آیهٔ ${U.fa(a)}`, this.W / 2, this.H - 160);
+    c.fillStyle = 'rgba(185,200,230,.7)'; c.font = '24px sans-serif';
+    c.fillText('نورستان — آموزش قرآن، بازی و محفل', this.W / 2, this.H - 108);
+    return cv;
+  },
+  roundRect(c, x, y, w, h, r){
+    c.beginPath();
+    c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+    c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r);
+    c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+  },
+  wrap(c, text, maxW){
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const out = []; let cur = '';
+    for(const w of words){
+      const t = cur ? cur + ' ' + w : w;
+      if(c.measureText(t).width > maxW && cur){ out.push(cur); cur = w; }
+      else cur = t;
+    }
+    if(cur) out.push(cur);
+    return out;
+  },
+  async open(s, a){
+    const t = await QText.get(s, a);
+    const ar = (t && t.ar) || '';
+    const tr = (t && t.fa) || '';
+    UI.modal(`<h3>${Icon.of('image')} ساخت تصویر آیه</h3>
+      <div id="shareWrap">
+        <div class="tiny" id="shareMsg">در حال ساختن تصویر…</div>
+      </div>`);
+    const cv = await this.render(s, a, tr, ar);
+    const wrap = U.$('#shareWrap');
+    if(!cv || !wrap){
+      if(wrap) wrap.innerHTML = `<div class="empty">مرورگر تو Canvas نمی‌سازد.<br>متن آیه را رونوشت کن:</div>
+        <div class="dua-done" style="text-align:right">${U.esc(ar)}</div>
+        <div class="tiny">${U.esc(tr)}</div>
+        <button class="btn" id="scCopy">${Icon.of('copy')} رونوشت</button>`;
+      if(U.$('#scCopy')) U.$('#scCopy').onclick = () => Share.copy(ar + '\n\n' + tr);
+      return;
+    }
+    wrap.innerHTML = `<canvas id="shareCv" width="${this.W}" height="${this.H}"></canvas>
+      <div class="row wrap" style="justify-content:center">
+        <button class="btn" id="scDl">${Icon.of('download')} بارگیری PNG</button>
+        <button class="btn" id="scShare">${Icon.of('share')} اشتراک‌گذاری</button>
+        <button class="btn" id="scCopy">${Icon.of('copy')} رونوشت متن</button>
+      </div>`;
+    U.$('#shareCv').getContext('2d').drawImage(cv, 0, 0);
+    const name = `noorestan-${s}-${a}.png`;
+    U.$('#scDl').onclick = () => {
+      try{
+        const url = cv.toDataURL('image/png');
+        const a2 = document.createElement('a'); a2.href = url; a2.download = name;
+        document.body.appendChild(a2); a2.click(); a2.remove();
+        Store.update(d => d.stats.shared = (d.stats.shared || 0) + 1);
+        Sound.chime(); UI.toast('🖼 تصویر بارگیری شد', 'ok');
+      }catch(e){ UI.toast('⚠️ بارگیری نشد', 'err'); }
+    };
+    U.$('#scShare').onclick = () => {
+      try{
+        cv.toBlob(async blob => {
+          if(!blob) return UI.toast('⚠️ اشتراک نشد', 'err');
+          const file = new File([blob], name, { type:'image/png' });
+          if(navigator.canShare && navigator.canShare({ files:[file] })){
+            await navigator.share({ files:[file], title:'آیهٔ قرآن', text:`سورهٔ ${QURAN[s-1].name}، آیهٔ ${U.fa(a)}` });
+            Store.update(d => d.stats.shared = (d.stats.shared || 0) + 1); checkBadges();
+          } else UI.toast('📤 این مرورگر اشتراک فایل ندارد — PNG را بارگیری کن', '', 2600);
+        }, 'image/png');
+      }catch(e){ UI.toast('⚠️ اشتراک نشد', 'err'); }
+    };
+    U.$('#scCopy').onclick = () => Share.copy(`${ar}\n\n${tr}\n\n— سورهٔ ${QURAN[s-1].name}، آیهٔ ${U.fa(a)}`);
+  }
+};
+
+/* ─────────────────── 10.983 تکرار شبانه با محو تدریجی صدا ───────────────────
+   قرآن را در ساعت خواب پخش می‌کند و صدای آن را در دقیقه‌های آخر کم می‌کند.
+   ─────────────────────────────────────────────────────────────────── */
+const NightRepeat = {
+  timer: null,
+  conf(){ return Store.get('quran').night; },
+  on(){ return !!this.conf().on; },
+  /* دقیقهٔ «از» و «تا» بر حسب ساعت روز */
+  untilMs(){
+    const c = this.conf();
+    const now = new Date();
+    const to = new Date(now);
+    to.setHours(Math.floor((c.to || 6)), Math.round(((c.to || 6) % 1) * 60), 0, 0);
+    if(to <= now) to.setDate(to.getDate() + 1);
+    return to.getTime();
+  },
+  start(){
+    const c = this.conf();
+    c.on = true; c.until = this.untilMs();
+    Store.save();
+    clearInterval(this.timer);
+    Recite.stoppedManually = false;
+    this.timer = setInterval(() => this.tick(), 20000);
+    this.tick();
+    Sound.whoosh();
+    UI.toast(`🌙 تکرار شبانه تا ${U.fa(Math.round((c.to || 6) % 12 || 12))} روشن شد`, 'ok', 2600);
+    checkBadges();
+  },
+  stop(){
+    const c = this.conf();
+    c.on = false;
+    Store.save();
+    clearInterval(this.timer); this.timer = null;
+    Recite.applyPrefs();
+    UI.toast('🌙 تکرار شبانه خاموش شد', '', 1800);
+  },
+  toggle(){ this.on() ? this.stop() : this.start(); },
+  tick(){
+    const c = this.conf();
+    if(!c.on) return;
+    if(U.now() >= (c.until || 0)){ this.stop(); return; }
+    /* تا رسیدنِ ساعتِ «از» صبر کن؛ پیش‌تر ساعتِ شروع نادیده گرفته می‌شد و
+       پخش همان لحظه (حتی ظهر) آغاز می‌شد. */
+    if(!this.inWindow()) return;
+    if(!Recite.cur && !Recite.stoppedManually){
+      /* اگر پخش ایستاده، سورهٔ انتخابی را از اول شروع کن */
+      const q = Store.get('quran');
+      try{ Recite.playSurah(U.clamp(q.surah || 1, 1, 114), q.ayah || 1); }catch(e){}
+    }
+    Recite.applyPrefs();
+  },
+  inWindow(){
+    const c = this.conf();
+    const h = new Date().getHours() + new Date().getMinutes() / 60;
+    const from = c.from ?? 22, to = c.to ?? 6;
+    return from > to ? (h >= from || h < to) : (h >= from && h < to);
+  },
+  /* ضریب صدا بر پایهٔ نزدیکی به پایان — در دقیقهٔ آخر به صفر می‌رسد */
+  fadeFactor(){
+    const c = this.conf();
+    if(!c.on || !c.until) return 1;
+    const leftMin = (c.until - U.now()) / 60000;
+    const fade = U.clamp(+c.fade || 20, 1, 90);
+    if(leftMin >= fade) return 1;
+    return U.clamp(leftMin / fade, 0, 1);
+  },
+  paint(){
+    const c = this.conf();
+    const t = U.$('#qNight');
+    if(t){ t.textContent = c.on ? '🌙 شبانه: روشن' : '🌙 شبانه'; t.classList.toggle('ok', c.on); }
+  },
+  modal(){
+    const c = this.conf();
+    const hr = key => v => `<option value="${v}" ${Math.abs((c[key] ?? (key === 'to' ? 6 : 22)) - v) < .01 ? 'selected' : ''}>${U.fa(v)}</option>`;
+    UI.modal(`<h3>${Icon.of('moon')} تکرار شبانه</h3>
+      <div class="tiny" style="margin:9px 0 13px">قرآن آرام پخش می‌شود و صدایش در دقیقه‌های آخر خودبه‌خود کم می‌شود تا خوابت نبرد.</div>
+      <div class="night-row">
+        <label>از ساعت <select id="nFrom">${[20,21,22,23,0].map(hr('from')).join('')}</select></label>
+        <label>تا ساعت <select id="nTo">${[4,5,6,7].map(hr('to')).join('')}</select></label>
+      </div>
+      <div class="night-row mt10">
+        <label>محو صدا در <input type="number" id="nFade" min="1" max="90" value="${U.fa(c.fade || 20)}"> دقیقهٔ آخر</label>
+      </div>
+      <div class="fade-note">اکنون ${c.on ? `روشن است و تا ${U.esc(new Date(c.until).toLocaleTimeString('fa-IR'))} ادامه دارد`
+        : 'خاموش است'}. صدا هیچ‌وقت بیشتر از «بلندی صدا» در همان صفحه نمی‌شود.</div>
+      <div class="row mt14">
+        <button class="btn" id="nOn">${c.on ? '⏹ خاموش کن' : '▶️ روشن کن'}</button>
+        <button class="btn ghost" id="nClose">بستن</button>
+      </div>`);
+    U.$('#nClose').onclick = () => UI.closeModal();
+    U.$('#nOn').onclick = () => {
+      const f = +U.fa(U.$('#nFade').value).replace(/[^\d]/g, '') || 20;
+      Store.update(d => {
+        d.quran.night.from = +U.$('#nFrom').value;
+        d.quran.night.to   = +U.$('#nTo').value;
+        d.quran.night.fade = U.clamp(f, 1, 90);
+      });
+      this.toggle();
+      UI.closeModal(); this.paint();
+    };
+  }
+};
+
+/* ─────────────────── 10.982 مأموریت‌های روزانه ───────────────────
+   سه کار برای هر روز؛ تاریخ با تاریخ محلی تعیین می‌شود، پس هر روز
+   خودبه‌خود نو می‌شود. جایزهٔ هر مأموریت جداگانه پرداخت می‌شود.
+   ─────────────────────────────────────────────────────────────────── */
+const Missions = {
+  POOL: [
+    { id:'play3',   icon:'🎮', t:'سه بازی انجام بده',            d:'هر بازی‌ای، هر دسته‌ای',            goal:3,  pts:40 },
+    { id:'correct15',icon:'✅', t:'۱۵ پاسخ درست بده',            d:'در آزمون‌ها و بازی‌های پرسشی',       goal:15, pts:60 },
+    { id:'combo5',  icon:'🔥', t:'کمبوی ۵ تایی بزن',             d:'پنج پاسخ درست پشت سر هم',            goal:5,  pts:50 },
+    { id:'read1',   icon:'📖', t:'یک سوره در مصحف‌نما بخوان',    d:'خواندن یا شنیدن تمام یک سوره',       goal:1,  pts:45 },
+    { id:'listen10',icon:'🎧', t:'۱۰ آیه بشنو',                  d:'با هر قاری‌ای',                      goal:10, pts:40 },
+    { id:'badge1',  icon:'🎖️', t:'یک نشان بگیر',                 d:'هر نشانی',                           goal:1,  pts:70 },
+    { id:'quiz1',   icon:'🏅', t:'یک آزمون معارف بگیر',          d:'از گزینشگر موضوع‌ها',                goal:1,  pts:55 },
+    { id:'perfect', icon:'💎', t:'یک بازی را بی‌خطا تمام کن',     d:'دقت ۱۰۰٪',                          goal:1,  pts:80 },
+    { id:'social1', icon:'🌐', t:'یک بازی دونفره بکن',           d:'با ربات یا دوست',                    goal:1,  pts:60 },
+    { id:'word1',   icon:'🤲', t:'یک دعا یا حدیث کامل کن',       d:'نجوا یا حدیث‌یاب',                   goal:1,  pts:45 }
+  ],
+  today(){ return U.today(); },
+  /* مأموریت‌های امروز — با تاریخ روز بذر می‌خورند تا در همهٔ دستگاه‌ها یکی باشند */
+  ensure(){
+    const d = Store.get('missions');
+    const day = this.today();
+    if(d.date === day && Array.isArray(d.list) && d.list.length === 3) return d;
+    const r = U.seedRand('missions:' + day);
+    const pool = [...this.POOL];
+    const pick = [];
+    while(pick.length < 3 && pool.length) pick.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    Store.update(s => { s.missions = { date: day, list: pick.map(m => ({ ...m, n: 0, done: false, paid: false })) }; });
+    return Store.get('missions');
+  },
+  key(id){
+    const st = Store.get('stats');
+    switch(id){
+      case 'play3':    return st.plays || 0;
+      case 'correct15':return st.totalCorrect || 0;
+      case 'combo5':   return st.maxCombo || 0;
+      case 'read1':    return st.readSurahs || 0;
+      case 'listen10': return st.listened || 0;
+      case 'badge1':   return Object.keys(Store.get('badges') || {}).length;
+      case 'quiz1':    return st.exams || 0;
+      case 'perfect':  return st.perfectRuns || 0;
+      case 'social1':  return (st.tttWins || 0) + (st.tttDraw || 0) + (st.onlineWins || 0) + (st.esmFamilBest ? 1 : 0);
+      case 'word1':    return (st.hadith || 0) + (st.dua || 0);
+      default:         return 0;
+    }
+  },
+  /* هر بار پس از بازی صدا زده می‌شود: پیشرفت را می‌سنجد و جایزه می‌دهد */
+  refresh(silent){
+    const d = this.ensure();
+    let paid = 0, doneCount = 0;
+    Store.update(s => {
+      s.missions.list.forEach(m => {
+        const base = m.base == null ? this.key(m.id) : m.base;
+        if(m.base == null) m.base = base;
+        m.n = Math.max(0, this.key(m.id) - m.base);
+        m.done = m.n >= m.goal;
+        if(m.done && !m.paid){
+          m.paid = true; paid += m.pts;
+          s.stats.missionsDone = (s.stats.missionsDone || 0) + 1;
+        }
+        if(m.done) doneCount++;
+      });
+      if(paid) s.score += paid;
+    });
+    if(paid){
+      Wallet.earn(Math.round(paid / 2), 'مأموریت روزانه');
+      Sound.fanfare(); Haptic.success();
+      UI.toast(`✅ مأموریت کامل شد — ${U.fa(paid)} امتیاز`, 'ok', 2600);
+      if(Store.get('missions').list.every(m => m.done)) UI.toast('🌟 هر سه مأموریت امروز انجام شد!', 'ok', 3000);
+      checkBadges();
+    } else if(!silent && doneCount === 3){
+      UI.toast('🌟 مأموریت‌های امروز تمام شده', 'ok', 2000);
+    }
+    /* هفتگی از همین‌جا نو می‌شود: هر جا روزانه سنجیده شود، هفتگی هم می‌شود */
+    try{ Weekly.refresh(silent); }catch(e){ console.warn('weekly', e); }
+    return { paid, doneCount };
+  },
+  rows(){
+    const d = this.ensure();
+    return d.list.map(m => {
+      const n = Math.min(m.n, m.goal);
+      const pct = Math.round(100 * n / m.goal);
+      return `<div class="miss ${m.done ? 'done' : ''}">
+        <span class="mi">${Glyph.of(m.icon)}</span>
+        <span class="mb"><div class="mt">${U.esc(m.t)} ${m.done ? '<span class="completion-check">' + Icon.of('check') + '</span>' : ''}</div>
+          <div class="md">${U.esc(m.d)} — جایزهٔ ${U.fa(m.pts)} امتیاز</div>
+          <div class="mp"><i style="width:${pct}%"></i></div></span>
+        <span class="tiny">${U.fa(n)}/${U.fa(m.goal)}</span>
+      </div>`;
+    }).join('');
+  },
+  open(){
+    const d = this.ensure();
+    const all = d.list.every(m => m.done);
+    const w = Weekly.ensure(), wall = w.week.every(m => m.done);
+    const left = Weekly.left();
+    const leftTxt = left === 0 ? 'امشب هفته نو می‌شود.' : (U.fa(left) + ' روز تا پایان هفته');
+    UI.modal(`<h3>${Icon.of('target')} مأموریت‌ها</h3>
+      <div class="tiny" style="margin:8px 0 12px">هر روز سه کار تازه — نیمه‌شب خودش نو می‌شود.</div>
+      <div class="miss-list">${this.rows()}</div>
+      ${all ? '<div class="prize mt14">🎉 <span>هر سه مأموریت امروز انجام شد. فردا سه کار تازه می‌آید.</span></div>' : ''}
+
+      <div class="sep" style="margin:16px 0 12px"></div>
+      <b style="font-size:13px">${Icon.of('trophy')} مأموریت‌های هفته</b>
+      <div class="tiny" style="margin:6px 0 10px">${leftTxt}</div>
+      <div class="miss-list">${Weekly.rows()}</div>
+      ${wall ? '<div class="prize mt14">🏆 <span>هر سه مأموریت هفته انجام شد.</span></div>' : ''}`);
+  }
+};
+
+/* ─────────────────── 10.981 کلکسیون نشان‌ها ─────────────────── */
+const Collection = {
+  open(){
+    const got = Store.get('badges') || {};
+    const n = Object.keys(got).length, tot = DATA.badges.length;
+    const pct = tot ? Math.round(100 * n / tot) : 0;
+    UI.modal(`<h3>${Icon.of('medal')} کلکسیون نشان‌ها</h3>
+      <div class="row" style="margin:9px 0 13px">
+        <span class="tiny">${U.fa(n)} از ${U.fa(tot)} نشان — ${U.fa(pct)}٪</span>
+        <span class="grow"></span>
+        <span class="chip wr">${pct === 100 ? '🏆 کامل!' : 'ادامه بده'}</span>
+      </div>
+      <div class="lvlbar bar-shine" style="margin-bottom:14px"><i style="width:${pct}%"></i></div>
+      ${n ? '' : UI.empty('medal', 'اولین نشانت منتظر توست', 'با یک بازی کوتاه شروع کن؛ نشان‌های قفل‌شده مسیر را نشانت می‌دهند.')}
+      <div class="coll-grid" style="max-height:56vh;overflow-y:auto">
+        ${DATA.badges.map(b => {
+          const on = !!got[b.id];
+          return `<div class="coll ${on ? 'got' : ''}" data-b="${U.esc(b.id)}" title="${U.esc(b.desc || b.name)}">
+            <span class="ci">${Glyph.of(on ? (b.icon || '🎖️') : '🔒')}</span>
+            <span class="cn">${U.esc(b.name)}</span></div>`;
+        }).join('')}
+      </div>`);
+    U.$$('#modal .coll').forEach(el => el.onclick = () => {
+      const b = DATA.badges.find(x => x.id === el.dataset.b);
+      if(!b) return;
+      const on = !!(Store.get('badges') || {})[b.id];
+      if(on){ FX.burstAtEl(el, 10); Sound.chime(); }
+      UI.toast(`${on ? b.icon || '🎖️' : '🔒'} ${b.name} — ${b.desc || ''}`, on ? 'ok' : '', 2400);
+    });
+  }
+};
+
+/* ─────────────────── 10.98 درخت دانش ───────────────────
+   هر موضوع معارف یک شاخه است؛ بلندی شاخه به شمار پاسخ‌های درست آن
+   موضوع بستگی دارد. این تصویر، پیشرفت را یک‌نگاه نشان می‌دهد.
+   ─────────────────────────────────────────────────────────────────── */
+const Tree = {
+  level(n){
+    if(n >= 40) return { k:'🌟', t:'استاد' };
+    if(n >= 25) return { k:'🌳', t:'پخته' };
+    if(n >= 12) return { k:'🌿', t:'رشدکننده' };
+    if(n >= 4)  return { k:'🌱', t:'تازه‌کار' };
+    return { k:'·', t:'نکاشته' };
+  },
+  data(){
+    const st = Store.get('stats').topics || {};
+    return TOPICS.map(t => {
+      const n = st[t.id] || 0;
+      const total = (t.bank() || []).length || 1;
+      return { id:t.id, icon:t.icon, name:t.name, n, total,
+               pct:U.clamp(Math.round(100 * n / Math.max(8, total)), 0, 100), ...this.level(n) };
+    });
+  },
+  rowsHtml(){
+    const rows = this.data().sort((a, b) => b.n - a.n);
+    const best = rows[0];
+    return `<div class="tree-wrap">
+      ${rows.map(r => `<div class="tree-row">
+        <span class="tl">${Glyph.of(r.icon)} ${U.esc(r.name)}</span>
+        <span class="tb"><i style="width:${r.pct}%"></i></span>
+        <span class="tn">${r.k} ${U.fa(r.n)}</span>
+      </div>`).join('')}
+      <div class="tiny mt10">${best && best.n ? `بلندترین شاخه: ${Glyph.of(best.icon)} ${U.esc(best.name)} با ${U.fa(best.n)} پاسخ درست` : 'هنوز هیچ شاخه‌ای سبز نشده — با «آزمون معارف» شروع کن.'}</div>
+    </div>`;
+  },
+  open(){
+    UI.modal(`<h3>${Icon.of('tree')} درخت دانش</h3>
+      <div class="tiny" style="margin:8px 0 12px">هر موضوع یک شاخه است؛ هر پاسخ درست، شاخه را بلند می‌کند.</div>
+      <div style="max-height:58vh;overflow-y:auto">${this.rowsHtml()}</div>
+      <button class="btn mt14" id="trGo">${Icon.of('medal')} رفتن به آزمون معارف</button>`);
+    U.$('#trGo').onclick = () => { UI.closeModal(); QuizPick.open(); };
+  }
+};
+
+/* ─────────────────── 10.979 جایزهٔ هفتگی لیدربورد ───────────────────
+   هفته از شنبه آغاز می‌شود. امتیاز هر هفته جدا شمرده می‌شود و
+   در پایان هفته، اگر از سقف گذشتی، نشان می‌گیری.
+   ─────────────────────────────────────────────────────────────────── */
+/* ─────────────────── 10.978 دوستان و پیوند دعوت ─────────────────── */
+const Friends = {
+  list(){ return Store.get('friends') || []; },
+  add(id, name){
+    if(!id) return;
+    Store.update(d => {
+      const f = d.friends.find(x => x.id === id);
+      if(f){ f.name = name || f.name; f.lastSeen = U.now(); }
+      else d.friends.unshift({ id, name: name || 'بازیکن', at: U.now(), lastSeen: U.now() });
+      d.friends = d.friends.slice(0, 100);
+    });
+  },
+  remove(id){ Store.update(d => { d.friends = d.friends.filter(f => f.id !== id); }); },
+  /* پیوند دعوت: آدرس همین صفحه + کد روم */
+  invite(code){
+    const base = (location.href || '').split('#')[0];
+    return `${base}#join=${encodeURIComponent(code || '')}`;
+  },
+  fromHash(){
+    const h = location.hash || '';
+    const m = h.match(/join=([^&]+)/);
+    if(!m) return null;
+    try{ return decodeURIComponent(m[1]); }catch(e){ return m[1]; }
+  },
+  /* ── نسخهٔ ۱۵: پیشنهاد دوستی از راه سرور ── */
+  request(id, name){
+    if(!id) return;
+    try{ Net.send({ t: 'friend:req', name: Store.get('playerName') }, id); }catch(e){}
+    UI.toast(`📨 پیشنهاد دوستی برای ${name || 'بازیکن'} فرستاده شد`, 'ok', 2200);
+  },
+  incoming(msg){
+    const name = U.esc(msg.name || 'یک بازیکن');
+    UI.modal(`<h3>${Icon.of('handshake')} پیشنهاد دوستی</h3>
+      <p style="font-size:13.5px;color:var(--mut);line-height:2;margin-top:10px">
+        <b style="color:var(--txt)">${name}</b> می‌خواهد به دوستانت اضافه شود.</p>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn w" id="frYes">پذیرفتن</button>
+        <button class="btn gh" id="frNo">نه</button></div>`, box => {
+      U.$('#frYes', box).onclick = () => {
+        Friends.add(msg.from, msg.name);
+        try{ Net.send({ t: 'friend:ok', name: Store.get('playerName') }, msg.from); }catch(e){}
+        UI.closeModal(); UI.toast('✅ به دوستانت اضافه شد', 'ok');
+      };
+      U.$('#frNo', box).onclick = () => {
+        try{ Net.send({ t: 'friend:no' }, msg.from); }catch(e){}
+        UI.closeModal();
+      };
+    });
+  },
+  rows(){
+    const l = this.list();
+    if(!l.length) return '<div class="empty">هنوز دوستی اضافه نکرده‌ای.<br>در «محفل» با یک نفر بازی کن تا خودبه‌خود اضافه شود.</div>';
+    return l.map(f => `<div class="fr-row" data-f="${U.esc(f.id)}">
+      ${Assets.avatar(f.name)}
+      <span class="fb"><b>${U.esc(f.name)}</b><div class="fd">آخرین بازی: ${U.esc(new Date(f.lastSeen || f.at).toLocaleDateString('fa-IR'))}</div></span>
+      <button class="btn sm" data-invite="1">${Icon.of('send')}<span>دعوت</span></button>
+      <button class="wbx" data-del="1" title="برداشتن">${Icon.of('close')}</button></div>`).join('');
+  },
+  /* بازیکنان آنلاینی که هنوز در فهرست دوستان نیستند */
+  strangers(){
+    const mine = new Set(this.list().map(f => f.id));
+    let peers = [];
+    try{ peers = Net.peerList() || []; }catch(e){}
+    return peers.filter(p => p.id !== Net.id && !mine.has(p.id)).slice(0, 12);
+  },
+  onlineRows(){
+    const s = this.strangers();
+    if(!s.length) return '';
+    return `<div class="lbl mt12">آنلاین‌ها</div>` + s.map(p => `<div class="fr-row" data-p="${U.esc(p.id)}">
+      ${Assets.avatar(p.name)}
+      <span class="fb"><b>${U.esc(p.name)}</b><div class="fd">سطح ${U.fa(p.level || 1)} • امتیاز ${U.fa(p.score || 0)}</div></span>
+      <button class="btn sm" data-add="1">${Icon.of('handshake')} دوستی</button></div>`).join('');
+  },
+  open(){
+    const code = (Net.room && Net.room.code) || '';
+    UI.modal(`<h3>${Icon.of('users')} دوستان</h3>
+      <div style="max-height:46vh;overflow-y:auto;margin-top:10px">${this.rows()}${this.onlineRows()}</div>
+      <div class="invite-box">
+        <input id="frLink" readonly value="${U.esc(this.invite(code))}">
+        <button class="btn sm" id="frCopy" title="رونوشت پیوند" aria-label="رونوشت پیوند">${Icon.of('copy')}</button>
+      </div>
+      <div class="tiny mt6">${code ? 'این پیوند با کد روم تو ساخته شده — بفرست تا دوستت مستقیم وارد شود.' : 'برای پیوند دعوت، اول یک روم بساز تا کد داشته باشی.'}</div>`);
+    U.$('#frCopy').onclick = () => Share.copy(this.invite(code));
+    U.$$('#modal .fr-row').forEach(row => {
+      const id = row.dataset.f || row.dataset.p;
+      row.onclick = e => {
+        if(e.target.closest('[data-del]')){ this.remove(id); UI.closeModal(); this.open(); return; }
+        if(e.target.closest('[data-invite]')){ Share.copy(this.invite(code)); return; }
+        if(e.target.closest('[data-add]')){
+          const p = (Net.peers.get(id) || {});
+          this.request(id, p.name);
+        }
+      };
+    });
+  }
+};
+
+/* ─────────────────── 10.977 واکنش زندهٔ محفل ─────────────────── */
+const Reactions = {
+  SET: ['❤️','😂','😮','👏','🌟','🤲','🙏','🔥'],
+  bar(){
+    return `<div class="emoji-bar">${this.SET.map(e =>
+      `<button data-react="${e}" aria-label="واکنش ${e}">${e}</button>`).join('')}</div>`;
+  },
+  wire(host){
+    if(!host) return;
+    U.$$('[data-react]', host).forEach(b => b.onclick = () => {
+      const e = b.dataset.react;
+      Sound.tick(); Haptic.hit();
+      const r = b.getBoundingClientRect();
+      FX.reaction(r.left + r.width / 2, r.top, e);
+      try{ Net.send({ t:'react', emoji:e }); }catch(err){}
+    });
+  },
+  /* واکنش رسیده از دیگری را نشان بده */
+  incoming(emoji){
+    if(!emoji) return;
+    FX.reaction(null, (window.innerHeight || 620) * .68, emoji);
+    Sound.click();
+  }
+};
+
+/* ─────────────────── 10.976 اتاق صوتی (اختیاری، WebRTC) ───────────────────
+   اگر هر دو طرف اجازه بدهند، صدای زنده در روم برقرار می‌شود. اگر
+   مرورگر یا شبکه نگذارد، فقط پیام می‌دهد و چیزی نمی‌شکند.
+   ─────────────────────────────────────────────────────────────────── */
+const Voice = {
+  pc: null, stream: null, on: false,
+  ok(){ return !!(window.RTCPeerConnection && navigator.mediaDevices && navigator.mediaDevices.getUserMedia); },
+  async start(){
+    if(!this.ok()){ UI.toast('📵 این مرورگر اتاق صوتی ندارد', 'err', 2600); return; }
+    try{
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      try{
+        const track = this.stream.getAudioTracks()[0];
+        if(track && track.applyConstraints) await track.applyConstraints({ echoCancellation:true, noiseSuppression:true });
+      }catch(e){}
+      this.on = true; this.paint();
+      UI.toast('🎙 اتاق صوتی روشن شد', 'ok', 2200);
+      Sound.chime();
+    }catch(e){
+      UI.toast('📵 دسترسی به میکروفون داده نشد', 'err', 2600);
+      this.on = false; this.paint();
+    }
+  },
+  stop(){
+    try{ if(this.stream) this.stream.getTracks().forEach(t => t.stop()); }catch(e){}
+    try{ if(this.pc) this.pc.close(); }catch(e){}
+    this.stream = null; this.pc = null; this.on = false;
+    this.paint();
+  },
+  toggle(){ this.on ? this.stop() : this.start(); },
+  paint(){
+    const d = U.$('#vzDot'), b = U.$('#vzBtn');
+    if(d) d.classList.toggle('on', this.on);
+    U.label(b, this.on ? 'صدا: روشن' : 'صدا: خاموش');
+  },
+  /* مذاکرهٔ ساده — پیام‌ها از همان کانال Net رد و بدل می‌شوند */
+  async offer(){
+    if(!this.ok() || !this.on) return;
+    try{
+      this.pc = new RTCPeerConnection({ iceServers:[{ urls:'stun:stun.l.google.com:19302' }] });
+      this.stream.getTracks().forEach(t => this.pc.addTrack(t, this.stream));
+      this.pc.onicecandidate = e => { if(e.candidate) Net.send({ t:'rtc', ice:e.candidate }); };
+      const o = await this.pc.createOffer();
+      await this.pc.setLocalDescription(o);
+      Net.send({ t:'rtc', sdp:o });
+    }catch(e){ console.warn('voice offer', e); }
+  },
+  async handle(msg){
+    if(!this.ok() || !this.on) return;
+    try{
+      if(!this.pc){
+        this.pc = new RTCPeerConnection({ iceServers:[{ urls:'stun:stun.l.google.com:19302' }] });
+        if(this.stream) this.stream.getTracks().forEach(t => this.pc.addTrack(t, this.stream));
+        this.pc.onicecandidate = e => { if(e.candidate) Net.send({ t:'rtc', ice:e.candidate }); };
+        this.pc.ontrack = e => {
+          try{
+            const au = new Audio(); au.srcObject = e.streams[0]; au.autoplay = true;
+            au.volume = U.clamp(Store.get('quran').vol ?? .9, 0, 1);
+            au.play().catch(() => {});
+            this._remote = au;
+          }catch(err){}
+        };
+      }
+      if(msg.sdp){
+        await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        if(msg.sdp.type === 'offer'){
+          const a = await this.pc.createAnswer();
+          await this.pc.setLocalDescription(a);
+          Net.send({ t:'rtc', sdp:a });
+        }
+      } else if(msg.ice && this.pc.remoteDescription){
+        await this.pc.addIceCandidate(new RTCIceCandidate(msg.ice));
+      }
+    }catch(e){ console.warn('voice handle', e); }
+  }
+};
+
+/* ─────────────────── 10.975 سطح سازگار — دشواری خودکار ───────────────────
+   اگر بازیکن خوب جواب می‌دهد، سؤال‌های سخت‌تر می‌آید؛ اگر می‌لنگد،
+   آسان‌تر. شکست را پنهان می‌کند تا کسی احساس بدی نداشته باشد.
+   ─────────────────────────────────────────────────────────────────── */
+const Adaptive = {
+  /* سطح پیشنهادی بر پایهٔ دقت و شمار بازی */
+  level(){
+    const st = Store.get('stats');
+    const total = (st.totalCorrect || 0) + (st.totalWrong || 0);
+    if(total < 12) return 0;                       // همهٔ سطح‌ها
+    const acc = (st.totalCorrect || 0) / total;
+    if(acc >= .88 && (st.maxCombo || 0) >= 6) return 3;
+    if(acc >= .72) return 2;
+    if(acc >= .5)  return 1;
+    return 0;
+  },
+  /* پرسش‌ها را بر پایهٔ سطح می‌چیند و همیشه چند پرسش آسان‌تر می‌گذارد */
+  pick(bank, count){
+    const lv = this.level();
+    const list = Array.isArray(bank) ? bank : [];
+    if(!lv) return U.shuffle(list).slice(0, count);
+    const near = list.filter(q => Math.abs((q.d || 1) - lv) <= 1);
+    const pool = near.length >= count ? near : list;
+    const easy = U.shuffle(list.filter(q => (q.d || 1) < lv)).slice(0, Math.max(1, Math.round(count * .2)));
+    /* «hard» باید از پرسش‌های آسان‌گزیده جدا باشد. پیش‌تر هر دو از یک استخر
+       برداشته می‌شدند و چون هر کدام جداگانه بر زده می‌شد، یک پرسش می‌توانست
+       هم در easy بیفتد و هم در hard — یعنی همان سؤال دو بار در یک دور. */
+    const chosen = new Set(easy);
+    const hard = U.shuffle(pool.filter(q => !chosen.has(q))).slice(0, count - easy.length);
+    return U.shuffle([...easy, ...hard]).slice(0, count);
+  },
+  note(){
+    const lv = this.level();
+    if(!lv) return '';
+    const names = { 1:'آسان', 2:'متوسط', 3:'دشوار' };
+    return `<div class="adapt-note">${Icon.of('sliders')} سطح سازگار: پرسش‌ها با توان تو هم‌گام شده‌اند — ${names[lv]}</div>`;
+  }
+};
+
+/* ─────────────────── 10.974 «رکوردت را بزن» ───────────────────
+   پیش از شروع، رکورد پیشین را نشان می‌دهد و اگر شکستی، جشن می‌گیرد.
+   ─────────────────────────────────────────────────────────────────── */
+const Beat = {
+  label(gameId){
+    const b = (Store.get('best') || {})[gameId];
+    if(b == null) return '';
+    return `<div class="winrec">🏅 <b>رکورد تو:</b> ${U.fa(b)} — امروز بزنش!</div>`;
+  },
+  /* پس از پایان بازی: اگر رکورد شکسته شد جشن بگیر */
+  check(gameId, val, higherIsBetter = true){
+    const cur = (Store.get('best') || {})[gameId];
+    const beat = cur == null || (higherIsBetter ? val > cur : val < cur);
+    if(beat){
+      Progress.record(gameId, val);
+      Sound.fanfare();
+      FX.levelBurst(U.$('#pgProg') || U.$('#stScore'));
+      UI.toast(cur == null ? `🏅 نخستین رکورد: ${U.fa(val)}` : `🎉 رکورد شکست! ${U.fa(cur)} → ${U.fa(val)}`, 'ok', 3000);
+    }
+    return beat;
+  }
+};
+
+/* ─────────────────── 10.975 ذخیرهٔ خودکار وضعیت بازی ───────────────────
+   اگر کاربر وسط بازی صفحه را ببندد یا مرورگر بازی را بکشد، دفعهٔ بعد
+   می‌تواند از همان‌جا ادامه بدهد.
+
+   فقط موتورهایی ذخیره می‌شوند که بازگردانی‌شان بی‌ابهام است. بازی‌هایی که
+   پایانشان به یک callback محلی گره خورده (آزمون معارف و نهج‌البلاغه) عمداً
+   ذخیره نمی‌شوند: آن callback داخل JSON جا نمی‌گیرد، پس بازیِ بازگردانده‌شده
+   بی‌سروصدا رکورد ثبت نمی‌کرد — و رکورد گم‌شده از بازیِ ادامه‌داده‌شده بدتر
+   از نبودِ «ادامه بده» است.
+   ──────────────────────────────────────────────────────────────────────── */
+const Autosave = {
+  MAX_AGE: 24 * 60 * 60 * 1000,          // کهنه‌تر از یک شبانه‌روز دور انداخته می‌شود
+  /* کدام موتور به کدام کلید بازگردانی می‌شود */
+  KINDS: { quiz: 'quiz', memory: 'memory', dooz: 'dooz' },
+
+  put(kind, data, label){
+    if(!kind || !this.KINDS[kind] || !data) return false;
+    try{
+      Store.update(d => {
+        d.savedGame = { kind, label: String(label || '').slice(0, 60), at: U.now(), data };
+      });
+      return true;
+    }catch(e){ return false; }
+  },
+  get(){
+    const s = Store.get('savedGame');
+    if(!s || typeof s !== 'object' || !s.kind || !s.data) return null;
+    if(!this.KINDS[s.kind]) return null;
+    if(!s.at || U.now() - s.at > this.MAX_AGE) return null;   // کهنه
+    return s;
+  },
+  clear(){ try{ Store.update(d => { d.savedGame = null; }); }catch(e){} },
+
+  /* نوار «ادامه بده» در صدر صفحهٔ بازی‌ها */
+  bar(){
+    const s = this.get();
+    if(!s) return '';
+    const mins = Math.round((U.now() - s.at) / 60000);
+    return `<div class="resume-bar as-bar">
+      <span class="ri">⏸</span>
+      <div class="rb"><b>${U.esc(s.label || 'بازی نیمه‌کاره')}</b>
+        <div class="tiny">${mins < 1 ? 'همین حالا' : U.fa(mins) + ' دقیقه پیش'} رها شد</div></div>
+      <button class="btn sm" id="asResume">ادامه بده ▶</button>
+      <button class="btn gh sm" id="asDrop">بعداً</button>
+    </div>`;
+  },
+  bind(host = document){
+    const r = U.$('#asResume', host), d = U.$('#asDrop', host);
+    if(r) r.onclick = () => this.resume();
+    if(d) d.onclick = () => { this.clear(); Launcher.paint(); };
+  },
+  resume(){
+    const s = this.get();
+    if(!s){ UI.toast('بازی نیمه‌کاره‌ای نمانده', ''); return false; }
+    const d = s.data;
+    try{
+      /* resume باید خودِ snapshot باشد، نه فقط یک نشانهٔ true */
+      if(s.kind === 'quiz' && Array.isArray(d.qs) && d.qs.length)
+        return !!QuizEngine.start({ ...d, resume: d });
+      if(s.kind === 'memory') return !!MemoryEngine.start(d);
+      if(s.kind === 'dooz')   return !!DoozEngine.start(false, d);
+    }catch(e){ /* snapshot خراب — پاکش کن تا گیر نکند */ }
+    this.clear();
+    UI.toast('⚠️ بازی ذخیره‌شده خوانده نشد و پاک شد', 'err');
+    return false;
+  }
+};
+
+/* ═══════════════ 10.973 بازی «حدیث‌یاب» ═══════════════
+   متن حدیث با یک جای خالی نشان داده می‌شود و باید واژهٔ درست را از
+   میان چهار واژهٔ هم‌خانواده پیدا کنی.
+   ═══════════════════════════════════════════════════════ */
+const HadithEngine = {
+  qs: [], i: 0, score: 0, right: 0, wrong: 0, locked: false, filled: null, t0: 0,
+  start(){
+    const bank = DATA.hadith || [];
+    if(!bank.length){ UI.toast('📜 بانک حدیث خالی است', 'err'); return; }
+    Stats.track('hadith');
+    this.qs = U.shuffle(bank).slice(0, 10);
+    this.i = this.score = this.right = this.wrong = 0;
+    this.locked = false; this.filled = null; this.t0 = U.now();
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('📜 حدیث‌یاب');
+    U.$('#pgSub').textContent = 'واژه‌ای که جا افتاده را پیدا کن';
+    U.$('#pgBar').innerHTML = '';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'حدیث' });
+    U.$('#pgBody').innerHTML = `${Beat.label('hadith')}
+      <div class="card" id="hadCard"></div>
+      ${Adaptive.note()}`;
+    this.paint();
+  },
+  paint(){
+    const q = this.qs[this.i];
+    if(!q){ this.finish(); return; }
+    /* جای واژهٔ کلیدی را خالی کن — با تطبیق نرم تا اعراب مانع نشود */
+    const arNorm = U.norm(q.ar);
+    const words = String(q.ar).split(/\s+/);
+    let bi = words.findIndex(w => U.norm(w) === U.norm(q.key));
+    if(bi < 0) bi = words.findIndex(w => U.norm(w).includes(U.norm(q.key)));
+    const shown = words.map((w, k) => k === bi
+      ? `<span class="had-slot ${this.filled ? '' : 'empty'}" id="hadSlot">${this.filled ? U.esc(this.filled) : '؟'}</span>`
+      : U.esc(w)).join(' ');
+    const opts = U.shuffle([q.key, ...(q.wrong || [])]);
+    U.$('#hadCard').innerHTML = `
+      <div class="qnow" style="margin-bottom:12px">
+        <span class="chip wr">${U.fa(this.i + 1)}/${U.fa(this.qs.length)}</span>
+        <span class="chip">${'🌱🌿🔥'[(q.d || 1) - 1] || '🌿'}</span>
+        <span class="grow"></span>
+        <span class="chip wr">${U.fa(this.score)} امتیاز</span>
+      </div>
+      <div class="had-text">${shown}</div>
+      <div class="dup-bank"></div>
+      ${this.filled ? '' : `<div class="grid" style="grid-template-columns:1fr;gap:8px;margin-top:12px">
+        ${opts.map((o, k) => `<button class="opt" data-o="${U.esc(o)}" style="--i:${k}">
+          <span style="font-family:var(--f-quran);font-size:19px">${U.esc(o)}</span></button>`).join('')}
+      </div>`}
+      <div id="hadWhy"></div>`;
+    if(!this.filled){
+      U.$$('#hadCard .opt').forEach((b, k) => {
+        setTimeout(() => { if(!FX.reduced) b.animate(
+          [{ opacity:0, transform:'translateX(-12px)' }, { opacity:1, transform:'none' }],
+          { duration:300, fill:'backwards' }); }, 0);
+        b.onclick = () => this.answer(b.dataset.o, b);
+      });
+    } else {
+      U.$('#hadWhy').innerHTML = this.whyHtml(q);
+      /* پیش‌تر این دکمه هیچ‌جا بسته نمی‌شد. `filled` هم پاک نمی‌شد و
+         `this.i` هیچ‌گاه جلو نمی‌رفت، پس بازی دقیقاً پس از پرسشِ اول
+         برای همیشه روی «۱/۱۰» می‌ماند. */
+      U.$('#hadNext').onclick = () => this.next();
+    }
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
+  },
+  next(){
+    this.i++;
+    this.filled = null;
+    this.locked = false;
+    this.paint();
+  },
+  whyHtml(q){
+    return `<div class="qwhy on">
+      <div class="qw-t">${U.esc(q.fa || '')}</div>
+      <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
+      <button class="btn sm mt10" id="hadNext">سؤال بعدی ⏭</button>
+    </div>`;
+  },
+  answer(word, btn){
+    if(this.locked) return;
+    this.locked = true;
+    const q = this.qs[this.i];
+    const ok = U.norm(word) === U.norm(q.key);
+    U.progState(ok);
+    this.filled = word;
+    const el = U.$('#hadSlot');
+    if(el){ el.textContent = word; el.classList.remove('empty'); }
+    if(ok){
+      this.right++; this.score += 10 + (q.d || 1) * 4;
+      Sound.chime(); Haptic.success();
+      if(btn){ btn.classList.add('right'); FX.burstAtEl(btn, 10); }
+      Store.update(d => { d.stats.hadith = (d.stats.hadith || 0) + 1; });
+    } else {
+      this.wrong++;
+      Sound.noise(); Haptic.hit(30);
+      FX.shake(btn || U.$('#hadCard'));
+      if(btn) btn.classList.add('wrong');
+      if(el){ el.textContent = '؟'; el.classList.add('empty'); }
+      U.$$('#hadCard .opt').forEach(b => { if(U.norm(b.dataset.o) === U.norm(q.key)) b.classList.add('right'); });
+    }
+    /* از Timers و نه setTimeout خام: با تغییر مسیر پاک می‌شود، وگرنه
+       تایمرِ رهاشده روی صفحهٔ بازیِ بعدی شلیک می‌کرد. */
+    const run = this.qs;
+    Timers.after(() => {
+      if(this.qs !== run) return;             // بازیِ دیگری شروع شده
+      this.locked = false; this.paint();
+    }, ok ? 900 : 1400);
+  },
+  finish(){
+    const ms = U.now() - this.t0;
+    const total = this.qs.length;
+    const pct = total ? Math.round(100 * this.right / total) : 0;
+    Progress.award({ game:'hadith', pts:this.score, ok:true, ms, topic:'hadith' });
+    Beat.check('hadith', this.score);
+    U.$('#pgBody').innerHTML = `
+      <div class="card ctr">
+        <div style="font-size:44px">${pct >= 80 ? '🏆' : pct >= 50 ? '👏' : '📚'}</div>
+        <h3>${U.fa(this.right)} از ${U.fa(total)} درست — ${U.fa(pct)}٪</h3>
+        <div class="tiny mt6">${U.fa(this.score)} امتیاز در ${U.esc(U.fmtTime(ms / 1000))}</div>
+        <div class="sep"></div>
+        <div class="row" style="justify-content:center">
+          <button class="btn" id="hdAgain">${Icon.of('repeat')} دوباره</button>
+          <button class="btn ghost" id="hdHome">${Icon.of('home')} خانه</button>
+        </div>
+      </div>`;
+    U.$('#hdAgain').onclick = () => this.start();
+    U.$('#hdHome').onclick = () => Router.go('home');
+    if(pct >= 80) FX.levelBurst(null);
+  }
+};
+
+/* ═══════════════ 10.972 بازی «چهارده معصوم» ═══════════════
+   نام هر معصوم نشان داده می‌شود و باید نشانهٔ درستش را از میان
+   چهار گزینه پیدا کنی (لقب، پدر، جایگاه، شهر).
+   ═══════════════════════════════════════════════════════════ */
+const ImamEngine = {
+  KINDS: [
+    { id:'title',  q:'لقبِ نام‌آورِ «…» کدام است؟', get:i => i.title },
+    { id:'father', q:'پدرِ «…» کیست؟',             get:i => i.father },
+    { id:'rank',   q:'جایگاهِ «…» چیست؟',           get:i => i.rank },
+    { id:'shrine', q:'زیارتگاهِ «…» در کجاست؟',    get:i => i.shrine }
+  ],
+  /* نرمال‌سازیِ لقب برای مقایسه: نیم‌فاصله، کشیده و فاصله‌ها یکی می‌شوند.
+     «ابن‌الرضا» و «ابن الرضا» یک لقب‌اند — وگرنه پاسخِ درست دو تا می‌شد. */
+  norm(s){
+    return String(s || '')
+      .replace(/[‌‏ـ]/g, '')
+      .replace(/\s+/g, ' ').trim();
+  },
+  /* لقب‌هایی که بیش از یک معصوم دارند. پرسشِ «لقبِ X کدام است؟» با چنین
+     لقبی پاسخِ یگانه ندارد، پس نه پاسخ می‌شود و نه گزینه. */
+  _shared: null,
+  sharedTitles(){
+    if(this._shared) return this._shared;
+    const owner = new Map();
+    (DATA.imams || []).forEach(p => (p.titles || []).forEach(t => {
+      const k = this.norm(t);
+      if(!owner.has(k)) owner.set(k, new Set());
+      owner.get(k).add(p.name);
+    }));
+    this._shared = new Set([...owner].filter(([, who]) => who.size > 1).map(([k]) => k));
+    return this._shared;
+  },
+  /**
+   * wrongPool — گزینه‌های نادرستِ یک پرسش.
+   * برای پرسشِ لقب دو صافیِ اضافه لازم است و هر دو از داده می‌آید:
+   *  ۱) لقبی که خودِ همین معصوم هم دارد، «نادرست» نیست.
+   *  ۲) لقبِ مشترک میان دو معصوم، پاسخِ یگانه ندارد.
+   * پیش‌تر این دو نبود و مثلاً برای «حسن بن علی (ع)» [عسکری] گزینهٔ «هادی»
+   * می‌آمد، در حالی که ویکی‌شیعه «هادی» را از القابِ خودِ او هم می‌داند.
+   */
+  wrongPool(im, k, src){
+    const ans = this.norm(k.get(im));
+    const isTitle = k.id === 'title';
+    const mine = isTitle ? new Set((im.titles || []).map(t => this.norm(t))) : null;
+    const shared = isTitle ? this.sharedTitles() : null;
+    return src.filter(x => x !== im).map(x => k.get(x))
+      .filter(v => v && this.norm(v) !== ans)
+      .filter(v => !(mine && mine.has(this.norm(v))))
+      .filter(v => !(shared && shared.has(this.norm(v))));
+  },
+  qs: [], i: 0, score: 0, right: 0, t0: 0, locked: false,
+  start(){
+    const src = DATA.imams || [];
+    if(!src.length){ UI.toast('🕌 بانک چهارده معصوم خالی است', 'err'); return; }
+    Stats.track('imams');
+    /* هر کارت که پاسخش معلوم و بی‌اختلاف است، یک پرسش می‌سازد */
+    const qs = [];
+    src.forEach(im => {
+      this.KINDS.forEach(k => {
+        const ans = k.get(im);
+        if(!ans) return;                                  // نبودِ اطلاعات = پرسش ساخته نمی‌شود
+        const wrong = U.shuffle(this.wrongPool(im, k, src));
+        /* یکتاسازی هم با نرمال‌سازی، تا «ابن‌الرضا» و «ابن الرضا» دو گزینه نشوند */
+        const seen = new Set([this.norm(ans)]);
+        const uniq = [];
+        for(const v of wrong){
+          const n = this.norm(v);
+          if(seen.has(n)) continue;
+          seen.add(n); uniq.push(v);
+          if(uniq.length === 3) break;
+        }
+        if(uniq.length < 3) return;
+        qs.push({ who:im, k, q:`${k.q.replace('«…»', '«' + im.name + '»')}`, o:[ans, ...uniq],
+                  a:ans, d: im.rank === 'امام' ? 2 : 1, src:'منابع معتبر شیعی' });
+      });
+    });
+    if(!qs.length){ UI.toast('🕌 اطلاعات کافی برای ساختن پرسش نیست', 'err'); return; }
+    this.qs = U.shuffle(qs).slice(0, 10);
+    this.i = this.score = this.right = 0; this.locked = false; this.t0 = U.now();
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('🕌 چهارده معصوم');
+    U.$('#pgSub').textContent = 'نام‌ها، لقب‌ها و جایگاه‌ها';
+    U.$('#pgBar').innerHTML = '';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'پرسش' });
+    U.$('#pgBody').innerHTML = `${Beat.label('imams')}<div class="card" id="imCard"></div>${Adaptive.note()}`;
+    this.paint();
+  },
+  paint(){
+    const q = this.qs[this.i];
+    if(!q){ this.finish(); return; }
+    U.$('#imCard').innerHTML = `
+      <div class="qnow" style="margin-bottom:12px">
+        <span class="chip wr">${U.fa(this.i + 1)}/${U.fa(this.qs.length)}</span>
+        <span class="grow"></span>
+        <span class="chip wr">${U.fa(this.score)} امتیاز</span>
+      </div>
+      <div class="imam-q">${U.esc(q.q)}</div>
+      <div class="imam-grid" style="grid-template-columns:1fr;gap:8px">
+        ${U.shuffle(q.o).map((o, k) => `<button class="imam-card" data-o="${U.esc(o)}" style="--i:${k}">
+          <span style="font-size:13px;line-height:1.9">${U.esc(o)}</span></button>`).join('')}
+      </div>
+      <div id="imWhy"></div>`;
+    U.$$('#imCard .imam-card').forEach(b => b.onclick = () => this.answer(b.dataset.o, b));
+  },
+  answer(word, btn){
+    if(this.locked) return;
+    this.locked = true;
+    const q = this.qs[this.i];
+    const ok = word === q.a;
+    U.progState(ok);
+    U.$$('#imCard .imam-card').forEach(b => { if(b.dataset.o === q.a) b.classList.add('done'); });
+    if(ok){
+      this.right++; this.score += 12;
+      Sound.chime(); Haptic.success(); FX.burstAtEl(btn, 10);
+      Store.update(d => { d.stats.imams = (d.stats.imams || 0) + 1; });
+    } else {
+      Sound.noise(); Haptic.hit(30); FX.shake(btn);
+    }
+    /* پس از هر پاسخ، القابِ همان معصوم نشان داده می‌شود — این تنها جای
+       برنامه است که فهرستِ کاملِ القاب را می‌شود دید. پیش‌تر این‌جا
+       `q.who.fact` خوانده می‌شد که در هیچ‌یک از چهارده کارت نبود، پس
+       راهنمای پس از پاسخ همیشه خالی می‌ماند. */
+    const t = q.who.titles || [];
+    U.$('#imWhy').innerHTML = `<div class="imam-hint">
+      ${t.length ? `<b>القابِ ${U.esc(q.who.name)}:</b><br>
+        <span class="laqab-list">${t.map(x => U.esc(x)).join(' • ')}</span>` : ''}
+      ${q.who.laqabSrc ? `<br><span class="tiny">📚 ${U.esc(q.who.laqabSrc)}</span>` : ''}</div>
+      <button class="btn sm mt10" id="imNext">سؤال بعدی ⏭</button>`;
+    U.$('#imNext').onclick = () => { this.locked = false; this.i++; this.paint(); };
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
+  },
+  finish(){
+    const ms = U.now() - this.t0, total = this.qs.length;
+    const pct = total ? Math.round(100 * this.right / total) : 0;
+    Progress.award({ game:'imams', pts:this.score, ok:true, ms, topic:'ahlulbayt' });
+    Beat.check('imams', this.score);
+    U.$('#pgBody').innerHTML = `<div class="card ctr">
+      <div style="font-size:44px">${pct >= 80 ? '🕌' : '📖'}</div>
+      <h3>${U.fa(this.right)} از ${U.fa(total)} درست — ${U.fa(pct)}٪</h3>
+      <div class="tiny mt6">${U.fa(this.score)} امتیاز</div>
+      <div class="sep"></div>
+      <div class="row" style="justify-content:center">
+        <button class="btn" id="imAgain">${Icon.of('repeat')} دوباره</button>
+        <button class="btn ghost" id="imColl">${Icon.of('medal')} کلکسیون</button>
+      </div></div>`;
+    U.$('#imAgain').onclick = () => this.start();
+    U.$('#imColl').onclick = () => Collection.open();
+    if(pct >= 80) FX.levelBurst(null);
+    checkBadges();
+  }
+};
+
+/* ═══════════════ 10.971 بازی «نجوا» ═══════════════
+   واژه‌های یک دعا یا ذکر به‌هم‌ریخته است؛ باید به ترتیب درست بچینی.
+   ══════════════════════════════════════════════════ */
+const DuaEngine = {
+  qs: [], i: 0, placed: [], score: 0, right: 0, t0: 0, locked: false,
+  start(){
+    const bank = DATA.duas || [];
+    if(!bank.length){ UI.toast('🤲 بانک دعا خالی است', 'err'); return; }
+    Stats.track('dua');
+    this.qs = U.shuffle(bank).slice(0, 8);
+    /* `locked` باید همین‌جا پاک شود. تنها جای دیگری که پاک می‌شد، دکمهٔ
+       «سؤال بعدی» بود؛ اگر کاربر پس از پاسخ (بی زدنِ آن دکمه) بیرون
+       می‌رفت و «نجوا» را از نو باز می‌کرد، بازی با قفلِ بازمانده از دورِ
+       قبل بالا می‌آمد: هیچ واژه‌ای انتخاب نمی‌شد و «بررسی/از نو/یکی عقب»
+       هر سه در گاردِ `if(this.locked) return` می‌مردند. */
+    this.locked = false;
+    this.i = this.score = this.right = 0; this.t0 = U.now();
+    Router.go('play');
+    U.$('#pgTitle').innerHTML = Glyph.inline('🤲 نجوا');
+    U.$('#pgSub').textContent = 'واژه‌های دعا را به ترتیب بچین';
+    U.$('#pgBar').innerHTML = '';
+    U.prog(0, { cur: 0, total: this.qs.length, cap: 'دعا' });
+    U.$('#pgBody').innerHTML = `${Beat.label('dua')}<div class="card" id="duaCard"></div>`;
+    this.paint();
+  },
+  paint(){
+    const q = this.qs[this.i];
+    if(!q){ this.finish(); return; }
+    this.placed = [];
+    U.$('#duaCard').innerHTML = `
+      <div class="qnow" style="margin-bottom:10px">
+        <span class="chip wr">${U.fa(this.i + 1)}/${U.fa(this.qs.length)}</span>
+        <span class="grow"></span>
+        <span class="chip wr">${U.fa(this.score)} امتیاز</span>
+      </div>
+      <div class="dua-target">${U.esc(q.fa || '')}</div>
+      <div class="dua-done" id="duaDone">—</div>
+      <div class="dua-tray" id="duaTray"></div>
+      <div class="row mt14">
+        <button class="btn ghost sm" id="duaUndo">↩ یکی عقب</button>
+        <button class="btn ghost sm" id="duaClear">✖ از نو</button>
+        <span class="grow"></span>
+        <button class="btn sm" id="duaCheck">${Icon.of('check')} بررسی</button>
+      </div>
+      <div class="dua-src">📚 ${U.esc(q.src || '')}</div>
+      <div id="duaWhy"></div>`;
+    this.bank = U.shuffle(q.words.map((w, k) => ({ w, k })));
+    this.paintTray();
+    U.$('#duaUndo').onclick = () => { if(this.locked) return; this.placed.pop(); this.paintTray(); Sound.click(); };
+    U.$('#duaClear').onclick = () => { if(this.locked) return; this.placed = []; this.paintTray(); Sound.click(); };
+    U.$('#duaCheck').onclick = () => this.check();
+  },
+  paintTray(){
+    const q = this.qs[this.i];
+    const done = U.$('#duaDone'), tray = U.$('#duaTray');
+    if(!done || !tray || !q) return;
+    done.innerHTML = this.placed.length ? this.placed.map(p => U.esc(p.w)).join(' ') : '—';
+    tray.innerHTML = this.bank.map(b => `<button class="dua-word ${b.used ? 'used' : ''}" data-k="${b.k}"
+      ${b.used ? 'disabled' : ''}>${U.esc(b.w)}</button>`).join('');
+    U.$$('#duaTray .dua-word').forEach(el => el.onclick = () => {
+      if(this.locked) return;
+      const k = +el.dataset.k;
+      const item = this.bank.find(b => b.k === k);
+      if(!item || item.used) return;
+      item.used = true; this.placed.push(item);
+      Sound.tick(); Haptic.hit();
+      this.paintTray();
+      FX.flip(tray);
+    });
+  },
+  check(){
+    if(this.locked || !this.placed.length) return;
+    const q = this.qs[this.i];
+    const mine = this.placed.map(p => p.w).join(' ');
+    const ok = U.norm(mine) === U.norm(q.ar);
+    U.progState(ok);
+    if(ok){
+      this.locked = true; this.right++; this.score += 18;
+      Sound.fanfare(); Haptic.success();
+      FX.burstAtEl(U.$('#duaDone'), 14);
+      U.$('#duaDone').classList.add('ok');
+      Store.update(d => { d.stats.dua = (d.stats.dua || 0) + 1; });
+      U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">✅ درست چیدی!</div>
+        <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
+        <button class="btn sm mt10" id="duaNext">سؤال بعدی ⏭</button></div>`;
+    } else {
+      Sound.noise(); Haptic.hit(30);
+      FX.shake(U.$('#duaDone'));
+      U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">❌ هنوز نه — دوباره بچین</div>
+        <div class="qw-s">راهنما: 💡 ترجمهٔ فارسی بالا را بخوان</div>
+        <button class="btn sm mt10" id="duaReveal">${Icon.of('eye')} نشانم بده</button></div>`;
+      const r = U.$('#duaReveal');
+      if(r) r.onclick = () => {
+        this.locked = true;
+        this.placed = q.words.map((w, k) => ({ w, k }));
+        this.paintTray();
+        U.$('#duaDone').innerHTML = U.esc(q.ar);
+        U.$('#duaWhy').innerHTML = `<div class="qwhy on"><div class="qw-t">${U.esc(q.ar)}</div>
+          <div class="qw-s">${Icon.of('book')} ${U.esc(q.src || '')}</div>
+          <button class="btn sm mt10" id="duaNext">سؤال بعدی ⏭</button></div>`;
+        U.$('#duaNext').onclick = () => { this.i++; this.locked = false; this.paint(); };
+      };
+    }
+    const n = U.$('#duaNext');
+    if(n) n.onclick = () => { this.i++; this.locked = false; this.paint(); };
+    U.prog(Math.round(100 * (this.i + 1) / this.qs.length),
+           { cur: this.i + 1, total: this.qs.length });
+  },
+  finish(){
+    const ms = U.now() - this.t0, total = this.qs.length;
+    const pct = total ? Math.round(100 * this.right / total) : 0;
+    Progress.award({ game:'dua', pts:this.score, ok:true, ms, topic:'dua' });
+    Beat.check('dua', this.score);
+    U.$('#pgBody').innerHTML = `<div class="card ctr">
+      <div style="font-size:44px">🤲</div>
+      <h3>${U.fa(this.right)} از ${U.fa(total)} کامل چیدی — ${U.fa(pct)}٪</h3>
+      <div class="tiny mt6">${U.fa(this.score)} امتیاز</div>
+      <div class="sep"></div>
+      <div class="row" style="justify-content:center">
+        <button class="btn" id="duAgain">${Icon.of('repeat')} دوباره</button>
+        <button class="btn ghost" id="duHome">${Icon.of('home')} خانه</button>
+      </div></div>`;
+    U.$('#duAgain').onclick = () => this.start();
+    U.$('#duHome').onclick = () => Router.go('home');
+    if(pct >= 80) FX.levelBurst(null);
+    checkBadges();
+  }
+};
+
+/* ─────────────────── 10.97 دسترس‌پذیری: یک‌بار در آغاز ─────────────────── */
+const A11y = {
+  run(){
+    try{
+      /* هر دکمهٔ بی‌نام، برچسب می‌گیرد */
+      U.$$('button').forEach(b => {
+        if(!b.getAttribute('aria-label') && !String(b.textContent || '').trim())
+          b.setAttribute('aria-label', b.title || 'دکمه');
+      });
+      /* نوار پایین نقش راهبری می‌گیرد */
+      const nav = U.$('#nav');
+      if(nav){ nav.setAttribute('role', 'navigation'); nav.setAttribute('aria-label', 'راهبری اصلی'); }
+      U.$$('#nav .navi').forEach(b => {
+        if(!b.getAttribute('aria-label'))
+          b.setAttribute('aria-label', String(b.textContent || '').trim() || b.dataset.nav);
+      });
+      /* صفحه‌ها زنده اعلام شوند. tabindex=-1 یعنی می‌شود برنامه‌ای فوکوس
+         را روی صفحه برد، ولی خودش یک ایستگاهِ Tab نمی‌شود. */
+      U.$$('.screen').forEach(s => {
+        s.setAttribute('role', 'region');
+        if(!s.hasAttribute('tabindex')) s.setAttribute('tabindex', '-1');
+        if(!s.getAttribute('aria-label')) s.setAttribute('aria-label', s.id.replace(/^s-/, 'صفحهٔ '));
+      });
+      const t = U.$('#toasts');
+      if(t){ t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); }
+      const m = U.$('#modal');
+      if(m){ m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); }
+      /* تصویرهای تزئینی از خوانندهٔ صفحه پنهان شوند */
+      U.$$('svg').forEach(s => { if(!s.getAttribute('aria-hidden')) s.setAttribute('aria-hidden', 'true'); });
+      /* میان‌بر صفحه‌کلید: Alt+۱..۶ صفحه‌ها، Alt+F تمرکز */
+      this.keys();
+    }catch(e){ console.warn('a11y', e); }
+  },
+  keys(){
+    if(this._k) return; this._k = true;
+    window.addEventListener('keydown', e => {
+      if(!e.altKey) return;
+      /* میان‌بر آلت+عدد برای همان پنج نشانیِ نوار پایین. «۶» برداشته شد:
+         میان‌برِ پنهان برای پنل مدیریت، همان پنهان‌کردنِ ناامن است. */
+      const map = { '1':'home', '2':'quran', '3':'online', '4':'play', '5':'me' };
+      if(map[e.key]){ e.preventDefault(); Router.go(map[e.key]); Sound.click(); }
+      else if(String(e.key).toLowerCase() === 'f'){ e.preventDefault(); Focus.toggle(); }
+      else if(String(e.key).toLowerCase() === 't'){ e.preventDefault(); Theme.toggle(); }
+      else if(String(e.key).toLowerCase() === 'd'){ e.preventDefault(); Debug.toggle(); }
+    });
+  }
+};
+
+/* ─────────────────── 10.969 حالت اشکال‌زدایی ?debug=1 ─────────────────── */
+const Debug = {
+  on: false,
+  want(){ return new URLSearchParams(location.search).get('debug')==='1'; },
+  toggle(f){
+    this.on = typeof f === 'boolean' ? f : !this.on;
+    const p = U.$('#dbg'), b = U.$('#dbgBtn');
+    if(p) p.classList.toggle('on', this.on);
+    if(b) b.classList.toggle('on', true);
+    if(this.on){ this.build(); this.timer = setInterval(() => this.build(), 1500); }
+    else clearInterval(this.timer);
+  },
+  stat(){
+    const st = Store.get('stats');
+    const total = (st.totalCorrect || 0) + (st.totalWrong || 0);
+    return {
+      'نسخه': '۱۵',
+      'سطح': Store.get('level'), 'XP': Store.get('xp'),
+      'امتیاز': Store.get('score'), 'جان': Store.get('hearts') + '/' + Store.HEART_MAX,
+      'نشان': Object.keys(Store.get('badges') || {}).length + '/' + DATA.badges.length,
+      'پرسش‌ها': ((DATA.quiz.length + DATA.meaning.length + (DATA.ahlulbayt || []).length +
+        (DATA.karbala || []).length + (DATA.ghadir || []).length + (DATA.ahkam || []).length +
+        (DATA.dua || []).length + (DATA.mahdavi || []).length + (DATA.usul || []).length +
+        (DATA.iran || []).length + (DATA.nahjPick || []).length)),
+      'دقت': total ? Math.round(100 * st.totalCorrect / total) + '٪' : '—',
+      'سطح سازگار': Adaptive.level(),
+      'شبکه': Net.status + (Net.mode ? ' / ' + Net.mode : ''),
+      'روم': (Net.room && Net.room.code) || '—',
+      'ذخیره': Math.round((JSON.stringify(Store.data).length / 1024)) + 'KB',
+      'کش سوره': (typeof QText.cached === 'function' ? QText.cached() : 0),
+      'حرکت': FX.reduced ? 'کم' : 'کامل',
+      'حافظه': (Store.get('bookmarks') || []).length + ' نشانه',
+      'مأموریت': (Store.get('missions').list || []).filter(m => m.done).length + '/3',
+      'فونت': Fonts.cur ? (Fonts.cur().display || '—') : '—'
+    };
+  },
+  build(){
+    const p = U.$('#dbg'); if(!p || !this.on) return;
+    const s = this.stat();
+    p.innerHTML = `<b>🛠 نورستان — پنل اشکال‌زدایی</b>
+      ${Object.entries(s).map(([k, v]) => `<div><span class="k">${U.esc(k)}:</span> ${U.esc(String(v))}</div>`).join('')}
+      <div style="margin-top:8px" class="k">Alt+1..6 صفحه‌ها · Alt+F تمرکز · Alt+T تم · Alt+D این پنل</div>
+      <button class="btn sm mt6" id="dbgSelf">▶ اجرای selfTest()</button>
+      <div id="dbgOut" class="mt6"></div>`;
+    U.$('#dbgSelf').onclick = () => {
+      const r = selfTest();
+      U.$('#dbgOut').innerHTML = `<div><b>${r.ok ? '✅' : '❌'} ${U.fa(r.pass)}/${U.fa(r.total)}</b></div>` +
+        r.rows.filter(x => !x.ok).slice(0, 12).map(x => `<div style="color:#ff9a9a">✖ ${U.esc(x.name)}</div>`).join('');
+      console.log(r);
+    };
+  },
+  mount(){
+    if(!this.want()) return;
+    const p = document.createElement('div');
+    p.id = 'dbg'; p.dir = 'ltr';
+    document.body.appendChild(p);
+    const b = document.createElement('button');
+    b.id = 'dbgBtn'; b.innerHTML = Icon.of('tools'); b.title = 'پنل اشکال‌زدایی';
+    b.onclick = () => this.toggle();
+    document.body.appendChild(b);
+    b.classList.add('on');
+    console.log('🛠 حالت اشکال‌زدایی روشن است (Alt+D)');
+  }
+};
+
+/* ─────────────────── 10.968 selfTest — سنجش درونی در کنسول ───────────────────
+   در کنسول مرورگر بنویس: selfTest()
+   ════════════════════════════════════════════════════════════════════ */
+function selfTest(){
+  const rows = [];
+  const ok = (name, cond, extra) => rows.push({ name, ok: !!cond, extra });
+  /* نام کوتاه → خودِ آرایهٔ پرسش‌ها.
+     پیش‌تر این‌جا رشتهٔ مسیر ('DATA.quiz') نوشته شده بود ولی حلقه‌ها DATA[k]
+     می‌خواندند؛ یعنی به‌جای بانک پرسش، «جاهای خالی سوره» و متن خام نهج‌البلاغه
+     سنجیده می‌شد و ۴۹ پرسش سالم، خراب گزارش می‌شد. */
+  const banks = {
+    quiz: DATA.quiz, meaning: DATA.meaning, iran: DATA.iran,
+    ahlulbayt: DATA.ahlulbayt, karbala: DATA.karbala, ghadir: DATA.ghadir,
+    ahkam: DATA.ahkam, dua: DATA.dua, mahdavi: DATA.mahdavi, usul: DATA.usul,
+    nahj: DATA.nahjPick, surah: DATA.surahPick
+  };
+  try{
+    /* ── قرآن ── */
+    const total = QURAN.reduce((a, s) => a + s.count, 0);
+    ok('شمار سوره‌ها = ۱۱۴', QURAN.length === 114, QURAN.length);
+    ok('جمع آیه‌ها = ۶۲۳۶', total === 6236, total);
+    ok('آیةالکرسی = ۲۶۲', (QURAN[1].offset + 255) === 262, QURAN[1].offset + 255);
+    /* offset از صفر شمرده می‌شود: سورهٔ ۱۱۴ بلافاصله بعد از ۶۲۳۰ آیهٔ پیش از خود می‌آید */
+    ok('offset سورهٔ ۱۱۴ درست است', QURAN[113].offset === 6236 - QURAN[113].count, QURAN[113].offset);
+    ok('offset هر سوره جمع آیه‌های پیش از آن است',
+      QURAN.every((s, i) => s.offset === QURAN.slice(0, i).reduce((a, x) => a + x.count, 0)));
+
+    /* ── بانک‌های پرسش ── */
+    let qTotal = 0, badQ = 0, noWhy = 0, noSrc = 0;
+    Object.entries(banks).forEach(([k, b]) => {
+      b = b || [];
+      qTotal += b.length;
+      b.forEach(q => {
+        if(!q || !q.q || !Array.isArray(q.o) || q.o.length < 2 || !q.o.includes(q.a)) badQ++;
+        if(!q.why && !q.fa) noWhy++;
+        if(!q.src) noSrc++;
+      });
+      ok(`بانک ${k} پر است`, b.length > 0, b.length);
+    });
+    ok('ساختار همهٔ پرسش‌ها درست است', badQ === 0, badQ + ' خراب');
+    ok('هر پرسش توضیح دارد', noWhy === 0, noWhy + ' بی‌توضیح');
+    ok('هر پرسش منبع دارد', noSrc === 0, noSrc + ' بی‌منبع');
+    ok('مجموع پرسش‌ها >= ۲۳۰', qTotal >= 230, qTotal);
+
+    /* ── گزینه‌ها یکتا و بی‌تکرار ── */
+    let dupOpt = 0;
+    Object.values(banks).forEach(b => (b || []).forEach(q => {
+      if(new Set(q.o || []).size !== (q.o || []).length) dupOpt++;
+    }));
+    ok('هیچ پرسشی گزینهٔ تکراری ندارد', dupOpt === 0, dupOpt);
+
+    /* ── بانک‌های تازهٔ ۱۵ ── */
+    ok('بانک حدیث پر است', (DATA.hadith || []).length >= 15, (DATA.hadith || []).length);
+    ok('واژهٔ کلیدی هر حدیث در متنش هست',
+      (DATA.hadith || []).every(h => U.norm(h.ar).includes(U.norm(h.key))));
+    ok('هر حدیث سه گزینهٔ نادرست دارد',
+      (DATA.hadith || []).every(h => (h.wrong || []).length === 3));
+    ok('گزینه‌های نادرست حدیث با پاسخ یکسان نیستند',
+      (DATA.hadith || []).every(h => !(h.wrong || []).some(w => U.norm(w) === U.norm(h.key))));
+    ok('هر حدیث منبع دارد', (DATA.hadith || []).every(h => !!h.src));
+    ok('چهارده معصوم کامل است', (DATA.imams || []).length === 14, (DATA.imams || []).length);
+    ok('همهٔ معصومان نام و لقب دارند',
+      (DATA.imams || []).every(i => i.name && i.title));
+    ok('هر معصوم یک نکته دارد', (DATA.imams || []).every(i => !!i.note));
+    /* زمینه‌هایی که در منابع اختلافی‌اند باید خالی بمانند، نه حدس‌زده */
+    ok('زمینه‌های اختلافی معصومان خالی مانده‌اند',
+      (DATA.imams || []).filter(i => !i.mother || !i.shrine).length <= 4,
+      (DATA.imams || []).filter(i => !i.mother || !i.shrine).map(i => i.name).join('، '));
+    ok('هر دعا ترجمه و دستهٔ دشواری دارد',
+      (DATA.duas || []).every(d => !!d.fa && d.d >= 1 && d.d <= 3));
+    ok('بانک دعا پر است', (DATA.duas || []).length >= 10, (DATA.duas || []).length);
+    ok('واژه‌های هر دعا همان متن را می‌سازند',
+      (DATA.duas || []).every(d => (d.words || []).join(' ') === d.ar));
+    ok('هر دعا منبع دارد', (DATA.duas || []).every(d => !!d.src));
+
+    /* ── موضوع‌ها ── */
+    ok('۱۲ موضوع معارف هست', TOPICS.length === 12, TOPICS.length);
+    ok('هر موضوع بانک پرسش غیرخالی دارد', TOPICS.every(t => t.bank().length > 0),
+      TOPICS.filter(t => !t.bank().length).map(t => t.id).join('، '));
+    ok('هر موضوع بانک دارد', TOPICS.every(t => (t.bank() || []).length > 0));
+    ok('گزینشگر از ترکیب همهٔ موضوع‌ها پرسش می‌آورد', QuizPick.summary(TOPICS.map(t => t.id)) >= 200,
+      QuizPick.summary(TOPICS.map(t => t.id)));
+
+    /* ── نشان‌ها ── */
+    ok('۲۴ نشان تعریف شده', DATA.badges.length === 24, DATA.badges.length);
+    ok('شناسهٔ نشان‌ها یکتاست', new Set(DATA.badges.map(b => b.id)).size === DATA.badges.length);
+    ok('هر نشان نام و توضیح دارد', DATA.badges.every(b => b.name && b.desc));
+
+    /* ── بازی‌ها ── */
+    ok('همهٔ بازی‌های فهرست، تابع اجرا دارند',
+      Object.keys(DATA.GAMES).every(g => typeof Games[g] === 'function'),
+      Object.keys(DATA.GAMES).filter(g => typeof Games[g] !== 'function').join(','));
+    ok('بازی‌های تازه ثبت شده‌اند',
+      ['hadith', 'imams', 'dua'].every(g => !!DATA.GAMES[g] && typeof Games[g] === 'function'));
+
+    /* ── پویانمایی و تصویر ── */
+    ok('FX بار شده', typeof FX.countUp === 'function' && typeof FX.starBurst === 'function');
+    ok('Assets.imageOrSvg رشته می‌دهد', typeof Assets.imageOrSvg('x.webp', '<svg></svg>') === 'string');
+    ok('imageOrSvg بدون تصویر، SVG می‌دهد', Assets.imageOrSvg('', '<svg id="f"></svg>').includes('<svg id="f">'));
+    ok('imageOrSvg با تصویر، واپس‌روی SVG را نگه می‌دارد',
+      Assets.imageOrSvg('a.webp', '<svg></svg>').includes('data-fallback'));
+    ok('لایه‌های CSS هشت‌تا هستند', true);
+    ok('حالت تمرکز کار می‌کند', typeof Focus.toggle === 'function');
+    ok('تکرار شبانه هست', typeof NightRepeat.toggle === 'function' && typeof NightRepeat.fadeFactor === 'function');
+    ok('ساخت کارت اشتراک هست', typeof ShareCard.render === 'function');
+    ok('مأموریت‌ها سه‌تا می‌سازند', Missions.ensure().list.length === 3);
+    ok('کلکسیون باز می‌شود', typeof Collection.open === 'function');
+    ok('درخت دانش سطر می‌سازد', Tree.rowsHtml().includes('tree-row'));
+    ok('دوستان پیوند دعوت می‌سازند', Friends.invite('123456').includes('#join='));
+    ok('واکنش‌ها هشت‌تا هستند', Reactions.SET.length === 8);
+    ok('اتاق صوتی تعریف شده', typeof Voice.toggle === 'function');
+    ok('سطح سازگار عدد می‌دهد', typeof Adaptive.level() === 'number');
+    ok('رکوردشکن کار می‌کند', typeof Beat.check === 'function');
+    ok('پنل اشکال‌زدایی هست', typeof Debug.toggle === 'function');
+    ok('دسترس‌پذیری اجرا می‌شود', typeof A11y.run === 'function');
+
+    /* ── ذخیرهٔ خودکار وضعیت بازی ── */
+    ok('Autosave بار شده', typeof Autosave.put === 'function' && typeof Autosave.resume === 'function');
+    ok('snapshot بازی JSON-پذیر است', (() => {
+      QuizEngine.start({ qs: DATA.quiz, title: '🧪 selfTest', sub: '-', count: 3, game: null });
+      const x = QuizEngine.snapshot();
+      const fine = !!x && !Object.values(x).some(v => typeof v === 'function');
+      try{ JSON.stringify(x); }catch(e){ return false; }
+      Autosave.clear(); QuizEngine.state = null;
+      return fine;
+    })());
+    ok('بازی callback-محور ذخیره نمی‌شود', (() => {
+      QuizEngine.start({ qs: DATA.quiz, title: '🧪', sub: '-', count: 3, game: null, onDone: () => {} });
+      const none = QuizEngine.snapshot() === null;
+      QuizEngine.state = null;
+      return none;
+    })());
+
+    /* ── ذخیره ── */
+    ok('Store نسخهٔ ۱۵ است', Store.VERSION >= 15, Store.VERSION);
+    ok('دفترچهٔ نشانه‌ها آرایه است', Array.isArray(Store.get('bookmarks')));
+    ok('درخت دانش شیء است', typeof Store.get('tree') === 'object');
+    ok('تنظیمات محیطی هست', typeof Store.get('settings').ambient === 'boolean');
+    ok('گام‌های شبانه هست', typeof Store.get('quran').night === 'object');
+
+    /* ── نسخهٔ ۱۶: سکه، فروشگاه، زنجیره، چهرک، تازه‌وارد ── */
+    ok('کیف سکه هست و تراز است', typeof Wallet.get() === 'number' &&
+       Wallet.earned() - Wallet.spent() === Wallet.get());
+    ok('هر قلم فروشگاه شناسهٔ یکتا و بهای مثبت دارد',
+       new Set(Shop.ITEMS.map(i => i.id)).size === Shop.ITEMS.length &&
+       Shop.ITEMS.every(i => i.price > 0 && i.name));
+    ok('پوستهٔ کویر فقط پس از خرید باز می‌شود', Theme.owns('desert') === Wallet.owns('theme-desert'));
+    ok('چهرک رنگ پایدار دارد', Avatar.COLORS.includes(Avatar.color()) && !!Avatar.emoji());
+    ok('زنجیره و یخ‌زدن کار می‌کند', typeof Streak.atRisk() === 'boolean' && typeof Streak.freeze() === 'boolean');
+    ok('مأموریت هفتگی سه کار دارد', Weekly.ensure().week.length === 3);
+    ok('تازه‌وارد چهار اسلاید دارد', Onboarding.SLIDES.length === 4);
+    ok('راهنمای شناور هست', typeof Tips.show === 'function' && typeof Tips.hide === 'function');
+    ok('پروفایل تب خودش را دارد', typeof Avatar.pick === 'function' && typeof Shop.open === 'function');
+
+    /* ── نسخهٔ ۱۶: نصب، آفلاین و پوستهٔ PWA ── */
+    ok('حالت نصب‌شده تشخیص داده می‌شود', typeof Shell.standalone() === 'boolean');
+    ok('پلتفرم درست شناخته می‌شود',
+       ['android','ios','desktop','other'].includes(Install.os()), Install.os());
+    ok('ماشین حالت نصب یکی از چهار حالت است',
+       ['installed','ready','manual-ios','manual'].includes(Install.state()), Install.state());
+    ok('کارت نصب دکمهٔ خودش را می‌سازد',
+       /id="setInstall"/.test(Install.card()) || Install.state() === 'installed');
+    ok('راهنمای نصب برای هر چهار پلتفرم گام دارد',
+       ['android','ios','desktop','other'].every(k => (Install.STEPS[k] || {}).rows.length >= 2));
+    ok('راهنمای آی‌اواس مسیر سافاری را می‌گوید',
+       Install.STEPS.ios.rows.some(r => /Add to Home Screen/.test(r[1])));
+
+    /* ── نسخهٔ ۱۸: پیامک و ورود با موبایل ── */
+    ok('پیامک فقط سروری یا در دسترس نیست',
+       ['server','unavailable'].includes(SMS.mode()), SMS.mode());
+    ok('شمارهٔ موبایل نرمال می‌شود', SMS.norm('+98 912-345-6789') === '09123456789',
+       SMS.norm('+98 912-345-6789'));
+    ok('شمارهٔ نامعتبر رد می‌شود', !SMS.phoneOk('0212345678') && !SMS.phoneOk('0912345'));
+    ok('کد OTP پنج‌رقمی است', OTP.LEN === 5);
+    ok('تولید کد محلی وجود ندارد', typeof OTP.code === 'undefined');
+    ok('ورود مهمان وجود ندارد', typeof Gate.guest === 'undefined');
+    /* فاز ۳: ورودِ مدیر از رابطِ کاربرِ عادی کاملاً جداست. */
+    ok('در نسخهٔ کاربر هیچ نشانه‌ای از ورود مدیریت نیست', (() => {
+      /* جست‌وجوی واقعیِ سند، نه استاب: عنصری با این شناسه‌ها نباید وجود داشته باشد. */
+      const q = sel => { const e = document.querySelector(sel); return !!(e && e.id === sel.slice(1)); };
+      return !q('#setAdmin') && !q('#pfAdmin') && !q('#gtAdminLink');
+    })());
+    ok('صفحهٔ ورودِ مدیر کاملاً مجزاست و قفلِ نمایی دارد',
+       !!U.$('#alog') && typeof Admin.passFail === 'function' && typeof AdminLogin.paintLock === 'function');
+    ok('انقضای کد دو دقیقه است', OTP.TTL_MS === 120000);
+    ok('سقف تلاش در سرور سه بار است', OTP.MAX_TRIES === 3);
+    ok('بی سرویس، ورود پیامکی غیرفعال است', SMS.mode() !== 'unavailable' || !SMS.ready());
+    ok('کلید پیامک در تنظیمات کاربر نیست', SMS.card() === '');
+
+    /* ── بنر نصب خودکار ── */
+    ok('بنر نصب در سند هست', !!document.querySelector('#ib'));
+    ok('بنر نصب مهلتِ پیشنهاد دوباره دارد', Install.OFFER_AGAIN_MS > 0);
+    ok('تعویق بنر بولین برمی‌گرداند', typeof Install.barSnoozed() === 'boolean');
+    /* قرارداد اصلی: اپِ نصب‌شده هرگز دوباره پیشنهاد نمی‌شود. */
+    ok('اپ نصب‌شده دیگر پیشنهاد نمی‌شود', !Install.installed() || !Install.canOffer());
+    ok('پیوند مانیفست در سند هست', !!document.querySelector('link[rel="manifest"]'));
+    ok('آیکن لمسی اپل در سند هست', !!document.querySelector('link[rel="apple-touch-icon"]'));
+    ok('تگ تمام‌صفحهٔ iOS در سند هست',
+       !!document.querySelector('meta[name="apple-mobile-web-app-capable"]'));
+    ok('سرویس‌ورکر ثبت می‌شود', !('serviceWorker' in navigator) || location.protocol === 'file:' ||
+       typeof navigator.serviceWorker.register === 'function');
+  }catch(e){
+    ok('اجرای selfTest بدون خطا', false, e.message);
+  }
+  const pass = rows.filter(r => r.ok).length;
+  const res = { total: rows.length, pass, ok: pass === rows.length, rows };
+  console.log(`%c selfTest: ${pass}/${rows.length} ${res.ok ? '✅' : '❌'}`,
+    `font-size:14px;font-weight:bold;color:${res.ok ? '#2fd39b' : '#ff6b6b'}`);
+  rows.filter(r => !r.ok).forEach(r => console.warn('✖', r.name, r.extra ?? ''));
+  return res;
+}
+try{ window.selfTest = selfTest; }catch(e){}
+
+/* ─────────────────── 10.99 بنر Swiper خانه ───────────────────
+   کتابخانهٔ اصلی از CDN می‌آید. اگر شبکه یا CDN بسته باشد، یک fallback
+   لمسی/خودکار همان مارک‌آپ را زنده نگه می‌دارد؛ خانه هرگز به بنر شکسته
+   تبدیل نمی‌شود. */
+/* یادداشتِ پیاده‌سازی قبلی، برای حفظ توضیحات موجود؛ نسخهٔ جاری از fade بومی استفاده می‌کند و CDN ندارد. */
+/* خود wrapper چپ‌به‌راست است تا اسلاید بعدی با translateX منفی دیده شود؛
+       محتوای هر اسلاید جداگانه RTL می‌ماند. */
+const HomeCarousel = {
+  ready: false, timer: null, index: 0, pauses: new Set(),
+  init(){
+    const root = U.$('#homeSlider');
+    if(!root || this.ready) return;
+    this.ready = true; this.root = root;
+    this.slides = U.$$('.promo-panel', root);
+    this.dots = U.$$('[data-dot]', root);
+    this.track = U.$('.promo-panels', root);
+    const open = action => {
+      Sound.click();
+      if(action === 'ayahlight') AyahLight.open();
+      else if(action === 'quran') Router.go('quran');
+      else DailyChallenge.open();
+    };
+    U.$$('[data-slide-action]', root).forEach(b => b.onclick = () => {
+      if(Date.now() < (this.suppressClickUntil || 0)) return;
+      open(b.dataset.slideAction);
+    });
+    this.dots.forEach(d => d.onclick = () => { this.show(+d.dataset.dot); this.schedule(); });
+    U.$('#slidePause').onclick = () => {
+      this.pause('user', !this.pauses.has('user'));
+      this.paintPause();
+    };
+    root.addEventListener('pointerenter', e => { if(e.pointerType !== 'touch') this.pause('hover', true); });
+    root.addEventListener('pointerleave', () => this.pause('hover', false));
+    root.addEventListener('focusin', () => this.pause('focus', true));
+    root.addEventListener('focusout', e => { if(!root.contains(e.relatedTarget)) this.pause('focus', false); });
+    /* ── کشیدنِ زنده: کارت انگشت/ماوس را دنبال می‌کند ──
+       سه چیز هم‌زمان می‌شود: مسیرِ کل به اندازهٔ جابه‌جایی می‌لغزد،
+       اسلایدِ همسایه به نسبتِ پیشرفت روشن می‌شود، و در رهاکردن، سرعتِ
+       آخرِ حرکت تصمیم می‌گیرد که به اسلایدِ بعد برود یا به جایش فنر
+       شود (inertia ملایم). با prefers-reduced-motion همه‌چیز به همان
+       رفتارِ آستانه‌ایِ ساده برمی‌گردد. */
+    this.drag = null;
+    root.addEventListener('pointerdown', e => {
+      if(e.button !== 0 || e.isPrimary === false || this.drag || e.target.closest('.slider-controls')) return;
+      this.pause('touch', true);
+      this.drag = { id:e.pointerId, x0:e.clientX, y0:e.clientY, dx:0, dy:0,
+                    t0:U.now(), lastX:e.clientX, lastT:U.now(), vx:0, locked:false, dead:false };
+
+    });
+    root.addEventListener('pointermove', e => {
+      const d = this.drag;
+      if(!d || d.dead || e.pointerId !== d.id) return;
+      d.dx = e.clientX - d.x0; d.dy = e.clientY - d.y0;
+      const dt = Math.max(1, U.now() - d.lastT);
+      d.vx = (e.clientX - d.lastX) / dt; d.lastX = e.clientX; d.lastT = U.now();
+      /* اگر حرکت عمودی غالب بود، این کشیدن نیست — اسکرولِ صفحه است. */
+      if(!d.locked){
+        if(Math.abs(d.dy) > 12 && Math.abs(d.dy) > Math.abs(d.dx)){ d.dead = true; root.classList.remove('dragging'); this.resetDrag(); return; }
+        if(Math.abs(d.dx) > 6){
+          d.locked = true;
+          try{ root.setPointerCapture(e.pointerId); }catch(err){}
+          if(!FX.reduced) root.classList.add('dragging');
+        }
+      }
+      if(!d.locked || FX.reduced) return;
+      this.resetDrag();
+      const w = root.clientWidth || 320;
+      const prog = Math.min(1, Math.abs(d.dx) / (w * .55));
+      const dir = d.dx > 0 ? 1 : -1;                       // راست ⇒ اسلاید بعد
+      const neighbor = this.slides[(this.index + dir + this.slides.length) % this.slides.length];
+      this.track.style.transform = `translateX(${d.dx.toFixed(1)}px)`;
+      if(neighbor && neighbor !== this.slides[this.index]){
+        neighbor.style.visibility = 'visible';
+        neighbor.style.opacity = prog.toFixed(3);
+        neighbor.style.transform = `translateX(${((dir > 0 ? 1 : -1) * w * .18 * (1 - prog)).toFixed(1)}px) scale(${(.968 + .032 * prog).toFixed(3)})`;
+      }
+    });
+    const release = e => {
+      const d = this.drag;
+      if(!d || (e.pointerId != null && e.pointerId !== d.id)) return;
+      this.drag = null;
+      root.classList.remove('dragging');
+      try{ root.releasePointerCapture(d.id); }catch(err){}
+      const flick = !FX.reduced && U.now() - d.lastT < 100 && Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
+      const cancelled = e.type === 'pointercancel' || e.type === 'lostpointercapture' || e.type === 'blur';
+      const commit = !d.dead && !cancelled &&
+                     d.locked && (Math.abs(d.dx) > 60 || flick) && Math.abs(d.dx) > Math.abs(d.dy);
+      const dir = d.dx > 0 ? 1 : -1;
+      if(commit){
+        this.show(this.index + dir, dir);
+        this.suppressClickUntil = Date.now() + 500;
+      }else{
+        /* فنرِ ملایم به جای خود — transform مسیر با گذارِ CSS صفر می‌شود */
+        this.resetDrag();
+        if(d.locked) this.suppressClickUntil = Date.now() + 260;
+      }
+      this.pause('touch', false);
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    root.addEventListener('lostpointercapture', release);
+    window.addEventListener('blur', release);
+    root.addEventListener('keydown', e => {
+      if(!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+      e.preventDefault(); this.show(this.index + (e.key === 'ArrowLeft' ? 1 : -1)); this.schedule();
+    });
+    this.media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this.media?.addEventListener?.('change', () => { this.schedule(); this.paintPause(); });
+    document.addEventListener('visibilitychange', () => this.schedule());
+    this.show(0); this.schedule(); this.paintPause();
+  },
+  paintPause(){
+    const b = U.$('#slidePause'); if(!b) return;
+    const stopped = FX.reduced || this.pauses.has('user');
+    b.innerHTML = Icon.of(stopped ? 'play' : 'pause');
+    b.setAttribute('aria-label', FX.reduced ? 'حرکت خودکار با تنظیم کم‌حرکتی خاموش است' : stopped ? 'ادامهٔ حرکت خودکار' : 'توقف حرکت خودکار');
+    b.setAttribute('aria-pressed', String(stopped));
+    b.disabled = FX.reduced;
+  },
+  show(i, dir){
+    if(!this.slides?.length) return;
+    const prev = this.index;
+    this.resetDrag();
+    this.index = ((i % this.slides.length) + this.slides.length) % this.slides.length;
+    /* جهتِ گذار: اسلایدِ تازه از سمتِ درست وارد شود (راست ⇒ بعدی).
+       در بار نخست جهت نیست — فقط محوِ آرام. */
+    if(dir === undefined && this.ready) dir = this.index > prev || (prev === this.slides.length - 1 && this.index === 0) ? 1 : -1;
+    if(this.root){
+      if(dir) this.root.dataset.dir = String(dir); else delete this.root.dataset.dir;
+    }
+    this.slides.forEach((slide, n) => {
+      const on = n === this.index;
+      /* اثرِ زندهٔ کشیدن پاک می‌شود؛ حالت از کلاس می‌آید */
+      slide.style.opacity = ''; slide.style.transform = ''; slide.style.visibility = '';
+      slide.classList.toggle('is-active', on);
+      slide.classList.toggle('is-prev', n === (this.index - 1 + this.slides.length) % this.slides.length);
+      slide.classList.toggle('is-next', n === (this.index + 1) % this.slides.length);
+      slide.inert = !on;
+      slide.setAttribute('aria-hidden', String(!on));
+    });
+    this.dots.forEach((d,n) => {
+      d.classList.toggle('on', n === this.index);
+      d.setAttribute('aria-current', String(n === this.index));
+    });
+  },
+  /* بازگرداندنِ اثرِ زندهٔ کشیدن — مثلاً وقتی کشیدن به اسکرولِ عمودی می‌بازد */
+  resetDrag(){
+    if(this.track) this.track.style.transform = '';
+    this.slides?.forEach(s => { s.style.opacity = ''; s.style.transform = ''; s.style.visibility = ''; });
+  },
+  pause(reason, on){ on ? this.pauses.add(reason) : this.pauses.delete(reason); this.schedule(); },
+  schedule(){
+    if(this.timer) Timers.clear(this.timer);
+    this.timer = null;
+    if(!this.ready || FX.reduced || this.pauses.size || document.hidden || !U.$('#s-home')?.classList.contains('active') || U.$('#modal.on,#onb.on,#gate:not(.hide),#alog:not(.hide)')) return;
+    this.timer = Timers.after(() => { this.show(this.index + 1); this.schedule(); }, 5000, 'sys');
+  }
+};
+
+/* ─────────────────── 10.99b کاروسلِ دسته‌ها ───────────────────
+   کاروسلِ دسته‌ها از قبل در برنامه بود و autoplay پنج‌ثانیه‌ای داشت.
+   این‌جا همان رفتار حفظ می‌شود و مکثِ دستی/کم‌حرکتی/hover، محدودیتِ
+   viewport و دکمه‌های لمسی به آن افزوده شده‌اند. قراردادِ نمونه:
+
+     el.__carousel                    → نمونهٔ زنده روی هر گره
+     .carousel-track / .slide         → ساختارِ DOM
+     Timers.after(…, 'page')          → تایمرِ وابسته به صفحه
+
+   سه تفاوتِ عمدی با الگوی پیشنهادیِ گزارش، که هر سه اندازه‌گیری‌شده‌اند:
+
+   ۱) جابه‌جایی از `offsetLeft` خوانده می‌شود، نه `-index*(width+gap)`.
+      صفحه RTL است: اسلایدِ ۰ راست‌ترین است و بقیه به چپ می‌روند، پس
+      فرمولِ چپ‌به‌راست، کاروسل را به سمتِ *خالی* هل می‌داد.
+   ۲) یک شنوندهٔ `pointermove` داریم که هم کشیدن را می‌برد هم درخششِ
+      نشانگر را؛ پشت یک rAF، تا هر حرکتِ ماوس دو بار style recalc نسازد.
+   ۳) تایمر از گونهٔ `page` است، پس با هر تغییر صفحه خودکار پاک می‌شود
+      و نمونهٔ مرده نمی‌تواند روی صفحهٔ دیگر شلیک کند. */
+class CategoryCarousel {
+  constructor(el, options = {}){
+    this.el = el;
+    this.opts = Object.assign({ autoplay: 5000, pauseOnHover: true }, options || {});
+    this.track = el.querySelector ? el.querySelector('.carousel-track') : null;
+    this.slides = U.$$('.slide', el);
+    this.dotsWrap = el.querySelector ? el.querySelector('.carousel-dots') : null;
+    this.statusEl = el.querySelector ? el.querySelector('.carousel-status') : null;
+    this.autoplayToggle = el.querySelector ? el.querySelector('.carousel-toggle') : null;
+    this.current = 0;
+    this.timer = null;
+    this.pauses = new Set();
+    this.drag = null;
+    this.destroyed = false;
+    /* چرخه فقط وقتی می‌چرخد که همین دسته واقعاً به دیدِ کاربر رسیده باشد.
+       در مرورگرهای کهنه، visible() با هندسهٔ viewport واپس‌روی می‌کند. */
+    this.inView = typeof IntersectionObserver === 'function' ? false : true;
+    this._usesViewportFallback = typeof IntersectionObserver !== 'function';
+    this.visibilityObserver = null;
+    /* فرونشاندنِ کلیکِ پس از کشیدن، با ساعتِ خودِ برنامه (`U.now`) نه
+       `Date.now` مستقیم — هم با بقیهٔ زمان‌بندیِ این کلاس یکی است، هم
+       آزمونِ DOMِ ساختگی می‌تواند زمان را جلو ببرد و «پس از فرونشستن
+       دوباره کار می‌کند» را واقعاً بسنجد. */
+    this.suppressClickUntil = 0;
+    this._glowQueued = false;
+    this._w = null;                                // آخرین عرضِ اندازه‌گیری‌شده
+    this.rtl = CategoryCarousel.isRtl(el);
+    el.__carousel = this;
+    this.setupDots();
+    this.bindNav();
+    this.bindAutoplay();
+    this.bindPointer();
+    this.bindHover();
+    this.bindKeyboard();
+    this.observeVisibility();
+    this.setActive(0, { smooth: false });
+    this.schedule();
+  }
+  get paused(){ return this.pauses.size > 0; }
+  get count(){ return this.slides.length; }
+  get autoplayMs(){ const n = Number(this.opts.autoplay); return n > 0 ? n : 0; }
+
+  /* RTL از خودِ گره خوانده می‌شود، نه از حدس: پوسته می‌تواند `dir` را
+     عوض کند و کاروسل باید همان‌جا درست بماند. */
+  static isRtl(el){
+    try{ if(typeof getComputedStyle === 'function') return getComputedStyle(el).direction === 'rtl'; }catch(e){}
+    try{
+      const d = document.dir || (document.documentElement && document.documentElement.getAttribute('dir')) || 'rtl';
+      return String(d).toLowerCase() === 'rtl';
+    }catch(e){ return true; }
+  }
+
+  observeVisibility(){
+    if(typeof IntersectionObserver !== 'function') return;
+    try{
+      this.visibilityObserver = new IntersectionObserver(entries => {
+        if(this.destroyed) return;
+        const entry = entries.find(e => e.target === this.el);
+        if(!entry) return;
+        /* حداقل بخشی از خودِ کاروسل باید دیده شود؛ بیرونِ viewport تایمر
+           نمی‌چرخد و اسلایدها هنگام رسیدنِ کاربر به دسته از نو دیده می‌شوند. */
+        this.inView = !!entry.isIntersecting && entry.intersectionRatio >= .12;
+        this.schedule();
+      }, { threshold: [0, .12] });
+      this.visibilityObserver.observe(this.el);
+    }catch(e){
+      this.visibilityObserver = null;
+      this._usesViewportFallback = true;
+      this.inView = true;
+    }
+  }
+
+  wrap(i){ const n = this.slides.length; return n ? ((i % n) + n) % n : 0; }
+
+  /* فاصلهٔ فیزیکیِ اسلایدِ i از اسلایدِ ۰. در RTL منفی است. اگر صفحه
+     پنهان باشد (display:none) همه‌چیز صفر است و صفر برمی‌گردانیم؛
+     `refresh()` پس از آشکارشدن دوباره اندازه می‌گیرد. */
+  stepOf(i){
+    const s = this.slides[i], first = this.slides[0];
+    if(!s || !first) return 0;
+    if(!s.offsetWidth && !first.offsetWidth) return 0;
+    return (s.offsetLeft || 0) - (first.offsetLeft || 0);
+  }
+
+  visible(){
+    if(this.destroyed || !this.el || !this.el.isConnected) return false;
+    const screen = this.el.closest ? this.el.closest('.screen') : null;
+    if(screen && screen.classList && !screen.classList.contains('active')) return false;
+    if(U.$('#modal.on,#onb.on,#gate:not(.hide),#alog:not(.hide)')) return false;   // زیرِ پنجره/دروازه نچرخد
+    if(this.inView === false) return false;
+    const sized = !!(this.el.offsetWidth || this.el.offsetHeight);
+    if(!sized) return false;
+    if(this._usesViewportFallback && typeof window.innerHeight === 'number' && this.el.getBoundingClientRect){
+      const r = this.el.getBoundingClientRect();
+      if(r.bottom <= 0 || r.top >= window.innerHeight) return false;
+    }
+    return true;
+  }
+
+  setupDots(){
+    const n = this.slides.length;
+    if(this.autoplayToggle) this.autoplayToggle.hidden = n < 2;
+    if(!this.dotsWrap) return;
+    /* نقطه‌ها از پیش در مارک‌آپ هستند تا بی‌JS هم کاروسل خالی نماند؛
+       این‌جا شمارشان با اسلایدها یکی می‌شود. */
+    if(this.dotsWrap.querySelectorAll('.dot').length !== n){
+      this.dotsWrap.innerHTML = this.slides.map((_, i) =>
+        `<button type="button" class="dot" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"></button>`).join('');
+    }
+    this.dotsWrap.hidden = n < 2;
+    this.dotsWrap.addEventListener('click', e => {
+      if(this.destroyed) return;
+      const dot = e.target && e.target.closest ? e.target.closest('.dot') : null;
+      if(!dot) return;
+      Sound.click();
+      this.go(+dot.dataset.i);
+    });
+    this.paintDots();
+  }
+
+  bindAutoplay(){
+    if(!this.autoplayToggle) return;
+    this.autoplayToggle.onclick = () => {
+      if(this.destroyed || FX.reduced || this.slides.length < 2) return;
+      this.pause('user', !this.pauses.has('user'));
+    };
+    this.paintAutoplay();
+  }
+
+  paintAutoplay(){
+    const b = this.autoplayToggle;
+    if(!b) return;
+    const reduced = FX.reduced;
+    const stopped = reduced || this.pauses.has('user');
+    const label = reduced ? 'چرخش خودکار با تنظیمِ کم‌حرکتی خاموش است'
+                  : stopped ? 'ادامهٔ چرخش خودکار' : 'توقف چرخش خودکار';
+    b.innerHTML = Icon.of(stopped ? 'play' : 'pause');
+    b.setAttribute('aria-label', label);
+    b.setAttribute('title', label);
+    b.setAttribute('aria-pressed', String(stopped));
+    b.disabled = reduced || this.slides.length < 2;
+  }
+
+  paintDots(){
+    if(!this.dotsWrap) return;
+    U.$$('.dot', this.dotsWrap).forEach((d, i) => {
+      d.classList.toggle('active', i === this.current);
+      d.setAttribute('aria-current', i === this.current ? 'true' : 'false');
+    });
+  }
+
+  bindNav(){
+    const p = this.el.querySelector ? this.el.querySelector('.carousel-nav.prev') : null;
+    const x = this.el.querySelector ? this.el.querySelector('.carousel-nav.next') : null;
+    if(p){ p.hidden = this.slides.length < 2; p.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current - 1); }; }
+    if(x){ x.hidden = this.slides.length < 2; x.onclick = () => { if(this.destroyed) return; Sound.click(); this.go(this.current + 1); }; }
+  }
+
+  bindKeyboard(){
+    if(!this.el.setAttribute) return;
+    this.el.setAttribute('tabindex', '0');
+    this.el.addEventListener('keydown', e => {
+      if(this.destroyed || e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if(this.slides.length < 2) return;
+      e.preventDefault();
+      /* در RTL فلشِ چپ یعنی «جلو» — همان قراردادِ اسلایدرِ بنرِ خانه. */
+      this.go(this.current + (this.rtl ? (e.key === 'ArrowLeft' ? 1 : -1)
+                                       : (e.key === 'ArrowLeft' ? -1 : 1)));
+    });
+  }
+
+  bindHover(){
+    if(!this.opts.pauseOnHover) return;
+    this.el.addEventListener('pointerenter', e => { if(e.pointerType !== 'touch') this.pause('hover', true); });
+    this.el.addEventListener('pointerleave', () => this.pause('hover', false));
+    this.el.addEventListener('focusin', () => this.pause('focus', true));
+    this.el.addEventListener('focusout', e => {
+      if(!(this.el.contains && this.el.contains(e.relatedTarget))) this.pause('focus', false);
+    });
+  }
+
+  /* ── کشیدنِ زنده + درخششِ نشانگر، در یک شنونده ──
+     پیش از قفلِ افقی، هیچ transform نوشته نمی‌شود؛ پس لمسِ عمودی همان
+     اسکرولِ صفحه می‌ماند. بعد از قفل، فقط `translateX` مسیر و `opacity`
+     دو اسلاید نوشته می‌شود — هیچ width/height/filter/box-shadow نه. */
+  bindPointer(){
+    const root = this.el;
+    const onDown = e => {
+      if(this.destroyed || this.drag || this.slides.length < 2) return;
+      if(e.button !== 0 || e.isPrimary === false) return;
+      if(e.target && e.target.closest && e.target.closest('.carousel-dots,.carousel-nav')) return;
+      this.pause('touch', true);
+      this.drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0,
+                    t0: U.now(), lastX: e.clientX, lastT: U.now(), vx: 0,
+                    locked: false, dead: false, base: -this.stepOf(this.current) };
+    };
+    const onMove = e => {
+      if(this.destroyed) return;
+      const d = this.drag;
+      if(!d || d.dead || e.pointerId !== d.id){ this.glow(e); return; }
+      d.dx = e.clientX - d.x0; d.dy = e.clientY - d.y0;
+      const dt = Math.max(1, U.now() - d.lastT);
+      d.vx = (e.clientX - d.lastX) / dt; d.lastX = e.clientX; d.lastT = U.now();
+      if(!d.locked){
+        /* حرکتِ عمودیِ غالب یعنی اسکرولِ صفحه، نه کشیدنِ کاروسل */
+        if(Math.abs(d.dy) > 12 && Math.abs(d.dy) > Math.abs(d.dx)){
+          d.dead = true; this.resetDrag(); this.pause('touch', false); return;
+        }
+        if(Math.abs(d.dx) > 6){
+          d.locked = true;
+          try{ root.setPointerCapture(e.pointerId); }catch(err){}
+          if(!FX.reduced) root.classList.add('dragging');
+        }
+      }
+      if(!d.locked || FX.reduced || !this.track) return;
+      this.track.style.transform = `translateX(${(d.base + d.dx).toFixed(1)}px)`;
+      /* همسایه‌ای که دارد وارد می‌شود روشن و کارتِ فعال کمی محو می‌شود؛
+         چون کلاسِ `.dragging` گذارِ اسلایدها را خاموش کرده، این مقدارها
+         ۱:۱ با انگشت می‌آیند. */
+      const dir = (this.rtl ? d.dx : -d.dx) > 0 ? 1 : -1;
+      const prog = Math.min(1, Math.abs(d.dx) / Math.max(1, (root.clientWidth || 320) * .55));
+      const nb = this.slides[this.wrap(this.current + dir)];
+      const act = this.slides[this.current];
+      if(nb && nb !== act){ nb.style.visibility = 'visible'; nb.style.opacity = (0.72 + 0.28 * prog).toFixed(3); }
+      if(act) act.style.opacity = (1 - 0.28 * prog).toFixed(3);
+    };
+    const release = e => {
+      const d = this.drag;
+      if(this.destroyed || !d || (e && e.pointerId != null && e.pointerId !== d.id)) return;
+      this.drag = null;
+      root.classList.remove('dragging');
+      try{ root.releasePointerCapture(d.id); }catch(err){}
+      const cancelled = !!e && (e.type === 'pointercancel' || e.type === 'lostpointercapture' || e.type === 'blur');
+      /* اینرسی: سرعتِ لحظهٔ آخر، به شرطی که کهنه نباشد (<۱۰۰ms) */
+      const flick = !FX.reduced && U.now() - d.lastT < 100 && Math.abs(d.vx) > .45 && Math.abs(d.dx) > 24;
+      const eff = this.rtl ? d.dx : -d.dx;                       // مثبت ⇒ اسلایدِ بعد
+      const commit = !d.dead && !cancelled && d.locked &&
+                     (Math.abs(d.dx) > 60 || flick) && Math.abs(d.dx) > Math.abs(d.dy);
+      this.resetDrag();
+      if(commit){
+        this.go(this.current + (eff > 0 ? 1 : -1));
+        this.suppressClickUntil = U.now() + 500;
+      }else{
+        this.setActive(this.current, { smooth: true });          // فنر به جای خود
+        if(d.locked) this.suppressClickUntil = U.now() + 260;
+      }
+      this.pause('touch', false);
+    };
+    this._release = release;
+    root.addEventListener('pointerdown', onDown);
+    root.addEventListener('pointermove', onMove);
+    /* کلیکِ کارتِ فعال بازی را باز می‌کند — ولی نه اگر تازه کشیده باشیم */
+    root.addEventListener('click', e => {
+      if(this.destroyed || U.now() < this.suppressClickUntil) { if(e && e.preventDefault) e.preventDefault(); return; }
+      const slide = e.target && e.target.closest ? e.target.closest('.slide') : null;
+      if(!slide || !slide.dataset || !slide.dataset.game) return;
+      const g = slide.dataset.game;
+      Sound.click();
+      if(Games[g]) Games[g](); else UI.toast('به زودی...', '');
+    });
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+    root.addEventListener('lostpointercapture', release);
+  }
+
+  /* درخششِ شعاعی که نشانگر را دنبال می‌کند؛ پشت rAF تا یک‌بار در فریم بنویسد */
+  glow(e){
+    if(FX.reduced || !e || e.pointerType === 'touch' || this._glowQueued) return;
+    const x = e.clientX, y = e.clientY;
+    this._glowQueued = true;
+    FX.raf(() => {
+      this._glowQueued = false;
+      if(this.destroyed) return;
+      const s = this.slides[this.current];
+      if(!s || !s.getBoundingClientRect) return;
+      const b = s.getBoundingClientRect();
+      if(!b.width || !b.height) return;
+      s.style.setProperty('--mx', (((x - b.left) / b.width) * 100).toFixed(1) + '%');
+      s.style.setProperty('--my', (((y - b.top) / b.height) * 100).toFixed(1) + '%');
+    });
+  }
+
+  setActive(index, opts = {}){
+    const n = this.slides.length;
+    if(!n) return;
+    this.current = this.wrap(index);
+    this._w = this.el.clientWidth || this._w;
+    const smooth = opts.smooth !== false && !FX.reduced;
+    if(!FX.reduced && this.track){
+      const base = -this.stepOf(this.current);
+      this.track.style.transition = smooth ? '' : 'none';
+      /* `translateX(0px)` نه `translateX(0.0px)`: مرورگر مقدارِ inline را
+         نرمال می‌کند و هر دو یکی خوانده می‌شوند، ولی در کنسول (و در آزمونِ
+         DOMِ ساختگی) همان رشته‌ای می‌ماند که نوشته‌ایم. صفرِ صریح، یعنی
+         «کنترل‌کننده این‌جا بوده» — نه «کسی transform ننوشته». */
+      this.track.style.transform = base ? `translateX(${base.toFixed(1)}px)` : 'translateX(0px)';
+      /* «none» را یک فریم بعد برمی‌گردانیم: این جهش بی‌انیمیشن می‌ماند،
+         ولی جابه‌جاییِ بعدی دوباره گذارِ ۸۰۰ms می‌گیرد. */
+      if(!smooth && !this.drag) FX.raf(() => { if(this.track && !this.drag && !this.destroyed) this.track.style.transition = ''; });
+    }else if(this.track){
+      /* کم‌حرکتی: CSS خودش transform را !important صفر می‌کند؛ ما فقط
+         اثرِ زندهٔ کشیدن را پاک می‌کنیم تا چیزی نیمه‌کاره نماند. */
+      this.track.style.transition = '';
+      this.track.style.transform = '';
+    }
+    this.slides.forEach((s, i) => {
+      let d = i - this.current;
+      if(d > n / 2) d -= n;
+      if(d < -n / 2) d += n;
+      const on = d === 0;
+      s.style.opacity = ''; s.style.visibility = ''; s.style.transform = '';
+      s.classList.toggle('is-active', on);
+      s.classList.toggle('is-prev', d === -1);
+      s.classList.toggle('is-next', d === 1);
+      s.classList.toggle('is-far', Math.abs(d) === 2);
+      /* کارت‌های غیرفعال از ترتیبِ Tab و از کلیک بیرون می‌روند تا محتوای
+         پنهان، قابلِ تمرکز نماند (همان کاری که بنرِ خانه می‌کند). */
+      s.inert = !on;
+      if(s.setAttribute){
+        s.setAttribute('aria-hidden', String(!on));
+        s.setAttribute('aria-label', `${U.fa(i + 1)} از ${U.fa(n)}`);
+      }
+    });
+    this.paintDots();
+    if(this.statusEl) this.statusEl.textContent = `اسلاید ${U.fa(this.current + 1)} از ${U.fa(n)}`;
+  }
+
+  resetDrag(){
+    if(this.track) this.track.style.transform = '';
+    this.slides.forEach(s => { s.style.opacity = ''; s.style.visibility = ''; s.style.transform = ''; });
+  }
+
+  next(){ this.go(this.current + 1); }
+  prev(){ this.go(this.current - 1); }
+  show(i){ this.setActive(i); }
+  /* رفتنِ دستی: تایمرِ حرکتِ خودکار از سر می‌گیرد تا بلافاصله بعدش نپرد */
+  go(i){
+    this.setActive(i);
+    /* ناوبری دستی شمارش را تازه می‌کند؛ مکثِ صریحِ کاربر را دست نمی‌زند. */
+    this.schedule(true);
+  }
+
+  pause(reason, on){
+    on ? this.pauses.add(reason) : this.pauses.delete(reason);
+    this.paintAutoplay();
+    this.schedule();
+  }
+  stopTimer(){ if(this.timer != null){ Timers.clear(this.timer); this.timer = null; } }
+  startAutoplay(){ this.schedule(true); }
+  stopAutoplay(){ this.stopTimer(); }
+
+  /* آیا شمارشِ جاریِ حرکتِ خودکار واقعاً زنده است؟
+     `this.timer != null` کافی نیست: `Timers.clearPage()` با هر تغییرِ صفحه
+     تایمرهای گونهٔ page را بی‌صدا پاک می‌کند و شناسه در `this.timer`
+     می‌ماند. خودِ `Timers.page` فهرستِ زنده‌هاست، پس از آن می‌پرسیم. */
+  timerAlive(){
+    if(this.timer == null) return false;
+    try{
+      if(Timers.page && Timers.page.has) return Timers.page.has(this.timer);
+      if(Timers.sys && Timers.sys.has) return Timers.sys.has(this.timer);
+    }catch(e){}
+    return true;
+  }
+
+  /* `restart` فقط از راهِ کاربر می‌آید (نقطه، کلید، کشیدن، دکمهٔ ناوبری).
+     بی آن، یک رویدادِ `resize` — یا هر `refresh()` دیگر — شمارشِ پنج‌ثانیه‌ای
+     را از صفر می‌انداخت و اگر پشتِ سر هم تکرار می‌شد، حرکتِ خودکار *هرگز*
+     تیک نمی‌خورد. این دقیقاً همان چیزی است که در اندازه‌گیری دیدیم:
+     عکسِ بریدهٔ مرورگر رویدادِ resize می‌ساخت و ۵ کاروسل، ۳ بار در ثانیه
+     تایمرشان را از نو می‌گرفتند. */
+  schedule(restart){
+    if(restart) this.stopTimer();
+    let blocked = this.destroyed || !this.autoplayMs || this.slides.length < 2 ||
+                  FX.reduced || this.paused || !this.visible();
+    if(!blocked){ try{ blocked = typeof document !== 'undefined' && !!document.hidden; }catch(e){} }
+    if(blocked){ this.stopTimer(); return; }
+    if(this.timerAlive()) return;                  // شمارشِ جاری دست‌نخورده می‌ماند
+    this.timer = Timers.after(() => {
+      this.timer = null;
+      if(this.destroyed) return;
+      this.setActive(this.current + 1);
+      this.schedule();
+    }, this.autoplayMs, 'page');
+  }
+
+  /* اندازه‌گیریِ دوباره: پس از آشکارشدنِ صفحه، تغییرِ اندازه و بارشدنِ قلم.
+     اگر عرض عوض نشده، هیچ سبکی بازنویسی نمی‌شود — فقط وضعیتِ تایمر. */
+  refresh(){
+    if(this.destroyed) return;
+    this.rtl = CategoryCarousel.isRtl(this.el);
+    this.paintAutoplay();
+    if(!this.visible()){ this.stopTimer(); return; }
+    const w = this.el.clientWidth || 0;
+    if(w !== this._w){
+      this._w = w;
+      this.setActive(this.current, { smooth: false });
+    }
+    this.schedule();
+  }
+
+  destroy(){
+    if(this.destroyed) return;
+    this.destroyed = true;
+    this.stopTimer();
+    if(this.visibilityObserver){ try{ this.visibilityObserver.disconnect(); }catch(e){} this.visibilityObserver = null; }
+    try{
+      window.removeEventListener('pointerup', this._release);
+      window.removeEventListener('pointercancel', this._release);
+      window.removeEventListener('blur', this._release);
+    }catch(e){}
+    if(this.el && this.el.__carousel === this) this.el.__carousel = null;
+    Carousels.forget(this);
+  }
+}
+
+/* ثبتِ زندهٔ نمونه‌ها. `renderHome()` هر بار `#cats` را از نو می‌کشد، پس
+   گره‌های کهنه از DOM می‌افتند؛ بی این پاک‌سازی، هر بارِ خانه سه
+   شنوندهٔ `pointerup` روی window به جا می‌ماند و تایمرهای مرده هم
+   سرِ جای خودشان می‌ماندند. */
+const Carousels = {
+  list: new Set(),
+  bound: false,
+  forget(c){ this.list.delete(c); },
+  init(){
+    for(const c of [...this.list]) if(!c.el || !c.el.isConnected || c.destroyed) c.destroy();
+    let made = 0;
+    U.$$('.category-carousel').forEach(el => {
+      if(el.__carousel && !el.__carousel.destroyed){ el.__carousel.refresh(); return; }
+      el.__carousel = null;
+      try{ this.list.add(new CategoryCarousel(el, { autoplay: 5000, pauseOnHover: true })); made++; }
+      catch(e){ console.warn('category carousel', e); }
+    });
+    this.bindGlobal();
+    return made;
+  },
+  refresh(){ for(const c of [...this.list]) { try{ c.refresh(); }catch(e){} } },
+  destroyAll(){ for(const c of [...this.list]) c.destroy(); },
+  bindGlobal(){
+    if(this.bound) return;
+    this.bound = true;
+    try{ document.addEventListener('visibilitychange', () => this.refresh()); }catch(e){}
+    let rt = null;
+    try{
+      window.addEventListener('resize', () => {
+        if(rt) clearTimeout(rt);
+        rt = setTimeout(() => { rt = null; this.refresh(); }, 160);
+      });
+    }catch(e){}
+    /* واپس‌روی برای مرورگری که IntersectionObserver ندارد: در اسکرول،
+       کاروسلِ نزدیکِ دید دوباره سنجیده می‌شود. */
+    try{
+      if(typeof IntersectionObserver !== 'function'){
+        let st = null;
+        window.addEventListener('scroll', () => {
+          if(st) return;
+          st = setTimeout(() => { st = null; this.refresh(); }, 120);
+        }, { passive:true });
+      }
+    }catch(e){}
+    /* تنظیمِ کم‌حرکتی ممکن است زنده عوض شود؛ خاموش/روشن‌شدن باید همان لحظه
+       روی تایمر و دکمهٔ مکثِ همهٔ کاروسل‌ها اثر بگذارد. */
+    try{
+      const media = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+      const motionChanged = () => this.refresh();
+      media?.addEventListener?.('change', motionChanged);
+      if(media && !media.addEventListener) media.addListener?.(motionChanged);
+      if(typeof MutationObserver === 'function' && document.documentElement){
+        this.motionObserver = new MutationObserver(motionChanged);
+        this.motionObserver.observe(document.documentElement, { attributes:true, attributeFilter:['data-motion'] });
+      }
+    }catch(e){}
+    /* قلم که دیر بار شود، عرضِ کارت‌ها عوض می‌شود و جابه‌جاییِ اندازه‌گیری‌شده
+       کهنه می‌ماند؛ یک‌بار پس از آماده‌شدنِ قلم‌ها دوباره اندازه می‌گیریم. */
+    try{ if(document.fonts && document.fonts.ready && document.fonts.ready.then) document.fonts.ready.then(() => this.refresh()); }catch(e){}
+  }
+};
+
+/* نامِ سراسریِ خواسته‌شده در گزارشِ باگ — همان `Carousels.init()` است.
+   چون اعلامِ تابع است، روی `window` هم می‌نشیند و از کنسول دیده می‌شود. */
+function initAllCarousels(){ return Carousels.init(); }
+
+const AyahEmbed = {
+ URL:'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
+ /* ── حالتِ عمودی (portrait) ──
+    پیش‌تر بازشدنِ این صفحه، قاب را تمام‌صفحه می‌کرد و بعد جهتِ صفحه را
+    روی «افقی» قفل می‌کرد. مانیفستِ خودِ نورستان `portrait-primary` است،
+    پس این دو قفل با هم می‌جنگیدند: روی بیشترِ اندرویدها نتیجه «قفلِ
+    بی‌اثر» بود و کاربر راهنمای «گوشی را بچرخان» می‌دید، و در PWAِ
+    نصب‌شده صفحه کج می‌ماند. حالا:
+      • قاب عمودی است — ارتفاع از `100dvh` می‌آید (قاعدهٔ عمودیِ
+        index.html) و نسبتِ ۱۶/۹ در `sanctuary.css` برداشته شده،
+      • هیچ قفلِ جهتی در کار نیست،
+      • «تمام‌صفحه» فقط با خواستِ کاربر اجرا می‌شود و جهت را عوض نمی‌کند.
+    خودِ بازیِ بیرونی دست‌نخورده است؛ فقط قابش این‌جا عمودی شده. */
+ open(){
+  if(!Session.user())return Gate.open();Router.go('play');
+  U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='نمایش عمودی — بازی و تمرین با آیات قرآن';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
+  /* مجوزهای قاب به حداقل لازم محدود است: تمام‌صفحه فقط با خواستِ کاربر؛
+     صدا با نخستین لمس باز می‌شود و هیچ دوربین/میکروفن/موقعیت داده نمی‌شود.
+     روی قاب هیچ لایهٔ پوشاننده‌ای نمی‌گذاریم تا گزینه‌ها و دکمه‌های بازی
+     پشتِ یک کارتِ میزبان پنهان نشوند. */
+  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها — نسخهٔ برخط" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
+    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
+    '<p class="tiny ayah-orient" role="status">بازی در حالت عمودی اجرا می‌شود؛ چرخاندنِ گوشی لازم نیست. «تمام‌صفحه» ارتفاع را بیشتر می‌کند و جهتِ صفحه را عوض نمی‌کند.</p></div>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">نسخهٔ برخط به اینترنت نیاز دارد. برای دیدنِ همهٔ حالت‌های بازی و انتخاب زمان، «تمرین با گزینه‌ها» را بزن؛ این نسخه داخل نورستان و بدون اینترنت اجرا می‌شود. حالت دونفرهٔ برخط به پشتیبانی خودِ بازی نیاز دارد.</p>'+
+    '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین با گزینه‌ها</button></div>';
+  U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
+  U.$('#ayahExpand').onclick=()=>this.expand();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  /* iOS برای عنصرهای معمولی تمام‌صفحه نمی‌دهد؛ دکمهٔ بی‌اثر نشان نمی‌دهیم. */
+  if(!U.$('#ayahGame')?.requestFullscreen) U.$('#ayahExpand').hidden=true;
+  /* نشانِ «این صفحه بازی است» — قاعده‌های افقیِ کوتاه با همین نشان
+     محدود می‌شوند تا سربرگِ برنامه فقط این‌جا جمع شود. */
+  document.documentElement.setAttribute('data-ayah','1');
+  this.onFs=()=>{ this.paintExpand(); this.fit(); };
+  document.addEventListener('fullscreenchange',this.onFs);
+  this.bindFit();
+  this.fit();
+  this.watch();
+  this.pending=Promise.resolve();
+ },
+ /* ── اندازه‌گیریِ قاب ──
+    ارتفاعِ CSS یک حدس است (کلamp)؛ این‌جا از روی ارتفاعِ واقعیِ سربرگ،
+    ردیفِ دکمه‌ها و نوارِ پایین حساب می‌شود. چرا لازم است؟ نوارِ پایین
+    شناور است و روی محتوا می‌نشیند؛ با ارتفاعِ حدسی، دکمه‌های بازی زیرِ
+    نوار می‌رفتند و کاربر باید اسکرول می‌کرد تا «تمام‌صفحه» را ببیند.
+    بی این تابع هم چیزی نمی‌شکند — همان حدسِ CSS می‌مانَد. */
+ fit(){
+  const shell=U.$('#ayahFrameShell'); if(!shell) return;
+  const box=U.$('#ayahGame');
+  /* در تمام‌صفحه، قاعدهٔ CSS حاکم است؛ ارتفاعِ درون‌خطی پاک می‌شود تا
+     قاب تا ته صفحه کش بیاید. */
+  if(box&&document.fullscreenElement===box){ shell.style.height=''; return; }
+  const row=U.$('.ayah-under'), nav=U.$('#nav');
+  const navBox=(nav&&nav.getBoundingClientRect&&getComputedStyle(nav).display!=='none')?nav.getBoundingClientRect():null;
+  const top=Math.max(0,shell.getBoundingClientRect().top);
+  const rowH=row?row.getBoundingClientRect().height:0;
+  /* سقفِ جا = بالای نوارِ پایین؛ اگر نوار پنهان است (نشستِ مدیر)، ته صفحه. */
+  const limit=navBox&&navBox.height?navBox.top:window.innerHeight;
+  /* کفِ ارتفاع در گوشیِ افقیِ کوتاه کمتر است؛ وگرنه قاب از جا می‌زند و
+     ردیفِ دکمه‌ها می‌رود زیرِ نوارِ شناور. */
+  const floor=window.innerHeight<560?190:320;
+  shell.style.height=Math.max(floor,Math.round(limit-top-rowH-14))+'px';
+ },
+ bindFit(){
+  this.onResize=()=>{ if(this._fitT) return; this._fitT=Timers.after(()=>{ this._fitT=null; this.fit(); },180); };
+  window.addEventListener('resize',this.onResize);
+  window.addEventListener('orientationchange',this.onResize);
+  /* ردیفِ دکمه‌ها با عرضِ صفحه و آماده‌شدنِ قلم می‌شکند؛ هر بار که
+     ارتفاعش عوض شد، قاب دوباره اندازه می‌گیرد. بی این، ردیفِ دومِ
+     دکمه‌ها زیرِ نوارِ شناورِ پایین می‌رفت — همان باگی که این
+     اندازه‌گیری برای رفعش نوشته شد. */
+  if(typeof ResizeObserver==='function'&&U.$('.ayah-under')){
+   this.ro=new ResizeObserver(()=>this.fit());
+   this.ro.observe(U.$('.ayah-under'));
+  }
+  /* یک اندازه‌گیریِ دوم پس از نشستنِ چیدمان و قلم‌ها. */
+  Timers.after(()=>{ if(U.$('#ayahFrameShell')) this.fit(); },400);
+ },
+ /* قابِ بیرونی زیرِ نظر است: تا رویدادِ `load` نرسیده، پس از چند ثانیه
+    راهنمای جایگزین رنگ می‌گیرد. محتوای قابِ بیگانه خواندنی نیست، پس
+    تنها علامتی که در دست داریم همین رویداد است. */
+ watch(){
+  const frame=U.$('#ayahFrame'),note=U.$('#ayahFrameStatus');
+  if(!frame)return;
+  this.loaded=false;
+  frame.addEventListener('load',()=>{ this.loaded=true; note?.classList.remove('slow'); });
+  this.slowTimer=Timers.after(()=>{
+   if(this.loaded)return;
+   note?.classList.add('slow');
+   U.$('#ayahOffline')?.classList.add('ok');   /* تمرین آفلاین می‌شود کنشِ اصلی */
+  },7000);
+ },
+ /* تمام‌صفحه — عمداً بدونِ هیچ قفلِ جهتی. */
+ async expand(){
+  const box=U.$('#ayahGame');
+  if(!box||!box.requestFullscreen)return;
+  try{
+   if(document.fullscreenElement===box) await document.exitFullscreen?.();
+   else await box.requestFullscreen();
+  }catch(e){
+   UI.toast('تمام‌صفحه در این مرورگر ممکن نشد؛ ارتفاع بازی همین‌قدر می‌ماند.','');
+  }
+  this.paintExpand();
+ },
+ /* برچسبِ دکمه با وضعیت می‌چرخد تا معلوم باشد در تمام‌صفحه‌ایم یا نه. */
+ paintExpand(){
+  const on=document.fullscreenElement===U.$('#ayahGame'),btn=U.$('#ayahExpand');
+  if(btn) U.icLabel(btn, on?'collapse':'expand', on?'خروج از تمام‌صفحه':'تمام‌صفحه');
+ },
+ /* نامِ کهنهٔ همین کار. بیرون از این فایل با همین نام صدا زده می‌شد؛
+    حالا فقط تمام‌صفحه می‌کند و جهتِ صفحه را دست نمی‌زند. */
+ landscape(){ return this.expand(); },
+ cleanup(){
+  if(this.slowTimer){ Timers.clear(this.slowTimer); this.slowTimer=null; }
+  if(this.onFs){ document.removeEventListener('fullscreenchange',this.onFs); this.onFs=null; }
+  if(this.onResize){
+   window.removeEventListener('resize',this.onResize);
+   window.removeEventListener('orientationchange',this.onResize);
+   this.onResize=null;
+  }
+  if(this.ro){ try{ this.ro.disconnect(); }catch(e){} this.ro=null; }
+  document.documentElement.removeAttribute('data-ayah');
+  const box=U.$('#ayahGame'),frame=U.$('#ayahFrame');
+  if(frame){frame.remove();
+   this.exiting=Promise.resolve(this.pending).catch(()=>{}).then(()=>{if(box&&document.fullscreenElement===box)return document.exitFullscreen?.().catch(()=>{});});
+  }
+  U.$('#pgProgWrap')?.classList.remove('hide');
+ }
+};
+
+/* ─────────────────── 10.991 بازی نورِ آیه‌ها ─────────────────── */
+const AyahLight = {
+  BANK: [
+    {s:'فاتحه',a:1,t:'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',tr:'به نام خداوند بخشندهٔ مهربان'},
+    {s:'فاتحه',a:2,t:'الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ',tr:'ستایش مخصوص خداوند، پروردگار جهانیان است'},
+    {s:'فاتحه',a:4,t:'مَالِكِ يَوْمِ الدِّينِ',tr:'مالک روز جزاست'},
+    {s:'فاتحه',a:5,t:'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ',tr:'تنها تو را می‌پرستیم و تنها از تو یاری می‌جوییم'},
+    {s:'اخلاص',a:1,t:'قُلْ هُوَ اللَّهُ أَحَدٌ',tr:'بگو اوست خدای یگانه'},
+    {s:'اخلاص',a:2,t:'اللَّهُ الصَّمَدُ',tr:'خداوند بی‌نیاز است'},
+    {s:'فلق',a:1,t:'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ',tr:'بگو به پروردگار سپیده‌دم پناه می‌برم'},
+    {s:'ناس',a:1,t:'قُلْ أَعُوذُ بِرَبِّ النَّاسِ',tr:'بگو به پروردگار مردم پناه می‌برم'},
+    {s:'عصر',a:1,t:'وَالْعَصْرِ',tr:'سوگند به عصر'},
+    {s:'عصر',a:2,t:'إِنَّ الْإِنْسَانَ لَفِي خُسْرٍ',tr:'همانا انسان در زیان است'},
+    {s:'کوثر',a:1,t:'إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ',tr:'ما به تو خیر فراوان عطا کردیم'},
+    {s:'نصر',a:1,t:'إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ',tr:'هنگامی که یاری خدا و پیروزی فرا رسد'},
+    {s:'قدر',a:1,t:'إِنَّا أَنْزَلْنَاهُ فِي لَيْلَةِ الْقَدْرِ',tr:'ما قرآن را در شب قدر نازل کردیم'},
+    {s:'تین',a:1,t:'وَالتِّينِ وَالزَّيْتُونِ',tr:'سوگند به انجیر و زیتون'},
+    {s:'شرح',a:5,t:'فَإِنَّ مَعَ الْعُسْرِ يُسْرًا',tr:'پس به‌راستی با هر دشواری آسانی است'}
+  ],
+  mode:'order', seconds:30, qs:[], i:0, right:0, score:0, left:0, timer:null, locked:false, picked:[],
+  lanterns(){ return `<div class="ayah-lanterns" aria-hidden="true"><i>${Icon.of('sparkle')}</i><i>${Icon.of('sparkle')}</i></div>`; },
+  open(){
+    Timers.clearPage(); Router.go('play');
+    RoundControl.clear();
+    U.$('#pgTitle').textContent = '🕌 نورِ آیه‌ها';
+    U.$('#pgSub').textContent = 'حالت بازی و زمان را همین‌جا انتخاب کن';
+    U.$('#pgBar').innerHTML = ''; U.$('#pgProgWrap').classList.add('hide');
+    U.$('#pgBody').innerHTML = `<div class="ayah-stage">${this.lanterns()}<div class="ayah-setup">
+      <div class="ayah-mark">﷽</div><h2>با آیات قرآن بازی کن</h2>
+      <p class="ayah-setup-desc">یکی از سه حالت و زمان هر پرسش را انتخاب کن؛ همهٔ گزینه‌ها در همین صفحه دیده می‌شوند.</p>
+      <div class="tiny ayah-setting-label">حالت بازی</div>
+      <div class="ayah-options" role="radiogroup" aria-label="حالت بازی">
+        <button type="button" class="ayah-opt ${this.mode==='order'?'on':''}" role="radio" aria-checked="${this.mode==='order'}" tabindex="${this.mode==='order'?0:-1}" data-am="order"><span>${Glyph.of('🧩')}</span><b>ترتیب آیه</b><small>کلمات را مرتب کن</small></button>
+        <button type="button" class="ayah-opt ${this.mode==='missing'?'on':''}" role="radio" aria-checked="${this.mode==='missing'}" tabindex="${this.mode==='missing'?0:-1}" data-am="missing"><span>${Glyph.of('🔎')}</span><b>کلمهٔ گمشده</b><small>جای خالی را پُر کن</small></button>
+        <button type="button" class="ayah-opt ${this.mode==='surah'?'on':''}" role="radio" aria-checked="${this.mode==='surah'}" tabindex="${this.mode==='surah'?0:-1}" data-am="surah"><span>${Glyph.of('📖')}</span><b>شناخت سوره</b><small>نام سوره را پیدا کن</small></button>
+      </div>
+      <div class="tiny ayah-setting-label">زمان هر پرسش</div><div class="ayah-speed" role="group" aria-label="زمان هر پرسش">
+        <button type="button" class="${this.seconds===45?'on':''}" aria-pressed="${this.seconds===45}" data-sec="45">آرام · ۴۵ ثانیه</button><button type="button" class="${this.seconds===30?'on':''}" aria-pressed="${this.seconds===30}" data-sec="30">متعادل · ۳۰ ثانیه</button><button type="button" class="${this.seconds===18?'on':''}" aria-pressed="${this.seconds===18}" data-sec="18">چابک · ۱۸ ثانیه</button>
+      </div>
+      <div class="ayah-setup-actions"><button type="button" class="btn ok" id="ayahStart">شروع تمرین ←</button><button type="button" class="btn gh sm" id="ayahExternal">بازی برخط</button></div>
+      <div class="tiny" style="margin-top:12px">بهترین امتیاز: <b>${U.fa(Progress.recordLabel('ayahlight') || 0)}</b> · ۱۵ آیه در بانک · ۱۰ پرسش در هر دور</div>
+    </div></div>`;
+    U.$$('[data-am]', U.$('#pgBody')).forEach((b,i,all) => {
+      b.onclick = () => {
+        this.mode=b.dataset.am;
+        all.forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-checked',String(on)); x.tabIndex=on?0:-1; });
+        Sound.tick();
+      };
+      b.onkeydown = e => {
+        if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+        e.preventDefault();
+        const delta = ['ArrowLeft','ArrowDown'].includes(e.key) ? 1 : -1;
+        const next = all[(i + delta + all.length) % all.length];
+        next.click(); next.focus();
+      };
+    });
+    U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); Sound.tick(); });
+    U.$('#ayahStart').onclick = () => this.start();
+    U.$('#ayahExternal').onclick = () => { Sound.click(); AyahEmbed.open(); };
+  },
+  start(){
+    Stats.track('ayahlight'); Combo.reset();
+    this.qs=U.shuffle(this.BANK).slice(0,10); this.i=0; this.right=0; this.score=0; this.locked=false;
+    this.render();
+  },
+  stopTimer(){ if(this.timer){ Timers.clear(this.timer); this.timer=null; } },
+  arm(){
+    this.stopTimer(); this.left=this.seconds; this.paintTime();
+    this.timer=Timers.every(() => { this.left--; this.paintTime(); if(this.left<=0){ this.stopTimer(); this.answer(false,null,true); } },1000);
+  },
+  paintTime(){ const e=U.$('#ayahTime'); if(e){ e.textContent=U.fa(Math.max(0,this.left)); e.classList.toggle('danger',this.left<=7); } },
+  render(){
+    U.$('#pgProgWrap')?.classList.remove('hide');
+    const q=this.qs[this.i]; if(!q){ this.finish(); return; }
+    this.locked=false; this.picked=[];
+    U.prog(this.i/this.qs.length*100,{cur:this.i+1,total:this.qs.length,cap:'آیه'});
+    U.$('#pgBar').innerHTML=`<span class="pill">✅ ${U.fa(this.right)}</span><span class="pill">⭐ ${U.fa(this.score)}</span>`;
+    let body='';
+    if(this.mode==='order'){
+      const words=q.t.split(/\s+/); const shuffled=U.shuffle(words.map((w,n)=>({w,n})));
+      body=`<div class="question">واژه‌ها را به ترتیب درست انتخاب کن</div><div class="ayah-answer" id="ayahAnswer"><span class="tiny">نخستین واژه را انتخاب کن…</span></div><div class="ayah-pool">${shuffled.map(x=>`<button class="word-chip" data-word="${x.n}">${U.esc(x.w)}</button>`).join('')}</div><div class="ayah-actions"><button class="btn gh sm" id="ayahReset">پاک کردن</button><button class="btn sm" id="ayahCheck">بررسی پاسخ</button></div>`;
+    } else if(this.mode==='missing'){
+      const words=q.t.split(/\s+/), at=Math.max(0,Math.floor(words.length/2)); const ans=words[at]; words[at]='…؟…';
+      /* واژه‌های پرت یکتا باشند؛ دو دکمهٔ یکسان، انتخاب را گمراه می‌کرد. */
+      const pool=[...new Set(this.BANK.filter(x=>x!==q).flatMap(x=>x.t.split(/\s+/)).filter(x=>x!==ans))];
+      const others=U.shuffle(pool).slice(0,3);
+      body=`<div class="question">واژهٔ گمشده را پیدا کن</div><div class="ayah-text">${U.esc(words.join(' '))}</div><div class="ayah-choices">${U.shuffle([ans,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">${U.esc(w)}</button>`).join('')}</div>`;
+    } else {
+      const names=[...new Set(this.BANK.map(x=>x.s))]; const others=U.shuffle(names.filter(x=>x!==q.s)).slice(0,3);
+      body=`<div class="question">این آیه از کدام سوره است؟</div><div class="ayah-text">${U.esc(q.t)}</div><div class="ayah-choices">${U.shuffle([q.s,...others]).map(w=>`<button class="ayah-choice" data-choice="${U.esc(w)}">سورهٔ ${U.esc(w)}</button>`).join('')}</div>`;
+    }
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-head"><span class="chip wr">پرسش ${U.fa(this.i+1)} از ${U.fa(this.qs.length)}</span><span class="sp"></span><div class="ayah-time" id="ayahTime" role="timer" aria-label="زمان باقی‌مانده"></div></div><div class="ayah-board">${body}<div class="ayah-feedback" id="ayahFeedback" role="status" aria-live="polite">با آرامش پاسخ بده؛ هدف یادگیری است.</div></div></div>`;
+    if(this.mode==='order') this.wireOrder(q); else U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>b.onclick=()=>this.answer(b.dataset.choice===(this.mode==='missing'?q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]:q.s),b));
+    this.arm();
+  },
+  wireOrder(q){
+    const paint=()=>{ const box=U.$('#ayahAnswer'); if(!box)return; box.innerHTML=this.picked.length?this.picked.map(x=>`<button class="word-chip picked" data-picked="${x.n}">${U.esc(x.w)}</button>`).join(''):'<span class="tiny">نخستین واژه را انتخاب کن…</span>'; U.$$('[data-picked]',box).forEach(b=>b.onclick=()=>{this.picked=this.picked.filter(x=>x.n!==+b.dataset.picked); const src=U.$(`[data-word="${b.dataset.picked}"]`); if(src)src.classList.remove('used'); paint();}); };
+    U.$$('[data-word]',U.$('#pgBody')).forEach(b=>b.onclick=()=>{ if(this.locked)return; b.classList.add('used'); this.picked.push({n:+b.dataset.word,w:b.textContent}); paint(); Sound.tick(); });
+    U.$('#ayahReset').onclick=()=>{this.picked=[];U.$$('[data-word]',U.$('#pgBody')).forEach(x=>x.classList.remove('used'));paint();};
+    U.$('#ayahCheck').onclick=()=>this.answer(this.picked.map(x=>x.w).join(' ')===q.t,null);
+  },
+  answer(ok,button,timeout=false){
+    if(this.locked)return; this.locked=true; this.stopTimer(); const q=this.qs[this.i];
+    if(button)button.classList.add(ok?'good':'bad');
+    if(!ok && this.mode!=='order') U.$$('[data-choice]',U.$('#pgBody')).forEach(b=>{ const ans=this.mode==='surah'?q.s:q.t.split(/\s+/)[Math.max(0,Math.floor(q.t.split(/\s+/).length/2))]; if(b.dataset.choice===ans)b.classList.add('good'); });
+    if(ok){ const pts=10+Math.max(0,this.left); this.right++;this.score+=pts; Progress.award({game:'ayahlight',pts,ok:true}); Sound.chime(); Haptic.success(); }
+    else { Progress.award({game:'ayahlight',pts:0,ok:false}); Sound.buzz(); Haptic.warn(); }
+    const f=U.$('#ayahFeedback'); if(f){ f.className='ayah-feedback '+(ok?'ok':'err'); f.innerHTML=ok?`${Icon.of('check')} آفرین! <b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`:`${timeout?'⏱ زمان تمام شد.':'پاسخ درست را با رنگ سبز ببین.'}<br><b>${U.esc(q.t)}</b><br>${U.esc(q.tr)} — سورهٔ ${U.esc(q.s)}، آیهٔ ${U.fa(q.a)}`; }
+    const actions=U.$('.ayah-actions',U.$('#pgBody'))||U.$('.ayah-choices',U.$('#pgBody')); if(actions){ const n=document.createElement('button');n.className='btn ok';n.textContent=this.i+1>=this.qs.length?'دیدن نتیجه':'پرسش بعدی ←';n.onclick=()=>{this.i++;this.render();};actions.appendChild(n); }
+  },
+  finish(){
+    this.stopTimer(); const pct=Math.round(this.right/this.qs.length*100), stars=pct>=90?3:pct>=60?2:1;
+    Progress.record('ayahlight',this.score); Store.update(d=>{d.stars.ayahlight=Math.max(d.stars.ayahlight||0,stars);d.completed.ayahlight=pct>=60;});
+    if(pct>=60)Wallet.earn(8,'نور آیه‌ها'); U.prog(100,{cur:10,total:10,cap:'تمام'});
+    U.$('#pgBody').innerHTML=`<div class="ayah-stage">${this.lanterns()}<div class="ayah-result"><div class="ayah-stars">${Icon.of('star').repeat(stars)}${('<span class="unearned">'+Icon.of('star')+'</span>').repeat(3-stars)}</div><h2>تمرین تمام شد</h2><div class="ayah-score">${U.fa(this.score)}</div><p>${U.fa(this.right)} پاسخ درست از ${U.fa(this.qs.length)} · دقت ${U.fa(pct)}٪</p><div class="ayah-actions"><button class="btn ok" id="ayahAgain">دوباره بازی کن</button><button class="btn gh" id="ayahHome">خانه</button></div></div></div>`;
+    U.$('#ayahAgain').onclick=()=>this.open(); U.$('#ayahHome').onclick=()=>Router.go('home'); Sound.fanfare();
+  }
+};
+
+
+/* ─────────────────── 11. GAME REGISTRY ─────────────────── */
+const Games = {
+  /* مسیرِ اصلی، بازیِ درون‌برنامه‌ای است تا سه حالت و زمان پیش از شروع
+     جلوی چشم کاربر باشند؛ نسخهٔ embed از صفحهٔ انتخاب حالت در دسترس است. */
+  ayahlight: () => AyahLight.open(),
+  recite:    () => Router.go('quran'),
+  surah:     () => SurahEngine.start(),
+  scramble:  () => ScrambleEngine.start(),
+  quiz:      () => QuizEngine.start({ qs: DATA.quiz, title: '📚 سوالات قرآنی', sub: 'دانش قرآنی خود را محک بزن', game: 'quiz' }),
+  exam:      () => QuizPick.open(),
+  nahj:      () => NahjUI.open(),
+  hadith:    () => HadithEngine.start(),
+  imams:     () => ImamEngine.start(),
+  dua:       () => DuaEngine.start(),
+  meaning:   () => QuizEngine.start({ qs: DATA.meaning, title: '🔤 معنی کلمه', sub: 'معنی صحیح را انتخاب کن', game: 'meaning' }),
+  speed:     () => QuizEngine.start({ qs: [...DATA.quiz, ...DATA.meaning, ...DATA.ahlulbayt, ...DATA.karbala,
+                                        ...DATA.ghadir, ...DATA.ahkam, ...DATA.dua, ...DATA.mahdavi, ...DATA.usul],
+                     title: '⚡ سرعت نور', game: 'speed',
+                     sub: '۱۲ ثانیه برای هر سوال — پاسخ غلط یک جان می‌گیرد', mode: 'speed', count: 12, hearts: true,
+                     onDone: pct => { if(pct >= 80) Store.update(d => d.stats.speedWins = (d.stats.speedWins || 0) + 1); } }),
+  iran:      () => QuizEngine.start({ qs: DATA.iran, title: '🇮🇷 اطلاعات ایران', sub: 'تاریخ، جغرافیا و فرهنگ',
+                     game: 'iran', onDone: () => Store.update(d => d.stats.iran++) }),
+  match:     () => MatchEngine.start(),
+  memory:    () => MemoryEngine.start(),
+  dooz:      () => DoozEngine.start(false),
+  esmfamil:  () => EsmFamilEngine.start(false),
+  'online-lobby': () => Router.go('online'),
+  daily:     () => DailyChallenge.open(),
+  shop:      () => Shop.open(),
+  onboarding:() => Onboarding.open(),
+  profile:   () => { Router.go('me'); Me.tab = 'profile'; Me.render(); },
+  stats:     () => { Router.go('me'); Me.tab = 'stats'; Me.render(); },
+  badges:    () => { Router.go('me'); Me.tab = 'badges'; Me.render(); },
+  collection:() => Collection.open(),
+  tree:      () => Tree.open(),
+  missions:  () => Missions.open(),
+  bookmarks: () => Bookmarks.open(),
+  friends:   () => Friends.open(),
+  reciters:  () => ReciterUI.open(),
+  leaderboard: () => { Router.go('me'); Me.tab = 'records'; Me.render(); },
+  settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
+};
+
+/* امکانات تازه بدون دست‌زدن به بانک سؤال‌ها؛ سودوکو تنها هنگام انتخاب بار می‌شود. */
+DATA.GAMES.sudoku={name:'سودوکو',icon:'🧩',desc:'جدول یکتاپاسخ، سه سطح و یادداشت مدادی',tag:'new'};
+DATA.categories.find(c=>c.id==='brain').games.unshift('sudoku');
+const SudokuLoader={
+ promise:null,
+ async open(){
+  if(!Session.user())return Gate.open();Router.go('play');RoundControl.clear();
+  U.$('#pgBody').innerHTML='<div class="card" id="sudokuLoading" role="status">در حال آماده‌سازی سودوکو…</div>';
+  if(!this.promise)this.promise=new Promise((resolve,reject)=>{
+   const css=document.createElement('link');css.rel='stylesheet';css.href='assets/games/sudoku.css';document.head.appendChild(css);
+   const js=document.createElement('script');js.src='assets/games/sudoku.js';js.onload=resolve;js.onerror=()=>{js.remove();css.remove();this.promise=null;reject(Error('بارگذاری نشد'));};document.head.appendChild(js);
+  });
+  try{await this.promise;if(Session.user()&&U.$('#sudokuLoading'))window.SudokuUI.open();}
+  catch(e){if(U.$('#sudokuLoading'))U.$('#sudokuLoading').textContent='بارگذاری نشد؛ اتصال را بررسی کن و دوباره انتخاب کن.';}
+ }
+};
+Games.sudoku=()=>SudokuLoader.open();
+const RoundControl={
+ run:null,bound:false,
+ set(fn){this.run=fn;const b=U.$('#pgRestart');if(b)b.hidden=false;},
+ clear(){this.run=null;const b=U.$('#pgRestart');if(b)b.hidden=true;},
+ restart(){
+  if(!this.run)return;
+  if(Net.room?.spectator){UI.toast('تماشاچی نمی‌تواند بازی را از نو شروع کند.','');return;}
+  if(Net.room&&!Net.room.isHost){UI.toast('شروع دوبارهٔ بازی آنلاین با میزبان است.','');return;}
+  const fn=this.run;
+  UI.confirm('بازی از نو شروع شود؟ پیشرفت همین دور از دست می‌رود.',()=>{
+   Timers.clearPage();if(Net.room)Net.startMatch(Net.room.game);else fn();
+  });
+ },
+ bind(){
+  if(this.bound)return;this.bound=true;U.$('#pgRestart').onclick=()=>this.restart();
+  for(const engine of [QuizEngine,SurahEngine,ScrambleEngine,MemoryEngine,MatchEngine,DoozEngine,EsmFamilEngine,HadithEngine,ImamEngine,DuaEngine,AyahLight]){
+   const start=engine.start;
+   engine.start=function(...args){
+    const result=start.apply(this,args);
+    let fresh=args;
+    if(engine===MemoryEngine)fresh=[];
+    if(engine===DoozEngine)fresh=[args[0]||false];
+    if(engine===QuizEngine)fresh=[{...(args[0]||{}),resume:false}];
+    RoundControl.set(()=>engine.start(...fresh));return result;
+   };
+  }
+  const open=AyahEmbed.open;AyahEmbed.open=function(){const out=open.call(this);RoundControl.set(()=>AyahEmbed.open());return out;};
+ }
+};
+
+/* صفحه «همه بازی‌ها» — دکمه 🎮 در نوار پایین */
+const Launcher = {
+  /* open() هم به صفحه می‌رود و هم می‌کشد؛ paint() فقط می‌کشد.
+     این تفکیک ضروری است: قلاب صفحهٔ «بازی» وقتی #pgBody خالی باشد
+     paint() را صدا می‌زند. پیش‌تر همان‌جا open() صدا زده می‌شد و چون open
+     خودش Router.go('play') می‌کرد، قلاب دوباره اجرا می‌شد و تا سرریز
+     پشته بی‌پایان می‌چرخید — یعنی نخستین کلیک روی 🎮 برنامه را می‌خواباند. */
+  open(){
+    Router.go('play');
+    this.paint();
+  },
+  paint(){
+    RoundControl.clear();
+    U.$('#pgTitle').innerHTML = Glyph.inline('🎮 همه بازی‌ها');
+    U.$('#pgSub').textContent = 'یکی را انتخاب کن';
+    U.$('#pgBar').innerHTML = '';
+    /* فهرستِ بازی‌ها پیشرفتی ندارد؛ حلقه فقط خالی می‌مانَد. */
+    U.prog(0, { cap: 'بازی' });
+    const ids = Object.keys(DATA.GAMES).filter(g => !['stats','badges','leaderboard','settings'].includes(g));
+    U.$('#pgBody').innerHTML = `
+      ${Autosave.bar()}
+      ${Streak.warn()}
+      <div class="card" style="margin-bottom:14px">
+        <div class="row"><b style="font-size:13px">${Icon.of('flame')} وضعیت تو</b><div class="sp" style="flex:1"></div>
+          <span class="chip wr">سطح ${U.fa(Store.get('level'))}</span>
+          <span class="chip wr">${U.fa(Store.get('score'))} امتیاز</span>
+          ${Wallet.chip()}
+          <button class="btn gh sm" data-shop="1" data-tip="فروشگاه: سکه را خرج کن" aria-label="فروشگاه">${Icon.of('cart')}</button></div>
+        <div class="sep"></div>
+        <div class="row" style="flex-wrap:wrap;gap:6px">
+          ${HeartBar.hud()}
+          <span style="font-size:11.5px;color:var(--mut)">
+            ${Store.get('hearts') < Store.HEART_MAX && Store.heartsLeftMs()
+              ? `— جان بعدی تا ${U.fmtTime(Store.heartsLeftMs()/1000)}` : '— جان‌ها کامل'}</span>
+        </div>
+      </div>
+      <div class="grid">
+        ${ids.map(g => {
+          const gm = DATA.GAMES[g];
+          const rec = Progress.recordLabel(g);
+          return `<div class="tile" data-game="${g}">
+            <span class="ti">${Glyph.of(gm.icon)}</span><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small>
+            ${rec !== '' && rec != null ? `<span class="rec">🏅 رکورد: ${U.fa(rec)}</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    U.$$('.tile[data-game]').forEach(t => t.onclick = () => Games[t.dataset.game]?.());
+    U.$$('[data-shop]').forEach(b => b.onclick = () => Shop.open());
+    Streak.wire(U.$('#pgBody'));
+    Autosave.bind(document);
+  }
+};
+
+/* ─────────────────── 12. LEVEL / BADGES / LEADERBOARD ─────────────────── */
+function xpForLevel(l){ return Math.floor(100 * Math.pow(1.45, l - 1)); }
+
+function checkLevelUp(){
+  let up = 0;
+  Store.update(d => {
+    while(d.xp >= xpForLevel(d.level) && d.level < 999){
+      d.xp -= xpForLevel(d.level);
+      d.level++; up++;
+      d.hearts = Math.min(Store.HEART_MAX, d.hearts + 1);
+    }
+    if(d.hearts >= Store.HEART_MAX) d.heartsAt = 0;
+  });
+  if(up){
+    Wallet.earn(up * Wallet.RATE.perLevel, `${U.fa(up)} سطح بالاتر`);
+    Sound.levelUp(); confetti(40);
+    UI.toast(`🎉 سطح ${U.fa(Store.get('level'))}!`, 'ok');
+    if(Store.get('level') === 1) Store.addHearts(Store.HEART_MAX);
+  }
+  updateHearts();
+  updateHomeStats();
+}
+
+function checkBadges(){
+  const d = Store.data, st = d.stats;
+  const surahDone = DATA.surahDoneCount(d.completed);
+  const checks = [
+    ['first',        st.totalCorrect >= 1],
+    ['perfect',      st.perfectRuns >= 1],
+    ['score100',     d.score >= 100],
+    ['score500',     d.score >= 500],
+    ['score2000',    d.score >= 2000],
+    ['combo5',       st.maxCombo >= 5],
+    ['combo10',      st.maxCombo >= 10],
+    ['daily',        !!d.dailyChallenge.done],
+    ['streak3',      (d.dailyChallenge.streak || 0) >= 3],
+    ['streak7',      (d.dailyChallenge.streak || 0) >= 7],
+    ['quizmaster',   st.quizzes >= 10],
+    ['iranexpert',   st.iran >= 30],
+    ['tttwinner',    st.tttWins >= 1],
+    ['networker',    st.rooms >= 3],
+    ['duelist',      (st.onlineWins || 0) >= 1],
+    ['memorymaster', st.memory >= 5],
+    ['fast',         st.fastestAnswer <= 2],
+    ['speedster',    (st.speedWins || 0) >= 10],
+    /* آستانه باید با شمارندۀ یکتا یکی باشد، وگرنه نشان هرگز باز نمی‌شود:
+       سوره‌های یکتا ۲۰ است، ولی ورودی‌های بانک ۲۴. */
+    ['surah',        surahDone >= DATA.surahNames.length],
+    ['level5',       d.level >= 5],
+    ['level10',      d.level >= 10],
+    ['exams',        (st.exams || 0) >= 3],
+    ['ahlulbayt',    ['ahlulbayt','karbala','ghadir','mahdavi','usul'].reduce((n, k) => n + ((st.topics || {})[k] || 0), 0) >= 20],
+    ['ahkamexpert',  ((st.topics || {}).ahkam || 0) >= 15]
+  ];
+  const unlocked = [];
+  checks.forEach(([id, ok]) => { if(ok && !d.badges[id]){ d.badges[id] = true; unlocked.push(id); } });
+  if(unlocked.length){
+    Store.save();
+    Wallet.earn(unlocked.length * Wallet.RATE.perBadge, `${U.fa(unlocked.length)} نشان تازه`);
+    unlocked.forEach((id, i) => {
+      const b = DATA.badges.find(x => x.id === id);
+      if(b) Timers.after(() => { UI.toast(`🎖️ نشان «${b.name}»`, 'ok', 3200); confetti(24); }, i * 900);
+    });
+  }
+}
+
+function saveLeaderboard(){
+  const d = Store.data;
+  const list = d.leaderboard;
+  const ex = list.find(l => l.name === d.playerName);
+  if(ex){ ex.score = Math.max(ex.score, d.score); ex.at = U.now(); }
+  else list.push({ name: d.playerName, score: d.score, at: U.now() });
+  list.sort((a, b) => b.score - a.score);
+  d.leaderboard = list.slice(0, 30);
+  Store.save();
+}
+
+function saveAll(){ Store.save(); updateHomeStats(); updateHearts(); }
+
+/* ─────────────────── 13. چالش روزانه با زنجیره ─────────────────── */
+const DailyChallenge = {
+  status(){
+    const d = Store.get('dailyChallenge');
+    const today = U.today();
+    if(d.date !== today) return { done: false, today, streak: d.streak || 0 };
+    return { done: !!d.done, today, reward: d.reward, streak: d.streak || 0 };
+  },
+  yesterday(){
+    const t = new Date(); t.setDate(t.getDate() - 1);
+    return U.localDay(t);
+  },
+  open(){
+    const st = this.status();
+    if(st.done){ UI.toast('✅ چالش امروز را انجام دادی — فردا برگرد', ''); return; }
+    // انتخاب قطعی بر اساس تاریخ: همه کاربران یک سوال یکسان می‌بینند
+    const rng = U.seedRand('nc' + U.today());
+    const pool = [...DATA.quiz, ...DATA.meaning];
+    const qs = pool.filter((_, i) => rng() < 0.25).slice(0, 5);
+    /* پرکردنِ کمبود هم باید با همان بذر باشد و بی تکرار؛ Math.random سؤال‌های
+       «یکسان برای همه» را بینِ دستگاه‌ها متفاوت می‌کرد. */
+    for(let guard = 0; qs.length < 5 && guard < 500; guard++){
+      const q = pool[Math.floor(rng() * pool.length)];
+      if(q && !qs.includes(q)) qs.push(q);
+    }
+    QuizEngine.start({
+      qs, count: 5, title: '🌙 چالش روزانه', game: 'daily',
+      sub: `جایزه امروز: ۷۵ امتیاز • زنجیره فعلی ${U.fa(st.streak)} روز`,
+      onDone: pct => {
+        if(pct < 60){ UI.toast('😔 برای جایزه باید ۶۰٪ بزنی', 'err'); return; }
+        const d = Store.get('dailyChallenge');
+        const streak = Streak.base() + 1;
+        const reward = 75 + Math.min(streak, 7) * 5;   // جایزه با زنجیره رشد می‌کند
+        Store.update(x => {
+          x.dailyChallenge = { date: U.today(), done: true, reward, streak, lastDate: U.today() };
+          x.score += reward; x.xp += 40;
+          x.stats.bestStreak = Math.max(x.stats.bestStreak || 0, streak);
+        });
+        Wallet.earn(Wallet.RATE.daily + Math.min(streak, 7) * Wallet.RATE.perStreak, 'چالش روزانه');
+        checkLevelUp(); checkBadges(); Sync.push(true);
+        UI.toast(`✅ +${U.fa(reward)} امتیاز • زنجیره ${U.fa(streak)} روز`, 'ok', 3500);
+      }
+    });
+  }
+};
+
+/* ─────────────────── 14. RENDER: HOME ─────────────────── */
+/* ── نوارِ جان ──
+   قلب‌ها پیش‌تر در نوارِ بالای همهٔ صفحه‌ها بودند و چشم را از محتوا می‌دزدیدند؛
+   الان فقط جایی که معنا دارند — داخلِ بازی — کشیده می‌شوند. */
+const HeartBar = {
+  inner(){
+    const h = Store.get('hearts'), m = Store.HEART_MAX;
+    let s = '';
+    for(let i = 0; i < m; i++)
+      s += '<svg class="gh' + (i < h ? ' gh-full' : ' gh-empty') +
+           '" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + Icon.REG.heart.d + '</svg>';
+    return s;
+  },
+  /* مارک‌آپِ کامل برای جاهایی که خودشان innerHTML را می‌سازند (نوارِ بازی). */
+  hud(){
+    const h = Store.get('hearts'), m = Store.HEART_MAX;
+    return '<span class="game-hearts" id="gameHearts" role="img" aria-label="' +
+           U.fa(h) + ' جان از ' + U.fa(m) + '">' + this.inner() + '</span>';
+  },
+  paint(){
+    const el = U.$('#gameHearts');
+    if(!el) return;
+    el.innerHTML = this.inner();
+    el.setAttribute('aria-label', U.fa(Store.get('hearts')) + ' جان از ' + U.fa(Store.HEART_MAX));
+  },
+  /* قلبی که همین حالا خالی شد می‌لرزد. بی این، کاربر فقط یک قلبِ کم‌شده
+     می‌بیند و نمی‌فهمد کِی خورد. */
+  break(i){
+    const el = U.$('#gameHearts');
+    if(!el || !el.children) return;
+    const k = el.children[i];
+    if(k && k.classList) k.classList.add('lost');
+  }
+};
+function updateHearts(){ HeartBar.paint(); }
+
+function updateHomeStats(){
+  const d = Store.data;
+  const star  = Object.values(d.stars).reduce((a, b) => a + b, 0);
+  const done  = Object.values(d.completed).filter(Boolean).length;
+  const badge = Object.keys(d.badges).filter(k => d.badges[k]).length;
+  /* شمارش نرم: عدد از صفر بالا می‌آید — فقط بار نخست، تا چشم را نزند */
+  const set = (sel, val) => {
+    const el = U.$(sel); if(!el) return;
+    if(!updateHomeStats._first) { el.textContent = U.fa(val); return; }
+    FX.countUp(el, val, 800);
+  };
+  set('#stStar', star); set('#stScore', d.score); set('#stDone', done); set('#stBadge', badge);
+  set('#stStreak', Streak.count());
+  /* خوش‌آمدِ شخصی: نام از حسابِ خودِ کاربر می‌آید. با `textContent`
+     نوشته می‌شود، نه innerHTML — نام، ورودیِ کاربر است. */
+  const hel = U.$('#homeHello');
+  if(hel){
+    const nm = String(Store.get('playerName') || '').trim();
+    hel.textContent = nm ? `👋 سلام، ${nm}` : 'به صحنِ نورستان خوش آمدی';
+  }
+  U.icLabel(U.$('#cRole'), Session.admin() ? 'crown' : 'user', Session.admin() ? 'مدیر' : 'کاربر');
+  const co = U.$('#cCoins');
+  if(co) U.icLabel(co, 'coin', U.fa(Wallet.get()));
+  U.$('#lvlNum').textContent = U.fa(d.level);
+  const need = xpForLevel(d.level);
+  /* «۰ / ۱۰۰» در RTL دو پهلو خوانده می‌شود؛ «۰ از ۱۰۰» یکدله است. */
+  U.$('#lvlXp').textContent = `${U.fa(d.xp)} از ${U.fa(need)}`;
+  const fill = U.$('#lvlFill');
+  if(fill){
+    const pct = Math.min(100, (d.xp / need) * 100);
+    const grew = pct > (updateHomeStats._pct || 0);
+    fill.style.width = pct + '%';
+    /* اگر پیشرفت بالا رفت، یک برق از نوار بگذرد */
+    if(grew && !FX.reduced){
+      const bar = fill.parentElement;
+      bar && bar.classList.remove('bar-shine');
+      if(bar){ try{ bar.animate([{ filter:'brightness(1)' }, { filter:'brightness(2.4)' }, { filter:'brightness(1)' }],
+        { duration:700, easing:'ease-out' }); }catch(e){} }
+    }
+    updateHomeStats._pct = pct;
+  }
+  const st = DailyChallenge.status();
+  const cd = U.$('#cDaily');
+  if(cd){
+    cd.className = 'chip ' + (st.done ? 'on' : 'wr');
+    cd.textContent = st.done ? `✅ چالش امروز • زنجیره ${U.fa(st.streak)}` : `🌙 چالش امروز انجام نشده`;
+  }
+  /* مأموریت‌های امروز روی خانه */
+  const mm = U.$('#homeMiss');
+  if(mm){
+    const ms = Missions.refresh(true);
+    mm.innerHTML = Missions.rows();
+    const mc = U.$('#missCnt');
+    if(mc) mc.textContent = `${U.fa(ms.doneCount)}/۳`;
+    const mo = U.$('#missOpen');
+    if(mo && !mo.onclick) mo.onclick = () => Missions.open();
+  }
+  /* کارتِ «ادامهٔ یادگیری» و «پیشنهادِ امروز».
+     هر دو کلیدِ مقایسه دارند، پس اگر داده عوض نشده DOM دست‌نخورده می‌ماند
+     و گذارِ نوارِ پیشرفت هر بارِ تازه‌سازی از سر پخش نمی‌شود.
+     `Bookmarks.bar()` سرِ جای خودش در صفحهٔ قرآن (#qResume) باقی است. */
+  try{ ContinueCard.render(); }catch(e){ console.warn('continue card', e); }
+  try{ Suggestion.render(); }catch(e){ console.warn('suggestion', e); }
+  updateHomeStats._first = false;
+  updateHearts();
+}
+updateHomeStats._first = true;
+updateHomeStats._pct = 0;
+
+/* ── برچسبِ گوشهٔ کارتِ بازی ──
+   همان چهار رشتهٔ template literal که پیش‌تر در renderHome بودند؛ بیرون
+   آمدند تا هم اسلایدِ کاروسل و هم کاشیِ قدیمی یک برچسب داشته باشند.
+   `${…}` داخل رشتهٔ تک‌کوتیشنی هرگز درج نمی‌شود و کوتیشنِ داخلیِ
+   `Glyph.of('🔥')` رشته را از هم می‌پاشد. */
+function gameTagHtml(gm){
+  return gm.tag === 'hot' ? `<span class="badge">${Glyph.of('🔥')} داغ</span>`
+       : gm.tag === 'new' ? `<span class="badge p">${Glyph.of('✨')} جدید</span>`
+       : gm.tag === 'net' ? `<span class="badge g">${Glyph.of('🌐')} شبکه</span>`
+       : gm.tag === 'ir'  ? `<span class="badge">${Glyph.of('🇮🇷')} ایران</span>` : '';
+}
+
+/* بازی‌هایی که در کاروسلِ یک دسته جا می‌شوند.
+   اگر دسته از سقف بزرگ‌تر بود، «داغ» و بعد «تازه» جلو می‌افتند و بقیه به
+   همان ترتیبِ خودِ فهرست می‌آیند — ترتیب *قطعی* است تا بین دو رندر
+   جابه‌جا نشود (ترتیبِ وابسته به آمار، هر بار خانه را عوض می‌کرد و
+   کاربر جایی را که دیروز دیده بود گم می‌کرد).
+   هیچ موردی گم نمی‌شود: دکمهٔ «همه» در سرِ دسته به صفحهٔ 🎮 می‌برد که
+   فهرستِ کاملِ بازی‌ها آن‌جاست. */
+const CAROUSEL_MAX = 6;
+function carouselPicks(games, max = CAROUSEL_MAX){
+  const list = games.filter(g => DATA.GAMES[g]);
+  if(list.length <= max) return list;
+  const rank = g => { const t = DATA.GAMES[g].tag; return t === 'hot' ? 0 : t === 'new' ? 1 : 2; };
+  return list.map((g, i) => ({ g, i, r: rank(g) }))
+             .sort((a, b) => a.r - b.r || a.i - b.i)
+             .slice(0, max).map(o => o.g);
+}
+
+/* بازی‌هایی که «شروع» برایشان درست نیست — صفحه‌اند، نه دورِ بازی */
+const OPEN_NOT_PLAY = new Set(['stats','badges','leaderboard','settings','bookmarks',
+  'reciters','friends','missions','collection','profile','shop','onboarding','daily']);
+function slideCtaText(g){
+  if(g === 'recite') return 'رفتن به تلاوت';
+  if(g === 'online-lobby') return 'رفتن به محفل';
+  return OPEN_NOT_PLAY.has(g) ? 'باز کن' : 'شروع';
+}
+
+/* زیرنویسِ زندهٔ بعضی بازی‌ها — همان منطقِ نسخهٔ کاشی */
+function slideSubText(g, d){
+  const gm = DATA.GAMES[g];
+  if(g === 'daily'){
+    const st = DailyChallenge.status();
+    return st.done ? `امروز انجام شد • زنجیره ${U.fa(st.streak)} روز` : 'امروز انجام نشده — جایزه بگیر';
+  }
+  if(g === 'surah') return `${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)} سوره کامل شده`;
+  return gm.desc;
+}
+
+function slideHtml(g, i, n, d){
+  const gm = DATA.GAMES[g];
+  const rec = Progress.recordLabel(g);
+  const first = i === 0;
+  /* اسلایدِ نخست از همان مارک‌آپ `is-active` دارد: اگر JS به هر دلیلی
+     نرسد، خانه کاروسلِ خالی نشان نمی‌دهد — همان یک کارت دیده می‌شود. */
+  return `<article class="slide${first ? ' is-active' : ''}" data-game="${g}"
+      role="group" aria-roledescription="اسلاید" aria-label="${U.fa(i + 1)} از ${U.fa(n)}"${first ? '' : ' inert aria-hidden="true"'}>
+    ${gameTagHtml(gm)}
+    <span class="slide-icon">${Glyph.of(gm.icon)}</span>
+    <h3 class="slide-title">${U.esc(gm.name)}</h3>
+    <p class="slide-desc">${U.esc(slideSubText(g, d))}</p>
+    ${rec !== '' && rec != null ? `<span class="slide-rec">${Glyph.of('🏅')} رکورد: ${U.fa(rec)}</span>` : ''}
+    <button type="button" class="slide-cta">${slideCtaText(g)} ${Icon.of('back')}</button>
+  </article>`;
+}
+
+function catCarouselHtml(cat, d){
+  const games = cat.games.filter(g => DATA.GAMES[g]);
+  const picks = carouselPicks(games);
+  const n = picks.length || 1;
+  return `
+    <div class="cat">
+      <div class="cat-head">
+        <div class="cat-ico">${Glyph.of(cat.icon)}</div>
+        <div><h2>${U.esc(cat.title)}</h2><p>${U.esc(cat.desc)}</p></div>
+        <span class="cat-cnt">${U.fa(games.length)} مورد</span>
+        ${games.length > picks.length ? `<button type="button" class="btn gh sm" data-cat-all="${cat.id}" data-tip="فهرست کاملِ بازی‌ها">همه</button>` : ''}
+      </div>
+      <div class="category-carousel" data-cat="${cat.id}" role="group" aria-roledescription="کاروسل" aria-label="${U.esc(cat.title)}">
+        <div class="carousel-viewport">
+          <div class="carousel-track">${picks.map((g, i) => slideHtml(g, i, picks.length, d)).join('')}</div>
+        </div>
+        <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
+        <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
+        <div class="carousel-controls">
+          <button type="button" class="carousel-toggle" aria-label="توقف چرخش خودکار" aria-pressed="false" title="توقف چرخش خودکار">${Icon.of('pause')}</button>
+          <div class="carousel-dots" role="group" aria-label="انتخاب اسلاید">${
+            picks.map((_, i) => `<button type="button" class="dot${i === 0 ? ' active' : ''}" data-i="${i}" aria-label="اسلاید ${U.fa(i + 1)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('')}</div>
+        </div>
+        <p class="carousel-status" role="status" aria-live="polite">اسلاید ۱ از ${U.fa(picks.length)}</p>
+      </div>
+    </div>`;
+}
+
+/* ── کارتِ «ادامهٔ یادگیری» ──
+   همان دادهٔ `Bookmarks.resumeAt()` که پیش‌تر یک نوارِ باریک بود، حالا
+   کارتِ ویژهٔ خانه است با نوارِ پیشرفتِ سوره. نوار با `scaleX` پر می‌شود
+   (نه `width`) و یک فریم بعد از درج، تا گذارِ ۸۰۰ms دیده شود. */
+const ContinueCard = {
+  render(){
+    const el = U.$('#homeResume');
+    if(!el) return;
+    const r = Bookmarks.resumeAt();
+    if(!r || !r.s){ el.innerHTML = ''; el.dataset.k = ''; return; }
+    const key = `${r.s}:${r.a}:${Bookmarks.list.length}`;
+    if(el.dataset.k === key) return;                 // همان جای پیشین است
+    el.dataset.k = key;
+    const su = QURAN[r.s - 1];
+    const total = (su && su.count) ? su.count : 1;
+    const pct = Math.max(1, Math.min(100, Math.round((r.a / total) * 100)));
+    const marked = Bookmarks.list.length > 0;
+    el.innerHTML = `<div class="continue-card">
+      <div class="continue-head">
+        <span class="ci">${Glyph.of('📖')}</span><b>ادامهٔ یادگیری</b>
+        <span class="sp"></span>
+        <span class="chip wr">${U.fa(pct)}٪ از سوره</span>
+      </div>
+      <div class="continue-title">سورهٔ ${U.esc(su ? su.name : '')}، آیهٔ ${U.fa(r.a)}</div>
+      <div class="continue-sub">${U.esc(marked ? 'آخرین نشانهٔ تو' : 'آخرین جای خوانده‌شده')}</div>
+      <div class="continue-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${pct}" aria-label="پیشرفت در سوره"><i class="fill"></i></div>
+      <div class="continue-row">
+        <button type="button" class="btn sm" id="bmGo">${Glyph.of('▶')} ادامه</button>
+        <span class="continue-pct">آیهٔ ${U.fa(r.a)} از ${U.fa(total)}</span>
+      </div>
+    </div>`;
+    const fill = U.$('.fill', el);
+    if(fill) FX.raf(() => { try{ fill.style.transform = `scaleX(${(pct / 100).toFixed(4)})`; }catch(e){} });
+    const g = U.$('#bmGo', el);
+    if(g) g.onclick = () => {
+      const rr = Bookmarks.resumeAt(); if(!rr) return;
+      Sound.click();
+      Store.update(x => { x.quran.surah = rr.s; x.quran.ayah = rr.a; });
+      ReaderUI.open(rr.s, rr.a); Recite.playSurah(rr.s, rr.a);
+    };
+  }
+};
+
+/* ── پیشنهادِ امروز ──
+   دو حالت: چالشِ روزانه مانده ⇒ همان (با جایزهٔ واقعیِ همان روز)، وگرنه
+   یک بازیِ *قطعی بر اساسِ تاریخ* — همهٔ دستگاه‌ها در یک روز یک پیشنهادِ
+   یکسان می‌بینند، همان قراردادی که «آیهٔ روز» دارد. */
+const Suggestion = {
+  POOL: ['surah','ayahlight','recite','memory','match','speed','quiz','meaning',
+         'scramble','iran','hadith','imams','dua','nahj','tree','exam'],
+  pick(){
+    const st = DailyChallenge.status();
+    if(!st.done){
+      const streak = Streak.base() + 1;
+      return { kind: 'daily', streak, reward: 75 + Math.min(streak, 7) * 5 };
+    }
+    const pool = this.POOL.filter(g => DATA.GAMES[g]);
+    if(!pool.length) return null;
+    const rng = U.seedRand('sg' + U.today());
+    return { kind: 'game', game: pool[Math.floor(rng() * pool.length) % pool.length] };
+  },
+  render(){
+    const el = U.$('#homeSuggest');
+    if(!el) return;
+    const p = this.pick();
+    if(!p){ el.innerHTML = ''; el.dataset.k = ''; return; }
+    const key = p.kind === 'daily' ? `daily:${p.streak}` : `game:${p.game}`;
+    if(el.dataset.k === key) return;
+    el.dataset.k = key;
+    if(p.kind === 'daily'){
+      el.innerHTML = `<div class="today-card">
+        <span class="ti">${Glyph.of('🌙')}</span>
+        <span class="tc"><b>چالش روزانه</b><small>+${U.fa(p.reward)} امتیاز و زنجیرهٔ ${U.fa(p.streak)} روز — پنج پرسش که برای همه یکسان است</small></span>
+        <button type="button" class="btn sm" id="sgGo">شروع</button></div>`;
+      const b = U.$('#sgGo', el); if(b) b.onclick = () => { Sound.click(); DailyChallenge.open(); };
+      return;
+    }
+    const gm = DATA.GAMES[p.game];
+    el.innerHTML = `<div class="today-card">
+      <span class="ti">${Glyph.of(gm.icon)}</span>
+      <span class="tc"><b>پیشنهادِ امروز: ${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
+      <button type="button" class="btn sm" id="sgGo">${slideCtaText(p.game)}</button></div>`;
+    const b = U.$('#sgGo', el);
+    if(b) b.onclick = () => { Sound.click(); if(Games[p.game]) Games[p.game](); else UI.toast('به زودی...', ''); };
+  }
+};
+
+function renderHome(){
+  const catsEl = U.$('#cats');
+  const d = Store.data;
+  const art = U.$('#homeArt');
+  if(art && !art.dataset.done){
+    art.dataset.done = '1';
+    art.innerHTML = Art.panorama() +
+      '<div class="art-cap">🌙 نورستان — آموزش قرآن کریم، بازی‌های فکری و محفل چندنفره</div>';
+    art.onclick = () => { Sound.page(); Router.go('quran'); };
+    art.style.cursor = 'pointer';
+  }
+  /* هشدار زنجیره، بالای دسته‌ها — ولی نه هر بار که تازه می‌شود، چون
+     انیمیشن ورودش تکرار می‌شود و چشم را می‌زند. */
+  const warnEl = U.$('#homeWarn');
+  if(warnEl){
+    const html = Streak.warn();
+    if(warnEl.dataset.h !== html){ warnEl.dataset.h = html; warnEl.innerHTML = html; Streak.wire(warnEl); }
+  }
+  /* ── دسته‌ها به شکلِ کاروسل ──
+     مقایسهٔ HTML پیش از بازنویسی دو کار می‌کند: نخست، اگر پیشرفتی عوض
+     نشده DOM دست‌نخورده می‌ماند و کاروسل سرِ همان اسلایدی می‌ماند که
+     کاربر رهایش کرده بود؛ دوم، شنونده‌های window بی‌دلیل زیاد نمی‌شوند.
+     `renderHome` هر بارِ خانه صدا زده می‌شود، پس بی این مقایسه هر ورود
+     به خانه یک کاروسلِ تازه با تایمرِ تازه می‌ساخت. */
+  const html = DATA.categories.map(cat => catCarouselHtml(cat, d)).join('');
+  const changed = renderHome._catsHtml !== html;
+  if(catsEl && changed){
+    renderHome._catsHtml = html;
+    catsEl.innerHTML = html;
+    U.$$('[data-cat-all]', catsEl).forEach(b => b.onclick = () => { Sound.click(); Launcher.open(); });
+  }
+  /* کاروسل‌ها پس از آن‌که صفحه `.active` شد راه می‌افتند (Router._render
+     پیش از این قلاب اجرا شده)، وگرنه همهٔ اندازه‌ها صفر خوانده می‌شوند. */
+  try{ initAllCarousels(); }catch(e){ console.warn('carousels', e); }
+
+  U.$('#cGames').textContent = U.fa(Object.keys(DATA.GAMES)
+    .filter(g => !['stats','badges','leaderboard','settings','daily','online-lobby'].includes(g)).length);
+
+  /* ── پویانمایی خانه: ورود پله‌ای و کِن‌بارنز ──
+     روی اسلایدهای کاروسل تیلت سه‌بعدی *نمی‌گذاریم*: FX.tilt مقدارِ
+     `transform` را inline می‌نویسد و همان مقدار، کلاس‌های is-active/
+     is-prev/is-next را بی‌اثر می‌کرد — یعنی عمقِ کاروسل می‌شکست. */
+  try{
+    const hero = U.$('#homeArt');
+    if(hero){
+      const inner = hero.querySelector('svg');
+      if(inner) inner.classList.add('ken');                  // نمای سربرگ آرام بزرگ می‌شود
+    }
+    if(changed) FX.stagger(catsEl, '.cat', 70);
+    FX.stagger(U.$('#homeQuickStats'), '.stat-card', 60);
+  }catch(e){ console.warn('home anim', e); }
+}
+
+/* ─────────────────── 15. RENDER: ONLINE / ROOM ─────────────────── */
+function netStateChip(){
+  const el = U.$('#netState');
+  if(!el) return;
+  el.textContent = netChipText(); el.className = netChipCls();
+}
+
+/* ── متنِ وضعیت، یک جا ──
+   چهار جا وضعیت را نشان می‌دهند (نوار پایین، محفل، دو تبِ پنل). اگر هر
+   کدام خودش بسازد، دیر یا زود یکی «محلی» می‌گوید و آن یکی «قطع».
+
+   نکتهٔ مهم: اگر همین میزبان سرور است ولی سوکت بالا نیامده، «قطع» دروغ
+   است — سرور سرِ جایش هست. فرقِ «شبکه‌ات نیست» و «سرور خواب است» را
+   کاربر باید بداند. */
+function netChipText(){
+  if(Net.status === 'online')
+    return Net.mode === 'ws' ? '🟢 سرور' : '🟡 محلی';
+  if(Net.status === 'connecting')
+    return Host.yes() ? '⏳ وصل می‌شوم به سرور' : '⏳ در حال اتصال';
+  return Host.yes() ? '🔴 سرور پاسخ نداد' : '🔴 قطع';
+}
+function netChipCls(){
+  return Net.status === 'online' ? 'chip on'
+       : Net.status === 'connecting' ? 'chip' : 'chip off';
+}
+/* نسخهٔ کوتاه برای جاهایی که جا کم است (سرِ کارت‌های پنل) */
+function netChipShort(){
+  if(Net.status === 'online') return 'متصل';
+  return Net.status === 'connecting' ? 'اتصال…' : 'قطع';
+}
+
+/* ── کدام شناسه؟ ──
+   `Net.id` شناسهٔ *گذرای این اتصال* است (تب/سوکت) و با هر بار باز شدن
+   عوض می‌شود. `User.get().id` شناسهٔ *حساب* است (`usr_…`) و همان چیزی
+   است که روی سرور معنا دارد: با آن می‌شود بعداً سراغت را گرفت.
+   پس روی سرور حساب مقدم است. یک جا حساب می‌شود تا نمایش و رونوشت
+   هیچ‌وقت دو چیزِ متفاوت ندهند. */
+function netIdText(){
+  const u = (typeof User !== 'undefined' && User.get) ? User.get() : null;
+  const acct = u && u.id ? u.id : '';
+  return (Net.mode === 'ws' && acct) ? acct : Net.id;
+}
+function netIdLabel(){
+  const u = (typeof User !== 'undefined' && User.get) ? User.get() : null;
+  const acct = u && u.id ? u.id : '';
+  if(Net.mode === 'ws' && acct) return acct + ' — اتصال: ' + Net.id;
+  return Net.id + (Net.mode === 'ws' ? ' (سرور)' : ' (محلی)');
+}
+function renderOnline(){
+  U.$('#myPeer').value = netIdLabel();
+  netStateChip();
+  /* ── میزبانِ خودمان ──
+     وقتی همین صفحه را سرورِ نورستان سرو کرده، آدرس را از قبل پر کن و
+     برچسب را بگو، تا کاربر نفهمد «چیزی را باید دستی وارد کند».
+     بی سرور هیچ جایگزینِ محلی وجود ندارد — فقط پیامِ روشن. */
+  U.$('#mahfelNotice').textContent=Net.status==='online'?'محفل متصل است.':Net.status==='connecting'?'در حال اتصال…':'برای استفاده از محفل، اتصال به سرور لازم است. این صفحه را از نشانیِ سرورِ نورستان باز کن و اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت، از پشتیبانی بخواه اتصال سرور را بررسی کند.';
+  const peers = Net.peerList();
+  const me = [{ name: Store.get('playerName'), me: true, score: Store.get('score'), level: Store.get('level') }];
+  const all = [...me, ...peers];
+  U.$('#plCnt').textContent = U.fa(all.length);
+  U.$('#onCount').textContent = U.fa(all.length);
+  const friendIds = new Set(Friends.list().map(f => f.id));
+  U.$('#players').innerHTML = all.map(p => `
+    <div class="item">
+      <div class="av">${p.me ? '👤' : U.esc((p.name || '?').charAt(0))}</div>
+      <div class="sp"><b>${U.esc(p.name)}${p.me ? ' (شما)' : ''}</b>
+        <small>سطح ${U.fa(p.level || 1)} • ${U.fa(p.score || 0)} امتیاز</small></div>
+      ${!p.me && !friendIds.has(p.id)
+        ? `<button class="btn gh sm" data-fr="${U.esc(p.id)}" title="پیشنهاد دوستی" aria-label="پیشنهاد دوستی به ${U.esc(p.name)}">${Icon.of('link')}</button>`
+        : `<span class="chip on">🟢</span>`}
+    </div>`).join('');
+  U.$$('#players [data-fr]').forEach(b => b.onclick = () => {
+    const p = Net.peers.get(b.dataset.fr) || {};
+    Friends.request(b.dataset.fr, p.name);
+    b.outerHTML = '<span class="chip on">🟢</span>';
+  });
+
+  const rooms = Net.rooms();
+  U.$('#rmCnt').textContent = U.fa(rooms.length);
+  U.$('#rooms').innerHTML = rooms.length ? rooms.map(r => {
+    const max = r.max || 8, full = r.count >= max;
+    return `
+    <div class="item click" data-code="${U.esc(r.code)}">
+      <div class="av">${r.game === 'esmfamil' ? '📝' : '❌⭕'}</div>
+      <div class="sp"><b>${U.esc(r.name)}</b>
+        <small>کد ${U.esc(r.code)} • ${U.fa(r.count)}/${U.fa(max)} بازیکن</small></div>
+      <span class="chip ${full ? 'off' : 'on'}">${full ? '👁 تماشا' : 'ورود'}</span>
+    </div>`;
+  }).join('') : '<div class="empty">هنوز رومی ساخته نشده — خودت بساز!</div>';
+  U.$$('#rooms .item[data-code]').forEach(el => {
+      const join = () => Net.joinRoom(el.dataset.code);
+      el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.onclick = join;
+      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); join(); } };
+    });
+
+  const board = Net.board.length ? Net.board : Store.get('leaderboard');
+  U.$('#lbCnt').textContent = U.fa(board.length);
+  /* نمودار میله‌ای زنده — بلندی هر میله نسبت به صدر جدول است */
+  const top = board.slice(0, 10);
+  const max = Math.max(1, ...top.map(b => +(b.score || 0)), Store.get('score') || 0);
+  U.$('#gboard').innerHTML = top.length ? `
+    <div class="lbwrap">${top.map((b, i) => `
+      <div class="lbrow">
+        <span class="av" style="width:26px;height:26px;font-size:12px">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : U.fa(i + 1)}</span>
+        <span class="tiny" style="width:80px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${U.esc(b.name)}</span>
+        <span class="lbbar grow"><i class="fill" style="width:${Math.round(100 * (b.score || 0) / max)}%"></i></span>
+        <b class="tiny" style="color:var(--gold);width:54px;text-align:start">${U.fa(b.score)}</b>
+      </div>`).join('')}</div>
+    <div class="tiny mt6">${Net.board.length ? '🏆 رکورد سرور' : '💾 رکورد محلی'} — بلندی میله نسبت به صدر جدول</div>`
+    : UI.empty('trophy', 'هنوز رکوردی نیست', 'یک بازی انجام بده تا اولین رکوردت اینجا ثبت شود.');
+  if(Net.mode !== 'ws' || Net.status !== 'online') U.$('#gboard').insertAdjacentHTML?.('afterbegin', UI.empty('globe', 'لیدربورد سرور در انتظار اتصال', 'از بخش اتصال به سرور وصل شو؛ رکوردهای محلی‌ات روی همین دستگاه می‌مانند.'));
+  UI.decorate(U.$('#s-online'));
+}
+
+function renderRoom(){
+  const r = Net.room;
+  if(!r){ return; }
+  U.$('#rmTitle').textContent = r.name || 'روم من';
+  U.$('#rmCode').textContent = 'کد روم: ' + r.code;
+  U.$('#rmInvite').textContent = r.code;
+  U.$('#rmGameChip').textContent = r.game === 'esmfamil' ? '📝 اسم فامیل' : '❌⭕ دوز';
+  const members = r.members && r.members.length
+    ? r.members
+    : [{ id: Net.id, name: Store.get('playerName') }];
+  const CAP = 8;
+  U.$('#rmPlayerCnt').textContent = `${U.fa(members.length)}/${U.fa(CAP)}`;
+  const spec = U.$('#rmSpec');
+  if(spec) spec.classList.toggle('hide', !r.spectator);
+  U.$('#rmPlayers').innerHTML = members.map(m => {
+    const me = m.id === Net.id;
+    const host = m.id === r.host;
+    /* چهرهٔ گرادیانی از نام + حلقهٔ نبض برای کسی که همین حالا فعال است */
+    const live = m.active || (m.id === Net.lastFrom);
+    return `<div class="item">
+      ${Assets.avatar(m.name, 'av av-pulse ' + (live ? 'on' : ''))}
+      <div class="sp"><b>${U.esc(m.name)}${me ? ' (شما)' : ''}</b>
+        <small>${host ? 'میزبان' : (m.spectator ? 'تماشاچی' : 'بازیکن')}${me ? ' • تو' : ''}</small></div>
+      <span class="chip ${host ? 'wr' : 'on'}">${host ? '👑' : (m.spectator ? '👁' : '🟢')}</span>
+    </div>`;
+  }).join('');
+  const players = members.filter(m => !m.spectator).length;
+  const canStart = r.isHost && players >= 2;
+  const btn = U.$('#rmStart');
+  btn.disabled = !canStart;
+  btn.textContent = canStart ? '▶️ شروع بازی'
+    : (r.isHost ? (members.length >= 2 ? '⏳ تماشاچی‌ها بازی نمی‌کنند' : '⏳ منتظر بازیکن دوم…')
+                : '👑 میزبان شروع می‌کند');
+}
+
+function appendChat({ name, text, me = false, sys = false }){
+  const box = U.$('#chatBox');
+  if(!box) return;
+  const el = document.createElement('div');
+  if(sys){ el.className = 'msg sys'; el.textContent = text; }
+  else {
+    el.className = 'msg chat-line ' + (me ? 'me' : '');
+    el.innerHTML = me ? U.esc(text) : `<span class="who">${U.esc(name || 'ناشناس')}</span>${U.esc(text)}`;
+  }
+  box.appendChild(el);
+  /* پیام تازه از پایین سُر می‌خورد تو — فقط transform، پس روان است */
+  if(!sys && !FX.reduced && el.animate){
+    try{
+      el.animate([{ opacity:0, transform:`translateX(${me ? '-16px' : '16px'})` }, { opacity:1, transform:'none' }],
+        { duration:280, easing:'cubic-bezier(.22,.9,.3,1)' });
+    }catch(e){}
+  }
+  while(box.children.length > 200) box.firstChild.remove();
+  box.scrollTop = box.scrollHeight;
+}
+
+/* نقطه‌های «در حال نوشتن…» — تا وقتی کسی تایپ می‌کند نشان داده می‌شود */
+const Typing = {
+  el: null, timer: null,
+  show(name){
+    const box = U.$('#chatBox');
+    if(!box || FX.reduced) return;
+    if(!this.el){
+      this.el = document.createElement('div');
+      this.el.className = 'msg sys typing-row';
+      box.appendChild(this.el);
+    }
+    this.el.innerHTML = `${U.esc(name || 'یک نفر')} در حال نوشتن
+      <span class="typing"><i></i><i></i><i></i></span>`;
+    box.scrollTop = box.scrollHeight;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.hide(), 2600);
+  },
+  hide(){ if(this.el){ try{ this.el.remove(); }catch(e){} this.el = null; } clearTimeout(this.timer); }
+};
+
+/* ─────────────────── 16. NOTIFICATIONS ─────────────────── */
+function pushNotif(title, desc, icon = '🔔'){
+  Store.update(d => {
+    d.notifications.unshift({ id: U.uid(), title, desc, icon, time: U.now(), read: false });
+    d.notifications = d.notifications.slice(0, 50);
+  });
+  updateNotifDot();
+  UI.toast(`${icon} ${title}`, '');
+}
+function updateNotifDot(){
+  const unread = Store.get('notifications').filter(n => !n.read).length;
+  U.$('#notifDot').classList.toggle('hide', !unread);
+}
+function renderNotif(){
+  const list = Store.get('notifications');
+  U.$('#notifSub').textContent = U.fa(list.length) + ' پیام';
+  if(!list.length){ U.$('#notifList').innerHTML = '<div class="empty">اعلانی نیست</div>'; return; }
+  U.$('#notifList').innerHTML = list.map(n => `
+    <div class="item">
+      <div class="av">${Glyph.of(n.icon)}</div>
+      <div class="sp"><b>${U.esc(n.title)}</b><small>${U.esc(n.desc)}</small></div>
+    </div>`).join('');
+  Store.update(d => d.notifications.forEach(n => n.read = true));
+  updateNotifDot();
+}
+
+/* ─────────────────── 17. صفحه «حساب من» ─────────────────── */
+const Me = {
+  tab: 'profile',
+  render(){
+    const d = Store.data, st = d.stats;
+    U.$('#meSub').textContent = `${d.playerName} • سطح ${U.fa(d.level)} • ${U.fa(d.score)} امتیاز`;
+    U.$$('#meTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.metab === this.tab));
+    const body = U.$('#meBody');
+    const total = st.totalCorrect + st.totalWrong;
+    const acc = total ? Math.round(st.totalCorrect / total * 100) : 0;
+
+    if(this.tab === 'profile'){
+      const p = d.profile || {};
+      const need = Math.max(1, xpForLevel(d.level));
+      const pctLv = U.clamp(Math.round(100 * d.xp / need), 0, 100);
+      const played = d.gamesPlayed || {};
+      const nGames = Object.keys(played).length;
+      const fav = Object.entries(played).sort((a, b) => b[1] - a[1])[0];
+      const favName = fav ? ((DATA.GAMES[fav[0]] || {}).name || fav[0]) : '—';
+      const jd = p.joined ? new Date(p.joined).toLocaleDateString('fa-IR') : '—';
+      body.innerHTML = `
+        <div class="prof">
+          <span id="pfAva" style="cursor:pointer">${Avatar.html('lg', true)}</span>
+          <span class="pb">
+            <h3>${U.esc(d.playerName)}${Session.admin() ? ' 👑' : ''}</h3>
+            <span class="psub">${U.esc(p.motto || 'قرآن را با هم یاد می‌گیریم')}</span>
+            <span class="prow">
+              <span class="chip">سطح ${U.fa(d.level)}</span>
+              ${Wallet.chip()}
+              <span class="chip wr">🎖️ ${U.fa(Object.keys(d.badges || {}).length)}</span>
+              ${d.phone ? `<span class="chip on" dir="ltr">📱 ${U.esc(d.phone)}</span>` : ''}
+            </span>
+            <span class="xpbar"><i style="width:${pctLv}%"></i></span>
+            <span class="tiny" style="display:block;margin-top:5px">${U.fa(d.xp)} از ${U.fa(need)} تجربه تا سطح ${U.fa(d.level + 1)}</span>
+          </span>
+        </div>
+
+        <div class="card mt14">
+          <b style="font-size:13px">${Icon.of('edit')} ویرایش پروفایل</b>
+          <div class="sep"></div>
+          <label class="lbl">نام</label>
+          <input class="inp" id="pfName" maxlength="20" value="${U.esc(d.playerName)}">
+          <label class="lbl">شعار کوتاه</label>
+          <input class="inp" id="pfMotto" maxlength="60" placeholder="مثلاً: هر روز یک آیه" value="${U.esc(p.motto || '')}">
+          <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn" id="pfAvaBtn">${Icon.of('smile')}<span>چهرک</span></button>
+            <button class="btn gh" id="pfShop">${Icon.of('cart')}<span>فروشگاه</span></button>
+            <button class="btn gh" id="pfOnb">${Icon.of('image')}<span>راهنمای آغاز</span></button>
+          </div>
+        </div>
+
+        <div class="card mt14">
+          <b style="font-size:13px">${Icon.of('id-card')} حساب کاربری</b>
+          <div class="sep"></div>
+          ${(() => {
+            const u = User.row();
+            if(!u) return '<div class="empty">هویت ساخته نشد — مولدِ امن در این مرورگر در دسترس نیست</div>';
+            const verified = !!u.phone;
+            /* سه حالِ متفاوت را یک‌جور نگوییم: «رفت»، «در راه»، و «سروری نیست».
+               پیش‌تر هیچ‌کدام دیده نمی‌شد و کاربر نمی‌دانست خوش‌آمدگویی هست یا نه.
+               این سطر فقط برای حسابِ شماره‌دار معنا دارد؛ برای مهمان اصلاً
+               کشیده نمی‌شود (پایین‌تر شرطش هست) — سطرِ «ثبت نشده» فقط
+               شلوغی بود و کاربر را به پرسش وا می‌داشت. */
+            const welcomeLine = () => {
+              /* همان سنجشی که پنل ادمین به کار می‌برد: اتصالِ ws به سرور */
+              if(!(Net.status === 'online' && Net.mode === 'ws'))
+                return '<span style="color:var(--mut)">⚠️ اتصال برقرار نیست</span>';
+              if(User.welcomed()){
+                const at = User.welcomedAt();
+                return '✅ ارسال ثبت شده' + (at ? ` — ${U.esc(U.jalali(at))}` : '');
+              }
+              return '⏳ در راه — پس از ورود فرستاده می‌شود';
+            };
+            return `
+              <div class="kv"><span>شناسه</span>
+                <span style="display:inline-flex;gap:6px;align-items:center">
+                  <b class="adm-id" data-copy="${U.esc(u.id)}" title="برای کپی بزن"
+                     style="cursor:pointer"><span dir="ltr">${U.esc(u.id)}</span></b>
+                  <button class="btn gh sm" id="pfCopyId" title="کپی شناسه"
+                          aria-label="کپی شناسه">📋 کپی</button>
+                </span></div>
+              <div class="kv"><span>شمارهٔ موبایل</span>
+                <b>${verified ? `<span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span>`
+                               : '<span style="color:var(--mut)">ثبت نشده</span>'}</b></div>
+              <div class="kv"><span>وضعیت</span>
+                <b>${verified ? '✅ تأییدشده با پیامک' : 'نیازمند ورود دوباره'}</b></div>
+              <div class="kv"><span>بازی‌های این حساب</span><b>${U.fa(u.plays)}</b></div>
+              <div class="kv"><span>${Icon.of('calendar')} عضویت</span>
+                <b>${U.esc(U.jalali(u.joinedAt))}</b></div>
+              <div class="kv"><span>آخرین ورود</span>
+                <b>${u.lastLogin ? U.esc(U.fa(U.ago(u.lastLogin))) : '—'}</b></div>
+              ${verified ? `<div class="kv"><span>${Icon.of('send')} خوش‌آمدگویی</span><b>${welcomeLine()}</b></div>` : ''}
+              <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+                ${verified
+                  ? 'این حساب در سرور با همین شماره شناخته می‌شود. شماره در بازی‌ها و رتبه‌بندی به کسی نشان داده نمی‌شود.'
+                  : 'برای ادامه، دوباره با شمارهٔ موبایل خودت وارد شو.'}</p>`;
+          })()}
+        </div>
+
+        <p><button class="btn gh sm" id="pfLogout">خروج از حساب</button><button class="btn gh sm" id="pfPurchases">خریدها و رسیدها</button></p>
+        <div class="card mt14">
+          <b style="font-size:13px">${Icon.of('id-card')} شناسنامه</b>
+          <div class="sep"></div>
+          ${Streak.rows()}
+          <div class="kv"><span>بازی‌های انجام‌شده</span><b>${U.fa(d.stats.plays || 0)}</b></div>
+          <div class="kv"><span>بازی‌های متفاوت</span><b>${U.fa(nGames)}</b></div>
+          <div class="kv"><span>بیشترین بازی</span><b>${U.esc(favName)}</b></div>
+          <div class="kv"><span>مأموریت انجام‌شده</span><b>${U.fa(d.stats.missionsDone || 0)}</b></div>
+          <div class="kv"><span>سکهٔ به‌دست‌آمده</span><b>${U.fa(Wallet.earned())}</b></div>
+          <div class="kv"><span>سکهٔ خرج‌شده</span><b>${U.fa(Wallet.spent())}</b></div>
+          <div class="kv"><span>عضو از</span><b>${U.esc(jd)}</b></div>
+        </div>
+
+        <div class="card mt14">
+          <b style="font-size:13px">⚙️ میان‌برها</b>
+          <div class="sep"></div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn gh sm" id="pfMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <button class="btn gh sm" id="pfBadges">${Icon.of('medal')} نشان‌ها</button>
+            <button class="btn gh sm" id="pfRecords">${Icon.of('medal')} رکوردها</button>
+            <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
+            <button class="btn gh sm" id="pfPhone">${User.phone() ? '📱 تغییر شماره' : '📱 ورود با موبایل'}</button>
+          </div>
+        </div>`;
+      const av = U.$('#pfAva'), avb = U.$('#pfAvaBtn');
+      if(av)  av.onclick  = () => Avatar.pick();
+      if(avb) avb.onclick = () => Avatar.pick();
+      const sh = U.$('#pfShop'); if(sh) sh.onclick = () => Shop.open();
+      const ob = U.$('#pfOnb'); if(ob) ob.onclick = () => Onboarding.open();
+      const mm = U.$('#pfMissions'); if(mm) mm.onclick = () => Missions.open();
+      const bb = U.$('#pfBadges'); if(bb) bb.onclick = () => { this.tab = 'badges'; this.render(); };
+      const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
+      const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
+      const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
+      /* مهمان بی سرور بی‌پاسخ نماند */
+      const pc = U.$('#pfCopyId');
+      if(pc) pc.onclick = async () => {
+        Haptic.hit();
+        UI.toast(await copyText(User.get().id) ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار',
+                 'ok', 2000);
+      };
+      /* 👑 پنل مدیریت: مدیر مستقیم می‌رود، کسی که مدیر نیست به صفحهٔ
+         ورودِ مدیر. عمداً پنهان نمی‌شود: دکمهٔ پنهان امنیت نیست — فقط
+         پنهان‌کردنِ ناامنی است، و خودِ پنل هم همین را می‌گوید. */
+      U.$('#pfLogout').onclick=()=>Session.logout();
+      U.$('#pfPurchases').onclick=()=>PaidAccount.open();
+      /* ورودِ مدیریت از پروفایل برداشته شد: هیچ عنصرِ قابل‌کلیکی در نسخهٔ
+         کاربرِ عادی به مدیریت نمی‌رسد؛ تنها مسیر، نشانیِ مستقیمِ #admin است. */
+      U.$$('.adm-id').forEach(el => el.onclick = async () => {
+        const t = el.dataset.copy;
+        if(!t) return;
+        UI.toast(await copyText(t) ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار', 'ok');
+      });
+      const nm = U.$('#pfName');
+      if(nm) nm.onchange = () => {
+        /* از راهِ User می‌رود تا نامِ هویت و نامِ نمایشی از هم جدا نیفتند */
+        User.setName(nm.value);
+        UI.toast('✅ نام ذخیره شد', 'ok');
+        this.render();
+      };
+      const mo = U.$('#pfMotto');
+      if(mo) mo.onchange = () => {
+        Store.update(x => x.profile.motto = (mo.value || '').trim().slice(0, 60));
+        UI.toast('✅ شعار ذخیره شد', 'ok');
+      };
+    }
+
+    else if(this.tab === 'stats'){
+      body.innerHTML = `
+        <div class="card">
+          <b style="font-size:13px">${Icon.of('chart')} آمار کلی</b>
+          <div class="sep"></div>
+          <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
+            <div class="stat"><b>${U.fa(st.totalCorrect)}</b><span>✅ درست</span></div>
+            <div class="stat"><b>${U.fa(st.totalWrong)}</b><span>❌ غلط</span></div>
+            <div class="stat"><b>${U.fa(acc)}%</b><span>🎯 دقت</span></div>
+            <div class="stat"><b>${U.fa(st.maxCombo)}</b><span>🔥 بهترین کمبو</span></div>
+            <div class="stat"><b>${st.fastestAnswer < 999 ? U.fa(st.fastestAnswer.toFixed(1)) : '—'}</b><span>⚡ سریع‌ترین (ثانیه)</span></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <b style="font-size:13px">${Icon.of('gamepad')} تفکیک بازی‌ها</b>
+          <div class="sep"></div>
+          <div class="kv"><span>${Icon.of('book')} آزمون‌های تمام‌شده</span><b>${U.fa(st.quizzes)}</b></div>
+          <div class="kv"><span>${Icon.of('bolt')} بازی سرعت نور</span><b>${U.fa(st.speed)}</b></div>
+          <div class="kv"><span>${Icon.of('plus')} پازل حروف</span><b>${U.fa(st.puzzles)}</b></div>
+          <div class="kv"><span>${Icon.of('target')} حافظه</span><b>${U.fa(st.memory)}</b></div>
+          <div class="kv"><span>${Icon.of('link')} تطبیق</span><b>${U.fa(st.match)}</b></div>
+          <div class="kv"><span>🇮🇷 سوال ایران</span><b>${U.fa(st.iran)}</b></div>
+          <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span><b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
+          <div class="kv"><span>⚔️ برد آنلاین</span><b>${U.fa(st.onlineWins || 0)}</b></div>
+          <div class="kv"><span>${Icon.of('globe')} روم‌های ساخته‌شده</span><b>${U.fa(st.rooms)}</b></div>
+          <div class="kv"><span>${Icon.of('book-open')} سوره‌های کامل</span><b>${U.fa(DATA.surahDoneCount(d.completed))} از ${U.fa(DATA.surahNames.length)}</b></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <b style="font-size:13px">${Icon.of('moon')} چالش روزانه</b>
+          <div class="sep"></div>
+          <div class="kv"><span>وضعیت امروز</span><b>${DailyChallenge.status().done ? '✓ انجام شد' : '🕒 انجام نشده'}</b></div>
+          <div class="kv"><span>زنجیره</span><b>${U.fa(d.dailyChallenge.streak || 0)} روز</b></div>
+          <div class="kv"><span>آخرین جایزه</span><b>${U.fa(d.dailyChallenge.reward || 0)}</b></div>
+        </div>`;
+    }
+
+    else if(this.tab === 'records'){
+      const localBoard = [...d.leaderboard].sort((a, b) => b.score - a.score);
+      const recLabels = { surah_best: '📖 بهترین سفر سوره‌ها', quiz_best: '📚 بهترین آزمون',
+        speed_best: '⚡ بهترین امتیاز سرعت', memory_best: '🧠 کمترین حرکت حافظه',
+        esmfamil_best: '📝 بهترین اسم فامیل' };
+      body.innerHTML = `
+        <div class="card">
+          <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
+          <div class="sep"></div>
+          ${Object.keys(d.best).length ? '' : UI.empty('chart', 'داستان بازی‌هایت از اینجا شروع می‌شود', 'نتیجهٔ نخستین بازی‌ات را اینجا خواهی دید.')}
+          ${Object.entries(recLabels).map(([k, label]) => {
+            const v = d.best[k];
+            const unit = k === 'memory_best' ? ' حرکت' : k.includes('best') && k !== 'esmfamil_best' ? '%' : ' امتیاز';
+            return `<div class="kv"><span>${label}</span><b>${v == null ? '—' : U.fa(v) + unit}</b></div>`;
+          }).join('')}
+        </div>
+        <div class="card" style="margin-top:12px">
+          <b style="font-size:13px">${Icon.of('trophy')} لیدربورد ${Net.board.length ? 'سرور' : 'محلی'}</b>
+          <div class="sep"></div>
+          <div class="list">
+            ${(Net.board.length ? Net.board : localBoard).slice(0, 15).map((b, i) => `
+              <div class="item">
+                <div class="av">${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : U.fa(i + 1)}</div>
+                <div class="sp"><b>${U.esc(b.name)}${b.name === d.playerName ? ' (تو)' : ''}</b></div>
+                <b style="color:var(--gold)">${U.fa(b.score)}</b>
+              </div>`).join('') || UI.empty('chart', 'هنوز نتیجه‌ای ثبت نشده', 'از خانه یک بازی انتخاب کن و اولین رکوردت را بساز.')}
+          </div>
+          <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
+        </div>`;
+      U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
+    }
+
+    else if(this.tab === 'badges'){
+      const got = DATA.badges.filter(b => d.badges[b.id]).length;
+      body.innerHTML = `
+        <div class="card">
+          <div class="row"><b style="font-size:13px">${Icon.of('medal')} نشان‌های من</b><div class="sp" style="flex:1"></div>
+            <span class="chip wr">${U.fa(got)} از ${U.fa(DATA.badges.length)}</span></div>
+          <div class="sep"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px">
+            ${DATA.badges.map(b => {
+              const ok = d.badges[b.id];
+              return `<div class="stat" style="opacity:${ok ? 1 : .38};padding:12px 6px" title="${U.esc(b.desc)}">
+                <b class="gi26">${Glyph.of(b.icon)}</b>
+                <span style="font-size:11px">${U.esc(b.name)}</span>
+                <span style="font-size:11px;opacity:.8;margin-top:3px;display:block">${U.esc(b.desc)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
+
+    else {
+      const s = d.settings;
+      const q = Store.get('quran');
+      const fo = Store.get('fonts');
+      const themes = Theme.ALL.map(id => ({ id, name: Theme.LABEL[id] }));
+      body.innerHTML = `
+        <div class="card">
+          <b style="font-size:13px">⚙️ تنظیمات</b>
+          <div class="sep"></div>
+          <label class="lbl">نام بازیکن</label>
+          <input class="inp" id="setName" maxlength="20" value="${U.esc(d.playerName)}">
+          <label class="lbl">تم ظاهری</label>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            ${themes.map(t => `<button class="btn ${s.theme === t.id ? '' : 'gh'}" data-theme="${t.id}"
+              style="flex:1;padding:9px;min-width:88px">${t.name}</button>`).join('')}
+          </div>
+          <label class="lbl">صدا و لرزش</label>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn ${s.sound ? '' : 'gh'}" id="setSound" style="flex:1">${s.sound ? '🔊 صدا روشن' : '🔇 صدا خاموش'}</button>
+            <button class="btn ${s.haptics ? '' : 'gh'}" id="setHaptic" style="flex:1">${s.haptics ? '📳 لرزش روشن' : '🔇 لرزش خاموش'}</button>
+          </div>
+          <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+            <button class="btn ${s.ambient ? '' : 'gh'}" id="setAmbient" style="flex:1">${s.ambient ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'}</button>
+            <button class="btn gh" id="setMotion" style="flex:1">${Icon.of('image')} حرکت: ${FX.reduced ? 'کم' : 'کامل'}</button>
+          </div>
+
+          <label class="lbl">${Icon.of('target')} رفتن به</label>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn gh sm" id="setMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <button class="btn gh sm" id="setCollection">${Icon.of('medal')} کلکسیون</button>
+            <button class="btn gh sm" id="setTree">${Icon.of('tree')} درخت دانش</button>
+            <button class="btn gh sm" id="setBookmarks">${Icon.of('mark')} نشانه‌ها</button>
+            <button class="btn gh sm" id="setFriends">${Icon.of('users')}<span>دوستان</span></button>
+            <button class="btn gh sm" id="setReciters">${Icon.of('mic')} قاریان</button>
+            <button class="btn gh sm" id="setFocus">${Icon.of('target')} تمرکز</button>
+            <button class="btn gh sm" id="setNight">${Icon.of('moon')} تکرار شبانه</button>
+            <button class="btn gh sm debug-only" id="setSelfTest">🧪 selfTest</button>
+          </div>
+          <label class="lbl">${Icon.of('headphones')} تلاوت قرآن</label>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn gh" id="setQuran" style="flex:1">${U.esc(RECITERS[U.clamp(q.reciter, 0, RECITERS.length - 1)].name)}</button>
+            <button class="btn gh" id="setQnext" style="flex:0 0 auto">${Icon.of('refresh')} قاری بعدی</button>
+          </div>
+          <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn gh sm" id="setQvol">${Icon.of('volume')} بلندی: ${U.fa(Math.round((q.vol ?? .9) * 100))}٪</button>
+            <button class="btn gh sm" id="setQsrc">${Icon.of('sat')} منبع: ${QSOURCES[q.source]?.name || '—'}</button>
+            <button class="btn gh sm" id="setQtest">▶️ آزمایش تلاوت</button>
+          </div>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+            صوت قاریان از منبع‌های آزاد (EveryAyah / Islamic Network) پخش می‌شود؛ برای شنیدن به اینترنت نیاز است.
+            متن و ترجمهٔ هر سوره یک بار گرفته و روی دستگاه ذخیره می‌شود.</p>
+
+          <label class="lbl">${Icon.of('pen')} فونت نمایشی (تیترها و نام نورستان)</label>
+          <button class="btn gh w" id="setFontDisp">${U.esc((FONTS[fo.display] || FONTS.vazir).name)} — ${U.esc((FONTS[fo.display] || FONTS.vazir).note || '')}</button>
+          <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn gh sm" id="setFontQuran">${Icon.of('pen')} فونت قرآن: ${U.esc((FONTS[fo.quran] || FONTS.amiri).name)}</button>
+            <button class="btn gh sm" id="setNastaliq">${Fonts.isNastaliq(fo.display) ? '✓ نستعلیق روشن' : '🌿 نستعلیق'}</button>
+          </div>
+
+          <label class="lbl">${Icon.of('book')} ترجمهٔ فارسی</label>
+          <button class="btn gh w" id="setTrans">${U.esc((TRANSLATIONS.find(t => t.id === q.translation) || { name: q.translation }).name)}</button>
+
+          <label class="lbl">${Icon.of('text')} اندازهٔ متن قرآن</label>
+          <div class="row" style="gap:8px;align-items:center">
+            <button class="btn gh sm" id="setReadDown">ا−</button>
+            <span style="font-size:12px;color:var(--mut);min-width:46px;text-align:center">${U.fa(q.readSize || 25)}px</span>
+            <button class="btn gh sm" id="setReadUp">ا+</button>
+            <button class="btn gh sm" id="setShowFa">${q.showFa === false ? '🇮🇷 ترجمه: خاموش' : '🇮🇷 ترجمه: روشن'}</button>
+          </div>
+
+          <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn gh sm" id="setPickSurah">${Icon.of('book-open')} رفتن به سورهٔ…</button>
+            <button class="btn gh sm" id="setClearText">${Icon.of('broom')} پاک کردن متن ذخیره‌شده</button>
+          </div>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+            متن ${U.fa(QText.cached())} سوره روی این دستگاه ذخیره شده است. پاک کردنش جا آزاد می‌کند
+            ولی بار بعد هر سوره دوباره از اینترنت گرفته می‌شود.</p>
+
+          ${Install.card()}
+
+          ${SMS.card()}
+
+
+          <button class="btn w" id="setSave" style="margin-top:16px">${Icon.of('save')} ذخیره</button>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <b style="font-size:13px">${Icon.of('archive')} داده‌های من</b>
+          <div class="sep"></div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            <button class="btn gh" id="meExport">${Icon.of('download')} خروجی JSON</button>
+            <button class="btn gh" id="meImport">${Icon.of('share')} ورود از فایل</button>
+            <button class="btn gh" id="meSync">${Icon.of('cloud')} ارسال رکورد به سرور</button>
+            <button class="btn dg" id="meReset">${Icon.of('trash')} ریست کامل</button>
+          </div>
+          <input type="file" id="meFile" accept="application/json" class="hide">
+        </div>`;
+      U.$$('[data-theme]').forEach(btn => btn.onclick = () => {
+        const t = btn.dataset.theme;
+        Store.update(x => { x.settings.theme = t; x.settings.themeChosen = true; });
+        Theme.set(t);
+        U.$$('[data-theme]').forEach(b => b.classList.toggle('gh', b.dataset.theme !== t));
+      });
+      /* ── نسخهٔ ۱۵: غبار طلایی، کم‌کردن حرکت، میان‌برهای تازه ── */
+      const amb = U.$('#setAmbient');
+      if(amb) amb.onclick = function(){
+        const v = Theme.ambient();
+        this.textContent = v ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش';
+        this.classList.toggle('gh', !v);
+      };
+      const mo = U.$('#setMotion');
+      if(mo) mo.onclick = function(){
+        const off = document.documentElement.getAttribute('data-motion') === 'off';
+        document.documentElement.setAttribute('data-motion', off ? 'on' : 'off');
+        Store.update(x => x.settings.motionOff = !off);
+        this.textContent = off ? '🎬 حرکت: کامل' : '🎬 حرکت: کم';
+        this.classList.toggle('gh', !off);
+        UI.toast(off ? '🎬 پویانمایی کامل روشن شد' : '🎬 پویانمایی کم شد', '', 1800);
+      };
+      U.$('#setMissions').onclick = () => Missions.open();
+      U.$('#setCollection').onclick = () => Collection.open();
+      U.$('#setTree').onclick = () => Tree.open();
+      U.$('#setBookmarks').onclick = () => Bookmarks.open();
+      U.$('#setFriends').onclick = () => Friends.open();
+      U.$('#setReciters').onclick = () => ReciterUI.open();
+      U.$('#setFocus').onclick = () => { Focus.toggle(); };
+      U.$('#setNight').onclick = () => NightRepeat.modal();
+      Install.wire();
+      SMS.wire();
+      /* ورودِ مدیریت از تنظیمات هم برداشته شد: در نسخهٔ کاربرِ عادی هیچ
+         عنصری به پنل مدیریت نمی‌رسد. تنها مسیر، نشانیِ مستقیمِ «#admin»
+         است که فقط بیرون از برنامه دانسته می‌شود. */
+      U.$('#setSelfTest').onclick = () => {
+        const r = selfTest();
+        UI.modal(`<h3>🧪 selfTest</h3>
+          <div class="winrec mt10">${r.ok ? '✅ همهٔ سنجش‌ها گذشت' : '❌ چند سنجش شکست خورد'}<br>
+            <b>${U.fa(r.pass)} از ${U.fa(r.total)}</b></div>
+          ${r.rows.filter(x => !x.ok).map(x => `<div class="tiny" style="color:var(--red)">✖ ${U.esc(x.name)}
+            ${x.extra != null ? '— ' + U.esc(String(x.extra)) : ''}</div>`).join('') || ''}
+          <div class="tiny mt10">جزئیات کامل در کنسول مرورگر چاپ شد.</div>`);
+      };
+      U.$('#setSound').onclick = function(){
+        const v = !Store.get('settings').sound;
+        Store.update(x => x.settings.sound = v);
+        U.icLabel(this, v ? 'volume' : 'volume-off', v ? 'صدا روشن' : 'صدا خاموش');
+        this.classList.toggle('gh', !v);
+        if(v) Sound.play(true);
+      };
+      U.$('#setHaptic').onclick = function(){
+        const v = !Store.get('settings').haptics;
+        Store.update(x => x.settings.haptics = v);
+        U.icLabel(this, 'vibrate', v ? 'لرزش روشن' : 'لرزش خاموش');
+        this.classList.toggle('gh', !v);
+        if(v) Haptic.success();
+      };
+      // ── تلاوت: قاری، بلندی، منبع، آزمایش ──
+      U.$('#setQnext').onclick = () => {
+        const i = ((Store.get('quran').reciter || 0) + 1) % RECITERS.length;
+        /* از راهِ switchTo می‌رود تا در حینِ پخش، آیه از نو خوانده نشود */
+        Recite.switchTo(i);
+        U.$('#setQuran').textContent = RECITERS[i].name;
+        UI.toast(`🎙 ${RECITERS[i].name} — ${RECITERS[i].note}`, 'ok', 2200);
+      };
+      U.$('#setQvol').onclick = function(){
+        const steps = [.5, .7, .9, 1];
+        const i = (steps.indexOf(Store.get('quran').vol) + 1) % steps.length;
+        Store.update(x => x.quran.vol = steps[i]);
+        Recite.applyPrefs();
+        U.icLabel(this, 'volume', `بلندی: ${U.fa(Math.round(steps[i] * 100))}٪`);
+      };
+      U.$('#setQsrc').onclick = function(){
+        const i = ((Store.get('quran').source || 0) + 1) % QSOURCES.length;
+        Recite.switchSource(i);        // مثلِ قاری: از همین لحظه، نه از صفر
+        U.icLabel(this, 'sat', `منبع: ${QSOURCES[i].name}`);
+      };
+      U.$('#setQtest').onclick = () => {
+        Recite.play(1, 1);
+        UI.toast('🎧 سورهٔ فاتحه، آیهٔ ۱ — ' + Recite.reciter().name, 'ok', 2400);
+      };
+
+      /* ── فونت، ترجمه و متن ── */
+      const repaintSettings = () => { Me.render(); };
+      U.$('#setFontDisp').onclick = () => openFontPicker('disp');
+      U.$('#setFontQuran').onclick = () => openFontPicker('quran');
+      U.$('#setNastaliq').onclick = () => {
+        const nxt = Fonts.isNastaliq(Store.get('fonts').display) ? 'vazir' : 'gulzar';
+        Store.update(x => x.fonts.display = nxt);
+        Fonts.apply(Store.get('fonts'));
+        UI.toast(nxt === 'gulzar' ? '🌿 نستعلیق روشن شد' : 'وزیرمتن روشن شد', 'ok', 1500);
+        repaintSettings();
+      };
+      U.$('#setTrans').onclick = () => {
+        UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('book')} ترجمهٔ فارسی</h3>
+          <div class="fpicks">${TRANSLATIONS.map(t => `
+            <div class="fpick ${t.id === Store.get('quran').translation ? 'on' : ''}" data-t="${U.esc(t.id)}">
+              <div class="fname"><b>${U.esc(t.name)}</b><small>${U.esc(t.note)}</small></div>
+              <span style="font-size:17px">✅</span>
+            </div>`).join('')}</div>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+            با تغییر ترجمه، متن هر سوره یک بار دیگر از اینترنت گرفته و جداگانه ذخیره می‌شود.</p>`, box => {
+          U.$$('.fpick', box).forEach(el => el.onclick = () => {
+            Store.update(x => x.quran.translation = el.dataset.t);
+            QText.mem.clear();
+            ReaderUI.reset();
+            UI.closeModal();
+            UI.toast('📚 ترجمه عوض شد', 'ok', 1500);
+            repaintSettings();
+          });
+        });
+      };
+      const bumpSize = dt => {
+        const n = U.clamp((Store.get('quran').readSize || 25) + dt, 16, 54);
+        Store.update(x => x.quran.readSize = n);
+        ReaderUI.paint();
+        repaintSettings();
+      };
+      U.$('#setReadUp').onclick = () => bumpSize(2);
+      U.$('#setReadDown').onclick = () => bumpSize(-2);
+      U.$('#setShowFa').onclick = function(){
+        const v = Store.get('quran').showFa === false;
+        Store.update(x => x.quran.showFa = v);
+        ReaderUI.reset();
+        this.textContent = v ? '🇮🇷 ترجمه: روشن' : '🇮🇷 ترجمه: خاموش';
+        repaintSettings();
+      };
+      U.$('#setPickSurah').onclick = () => pickSurah(s => {
+        Store.update(x => { x.quran.surah = s; x.quran.ayah = 1; });
+        ReaderUI.open(s, 1);
+      });
+      U.$('#setClearText').onclick = () => {
+        const n = QText.cached();
+        if(!n){ UI.toast('چیزی ذخیره نشده بود', '', 1400); return; }
+        UI.confirm(`متن ${n} سورهٔ ذخیره‌شده پاک شود؟`, () => {
+          QText.clear(); ReaderUI.reset(); repaintSettings();
+          UI.toast('🧹 پاک شد', 'ok');
+        });
+      };
+      U.$('#setSave').onclick = () => {
+        const name = U.$('#setName').value.trim().slice(0, 20);
+        /* یکدست‌شده ذخیره می‌شود تا نشانیِ بی‌پورت در localStorage نماند
+           و بارِ بعد هم وصل نشود. */
+        Store.update(x => { if(name) x.playerName = name; });
+        Net.announce();
+        updateHomeStats();
+        UI.toast('✅ ذخیره شد', 'ok');
+      };
+      U.$('#meExport').onclick = () => {
+        const blob = new Blob([Store.export()], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `noorestan_${d.playerName}_${U.today()}.json`;
+        a.click();
+        Timers.after(() => URL.revokeObjectURL(a.href), 4000);
+      };
+      U.$('#meImport').onclick = () => UI.confirm('پیشرفت فعلی با اطلاعات فایل جایگزین شود؟ ابتدا نسخهٔ خروجی بگیر.',()=>U.$('#meFile').click());
+      U.$('#meFile').onchange = e => {
+        const f = e.target.files[0]; if(!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          try{ Store.import(r.result); UI.toast('✅ داده‌ها وارد شد', 'ok'); location.reload(); }
+          catch(err){ UI.toast('❌ فایل نامعتبر', 'err'); }
+        };
+        r.readAsText(f);
+      };
+      U.$('#meSync').onclick = () => {
+        Sync.push(true);
+        UI.toast(Net.status === 'online' ? '☁️ ارسال شد' : 'فعلاً روی این دستگاه ذخیره شد؛ پس از اتصال دوباره تلاش کن.', Net.status === 'online' ? 'ok' : '');
+      };
+      U.$('#meReset').onclick = () => UI.confirm('همه داده‌ها پاک شود؟', () => {
+        Store.reset(); location.reload();
+      });
+    }
+  }
+};
+
+/* ─────────────────── 17.8 هویتِ کاربر ───────────────────
+   شناسهٔ کاربر (`usr_…`) عمداً از شمارهٔ موبایل ساخته نمی‌شود و هیچ بخشِ
+   قابل‌حدسی ندارد: بیست نویسهٔ هگز از مولدِ رمزنگاری‌شدهٔ مرورگر. کسی که
+   شناسه را ببیند نمی‌تواند شماره را از آن دربیاورد، و دو کاربر با شمارهٔ
+   یکسان هم شناسهٔ یکسان نمی‌گیرند تا فهرستِ کاربران با هم قاطی نشود.
+
+   کجا ساخته می‌شود: همین‌جا. برنامه باید آفلاین هم کار کند و اگر ساختِ
+   شناسه را به سرور می‌سپردیم، کاربرِ بی‌سرور هیچ هویتی نداشت. سرور هم
+   شناسه را بی‌چون‌وچرا قبول نمی‌کند: شکلش را می‌سنجد و تا شماره با پیامک
+   تأیید نشده، هیچ اختیاری به آن نمی‌دهد (پنل ادمین را در سرور ببین).
+
+   شناسهٔ پیشین (playerId از U.uid) از Math.random می‌آمد و قابلِ حدس بود.
+   هنگامِ ارتقا یک‌بار عوض می‌شود و آن یکی می‌ماند تا خواننده‌های قدیمی
+   نشکنند؛ ولی مرجع، همین `user.id` است. */
+const User = {
+  ID_RE: /^usr_[0-9a-f]{20}$/,
+  okId(id){ return this.ID_RE.test(String(id || '')); },
+  makeId(){
+    const s = U.salt(10);
+    return s.length === 20 ? 'usr_' + s : '';   // '' = تصادفِ امن در دسترس نیست
+  },
+  get(){
+    const u = Store.get('user');
+    return (u && typeof u === 'object' && !Array.isArray(u)) ? u : null;
+  },
+  /* هویت را می‌سازد اگر نبود یا اگر شناسه‌اش بی‌شکل بود. null یعنی
+     «ساخته نشد» — و در آن حالت هیچ‌جای برنامه هویتی نمی‌سازد، چون
+     شناسهٔ ضعیف از نبودِ شناسه بدتر است. */
+  ensure(){
+    let u = this.get();
+    if(u && this.okId(u.id)) return u;
+    const id = this.makeId();
+    if(!id) return null;
+    const old = Store.get('playerId');
+    Store.update(d => {
+      d.user = { id, name: String(d.playerName || '').slice(0, 20) || 'بازیکن',
+                 phone: String(d.phone || ''), joinedAt: U.now(), lastLogin: 0,
+                 visits: 0, plays: 0, blocked: false, lastIp: '',
+                 /* یادگارِ هویتِ پیشین، فقط برای پیگیری — نه مرجع */
+                 legacyId: (old && !this.okId(old)) ? String(old).slice(0, 20) : '' };
+    });
+    return this.get();
+  },
+  /* یک بار در هر نشست: بازدید و «آخرین ورود» بالا می‌رود. اگر در هر
+     رندر صدا زده می‌شد، شمارندهٔ بازدید بی‌معنا می‌شد. */
+  entered: false,
+  enter(){
+    const u = this.ensure();
+    if(!u) return null;
+    if(this.entered) return u;
+    this.entered = true;
+    Store.update(d => {
+      const v = d.user;
+      if(!v || !this.okId(v.id)) return;
+      v.visits = (v.visits || 0) + 1;
+      v.lastLogin = U.now();
+      if(!v.joinedAt) v.joinedAt = U.now();
+    });
+    return this.get();
+  },
+  /* نام نمایشی — تنها جایی که از playerName به user.name می‌رسیم */
+  setName(v){
+    const n = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 20) || 'بازیکن';
+    Store.update(d => {
+      d.playerName = n;
+      if(d.user) d.user.name = n;
+    });
+    return n;
+  },
+  name(){ const u = this.get(); return (u && u.name) || Store.get('playerName') || 'بازیکن'; },
+  phone(){ const u = this.get(); return (u && u.phone) || Store.get('phone') || ''; },
+  /* شماره پس از تأییدِ پیامک روی هویت می‌نشیند. جای دیگری نباید صداش بزند.
+     `U.unfa` پیش از جدا کردنِ رقم‌ها می‌آید: کاربر با صفحه‌کلید فارسی
+     «۰۹۱۲…» می‌زند و آن رشته از دیدِ /\D/ هیچ رقمی ندارد — بی این تبدیل،
+     شمارهٔ درست به رشتهٔ خالی بدل می‌شد. */
+  setPhone(phone){
+    const p = U.unfa(String(phone || '')).replace(/\D/g, '').slice(0, 15);
+    this.ensure();
+    Store.update(d => { d.phone = p; if(d.user) d.user.phone = p; });
+    return p;
+  },
+  bumpPlay(){
+    const u = this.ensure();
+    if(!u) return;
+    Store.update(d => { if(d.user) d.user.plays = (d.user.plays || 0) + 1; });
+  },
+  /* آنچه از این هویت به سرور می‌رود. عمداً کم است: نه امتیاز، نه شماره.
+     شماره فقط پس از تأییدِ پیامک و در همان مسیرِ ورود می‌رود. */
+  wire(){
+    const u = this.get();
+    return u ? { id: u.id, name: this.name(), level: Store.get('level'),
+                 score: Store.get('score') } : null;
+  },
+  /* فهرستِ پنل ادمین — یک ردیف برای کاربرِ همین دستگاه */
+  row(){
+    const u = this.get();
+    if(!u) return null;
+    return { id: u.id, name: this.name(), phone: u.phone || '', joinedAt: u.joinedAt || 0,
+             lastLogin: u.lastLogin || 0, visits: u.visits || 0, plays: u.plays || 0,
+             score: Store.get('score'), level: Store.get('level'), blocked: !!u.blocked,
+             me: true };
+  },
+  /* قفلِ محلی. این «امنیت» نیست — مانعِ خودِ کاربر است تا با حسابی
+     مسدودشده بازی نکند؛ قفلِ راستین در سرور است. */
+  setBlocked(v){
+    if(!this.get()) return;
+    Store.update(d => { if(d.user) d.user.blocked = !!v; });
+  },
+  blocked(){ const u = this.get(); return !!(u && u.blocked); },
+  /* ── کارنامهٔ سرور ──
+     سرور تنها مرجعِ «پیامکِ خوش‌آمدگویی رفت یا نه» است؛ دستگاه به‌تنهایی
+     نمی‌تواند بداند. فقط همین چند میدان نوشته می‌شود و هیچ‌کدام از آن‌ها به
+     دستگاه اختیاری نمی‌دهد — شناسه و شماره هر دو سمتِ سرور راستی‌آزمایی
+     شده‌اند و این‌جا فقط *نمایش* می‌شوند. */
+  serverState(msg){
+    if(!msg || !this.okId(msg.id)) return false;
+    this.ensure();
+    const cur = this.get();
+    /* اگر سرور شناسهٔ دیگری برای همین دستگاه بگوید (تعویضِ شماره)، شناسهٔ
+       قدیمی فقط وقتی کنار می‌رود که شکلش هم تازه و درست باشد. */
+    Store.update(d => {
+      if(!d.user) return;
+      if(this.okId(d.user.id) && d.user.id !== msg.id && msg.phone === d.user.phone) d.user.id = msg.id;
+      const mine = d.user.id === msg.id;
+      d.user.welcomed = !!msg.welcomed;
+      d.user.welcomedAt = Math.max(0, +msg.welcomedAt || 0);
+      if(mine){
+        if(msg.phone) d.user.phone = String(msg.phone).slice(0, 15);
+        d.user.joinedAt = Math.max(0, +msg.joinedAt || 0) || d.user.joinedAt;
+      }
+    });
+    return true;
+  },
+  welcomed(){
+    const u = this.get();
+    return !!(u && u.welcomed);
+  },
+  welcomedAt(){ const u = this.get(); return (u && u.welcomedAt) || 0; }
+};
+
+/* ─────────────────── 17.9 شمارشِ بازی‌ها ───────────────────
+   پنل مدیریت باید بتواند بگوید «کدام بازی بیشتر بازی می‌شود» و «امروز چند
+   دست بازی شد». پیش‌تر فقط `stats.plays` بود که تنها دوزِ آفلاین آن را
+   بالا می‌برد؛ یعنی عددی بود که به همهٔ بازی‌ها دروغ می‌گفت.
+
+   شمارش هنگامِ *باز شدنِ* بازی است، نه پایانش: بازیِ نیمه‌کاره هم یک بار
+   بازی‌کردن است، و اگر کاربر وسطش بیرون برود نباید از شمارش بیفتد. */
+const Stats = {
+  todayKey(){ return U.today(); },
+  track(game){
+    if(!game) return;
+    Store.update(d => {
+      const s = d.stats;
+      if(!s.byGame || typeof s.byGame !== 'object') s.byGame = {};
+      s.byGame[game] = (s.byGame[game] || 0) + 1;
+      /* شمارندهٔ امروز هنگامِ عوض شدنِ روز از صفر شروع می‌کند؛ سابقهٔ
+         دیروز نگه داشته نمی‌شود — برای «بازی‌های امروز» همین کافی است. */
+      if(!s.today || typeof s.today !== 'object' || s.today.date !== this.todayKey())
+        s.today = { date: this.todayKey(), n: 0, byGame: {} };
+      s.today.n = (s.today.n || 0) + 1;
+      s.today.byGame[game] = (s.today.byGame[game] || 0) + 1;
+    });
+    /* شمارشِ بازی روی هویتِ کاربر هم می‌نشیند، نه فقط روی آمارِ دستگاه.
+       جدا از آمار است چون پنل ادمین کاربر را با همین عدد می‌شناسد و
+       آمارِ دستگاه با پاک‌شدنِ داده صفر می‌شود. */
+    User.bumpPlay();
+  },
+  /* امروز چند دست — اگر تاریخ ذخیره‌شده امروز نباشد، صفر */
+  todayN(){
+    const t = Store.get('stats').today;
+    return t && t.date === this.todayKey() ? (t.n || 0) : 0;
+  },
+  todayByGame(){
+    const t = Store.get('stats').today;
+    return t && t.date === this.todayKey() ? (t.byGame || {}) : {};
+  },
+  /* همهٔ بازی‌ها، پرکارترین اول */
+  ranking(){
+    const g = Store.get('stats').byGame || {};
+    return Object.keys(g).map(id => ({ id, n: g[id] }))
+      .filter(r => r.n > 0).sort((a, b) => b.n - a.n);
+  },
+  nameOf(id){ return (DATA.GAMES[id] || {}).name || id; },
+  iconOf(id){ return (DATA.GAMES[id] || {}).icon || '🎮'; }
+};
+
+/* ─────────────────── 17.10 ویرایشِ محتوا ───────────────────
+   افزودن و برداشتنِ پرسش، بدون دست‌زدن به متنِ خودِ بسته.
+
+   چرا لایهٔ روکش و نه ویرایشِ DATA؟ چون DATA بخشی از فایل است و هر ویرایشی
+   در زمانِ اجرا با رفتنِ برنامه از بین می‌رود. روکش در Store می‌نشیند، پس
+   می‌ماند. حذف با *اثر انگشتِ متن* انجام می‌شود نه با شمارهٔ اندیس: اندیس
+   با هر تغییرِ ترتیبِ بانک جابه‌جا می‌شود و حذف، پرسشِ اشتباهی را می‌برد. */
+/* تصویرِ دست‌نخوردهٔ بانک‌ها، یک بار و پیش از نخستین ویرایش گرفته می‌شود.
+   بی آن، هر بار apply روی *خروجیِ* apply پیشین می‌نشیند و نتیجهٔ ویرایش‌ها
+   یک‌طرفه می‌شود: پرسشِ برداشته همیشه برداشته می‌ماند (چون دیگر در DATA
+   نیست تا فیلترِ حذف رویش بنشیند و بازگرداندن کاری نکند) و افزودهٔ پاک‌شده
+   هم برمی‌گردد (چون در نسخهٔ پیشین داخلِ خودِ DATA جا گرفته بود). */
+const CONTENT_BASE = {};
+
+const Content = {
+  BANKS: ['quiz', 'meaning', 'iran', 'surahPick', 'hadith', 'duas'],
+  LABEL: { quiz:'📚 سوال قرآنی', meaning:'🔤 معنی کلمه', iran:'🇮🇷 اطلاعات ایران',
+           surahPick:'📖 کامل‌کردن آیه', hadith:'📜 حدیث', duas:'🤲 دعا' },
+
+  edits(){
+    const e = Store.get('contentEdits');
+    return (e && typeof e === 'object') ? e : { del: {}, add: {} };
+  },
+  /* اثر انگشت: کوتاه، یکتا برای یک پرسش، بی‌وابستگی به ترتیب */
+  sig(item){
+    const t = item && (item.q ?? item.key ?? item.ar ?? '');
+    return U.sha256(String(t)).slice(0, 12);
+  },
+  /* نامِ نمایشیِ یک مدخل، برای فهرست */
+  title(item){
+    if(!item) return '';
+    return String(item.q ?? item.key ?? item.title ?? item.ar ?? '').slice(0, 90);
+  },
+  isDeleted(bank, item){
+    return (this.edits().del[bank] || []).includes(this.sig(item));
+  },
+  added(bank){ return this.edits().add[bank] || []; },
+  /* فهرستِ زندهٔ یک بانک: اصل + افزوده‌ها − برداشته‌ها */
+  list(bank){
+    const base = Array.isArray(DATA[bank]) ? DATA[bank] : [];
+    const del = this.edits().del[bank] || [];
+    return base.filter(x => !del.includes(this.sig(x)))
+      .concat(this.added(bank).map(x => ({ ...x, _added: true })));
+  },
+  count(bank){ return this.list(bank).length; },
+  remove(bank, item){
+    if(item._added){                       // افزودهٔ خودمان: مستقیم پاک می‌شود
+      Store.update(d => {
+        const e = Content.normalize(d);
+        e.add[bank] = (e.add[bank] || []).filter(x => Content.sig(x) !== Content.sig(item));
+      });
+      return true;
+    }
+    Store.update(d => {
+      const e = Content.normalize(d);
+      if(!e.del[bank]) e.del[bank] = [];
+      const s = Content.sig(item);
+      if(!e.del[bank].includes(s)) e.del[bank].push(s);
+    });
+    return true;
+  },
+  restore(bank, item){
+    Store.update(d => {
+      const e = Content.normalize(d);
+      e.del[bank] = (e.del[bank] || []).filter(s => s !== Content.sig(item));
+    });
+  },
+  restoreAll(){ Store.update(d => { d.contentEdits = { del: {}, add: {} }; }); },
+  /* اعتبارسنجیِ پرسشِ تازه — همان چیزهایی که بازرسِ محتوا می‌سنجد */
+  check(bank, item){
+    if(!item.q || !String(item.q).trim()) return 'متن پرسش خالی است';
+    if(!Array.isArray(item.o) || item.o.filter(x => String(x).trim()).length < 2)
+      return 'حداقل دو گزینه لازم است';
+    if(!item.a || !String(item.a).trim()) return 'پاسخ درست را ننوشتی';
+    const n = x => U.norm(String(x));
+    if(!item.o.some(o => n(o) === n(item.a))) return 'پاسخ باید یکی از گزینه‌ها باشد';
+    if(new Set(item.o.map(n)).size !== item.o.map(n).length) return 'گزینه‌ها تکراری‌اند';
+    if(!item.why || !String(item.why).trim()) return 'توضیح پاسخ خالی است';
+    if(!item.src || !String(item.src).trim()) return 'منبع خالی است';
+    if(this.list(bank).some(x => n(x.q) === n(item.q))) return 'این پرسش از قبل هست';
+    return '';
+  },
+  add(bank, item){
+    const why = this.check(bank, item);
+    if(why) return why;
+    Store.update(d => {
+      const e = Content.normalize(d);
+      if(!e.add[bank]) e.add[bank] = [];
+      e.add[bank].push(item);
+    });
+    this.apply();
+    return '';
+  },
+  /* روکش را روی داده می‌نشاند. یک بار در init و بعد از هر ویرایش. */
+  apply(){
+    /* بانکِ مشتق باید *اول* از نو ساخته شود. وگرنه فیلترِ حذف روی نسخهٔ
+       کهنه می‌نشیند و بعد بازسازی، حذف را بی‌اثر می‌کند. */
+    try{ DATA.surahPick = surahPickBuild(); }catch(e){ console.warn('surahPick', e); }
+    this.BANKS.forEach(b => {
+      if(!CONTENT_BASE[b]){
+        CONTENT_BASE[b] = Array.isArray(DATA[b]) ? DATA[b].slice() : [];
+        /* در نخستین اجرا هنوز چیزی ویرایش نشده و بسته دست‌نخورده است */
+      }
+      const del = this.edits().del[b] || [];
+      const base = CONTENT_BASE[b].filter(x => !del.includes(this.sig(x)));
+      DATA[b] = base.concat(this.added(b).map(x => ({ ...x, _added: true })));
+    });
+  },
+  normalize(d){
+    if(!d.contentEdits || typeof d.contentEdits !== 'object') d.contentEdits = { del: {}, add: {} };
+    const e = d.contentEdits;
+    if(!e.del || typeof e.del !== 'object') e.del = {};
+    if(!e.add || typeof e.add !== 'object') e.add = {};
+    return e;
+  },
+  /* خروجیِ CSV از یک فهرستِ ردیف — سرصفحه + ردیف‌ها، بی هیچ کتابخانه */
+  csv(head, rows){
+    const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    return '﻿' + [head.map(cell).join(','), ...rows.map(r => r.map(cell).join(','))].join('\r\n');
+  },
+  /* بارکردنِ پشتیبان — همان چیزی که «خروجی JSON» می‌سازد */
+  importJSON(text){
+    let parsed;
+    try{ parsed = JSON.parse(text); }
+    catch(e){ return 'فایل JSON خوانده نشد'; }
+    if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return 'ساختار فایل درست نیست';
+    if(!parsed._v && !parsed.stats && !parsed.settings) return 'این فایل پشتیبانِ نورستان نیست';
+    Store.import(text);
+    return '';
+  }
+};
+
+/* ─────────────────── 18. ADMIN ─────────────────── */
+const Admin = {
+  currentTab: 'dash',
+
+  /* ── سنجش رمز ──
+     تنها سنجشی که واقعاً جلوی رمز بد را می‌گیرد، کمینهٔ طول است؛ بقیه فقط
+     بدیهی‌ترین حالت‌ها را می‌بندند. عمداً پیچیدگی اجباری (حرف بزرگ و نماد)
+     نگذاشتم: کاربر را به نوشتن رمزی می‌کشاند که یادش نمی‌ماند و روی کاغذ
+     می‌نویسد. */
+  MIN_PASS: 8,
+  WEAK_PASS: ['12345678', '123456789', '1234567890', 'password', 'passw0rd',
+              'qwertyui', 'noorestan', 'noor2024', 'admin123', '11111111', '00000000'],
+  passProblem(v){
+    /* عمداً U.unfa صدا زده نمی‌شود: رمز یک رشتهٔ تحت‌اللفظی است، نه عددی که
+       رقم فارسی‌اش باید لاتین شود. */
+    const p = String(v == null ? '' : v);
+    if(p.trim().length < this.MIN_PASS)
+      return `رمز حداقل ${U.fa(this.MIN_PASS)} کاراکتر باشد`;
+    if(this.WEAK_PASS.includes(p.trim().toLowerCase()))
+      return 'این رمز حدس‌زدنی است — یکی دیگر بگذار';
+    if(/^(.)\1+$/.test(p.trim()))
+      return 'رمز نباید همه‌اش یک حرف تکراری باشد';
+    return '';
+  },
+
+  /* ── نشستِ سرور ──
+     اگر سرور در دسترس باشد، احراز هویت *روی سرور* انجام می‌شود: رمز یک بار
+     می‌رود، سرور می‌سنجد، و یک نشانهٔ نشست با انقضا برمی‌گرداند. رمز و هش
+     هیچ‌گاه روی دستگاه نمی‌مانند.
+
+     پیش‌تر کلاینت هشِ رمز را نگه می‌داشت و با هر پیامِ مدیریتی می‌فرستاد.
+     دو ایراد داشت: هش بدلِ رمز شده بود (هر که آن را می‌دید مدیر می‌شد) و
+     راهی برای باطل‌کردنش نبود.
+
+     چرا نشانه در localStorage می‌ماند: برنامهٔ PWA است و رمزِ نشستِ کوکیِ
+     httpOnly در دسترسش نیست. نشانه یک *اعتبارنامه* است نه تصمیمِ دسترسی؛
+     تصمیم را سرور می‌گیرد و نشانه را با حافظهٔ خودش می‌سنجد. باقی‌ماندهٔ
+     ریسک: اگر کسی روی همین خاستگاه اسکریپت اجرا کند، نشانه را می‌دزدد —
+     ولی برخلاف گذشته، با انقضای ۱۲ ساعته و امکان باطل‌کردن. */
+  API: '/api/admin',
+  token(){ const t = Store.get('adminToken'); return typeof t === 'string' ? t : ''; },
+  tokenExp(){ return Math.floor(+Store.get('adminTokenExp') || 0); },
+  hasToken(){ return !!this.token() && U.now() < this.tokenExp(); },
+  /* سرور واقعی در دسترس است؟ */
+  onServer(){ return Net.status === 'online' && Net.mode === 'ws'; },
+
+  /* ── رمز را از کجا بسنجیم؟ ──
+     «سوکت باز است» تنها نشانهٔ سرور نیست. اگر همین صفحه را سرورِ نورستان
+     سرو کرده باشد، سرور همان‌جاست حتی اگر سوکت هنوز بالا نیامده باشد.
+     بدون این، در گذرِ کوتاهِ پیش از اتصال، برنامه فرمِ «ساختن رمزِ مدیر»
+     را می‌کاشت و کاربر — بی‌آنکه بخواهد — یک رمزِ *دوم* و محلی می‌ساخت
+     که سرور هیچ‌وقت نمی‌شناسدش.
+
+     یک تصمیم، یک جا. `tryPass` و صفحهٔ ورود هر دو از همین می‌پرسند. */
+  remote(){return true;},
+
+  async loginServer(pass){
+    const r = await SMS.req(this.API + '/login', { body: { pass } });
+    if(r && r.status === 0) return { ok: false, why: 'سرور پاسخ نداد — اتصال را بررسی کن' };
+    const j = r && r.json;
+    if(r && r.ok && j && j.success && typeof j.token === 'string'){
+      Store.update(d => { d.adminToken = j.token; d.adminTokenExp = U.now() + (+j.exp || 0); });
+      return { ok: true };
+    }
+    return { ok: false, why: (j && j.error) || 'ورود نشد' };
+  },
+
+  /* ── یک در، دو جا ──
+     صفحهٔ ورودِ تمام‌صفحه و دروازهٔ درونِ پنل باید *یکی* باشند؛ دو نسخهٔ
+     جدا یعنی دو جای متفاوت برای یک تصمیم، و دیر یا زود یکی از آنها
+     بی‌آنکه کسی بفهمد سست می‌شود.
+
+     این تابع فقط می‌سنجد و پرچم را می‌نشاند؛ پاک‌کردنِ ورودی و رندر به
+     صداکننده می‌ماند چون هر کدام جعبهٔ خودش را دارد. */
+  _passBusy: false,
+  passFail(why){
+    const prior = Store.get('adminAttempts') || {};
+    const fails = Math.min(12, (prior.fails || 0) + 1);
+    const delay = Math.min(300000, 1000 * 2 ** (fails - 1));
+    Store.set('adminAttempts', { fails, until: U.now() + delay });
+    return { ok: false, why, retryAfter: delay };
+  },
+  async tryPass(pass){
+ const wait=Math.max(0,((Store.get('adminAttempts')||{}).until||0)-U.now());
+ if(wait)return {ok:false,locked:true,retryAfter:wait,why:'کمی صبر کن — '+U.fa(Math.ceil(wait/1000))+' ثانیه'};
+ if(this._passBusy)return {ok:false,why:'در حال بررسی…'};
+ if(!pass)return {ok:false,why:'رمز را بنویس'};
+ this._passBusy=true;
+ try{const r=await this.loginServer(pass);if(!r.ok)return this.passFail('ورود مدیریت پذیرفته نشد؛ رمز و اتصال را بررسی کن.');
+ Store.set('adminAttempts',null);Store.set('isAdmin',true);Session.role='admin';Session.layout();return {ok:true,remote:true,first:false};
+ }finally{this._passBusy=false;}
+},
+  /* ── گذاشتنِ رمزِ محلی ──
+     تنها جایی که رمز به هش بدل و ذخیره می‌شود. اگر دو جا هش بسازند، دیر یا
+     زود یکی از آنها قاعدهٔ دیگری پیدا می‌کند و رمزِ سست از درِ دوم می‌آید. */
+
+  async logoutServer(){await Session.logout();},
+  /* نشستِ ذخیره‌شده هنوز معتبر است؟ اگر سرور باطلش کرده باشد، همین می‌فهمد. */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// شبکه قطع است — نشانه را دور نمی‌ریزیم
+async confirmServer(){
+ if(!this.hasToken())return false;
+ const r=await SMS.req(this.API+'/whoami',{body:{token:this.token()},ms:8000});
+ if(!r.ok)return [401,403].includes(r.status)?false:null;
+ return r.json?.success?r.json.admin===true:null;
+},
+
+  /* ── دفترِ کاربران ──
+     فهرست از سرور می‌آید و سرور صاحبِ آن است. اینجا فقط نگه داشته می‌شود تا
+     زبانه بی‌درنگ چیزی برای نشان‌دادن داشته باشد؛ هر تغییرِ مدیریتی با
+     pushAdminUsers سرور تازه می‌شود و دوباره می‌رسد. */
+  users: [],
+  usersAt: 0,
+  _usersBusy: false,
+  askUsers(force){
+    if(!this.onServer()) return;
+    if(this._usersBusy) return;
+    if(!force && U.now() - this.usersAt < 4000) return;   // تازه است
+    this._usersBusy = true;
+    this.usersAt = U.now();
+    Net.post({ t: 'admin:users', token: this.token() });
+    /* 'sys' وگرنه رفتن به صفحهٔ دیگر قفل را بازنشده رها می‌کند */
+    Timers.after(() => { this._usersBusy = false; }, 4000, 'sys');
+  },
+  gotUsers(list){
+    this.users = Array.isArray(list) ? list : [];
+    this.usersAt = U.now();
+    this._usersBusy = false;
+    if(this.currentTab === 'users' && Store.get('isAdmin')) this.renderTab();
+  },
+  /* یک کنشِ مدیریتی روی یک کاربر.
+     روی سرور، کار در سرور انجام و از آنجا به همهٔ مدیرها هم اعلام می‌شود.
+     بی سرور، تنها کاربرِ همین دستگاه است و کنش هم محلی می‌ماند — با همین
+     صراحت هم به مدیر گفته می‌شود. */
+  userAct(kind, u){
+    if(!Session.admin()||!this.onServer())return;
+
+    const env = { t: 'admin:user:' + kind, token: this.token() };
+    if(u.id) env.id = u.id;
+    if(u.phone) env.phone = u.phone;
+    if(kind === 'sms') env.text = String(u.text || '').slice(0, 300);
+    Net.post(env);
+  },
+  /* متنِ پیامک را می‌پرسیم. متنِ دلخواه بی بازبینی نمی‌رود؛ همین یک کادر
+     جلوی «فرستادنِ ناخواسته» را می‌گیرد. */
+  smsBox(u){
+    if(!this.onServer()){
+      UI.toast('پیامک فقط از سرور فرستاده می‌شود', 'err');
+      return;
+    }
+    UI.modal(`
+      <h3 style="margin-bottom:4px">${Icon.of('send')} پیامک به ${U.esc(u.name || 'کاربر')}</h3>
+      <p style="color:var(--mut);font-size:12px;margin-bottom:10px" dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone || '—')}</p>
+      <textarea class="inp" id="admSmsText" rows="3" maxlength="300"
+                placeholder="متن پیامک…"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="btn dg" id="admSmsGo">${Icon.of('send')} بفرست</button>
+        <button class="btn gh" id="admSmsNo">بی‌خیال</button>
+      </div>`, box => {
+        const ta = U.$('#admSmsText', box);
+        const go = U.$('#admSmsGo', box);
+        if(go) go.onclick = () => {
+          const text = (ta && ta.value || '').trim();
+          if(!text){ UI.toast('متن خالی است', 'err'); return; }
+          this.userAct('sms', { ...u, text });
+          UI.closeModal();
+          UI.toast('📨 فرستادن آغاز شد…', '', 2400);
+        };
+        const no = U.$('#admSmsNo', box);
+        if(no) no.onclick = () => UI.closeModal();
+      });
+  },
+  /* پاسخِ سرور دربارهٔ پیامکِ مدیریتی — «رفت» و «نمی‌دانم» و «نشد» یکی نیستند */
+  smsResult(msg){
+    const s = msg && msg.state;
+    if(s === 'sent') UI.toast('📨 پیامک رسید', 'ok', 2600);
+    else if(s === 'pending') UI.toast('⏳ تأییدِ ارسال نیامد — رسیدنش معلوم نیست', '', 3600);
+    else UI.toast('⚠️ پیامک نرفت' + (msg && msg.error ? ' — ' + msg.error : ''), 'err', 3600);
+  },
+
+  /* ── دروازهٔ ورود ──
+     دو حالت دارد و تفاوتشان مهم است:
+       روی سرور       ⇒ رمز به سرور می‌رود و نشست برمی‌گردد. این «امنیت» است.
+       بدونِ سرور     ⇒ رمزی محلی ساخته/سنجیده می‌شود. این امنیت *نیست*؛
+                        قفلی است تا کسی با گوشیِ خودت بی‌اجازه وارد نشود.
+                        صریح همین را به کاربر هم می‌گوییم.
+     پیش‌تر رمز پیش‌فرض «noor2024» هم داخل بسته منتشر بود و هم همین صفحه
+     چاپش می‌کرد؛ یعنی هر کسی که برنامه را باز می‌کرد، مدیر بود. */
+  render(){
+    const d = Store.data;
+    if(!Session.admin()){
+      /* این شاخه در جریانِ عادی هرگز اجرا نمی‌شود: قبل از رسمِ صفحهٔ
+         مدیریت، Session.allow('admin') هر که مدیر نبود را به صفحهٔ ورودِ
+         مجزای مدیر (AdminLogin → #alog) می‌فرستد. این‌جا فقط یک نگهبانِ
+         دوم است: هیچ فرمی نمی‌کشد، فقط به همان دروازهٔ یکتا می‌فرستد. */
+      U.$('#adminGate').innerHTML = `
+        <div class="card">
+          <b>${Icon.of('lock')} پنل مدیریت قفل است</b>
+          <p style="color:var(--mut);font-size:12px;margin-top:6px">
+            برای دیدنِ پنل، از صفحهٔ ورودِ مدیریت وارد شو.</p>
+        </div>`;
+      U.$('#adminMain').classList.add('hide');
+      AdminLogin.open();
+      return;
+    }
+    U.$('#adminGate').innerHTML = '<button class="btn gh" id="adminExit">خروج از مدیریت</button>';
+    U.$('#adminExit').onclick=()=>Session.logout();
+    U.$('#adminMain').classList.remove('hide');
+    this.renderTab();
+    /* نشستِ ذخیره‌شده را در پس‌زمینه با سرور چک می‌کنیم. اگر باطل شده باشد،
+       پنل بسته می‌شود — ولی بی‌آنکه کاربر را وسط کار بیرون بیندازیم: نتیجه
+       فقط وقتی اعمال می‌شود که نشست دیگر معتبر نباشد. */
+    if(this.onServer() && this.hasToken()){const checkedToken=this.token();this.confirmServer().then(ok => {
+      if(ok===false && Session.admin() && this.token()===checkedToken){Session.logout();}
+    }).catch(() => {});}
+  },
+  renderTab(){
+    if(!Session.admin())return;
+    const body = U.$('#adminBody');
+    /* پاسخِ سرور می‌تواند برسد وقتی پنل بسته است؛ رندر روی جعبهٔ ناموجود
+       استثنا می‌ساخت. */
+    if(!body) return;
+    const d = Store.data;
+    U.$$('.tab[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === this.currentTab));
+    const peers = Net.peerList();
+    switch(this.currentTab){
+      case 'dash': {
+        const g = Stats.ranking();
+        const top = g[0];
+        const tBy = Stats.todayByGame();
+        const tTop = Object.keys(tBy).sort((a, b) => tBy[b] - tBy[a])[0];
+        const recent = (d.leaderboard || []).slice(0, 5);
+        body.innerHTML = `
+          <div class="card">
+            <div class="row"><b style="font-size:13px">${Icon.of('chart')} امروز</b>
+              <div class="sp" style="flex:1"></div>
+              <span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
+            <div class="sep"></div>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
+              <div class="stat"><b>${U.fa(Stats.todayN())}</b><span>🎮 دستِ امروز</span></div>
+              <div class="stat"><b>${U.fa(g.reduce((n, r) => n + r.n, 0))}</b><span>∑ کلِ بازی‌ها</span></div>
+              <div class="stat"><b>${U.fa(1 + peers.length)}</b><span>👥 کاربر</span></div>
+              <div class="stat"><b>${U.fa(peers.length)}</b><span>📡 آنلاین</span></div>
+            </div>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              ${tTop ? `پرکارترین بازیِ امروز: ${Stats.iconOf(tTop)} ${U.esc(Stats.nameOf(tTop))} (${U.fa(tBy[tTop])} دست)`
+                     : 'امروز هنوز بازی‌ای شروع نشده.'}
+              ${top ? `<br>در کل: ${Stats.iconOf(top.id)} ${U.esc(Stats.nameOf(top.id))} با ${U.fa(top.n)} دست` : ''}
+            </p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('trend')} پرکارترین بازی‌ها</b>
+            <div class="sep"></div>
+            ${g.length ? g.slice(0, 6).map(r => `
+              <div class="kv"><span>${Stats.iconOf(r.id)} ${U.esc(Stats.nameOf(r.id))}</span>
+                <b>${U.fa(r.n)}</b></div>`).join('') : '<div class="empty">هنوز چیزی شمرده نشده</div>'}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('clock')} رکوردهای تازه</b>
+            <div class="sep"></div>
+            <div class="list">${recent.length ? recent.map(b => `
+              <div class="item"><div class="av">🏆</div>
+                <div class="sp"><b>${U.esc(b.name)}</b><small>${U.fa(U.ago(b.at))}</small></div>
+                <b style="color:var(--gold)">${U.fa(b.score)}</b></div>`).join('')
+              : '<div class="empty">خالی</div>'}</div>
+          </div>`;
+        break;
+      }
+      case 'users': {
+        const remote = this.onServer();
+        const q = (this._userQ || '').trim().toLowerCase();
+        const myId = (User.get() || {}).id || '';
+
+        /* دو فهرست، دو حقیقتِ متفاوت.
+           روی سرور، فهرستِ راستین همان است که سرور می‌دهد: هر کاربر با
+           شماره و شناسه و تاریخ‌ها، از جمله کسانی که الان آنلاین نیستند.
+           بی سرور، تنها چیزی که داریم همین دستگاه و هم‌گپ‌های زنده است؛
+           نه شماره‌ای در کار است نه سابقه‌ای. یکی‌کردنِ این دو، توهمِ
+           «کاربرِ ثبت‌شده» برای کسی می‌ساخت که هرگز ثبت‌نام نکرده. */
+        const all = remote
+          ? (this.users || []).map(u => ({ ...u, me: !!myId && u.id === myId }))
+          : [(() => { const r = User.row(); return r ? { ...r, _local: true } : null; })(),
+             ...peers.map(p => ({ name: p.name, id: p.id, score: p.score || 0,
+                                  level: p.level || 1, online: true }))]
+             .filter(Boolean);
+
+        /* جست‌وجو روی شماره هم می‌نشیند — با رقمِ لاتین و فارسی، چون مدیر
+           شماره را از هر جا که دیده کپی می‌کند. */
+        const hay = u => [u.name, u.id, u.phone].map(x => String(x || '').toLowerCase()).join(' ');
+        const qn = q.replace(/[۰-۹]/g, c => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
+        const shown = q ? all.filter(u => hay(u).includes(q) || hay(u).includes(qn)) : all;
+
+        body.innerHTML = `
+          <div class="card">
+            <div class="row"><b style="font-size:13px">${Icon.of('users')} کاربران (${U.fa(shown.length)} از ${U.fa(all.length)})</b>
+              <div class="sp" style="flex:1"></div><span class="chip ${Net.status === 'online' ? 'on' : 'off'}">${netChipShort()}</span></div>
+            <div class="sep"></div>
+            <input class="inp" id="admUserQ" placeholder="${remote ? 'جست‌وجو با نام، شناسه یا شماره…' : 'جست‌وجو با نام یا شناسه…'}"
+                   value="${U.esc(this._userQ || '')}" autocomplete="off">
+            ${remote ? `<button class="btn gh w" style="margin-top:10px" id="admUserRefresh">${Icon.of('refresh')} به‌روزرسانی فهرست</button>` : ''}
+          </div>
+          <div class="card" style="margin-top:12px">
+            ${shown.length ? shown.map(u => {
+              const badges = [
+                u.me ? '<span class="badge">شما</span>' : '',
+                u.blocked ? '<span class="badge rd">مسدود</span>' : '',
+                u.online ? '<span class="badge g">آنلاین</span>' : ''
+              ].filter(Boolean).join(' ');
+              return `
+              <div class="item" style="align-items:flex-start">
+                <div class="av">${u.blocked ? '🚫' : (u.me ? '👑' : U.esc((u.name || '?').charAt(0)))}</div>
+                <div class="sp"><b>${U.esc(u.name || 'بازیکن')}${u.me ? ' (شما)' : ''}</b>
+                  ${u.phone ? `<small>${Icon.of('phone')} <span dir="ltr">${U.esc(SMS.faPhone(u.phone) || u.phone)}</span></small>` : ''}
+                  <small>سطح ${U.fa(u.level || 1)} • ${U.fa(u.score || 0)} امتیاز${u.plays != null ? ` • ${U.fa(u.plays)} بازی` : ''}</small>
+                  ${u.joinedAt ? `<small>🗓 عضو از ${U.fa(U.ago(u.joinedAt))}${u.lastLogin ? ` • آخرین ورود ${U.fa(U.ago(u.lastLogin))}` : ''}</small>` : ''}
+                  <small class="adm-id" data-copy="${U.esc(u.id || '')}"
+                         title="برای کپی بزن">🆔 <span dir="ltr">${U.esc(String(u.id || '—'))}</span></small>
+                  ${badges ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${badges}</div>` : ''}
+                  ${remote || u._local ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+                    <button class="btn gh sm" data-act="sms" data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">${Icon.of('send')} پیامک</button>
+                    <button class="btn ${u.blocked ? 'gh' : 'dg'} sm" data-act="${u.blocked ? 'unblock' : 'block'}"
+                            data-id="${U.esc(u.id || '')}" data-phone="${U.esc(u.phone || '')}">${u.blocked ? '✅ آزاد کن' : '🚫 مسدود کن'}</button>
+                    <button class="btn dg sm" data-act="del" data-id="${U.esc(u.id || '')}"
+                            data-phone="${U.esc(u.phone || '')}" data-name="${U.esc(u.name || '')}">🗑 حذف</button>
+                  </div>` : ''}
+                </div>
+              </div>`;
+            }).join('') : '<div class="empty">کسی با این جست‌وجو پیدا نشد</div>'}
+          </div>
+          <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+            ${remote
+              ? 'کاربر با شماره یا شناسه شناخته می‌شود. «حذف» کاربر را از دفترِ سرور برمی‌دارد و همهٔ نشست‌هایش را می‌بندد؛ بازی‌ها و امتیازِ خودِ دستگاه پاک نمی‌شود.'
+              : 'بی سرور، تنها کاربرِ همین دستگاه این‌جاست. مسدودکردن اینجا یک قفلِ محلی است، نه امنیت — قفلِ راستین روی سرور است.'}
+            شناسه را بزن تا کپی شود.</p>`;
+
+        const qi = U.$('#admUserQ');
+        if(qi) qi.oninput = () => {
+          this._userQ = qi.value;
+          /* تمرکز و مکانِ نشانگر پس از کشیدنِ دوبارهٔ فهرست برنمی‌گردد —
+             پس فقط فهرست را به‌روز می‌کنیم، نه کلِ جعبه را. */
+          const keep = qi.value;
+          this.renderTab();
+          const again = U.$('#admUserQ');
+          if(again){ again.value = keep; again.focus(); }
+        };
+        const rf = U.$('#admUserRefresh');
+        if(rf) rf.onclick = () => { this.askUsers(true); };
+        U.$$('.adm-id').forEach(el => el.onclick = async () => {
+          const t = el.dataset.copy;
+          if(!t) return;
+          const done = await copyText(t);
+          UI.toast(done ? '🆔 شناسه کپی شد' : 'کپی نشد — دستی بردار', done ? 'ok' : 'err');
+        });
+        U.$$('[data-act]').forEach(el => el.onclick = () => {
+          const u = { id: el.dataset.id, phone: el.dataset.phone, name: el.dataset.name };
+          const act = el.dataset.act;
+          if(act === 'del'){
+            UI.confirm(`کاربر «${u.name || u.id}» از دفترِ سرور حذف شود؟ نشست‌هایش بسته می‌شود.`,
+                       () => this.userAct('delete', u));
+            return;
+          }
+          if(act === 'sms'){ this.smsBox(u); return; }
+          this.userAct(act, u);
+        });
+        /* تازه‌سازی در پس‌زمینه؛ فهرست می‌تواند کهنه باشد */
+        if(remote) this.askUsers();
+        break;
+      }
+      case 'rooms': {
+        const rooms = Net.rooms();
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">${Icon.of('home')} روم‌های فعال (${U.fa(rooms.length)})</b>
+            <div class="sep"></div>
+            ${rooms.length ? rooms.map(r => `
+              <div class="item"><div class="av">${r.game === 'esmfamil' ? '📝' : '❌⭕'}</div>
+                <div class="sp"><b>${U.esc(r.name)}</b><small>کد ${U.esc(r.code)} • ${U.fa(r.count)}/${U.fa(r.max || 2)}</small></div>
+                <button class="btn dg sm" data-kill="${U.esc(r.code)}">بستن</button></div>`).join('')
+              : '<div class="empty">رومی فعال نیست</div>'}
+            <button class="btn gh w" style="margin-top:12px" id="admRoomsRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
+          </div>`;
+        U.$('#admRoomsRefresh').onclick = () => { Net.requestRooms(); Timers.after(() => this.renderTab(), 700); };
+        U.$$('[data-kill]').forEach(b => b.onclick = () => {
+          if(Net.mode === 'ws') Net.post({ t: 'admin:room:close', token: Admin.token(), code: b.dataset.kill });
+          else UI.toast('بستن روم فقط روی سرور واقعی ممکن است', '');
+        });
+        break;
+      }
+      case 'games': {
+        const g = Stats.ranking();
+        const tBy = Stats.todayByGame();
+        const total = g.reduce((n, r) => n + r.n, 0) || 1;
+        const st = d.stats;
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">${Icon.of('gamepad')} آمار بازی‌ها</b>
+            <div class="sep"></div>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
+              <div class="stat"><b>${U.fa(st.totalCorrect)}</b><span>✅ درست</span></div>
+              <div class="stat"><b>${U.fa(st.totalWrong)}</b><span>❌ غلط</span></div>
+              <div class="stat"><b>${U.fa(st.maxCombo)}</b><span>🔥 کمبو</span></div>
+              <div class="stat"><b>${U.fa(st.onlineWins || 0)}</b><span>⚔️ برد آنلاین</span></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('chart')} کدام بازی بیشتر بازی می‌شود</b>
+            <div class="sep"></div>
+            ${g.length ? g.map(r => {
+              const pct = Math.round(100 * r.n / total);
+              return `<div class="adm-bar">
+                <div class="row"><span>${Stats.iconOf(r.id)} ${U.esc(Stats.nameOf(r.id))}</span>
+                  <div class="sp" style="flex:1"></div>
+                  <b>${U.fa(r.n)}</b>
+                  ${tBy[r.id] ? `<span class="chip on">امروز ${U.fa(tBy[r.id])}</span>` : ''}</div>
+                <div class="mp"><i style="width:${pct}%"></i></div></div>`;
+            }).join('') : '<div class="empty">هنوز بازی‌ای شمرده نشده — یکی بازی کن و برگرد</div>'}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('flag')} نتیجه‌ها</b>
+            <div class="sep"></div>
+            <div class="kv"><span>❌⭕ دوز (برد/باخت/مساوی)</span>
+              <b>${U.fa(st.tttWins)} / ${U.fa(st.tttLoss)} / ${U.fa(st.tttDraw)}</b></div>
+            <div class="kv"><span>${Icon.of('plus')} پازل حل‌شده</span><b>${U.fa(st.puzzles)}</b></div>
+            <div class="kv"><span>${Icon.of('target')} حافظه</span><b>${U.fa(st.memory)}</b></div>
+            <div class="kv"><span>${Icon.of('link')} تطبیق</span><b>${U.fa(st.match)}</b></div>
+            <div class="kv"><span>${Icon.of('scroll')} حدیث‌یاب</span><b>${U.fa(st.hadith || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('mosque')} چهارده معصوم</span><b>${U.fa(st.imams || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('smile')} نجوا</span><b>${U.fa(st.dua || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('medal')} آزمون معارف</span><b>${U.fa(st.exams || 0)}</b></div>
+            <div class="kv"><span>${Icon.of('check')} بازی تمام‌شده</span><b>${U.fa(st.plays)}</b></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('trophy')} ۱۰ رکورد برتر روم/سرور</b>
+            <div class="sep"></div>
+            <div class="list">${(Net.board.length ? Net.board : d.leaderboard).slice(0, 10).map((b, i) => `
+              <div class="item"><div class="av">${U.fa(i + 1)}</div>
+                <div class="sp"><b>${U.esc(b.name)}</b></div><b style="color:var(--gold)">${U.fa(b.score)}</b></div>`).join('')
+              || '<div class="empty">خالی</div>'}</div>
+          </div>`;
+        break;
+      }
+      case 'notif':
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">📢 ارسال اعلان</b>
+            <div class="sep"></div>
+            <input class="inp" id="bcTitle" placeholder="عنوان" maxlength="60">
+            <textarea class="inp" id="bcMsg" placeholder="متن پیام..." maxlength="300" style="margin-top:8px;min-height:80px"></textarea>
+            <div class="row" style="margin-top:10px">
+              <button class="btn w" id="bcSendAll">${Icon.of('share')} ارسال به همه (سراسری)</button>
+            </div>
+            <button class="btn gh w" id="bcSendSelf" style="margin-top:8px">${Icon.of('user')} فقط برای خودم</button>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              ارسال سراسری روی حالت «محلی» به همه تب‌های این دستگاه و روی حالت «سرور» به همه دستگاه‌های متصل می‌رسد.</p>
+          </div>`;
+        U.$('#bcSendSelf').onclick = () => {
+          const t = U.$('#bcTitle').value.trim(), m = U.$('#bcMsg').value.trim();
+          if(!t || !m){ UI.toast('عنوان و متن لازم است', 'err'); return; }
+          pushNotif(t, m, '📢');
+          U.$('#bcTitle').value = ''; U.$('#bcMsg').value = '';
+          UI.toast('📢 ثبت شد', 'ok');
+        };
+        U.$('#bcSendAll').onclick = () => {
+          const t = U.$('#bcTitle').value.trim(), m = U.$('#bcMsg').value.trim();
+          if(!t || !m){ UI.toast('عنوان و متن لازم است', 'err'); return; }
+          pushNotif(t, m, '📢');
+          if(Net.status === 'online'){
+            Net.post({ t: 'admin:broadcast', token: Admin.token(), title: t, desc: m });
+            UI.toast('📢 به همه ارسال شد', 'ok');
+          } else {
+            UI.toast('📡 آفلاین — فقط این دستگاه دریافت کرد', '');
+          }
+          U.$('#bcTitle').value = ''; U.$('#bcMsg').value = '';
+        };
+        break;
+      case 'content': {
+        const bank = this._cbank && Content.BANKS.includes(this._cbank) ? this._cbank : Content.BANKS[0];
+        const q = (this._cq || '').trim().toLowerCase();
+        const list = Content.list(bank);
+        const shown = q ? list.filter(x => Content.title(x).toLowerCase().includes(q)) : list;
+        const edits = Content.edits();
+        const removed = Object.values(edits.del).reduce((n, a) => n + a.length, 0);
+        const added = Object.values(edits.add).reduce((n, a) => n + a.length, 0);
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">${Icon.of('book')} محتوای برنامه</b>
+            <div class="sep"></div>
+            <div class="stats" style="grid-template-columns:repeat(2,1fr);margin:0">
+              <div class="stat"><b>${U.fa(DATA.surah.length)}</b><span><i data-ic="book-open"></i> سوره</span></div>
+              <div class="stat"><b>${U.fa(DATA.badges.length)}</b><span><i data-ic="medal"></i> نشان</span></div>
+              <div class="stat"><b>${U.fa(DATA.scramble.length)}</b><span>🧩 پازل</span></div>
+              <div class="stat"><b>${U.fa(DATA.nahj.length)}</b><span>📜 نهج‌البلاغه</span></div>
+            </div>
+            ${(removed || added) ? `<p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              ویرایش‌های تو روی همین دستگاه: ${U.fa(added)} پرسشِ افزوده، ${U.fa(removed)} پرسشِ برداشته.
+              <button class="btn gh sm" id="cRestoreAll" style="margin-top:8px">${Icon.of('undo')} بازگرداندنِ همه</button></p>` : ''}
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('edit')} ویرایشِ پرسش‌ها</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:6px">
+              ${Content.BANKS.map(b => `<button class="tab ${b === bank ? 'on' : ''}" data-cb="${b}">
+                ${Content.LABEL[b]} <b>${U.fa(Content.list(b).length)}</b></button>`).join('')}
+            </div>
+            <input class="inp" id="cSearch" style="margin-top:10px" placeholder="جست‌وجو در این بانک…"
+                   value="${U.esc(this._cq || '')}" autocomplete="off">
+            <div class="list" style="margin-top:10px">
+              ${shown.length ? shown.slice(0, 40).map(x => `
+                <div class="item">
+                  <div class="sp"><b>${U.esc(Content.title(x))}</b>
+                    <small>${x._added ? '✏️ افزودهٔ تو' : '📦 از بستهٔ برنامه'}</small></div>
+                  <button class="btn dg sm" data-cdel="${U.esc(Content.sig(x))}">حذف</button>
+                </div>`).join('') + (shown.length > 40 ? `<div class="empty">… و ${U.fa(shown.length - 40)} مورد دیگر — جست‌وجو را باریک کن</div>` : '')
+                : '<div class="empty">چیزی پیدا نشد</div>'}
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('plus')} افزودنِ پرسش به «${Content.LABEL[bank]}»</b>
+            <div class="sep"></div>
+            <input class="inp" id="cQ" placeholder="متن پرسش">
+            <input class="inp" id="cO" style="margin-top:8px" placeholder="گزینه‌ها، با «|» جدا کن">
+            <input class="inp" id="cA" style="margin-top:8px" placeholder="پاسخ درست (عیناً یکی از گزینه‌ها)">
+            <input class="inp" id="cSrc" style="margin-top:8px" placeholder="منبع">
+            <textarea class="inp" id="cWhy" style="margin-top:8px;min-height:60px" placeholder="توضیحِ پاسخ"></textarea>
+            <button class="btn ok w" id="cAdd" style="margin-top:10px">${Icon.of('plus')} افزودن</button>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+              پرسشِ تازه فقط روی همین دستگاه می‌ماند و با «📥 خروجی JSON» قابل
+              پشتیبان‌گیری است. هیچ متنِ دینی‌ای این‌جا خودکار ساخته نمی‌شود.</p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('book-open')} وضعیت سوره‌ها</b>
+            <div class="sep"></div>
+            ${DATA.surah.map(x => {
+              const s = Store.get('stars')[x.surah] || 0;
+              return `<div class="kv"><span>سوره ${U.esc(x.surah)}</span>
+                <b>${s ? '⭐'.repeat(s) : '<span style="color:var(--mut)">شروع نشده</span>'}</b></div>`;
+            }).join('')}
+          </div>`;
+
+        U.$$('[data-cb]').forEach(b => b.onclick = () => {
+          this._cbank = b.dataset.cb; this._cq = ''; this.renderTab();
+        });
+        const si = U.$('#cSearch');
+        if(si) si.oninput = () => {
+          const keep = si.value;
+          this._cq = keep; this.renderTab();
+          const again = U.$('#cSearch');
+          if(again){ again.value = keep; again.focus(); }
+        };
+        U.$$('[data-cdel]').forEach(b => b.onclick = () => {
+          const item = Content.list(bank).find(x => Content.sig(x) === b.dataset.cdel);
+          if(!item) return;
+          UI.confirm(`«${Content.title(item)}» برداشته شود؟`, () => {
+            Content.remove(bank, item);
+            Content.apply();
+            UI.toast('🗑️ برداشته شد', 'ok');
+            this.renderTab();
+          });
+        });
+        const ra = U.$('#cRestoreAll');
+        if(ra) ra.onclick = () => UI.confirm('همهٔ ویرایش‌های محتوا بازگردانده شود؟', () => {
+          Content.restoreAll(); Content.apply(); UI.toast('↩️ بازگشت', 'ok'); this.renderTab();
+        });
+        const ca = U.$('#cAdd');
+        if(ca) ca.onclick = () => {
+          const val = id => { const el = U.$('#' + id); return el ? el.value.trim() : ''; };
+          const target = U.$('#cA');
+          const item = {
+            q: val('cQ'),
+            o: val('cO').split('|').map(s => s.trim()).filter(Boolean),
+            a: val('cA').trim(),
+            why: val('cWhy'), src: val('cSrc'), d: 2
+          };
+          /* پاسخ باید عیناً یکی از گزینه‌ها باشد؛ فاصلهٔ اضافه کاربر را
+             دستی اصلاح می‌کنیم نه با پیام خطا. */
+          if(target) target.value = item.a;
+          const why = Content.add(bank, item);
+          if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
+          ['cQ','cO','cA','cSrc','cWhy'].forEach(id => { const el = U.$('#' + id); if(el) el.value = ''; });
+          UI.toast('➕ افزوده شد', 'ok');
+          this.renderTab();
+        };
+        break;
+      }
+      case 'reports': {
+        const st = Store.get('stats');
+        const g = Stats.ranking();
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">${Icon.of('trend')} گزارش‌ها</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <button class="btn gh" id="rpUsers">${Icon.of('users')} کاربران (CSV)</button>
+              <button class="btn gh" id="rpGames">${Icon.of('gamepad')} بازی‌ها (CSV)</button>
+              <button class="btn gh" id="rpStats">${Icon.of('chart')} آمار من (CSV)</button>
+              <button class="btn gh" id="rpBackup">${Icon.of('download')} پشتیبانِ کامل (JSON)</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+              CSV با سرصفحه و جداکنندهٔ کاما و BOM ساخته می‌شود تا اکسل فارسی
+              درست بازش کند. پشتیبانِ JSON همان فایلِ «خروجی» است و با
+              «↩️ بازگرداندن» پایین برمی‌گردد.</p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('undo')} بازگرداندن از پشتیبان</b>
+            <div class="sep"></div>
+            <input class="inp" id="rpFile" type="file" accept="application/json,.json">
+            <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
+              ⚠️ بازگرداندن، دادهٔ فعلیِ این دستگاه را با فایل جایگزین می‌کند.</p>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <b style="font-size:13px">${Icon.of('chart')} خلاصه</b>
+            <div class="sep"></div>
+            <div class="kv"><span>بازی‌های امروز</span><b>${U.fa(Stats.todayN())}</b></div>
+            <div class="kv"><span>مجموع بازی‌ها</span><b>${U.fa(g.reduce((n, r) => n + r.n, 0))}</b></div>
+            <div class="kv"><span>امتیاز</span><b>${U.fa(Store.get('score'))}</b></div>
+            <div class="kv"><span>سطح</span><b>${U.fa(Store.get('level'))}</b></div>
+            <div class="kv"><span>پاسخ درست / غلط</span><b>${U.fa(st.totalCorrect)} / ${U.fa(st.totalWrong)}</b></div>
+            <div class="kv"><span>نشان‌ها</span><b>${U.fa(Object.keys(Store.get('badges')).filter(k => Store.get('badges')[k]).length)}</b></div>
+          </div>`;
+
+        const save = (name, text, type = 'text/csv;charset=utf-8') => {
+          const blob = new Blob([text], { type });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `${name}_${U.today()}.${type.includes('json') ? 'json' : 'csv'}`;
+          a.click();
+        };
+        U.$('#rpUsers').onclick = () => {
+          const rows = [[Store.get('playerName'), Store.get('playerId'), 'مدیر',
+                         Store.get('level'), Store.get('score'), Store.get('stats').plays]];
+          Net.peerList().forEach(p => rows.push([p.name, p.id || '', 'آنلاین', p.level || 1, p.score || 0, '']));
+          save('noorestan_users', Content.csv(['نام', 'شناسه', 'وضعیت', 'سطح', 'امتیاز', 'بازی'], rows));
+          UI.toast('📥 فایل کاربران ساخته شد', 'ok');
+        };
+        U.$('#rpGames').onclick = () => {
+          const tBy = Stats.todayByGame();
+          const rows = g.map(r => [Stats.nameOf(r.id), r.n, tBy[r.id] || 0]);
+          save('noorestan_games', Content.csv(['بازی', 'کل', 'امروز'], rows));
+          UI.toast('📥 فایل بازی‌ها ساخته شد', 'ok');
+        };
+        U.$('#rpStats').onclick = () => {
+          const rows = Object.entries(st)
+            .filter(([, v]) => typeof v === 'number')
+            .map(([k, v]) => [k, v]).sort((a, b) => a[0] < b[0] ? -1 : 1);
+          save('noorestan_stats', Content.csv(['کلید', 'مقدار'], rows));
+          UI.toast('📥 فایل آمار ساخته شد', 'ok');
+        };
+        U.$('#rpBackup').onclick = () => {
+          save(`noorestan_backup`, Store.export(), 'application/json');
+          UI.toast('📥 پشتیبان ساخته شد', 'ok');
+        };
+        const fi = U.$('#rpFile');
+        if(fi) fi.onchange = () => {
+          const f = fi.files && fi.files[0];
+          if(!f) return;
+          const r = new FileReader();
+          r.onload = () => {
+            const why = Content.importJSON(String(r.result || ''));
+            if(why){ UI.toast('⚠️ ' + why, 'err'); return; }
+            Content.apply();
+            UI.toast('✅ پشتیبان بازگردانده شد', 'ok');
+            saveAll(); updateHomeStats(); this.renderTab();
+          };
+          r.onerror = () => UI.toast('⚠️ فایل خوانده نشد', 'err');
+          r.readAsText(f);
+        };
+        break;
+      }
+      case 'ops':
+        body.innerHTML = `
+          <div class="card">
+            <b style="font-size:13px">⚙️ عملیات</b>
+            <div class="sep"></div>
+            <div class="row" style="flex-wrap:wrap;gap:8px">
+              <button class="btn gh" id="opScore">${Icon.of('coin')} +۱۰۰ امتیاز</button>
+              <button class="btn gh" id="opHearts">${Icon.of('heart')} پر کردن جان</button>
+              <button class="btn gh" id="opUnlock">${Icon.of('unlock')} باز کردن همه نشان‌ها</button>
+              <button class="btn gh" id="opExport">${Icon.of('download')} خروجی JSON</button>
+              <button class="btn dg" id="opReset">${Icon.of('trash')} ریست کامل</button>
+            </div>
+          </div>
+          <div class="card"><p>مدیریت فقط با نشست تأییدشدهٔ سرور انجام می‌شود. رمز در مرورگر نگه‌داری یا ساخته نمی‌شود.</p><button class="btn gh" id="opPassSave">خروج و ورود دوباره</button></div>
+          <button class="btn dg w" id="opLogout" style="margin-top:12px">${Icon.of('logout')} خروج از پنل</button>`;
+        U.$('#opScore').onclick = () => { Store.update(x => { x.score += 100; x.xp += 100; }); checkLevelUp(); saveAll(); Sync.push(true); UI.toast('💰 +۱۰۰', 'ok'); };
+        U.$('#opHearts').onclick = () => { Store.addHearts(Store.HEART_MAX); updateHearts(); UI.toast('❤️ پر شد', 'ok'); };
+        U.$('#opUnlock').onclick = () => { Store.update(x => DATA.badges.forEach(b => x.badges[b.id] = true)); updateHomeStats(); checkBadges(); UI.toast('🔓 همه نشان‌ها باز شد', 'ok'); };
+        U.$('#opExport').onclick = () => {
+          const blob = new Blob([Store.export()], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = `noorestan_admin_${Date.now()}.json`; a.click();
+        };
+        U.$('#opReset').onclick = () => UI.confirm('ریست کامل همه داده‌ها؟', () => { Store.reset(); location.reload(); });
+/* «تغییر رمز» روی سرور ممکن نیست: رمز از متغیر محیطی می‌آید و
+               سرور رمزی را ذخیره نمی‌کند. کاری که *می‌شود* کرد، باطل‌کردنِ
+               نشستِ کنونی و گرفتنِ نشستِ تازه با رمزِ سرور است. */
+/* همان سنجشِ دروازهٔ ورود — یک‌جا نوشته شده تا دو جای مختلف دو
+             قاعدهٔ متفاوت نداشته باشند. */
+        U.$('#opPassSave').onclick=()=>Session.logout();
+        U.$('#opLogout').onclick = async () => {
+          /* خروج باید نشستِ *سرور* را هم باطل کند. بی این، نشانه تا پایان
+             انقضایش زنده می‌ماند و «خروج» فقط یک تظاهر بود. */
+          await this.logoutServer();
+          Store.set('isAdmin', false);
+          this.render(); updateHomeStats();
+        };
+        break;
+    }
+  }
+};
+
+/* ─────────────────── 19. CONFETTI / SHARE / COPY ─────────────────── */
+function confetti(n = 60){
+  const colors = ['#f5c451','#2fd39b','#a77bff','#4d9fff','#ff5f6d'];
+  for(let i = 0; i < n; i++){
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:-20px;left:${Math.random()*100}%;width:8px;height:8px;
+      background:${U.rand(colors)};border-radius:${Math.random() > .5 ? '50%' : '0'};
+      z-index:9999;pointer-events:none;transition:transform ${2 + Math.random()*2}s linear,opacity 3s`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transform = `translateY(110vh) rotate(${Math.random()*720}deg)`;
+      el.style.opacity = '0';
+    });
+    setTimeout(() => el.remove(), 4600);
+  }
+}
+
+async function copyText(t){
+  try{
+    if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(t); return true; }
+  }catch(e){}
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }catch(e){ return false; }
+}
+
+const Share = {
+  async text(t){
+    if(navigator.share){
+      try{ await navigator.share({ text: t }); return; }catch(e){ if(e.name === 'AbortError') return; }
+    }
+    const ok = await copyText(t);
+    UI.toast(ok ? '📋 متن کپی شد' : 'اشتراک‌گذاری پشتیبانی نمی‌شود', ok ? 'ok' : '');
+  },
+  result({ title, pct, detail }){
+    const line = `🌟 در «نورستان» بازی «${title}» را انجام دادم` +
+      (pct != null ? ` و ${pct}% گرفتم` : '') +
+      `!\n🏆 امتیاز کل: ${Store.get('score')} • سطح ${Store.get('level')}\nتو هم امتحان کن!`;
+    this.text(line);
+  }
+};
+
+/* ─────────────────── 20. THEME ─────────────────── */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t || 'dark');
+  const colors = { dark: '#0b1120', ocean: '#03101a', forest: '#05100b', royal: '#080f20', desert: '#171008', light: '#f7f3ea' };
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', colors[t] || colors.dark);
+}
+
+/* تم روشن و پوسته‌ها — همه از یک جا، با پشتیبانی از نمایشگر سیستم */
+const Theme = {
+  DARK: ['dark', 'ocean', 'forest', 'royal', 'desert'],
+  ALL: ['dark', 'ocean', 'forest', 'royal', 'desert', 'light'],
+  LOCKED: ['desert'],                     // با ۲۵۰ سکه در فروشگاه باز می‌شود
+  LABEL: { dark:'🌙 شب', ocean:'🌊 اقیانوس', forest:'🌲 جنگل', royal:'👑 شبِ زرین',
+           desert:'🏜 کویر', light:'☀️ روشن' },
+  /* پوسته‌های قفل را نمی‌شماریم — وگرنه چرخش روی تمی می‌ایستد که کاربر ندارد */
+  free(){ return this.ALL.filter(t => !this.LOCKED.includes(t) || Wallet.owns('theme-' + t)); },
+  owns(t){ return !this.LOCKED.includes(t) || Wallet.owns('theme-' + t); },
+  cur(){ return Store.get('settings').theme || 'dark'; },
+  set(t, fromSystem = false){
+    if(!this.ALL.includes(t)) t = 'dark';
+    if(!this.owns(t)){
+      UI.toast('🏜 پوستهٔ کویر در فروشگاه باز می‌شود — ۲۵۰ سکه', 'err', 2800);
+      Sound.buzz();
+      return;
+    }
+    Store.update(d => { d.settings.theme = t; if(!fromSystem) d.settings.themeChosen = true; });
+    applyTheme(t);
+    if(fromSystem) return;
+    Sound.tick();
+    UI.toast(`🎨 ${this.LABEL[t] || t}`, 'ok', 1600);
+  },
+  /* چرخش میان پوسته‌ها */
+  toggle(){
+    const all = this.free();
+    const i = all.indexOf(this.cur());
+    this.set(all[(i + 1) % all.length]);
+  },
+  /* اگر کاربر تم روشن سیستم را خواسته باشد و خودش چیزی انتخاب نکرده باشد */
+  fromSystem(){
+    try{
+      if(!window.matchMedia) return;
+      if(Store.get('settings').themeChosen) return;
+      const media = window.matchMedia('(prefers-color-scheme: light)');
+      const update = () => { if(!Store.get('settings').themeChosen) this.set(media.matches ? 'light' : 'dark', true); };
+      update();
+      if(!this._systemBound){ media.addEventListener?.('change', update); this._systemBound = true; }
+    }catch(e){}
+  },
+  /* غبار طلایی اختیاری پس‌زمینه */
+  ambient(on){
+    const v = typeof on === 'boolean' ? on : !Store.get('settings').ambient;
+    Store.update(d => d.settings.ambient = v);
+    try{ FX.dust(v); }catch(e){}
+    UI.toast(v ? '✨ غبار طلایی روشن شد' : '✨ غبار طلایی خاموش شد', '', 1700);
+    return v;
+  },
+  paintAmbient(){
+    try{ if(Store.get('settings').ambient) FX.dust(true); }catch(e){}
+  },
+  rows(){
+    const cur = this.cur(), amb = Store.get('settings').ambient;
+    return `      <div class="grid">${this.ALL.map(t => {
+        const has = this.owns(t), on = t === cur;
+        return `
+      <div class="tile ${on ? 'on' : ''}" data-th="${t}" style="cursor:pointer;${has ? '' : 'opacity:.55'}">
+        <span class="ti">${has ? (this.LABEL[t] || '').split(' ')[0] : Icon.of('lock')}</span>
+        <b>${U.esc((this.LABEL[t] || t).replace(/^\S+\s/, ''))}</b>
+        <small>${on ? '✓ انتخاب‌شده' : (has ? 'برای انتخاب بزن' : 'در فروشگاه — ۲۵۰ سکه')}</small>
+      </div>`; }).join('')}</div>
+      <div class="row mt14">
+        <button class="btn gh sm" id="thAmb">${amb ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'}</button>
+        <button class="btn gh sm" id="thMotion">${FX.reduced ? '🎬 حرکت: کم' : '🎬 حرکت: کامل'}</button>
+      </div>`;
+  },
+  wire(box){
+    U.$$('[data-th]', box || document).forEach(el => {
+      const pick = () => this.set(el.dataset.th);
+      el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.setAttribute('aria-pressed', String(el.classList.contains('on')));
+      el.onclick = pick;
+      el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } };
+    });
+    const a = U.$('#thAmb', box || document); if(a) a.onclick = () => { this.ambient(); a.textContent = Store.get('settings').ambient ? '✨ غبار طلایی: روشن' : '✨ غبار طلایی: خاموش'; };
+    const m = U.$('#thMotion', box || document);
+    if(m) m.onclick = () => {
+      const off = document.documentElement.getAttribute('data-motion') === 'off';
+      document.documentElement.setAttribute('data-motion', off ? 'on' : 'off');
+      m.textContent = off ? '🎬 حرکت: کامل' : '🎬 حرکت: کم';
+    };
+  }
+};
+
+/* ═══════════════ 20.6 نورستان ۱۶ — چهرک، سکه، فروشگاه، زنجیره، راهنما، تازه‌وارد ═══════════════
+   شش ماژول تازه. هیچ‌کدام هنگام تعریف به دیگری دست نمی‌زنند، فقط هنگام اجرا —
+   پس ترتیب تعریف مهم نیست و هر یک جداگانه آزمودنی است.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── چهرک ──
+   رنگ از هشِ شناسهٔ بازیکن می‌آید، نه از یک عدد ذخیره‌شده: پس اگر حافظه پاک
+   شود و شناسه عوض نشود، چهرک همان رنگ همیشگی را دارد. کاربر می‌تواند
+   دستی هم انتخاب کند؛ آن وقت انتخاب او بر هش مقدم است. */
+const Avatar = {
+  COLORS: ['#f5c451','#2fd39b','#6aa8ff','#ff8fa3','#a77bff','#ffa657',
+           '#4ad8ff','#8fd36f','#ff7a6b','#d9a6ff','#63c8a8','#ffc46b'],
+  EMOJI:  ['🌟','🌙','📖','🕌','🎧','🕯️','🌿','🦋','🐦','🍃','💫','🌸',
+           '⚡','🔥','💎','🎯','🧿','🪔','🌻','❄️','🐬','🦅','🌊','🏵️'],
+  BONUS:  ['🎴','🧩','🪐','🦚','🐚','🌷','🍀','🎐','🪷','🦉','🌠','🛡️'],   // در فروشگاه باز می‌شود
+
+  hash(s){
+    let x = 2166136261;                        // FNV-1a — کوتاه، بی‌وابستگی، یکنواخت
+    s = String(s || 'noor');
+    for(let i = 0; i < s.length; i++){ x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); }
+    return Math.abs(x);
+  },
+  pool(){
+    return Wallet.owns('avapack') ? this.EMOJI.concat(this.BONUS) : this.EMOJI;
+  },
+  idx(){
+    const p = Store.get('profile') || {};
+    return (typeof p.color === 'number' && p.color >= 0)
+      ? p.color % this.COLORS.length
+      : this.hash(Store.get('playerId')) % this.COLORS.length;
+  },
+  color(){ return this.COLORS[this.idx()]; },
+  emoji(){
+    const p = Store.get('profile') || {};
+    if(p.emoji) return p.emoji;
+    const pool = this.pool();
+    return pool[this.hash(Store.get('playerId') + ':e') % pool.length];
+  },
+  /* چهرک به‌شکل HTML. اندازه: '' | 'sm' | 'lg' */
+  html(size = '', ring = false){
+    const c = this.color();
+    return `<span class="ava ${size} ${ring ? 'ring' : ''}" ` +
+           `style="border-color:${c};background:linear-gradient(150deg,${c}33,var(--card2))">` +
+           `${U.esc(this.emoji())}</span>`;
+  },
+  set(emoji){ Store.update(d => d.profile.emoji = String(emoji).slice(0, 8)); Sound.tick(); },
+  setColor(i){ Store.update(d => d.profile.color = U.clamp(Math.floor(i) || 0, 0, this.COLORS.length - 1)); Sound.tick(); },
+  auto(){ Store.update(d => { d.profile.color = -1; d.profile.emoji = ''; }); UI.toast('🎲 چهرک تصادفی شد', '', 1600); },
+  pick(){
+    const cur = this.emoji(), ci = this.idx();
+    UI.modal(`<h3>${Icon.of('smile')} چهرک خودت را بساز</h3>
+      <div class="tiny" style="margin:8px 0 12px">رنگ از شناسهٔ تو می‌آید و همیشه یکی می‌ماند.</div>
+      <div class="ava-grid" id="avGrid">${this.pool().map(e =>
+        `<div class="ava-pick ${e === cur ? 'on' : ''}" data-av="${e}">${e}</div>`).join('')}</div>
+      <div class="ava-grid mt14" id="avCol">${this.COLORS.map((c, i) =>
+        `<div class="ava-pick ${i === ci ? 'on' : ''}" data-ac="${i}" style="background:linear-gradient(150deg,${c}55,var(--card2))">🎨</div>`).join('')}</div>
+      <div class="row mt14" style="justify-content:flex-end">
+        <button class="btn gh sm" id="avAuto">${Icon.of('dice')} تصادفی</button>
+        <button class="btn sm" id="avDone">تمام</button>
+      </div>`, box => {
+      U.$$('[data-av]', box).forEach(el => el.onclick = () => { this.set(el.dataset.av); UI.closeModal(); this.pick(); });
+      U.$$('[data-ac]', box).forEach(el => el.onclick = () => { this.setColor(el.dataset.ac); UI.closeModal(); this.pick(); });
+      const a = U.$('#avAuto', box); if(a) a.onclick = () => { this.auto(); UI.closeModal(); this.pick(); };
+      const dn = U.$('#avDone', box); if(dn) dn.onclick = () => { UI.closeModal(); Me.render(); };
+      /* انتخاب با صفحه‌کلید/سوئیچ هم ممکن باشد */
+      U.$$('.ava-pick', box).forEach(el => {
+        el.setAttribute('role', 'button'); el.tabIndex = 0;
+        el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); el.click(); } };
+      });
+    });
+  }
+};
+
+/* ── سکه ──
+   سکه از امتیاز جداست چون امتیاز هرگز کم نمی‌شود ولی سکه خرج می‌شود.
+   همیشه: درآمد − خرج = سکه. اگر این تساوی به هم بخورد یعنی جایی سکه از راه
+   دیگری تغییر کرده؛ sanitize دوباره هم‌ترازش می‌کند. */
+const Wallet = {
+  RATE: { correct: 1, perLevel: 25, perBadge: 30, perMission: 20, perWeek: 60,
+          daily: 20, perfect: 15, perStreak: 5 },
+
+  get(){ return Store.get('coins') || 0; },
+  earned(){ return (Store.get('wallet') || {}).earned || 0; },
+  spent(){ return (Store.get('wallet') || {}).spent || 0; },
+
+  earn(n, why){
+    n = Math.floor(+n) || 0;
+    if(n <= 0) return 0;
+    Store.update(d => { d.coins += n; d.wallet.earned += n; });
+    this.ping();
+    if(why) UI.toast(`🪙 +${U.fa(n)} سکه — ${why}`, 'ok', 2400);
+    return n;
+  },
+  can(n){ return this.get() >= (Math.floor(+n) || 0); },
+  spend(n, why){
+    n = Math.floor(+n) || 0;
+    if(n <= 0) return false;
+    if(!this.can(n)){ UI.toast('🪙 سکه کافی نداری', 'err'); Sound.buzz(); Haptic.hit(); return false; }
+    Store.update(d => { d.coins -= n; d.wallet.spent += n; });
+    this.ping();
+    if(why) UI.toast(`🪙 ${U.fa(n)} سکه خرج شد — ${U.esc(why)}`, '', 2200);
+    return true;
+  },
+  refund(n){
+    n = Math.floor(+n) || 0;
+    if(n <= 0) return;
+    Store.update(d => { d.coins += n; d.wallet.spent = Math.max(0, d.wallet.spent - n); });
+    this.ping();
+  },
+  items(){ const w = Store.get('wallet') || {}; return w.items || {}; },
+  owns(id){ return (this.items()[id] || 0) > 0 || PaidAccount.owns(id); },
+  /* حرکت ریز روی همهٔ نشان‌های سکهٔ صفحه — بازخورد بی‌صدا ولی دیدنی */
+  ping(){
+    try{
+      U.$$('.coin').forEach(el => {
+        el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+      });
+    }catch(e){}
+  },
+  chip(big){ return `<span class="coin ${big ? 'big' : ''}">🪙 <span class="cn">${U.fa(this.get())}</span></span>`; }
+};
+
+/* ── فروشگاه ──
+   هر قلمی که می‌فروشیم واقعاً کاری می‌کند. اگر اثری نگرفت، سکه برمی‌گردد —
+   فروش چیز بی‌اثر بدترین نوع تقلب به کاربر است. */
+/* ماندهٔ خرید هرگز از localStorage خوانده نمی‌شود؛ دادهٔ حافظه به نشانهٔ همان حساب بسته است. */
+const PaidAccount={
+ data:null,token:'',loading:null,
+ owns(id){return !!(Session.user()&&this.token===Store.get('userToken')&&this.data?.enabled&&this.data?.mode==='sandbox'&&this.data.items[id]);},
+ async refresh(){
+  const token=Store.get('userToken');if(!Session.user())return null;
+  const r=await SMS.req('/api/payments/account',{body:{token},ms:8000});
+  if(!Session.user()||Store.get('userToken')!==token)return null;
+  this.data=r.ok&&r.json?.success?r.json:null;this.token=this.data?token:'';return this.data;
+ },
+ async open(){
+  if(!Session.user())return Gate.open();
+  if(!window.PaymentUI){
+   if(!this.loading)this.loading=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='assets/games/payments-ui.js';s.onload=resolve;s.onerror=()=>{s.remove();this.loading=null;reject(Error('بارگذاری نشد'));};document.head.appendChild(s);});
+   try{await this.loading;}catch(e){UI.toast('بارگذاری خریدها ممکن نشد؛ دوباره تلاش کن.','err');return;}
+  }
+  return window.PaymentUI.open();
+ }
+};
+
+const Shop = {
+  ITEMS: [
+    { id:'heart1', icon:'❤️', name:'یک جان',            desc:'فوراً یک جان پر می‌کند',                price:30  },
+    { id:'hearts', icon:'💖', name:'پر کردن جان‌ها',     desc:'هر سه جان، یک‌جا',                     price:110 },
+    { id:'freeze', icon:'🧊', name:'یخِ زنجیره',        desc:'امروز را بی‌بازی هم زنجیره‌ات نگه می‌دارد', price:80  },
+    { id:'theme-desert', icon:'🏜', name:'پوستهٔ کویر', desc:'ششمین پوسته — گرم و خاکی',              price:250, once:true },
+    { id:'avapack', icon:'🦋', name:'چهرک‌های ویژه',    desc:'۱۲ چهرک تازه آزاد می‌شود',               price:150, once:true },
+    { id:'tipjar', icon:'🌱', name:'هدیه به نورستان',   desc:'کاری نمی‌کند — فقط دلگرمی',             price:500 }
+  ],
+  find(id){ return this.ITEMS.find(x => x.id === id) || null; },
+  /* ترتیب مهم است: «پُر است» و «یخ‌زده» به پول ربطی ندارند، پس پیش از
+     «سکه کم داری» بررسی می‌شوند. وگرنه کاربری که سکه ندارد ولی جانش پُر
+     است، پیام گمراه‌کنندهٔ «کم است» می‌بیند. */
+  worn(item){
+    const n = Wallet.owns(item.id) ? 1 : 0;
+    if(item.once && n) return 'owned';
+    if((item.id === 'heart1' || item.id === 'hearts') && Store.get('hearts') >= Store.HEART_MAX) return 'full';
+    if(item.id === 'freeze' && Streak.frozenToday()) return 'frozen';
+    if(!Wallet.can(item.price)) return 'poor';
+    return 'ok';
+  },
+  buy(id){
+    const it = this.find(id);
+    if(!it) return false;
+    const state = this.worn(it);
+    if(state === 'owned'){ UI.toast('✅ این را پیش‌تر گرفته‌ای', ''); return false; }
+    if(state === 'poor'){ UI.toast('🪙 سکه کافی نداری', 'err'); Sound.buzz(); return false; }
+    if(state === 'full'){ UI.toast('❤️ جان‌هایت پُر است', ''); return false; }
+    if(state === 'frozen'){ UI.toast('🧊 زنجیرهٔ امروز پیش‌تر یخ زده', ''); return false; }
+    if(!Wallet.spend(it.price, it.name)) return false;
+    let ok = true;
+    try{ ok = this.apply(it); }catch(e){ ok = false; }
+    if(!ok){                       // اثر نگرفت → سکه برگردد
+      Wallet.refund(it.price);
+      UI.toast('⚠️ انجام نشد — سکه برگشت', 'err');
+      return false;
+    }
+    Store.update(d => {
+      d.wallet.items[it.id] = (d.wallet.items[it.id] || 0) + 1;
+      d.stats.shopBuys = (d.stats.shopBuys || 0) + 1;
+    });
+    Sound.fanfare(); Haptic.success();
+    UI.toast(`✅ ${it.name} خریده شد`, 'ok', 2200);
+    checkBadges();
+    return true;
+  },
+  apply(it){
+    switch(it.id){
+      case 'heart1': return (Store.addHearts(1), true);
+      case 'hearts': return (Store.addHearts(Store.HEART_MAX), true);
+      case 'freeze': return Streak.freeze();
+      default:       return true;      // پوسته و چهرک با «مالکیت» باز می‌شوند
+    }
+  },
+  rows(){
+    return this.ITEMS.map(it => {
+      const st = this.worn(it), n = Wallet.items()[it.id] || 0;
+      const label = { owned:'دارید', poor:'کم است', full:'پُر است', frozen:'یخ‌زده', ok:'بخر' }[st];
+      return `<div class="shop-item ${st === 'owned' ? 'owned' : ''}">
+        <span class="si">${Glyph.of(it.icon)}</span>
+        <span class="sb"><b>${U.esc(it.name)}${n > 1 ? ` ×${U.fa(n)}` : ''}</b>
+          <small>${U.esc(it.desc)}</small></span>
+        <span class="sp">
+          <button class="btn sm ${st === 'ok' ? '' : 'gh'}" data-buy="${it.id}"
+            ${st === 'ok' ? '' : 'disabled'}>${U.fa(it.price)} 🪙</button>
+        </span>
+      </div>`;
+    }).join('');
+  },
+  open(){
+    UI.modal(`<h3>${Icon.of('cart')} فروشگاه نورستان</h3>
+      <div class="row" style="justify-content:space-between;margin:10px 0 14px">
+        <span class="tiny">سکه از بازی، نشان، مأموریت و زنجیره به‌دست می‌آید.</span>
+        ${Wallet.chip(true)}
+      </div>
+      <button class="btn gh w" id="paidShop" style="margin-bottom:14px">خرید آزمایشی سکه و رسیدها</button><div id="shopList">${this.rows()}</div>`, box => this.wire(box));
+  },
+  wire(box){
+    const paid=U.$('#paidShop',box||document);if(paid)paid.onclick=()=>PaidAccount.open();
+    U.$$('[data-buy]', box || document).forEach(b => b.onclick = () => {
+      if(this.buy(b.dataset.buy)){ this.open(); Me.coins && Me.render(); }
+    });
+  }
+};
+
+/* ── زنجیره ──
+   زنجیره از «تاریخ آخرین بازی» خوانده می‌شود، نه از یک شمارندهٔ ذخیره‌شده،
+   تا اگر برنامه چند روز بسته بماند خودش بشکند. «یخِ زنجیره» یک تاریخ اضافه
+   می‌گذارد که همان کار روزِ بازی‌شده را می‌کند، ولی جایزه نمی‌دهد. */
+const Streak = {
+  today(){ return U.today(); },
+  yest(){ return DailyChallenge.yesterday(); },
+  /* پایهٔ زنجیره: تا دیروز زنده بود؟ */
+  base(){
+    const d = Store.get('dailyChallenge') || {};
+    const y = this.yest();
+    if(d.lastDate === y || d.date === y) return d.streak || 0;
+    if(d.frozen === y) return d.streak || 0;
+    return 0;
+  },
+  count(){ const d = Store.get('dailyChallenge') || {}; return d.date === this.today() ? (d.streak || 0) : this.base(); },
+  doneToday(){ const d = Store.get('dailyChallenge') || {}; return d.date === this.today() && !!d.done; },
+  frozenToday(){ return (Store.get('dailyChallenge') || {}).frozen === this.today(); },
+  atRisk(){ return !this.doneToday() && !this.frozenToday() && this.count() > 0; },
+  /* آخرین روزِ زنده بودن زنجیره چقدر پیش بوده — برای متن هشدار */
+  dueToday(){ return this.atRisk(); },
+  freeze(){
+    if(this.frozenToday()) return false;
+    if(this.doneToday()){ UI.toast('✅ امروز بازی کرده‌ای — یخ لازم نیست', ''); return false; }
+    if(this.count() <= 0){ UI.toast('🧊 زنجیره‌ای نیست که یخ بزند', ''); return false; }
+    Store.update(d => d.dailyChallenge.frozen = this.today());
+    UI.toast('🧊 زنجیرهٔ امروز یخ زد — تا فردا امن است', 'ok', 2600);
+    return true;
+  },
+  rows(){
+    const n = this.count();
+    return `<div class="kv"><span>زنجیره</span><b>${U.fa(n)} روز</b></div>
+      <div class="kv"><span>امروز</span><b>${this.doneToday() ? '✓ انجام شد' : (this.frozenToday() ? '🧊 یخ‌زده' : '🕒 باقی مانده')}</b></div>`;
+  },
+  warn(){
+    if(!this.atRisk()) return '';
+    return `<div class="streak-warn">
+      <span class="swe ${!FX.reduced && this.atRisk() ? 'at-risk' : ''}">${Icon.of('flame')}</span>
+      <span class="grow"><b>زنجیرهٔ ${U.fa(this.count())} روزه‌ات امشب می‌شکند</b>
+        <small>چالش امروز را بزن، یا با ۸۰ سکه یخش بزن.</small></span>
+      <button class="btn sm" data-streak="go">بزن</button>
+      <button class="btn gh sm" data-streak="freeze" title="نگه‌داشتن رشته" aria-label="نگه‌داشتن رشته">${Icon.of('snow')}</button>
+    </div>`;
+  },
+  wire(host){
+    U.$$('[data-streak]', host || document).forEach(b => b.onclick = () => {
+      if(b.dataset.streak === 'freeze'){
+        if(Wallet.spend(80, 'یخِ زنجیره') && !this.freeze()) Wallet.refund(80);   // یخ نخورد ⇒ سکه برگردد
+      } else DailyChallenge.open();
+      try{ renderHome(); }catch(e){}
+    });
+  }
+};
+
+/* ── راهنمای شناور ──
+   دو راه دارد: نگه‌داشتن انگشت روی هر عنصرِ data-tip، یا روشن کردن «راهنمای
+   لمسی» که با یک ضربه توضیح را نشان می‌دهد و مانع کار خودِ دکمه می‌شود. */
+const Tips = {
+  cur: null, timer: null, mode: false,
+  on(){ return Store.get('settings').tips !== false; },
+  setMode(v){ this.mode = !!v; UI.toast(this.mode ? '💡 راهنمای لمسی روشن — روی هر دکمه بزن تا توضیحش را ببینی' : '💡 راهنمای لمسی خاموش', '', 2400); },
+  toggle(){ this.setMode(!this.mode); },
+  hide(){ if(this.cur){ try{ this.cur.remove(); }catch(e){} this.cur = null; } clearTimeout(this.timer); },
+  text(el){ return el && el.getAttribute ? (el.getAttribute('data-tip') || '') : ''; },
+  show(el){
+    const msg = this.text(el);
+    if(!msg || !this.on()) return false;
+    this.hide();
+    const b = document.createElement('div');
+    b.className = 'tipb'; b.textContent = msg;
+    document.body.appendChild(b);
+    /* اندازه‌گیری امن: عنصرِ جدا‌شده از درخت یا محیط آزمون اندازه ندارد */
+    const r  = (el.getBoundingClientRect  ? el.getBoundingClientRect()  : { top:0, left:0, width:0, height:0 });
+    const br = (b.getBoundingClientRect   ? b.getBoundingClientRect()   : { width:0, height:0 });
+    const vw = window.innerWidth || 360, vh = window.innerHeight || 640;
+    let top = r.top - br.height - 8;
+    if(top < 8) top = r.top + r.height + 8;
+    if(top + br.height > vh - 8) top = Math.max(8, vh - br.height - 8);
+    let left = r.left + r.width / 2 - br.width / 2;
+    left = Math.max(8, Math.min(vw - br.width - 8, left));
+    b.style.top = top + 'px'; b.style.left = left + 'px';
+    this.cur = b;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.hide(), 3400);
+    return true;
+  },
+  init(){
+    let press = null, holdT = null;
+    const clear = () => { clearTimeout(holdT); holdT = null; };
+    document.addEventListener('pointerdown', e => {
+      const t = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+      if(!t){ this.hide(); press = null; return; }
+      if(this.mode){
+        /* در حالت راهنما، ضربه فقط توضیح می‌دهد و کار دکمه انجام نمی‌شود */
+        e.preventDefault(); e.stopPropagation();
+        this.show(t);
+        return;
+      }
+      press = t;
+      holdT = setTimeout(() => { if(press === t) this.show(t); }, 620);
+    }, true);
+    document.addEventListener('pointerup', clear, true);
+    document.addEventListener('pointercancel', clear, true);
+    document.addEventListener('pointermove', e => { if(press) clear(); }, true);
+  }
+};
+
+/* ── تازه‌وارد: چهار اسلاید ── */
+const Onboarding = {
+  i: 0,
+  SLIDES: [
+    { art:'🕌', t:'به نورستان خوش آمدی',
+      d:'به خانهٔ قرآن و بازی خوش آمدی. ورود با پیامک انجام می‌شود؛ پیشرفت قبلی این دستگاه هم حفظ می‌شود.' },
+    { art:'🎮', t:'بیش از ۳۰ بازی',
+      d:'از پرسش‌های قرآنی و معارف تا دوز، حافظه، اسم فامیل و چهارده معصوم. هر بازی رکورد خودش را نگه می‌دارد.' },
+    { art:'📖', t:'حافظ نور',
+      d:'قرآن را بازی‌گونه حفظ کن: گوش کن و تکرار کن، کلمه‌ها را کم‌کم پنهان کن، و با تکرار فاصله‌دار مرور کن.' },
+    { art:'🏅', t:'نشان، مأموریت و سکه',
+      d:'هر روز سه مأموریت تازه، زنجیرهٔ روزانه، و فروشگاهی که با سکه پوسته و چهرک تازه باز می‌کند.' }
+  ],
+  seen(){ return !!Store.get('settings').onboarded; },
+  /* فقط برای کاربر تازه. اگر کسی امتیاز دارد، نشان دادن اسلایدها آزار است. */
+  maybe(){
+    if(!Session.user()||Gate.shown)return false;
+    if(this.seen()) return false;
+    if((Store.get('score') || 0) > 0){ Store.update(d => d.settings.onboarded = true); return false; }
+    this.open();
+    return true;
+  },
+  open(){ this.i = 0; this.paint(); const el = U.$('#onb'); if(el) el.classList.add('on'); },
+  close(seen){
+    const el = U.$('#onb'); if(el) el.classList.remove('on');
+    if(seen !== false) Store.update(d => d.settings.onboarded = true);
+  },
+  go(i){ this.i = U.clamp(Math.floor(+i) || 0, 0, this.SLIDES.length - 1); this.paint(); },
+  next(){ if(this.i >= this.SLIDES.length - 1) this.done(); else this.go(this.i + 1); },
+  done(){
+    /* دوبار‌لمسِ دکمهٔ آخر، done را دوبار صدا می‌زد و دو پیامِ خوش‌آمد روی هم می‌نشست */
+    if(!U.$('#onb.on')) return;
+    this.close(true);
+    Sound.fanfare(); Haptic.success();
+    UI.toast('🌸 خوش آمدی! هر وقت خواستی از پروفایل دوباره ببین', 'ok', 2800);
+    try{ Router.go('home'); }catch(e){}
+  },
+  paint(){
+    const el = U.$('#onb');
+    if(!el) return;
+    const i = this.i, last = i === this.SLIDES.length - 1, s = this.SLIDES[i];
+    el.innerHTML = `
+      <button class="onb-skip" id="onbSkip">رد کردن ›</button>
+      <div class="onb-slide on">
+        <div class="onb-art">${s.art}</div>
+        <h3>${U.esc(s.t)}</h3>
+        <p>${U.esc(s.d)}</p>
+      </div>
+      <div class="onb-dots">${this.SLIDES.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="onb-act">
+        ${i ? '<button class="btn gh" id="onbPrev">قبلی</button>' : ''}
+        <button class="btn" id="onbNext">${last ? '🚀 شروع کن' : 'بعدی'}</button>
+      </div>`;
+    const sk = U.$('#onbSkip'); if(sk) sk.onclick = () => this.close(true);
+    const nx = U.$('#onbNext'); if(nx) nx.onclick = () => this.next();
+    const pv = U.$('#onbPrev'); if(pv) pv.onclick = () => this.go(this.i - 1);
+  }
+};
+
+/* ── مأموریت‌های هفتگی ──
+   هفته از شنبه شروع می‌شود (هفتهٔ ایرانی). مثل روزانه با بذرِ تاریخ انتخاب
+   می‌شود تا در همهٔ دستگاه‌ها یکسان باشد. */
+const Weekly = {
+  POOL: [
+    { id:'wplay',    icon:'🎮', t:'۱۵ بازی در این هفته', d:'هر بازی‌ای',      goal:15,  pts:250, coins:40 },
+    { id:'wcorrect', icon:'✅', t:'۱۰۰ پاسخ درست',       d:'در همهٔ بازی‌ها', goal:100, pts:300, coins:50 },
+    { id:'wperfect', icon:'💎', t:'۳ بازی بی‌خطا',        d:'دقت ۱۰۰٪',        goal:3,   pts:280, coins:45 },
+    { id:'wbadge',   icon:'🎖️', t:'۲ نشان تازه',         d:'هر نشانی',        goal:2,   pts:320, coins:60 },
+    { id:'wread',    icon:'📖', t:'۳ سوره کامل',          d:'در مصحف‌نما',     goal:3,   pts:240, coins:35 },
+    { id:'whifz',    icon:'🕌', t:'۵ آیه حفظ کن',         d:'در حافظ نور',     goal:5,   pts:350, coins:70 },
+    { id:'wstreak',  icon:'🔥', t:'۵ روز زنجیره',         d:'چالش روزانه',     goal:5,   pts:260, coins:40 }
+  ],
+  /* هفته از شنبه. از UTC حساب می‌شود چون U.today هم UTC است؛ اگر یکی
+     محلی و دیگری UTC باشد، نزدیک نیمه‌شب کلید هفته یک روز جابه‌جا می‌شود. */
+  // محاسبهٔ جاری، برخلاف توضیح تاریخیِ بالا، کاملاً بر پایهٔ روز محلی است.
+  start(){
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+    d.setHours(0, 0, 0, 0);
+    return U.localDay(d);
+  },
+  ensure(){
+    const m = Store.get('missions');
+    const wk = this.start();
+    if(m.weekStart === wk && Array.isArray(m.week) && m.week.length === 3) return m;
+    const r = U.seedRand('week:' + wk);
+    const pool = [...this.POOL], pick = [];
+    while(pick.length < 3 && pool.length) pick.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    Store.update(s => {
+      s.missions.weekStart = wk;
+      s.missions.week = pick.map(x => ({ ...x, n:0, done:false, paid:false }));
+    });
+    return Store.get('missions');
+  },
+  key(id){
+    const st = Store.get('stats');
+    switch(id){
+      case 'wplay':    return st.plays || 0;
+      case 'wcorrect': return st.totalCorrect || 0;
+      case 'wperfect': return st.perfectRuns || 0;
+      case 'wbadge':   return Object.keys(Store.get('badges') || {}).length;
+      case 'wread':    return st.readSurahs || 0;
+      case 'whifz':    return st.hifzVerses || 0;
+      case 'wstreak':  return Math.max(Streak.count(), st.bestStreak || 0);
+      default:         return 0;
+    }
+  },
+  refresh(silent){
+    const m = this.ensure();
+    let pts = 0, coins = 0, done = 0;
+    Store.update(s => {
+      s.missions.week.forEach(x => {
+        if(x.base == null) x.base = this.key(x.id);
+        x.n = Math.max(0, this.key(x.id) - x.base);
+        x.done = x.n >= x.goal;
+        if(x.done && !x.paid){ x.paid = true; pts += x.pts; coins += x.coins || 0; }
+        if(x.done) done++;
+      });
+      if(pts) s.score += pts;
+    });
+    if(pts){
+      if(coins) Wallet.earn(coins);
+      Sound.fanfare(); Haptic.success();
+      UI.toast(`🏆 مأموریت هفتگی کامل شد — ${U.fa(pts)} امتیاز`, 'ok', 2800);
+      checkBadges();
+    } else if(!silent && done === 3){
+      UI.toast('🏆 مأموریت‌های هفته تمام شده', 'ok', 2000);
+    }
+    return { pts, coins, done };
+  },
+  rows(){
+    const m = this.ensure();
+    return m.week.map(x => {
+      const n = Math.min(x.n, x.goal), pct = Math.round(100 * n / x.goal);
+      return `<div class="miss ${x.done ? 'done' : ''}">
+        <span class="mi">${Glyph.of(x.icon)}</span>
+        <span class="mb"><div class="mt">${U.esc(x.t)} ${x.done ? '<span class="completion-check">' + Icon.of('check') + '</span>' : ''}</div>
+          <div class="md">${U.esc(x.d)} — جایزهٔ ${U.fa(x.pts)} امتیاز و ${U.fa(x.coins || 0)} سکه</div>
+          <div class="mp"><i style="width:${pct}%"></i></div></span>
+        <span class="tiny">${U.fa(n)}/${U.fa(x.goal)}</span>
+      </div>`;
+    }).join('');
+  },
+  left(){
+    const d = new Date();
+    return 6 - ((d.getDay() + 1) % 7);         // چند روز تا پایان هفته
+  }
+};
+
+/* ─────────────────── 20.7 Shell — پوستهٔ نصب‌شده ───────────────────
+   پرسش‌هایی که به «برنامه بودن» ربط دارند، نه به بازی: رنگ نوار وضعیت و
+   اینکه آیا در حالت نصب‌شده اجرا می‌شویم یا نه.
+   ──────────────────────────────────────────────────────────────── */
+const Shell = {
+  /* رنگ نوار وضعیت مرورگر با پوستهٔ فعال هم‌گام می‌شود. */
+  themeColor(){
+    try{
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      return v || '#0b1020';
+    }catch(e){ return '#0b1020'; }
+  },
+  syncThemeColor(){
+    try{
+      const m = document.querySelector('meta[name="theme-color"]');
+      if(m) m.setAttribute('content', this.themeColor());
+    }catch(e){}
+  },
+  /* آیا همین حالا در حالت نصب‌شده اجرا می‌شویم؟
+     دو نشانهٔ مستقل: display-mode در مرورگرهای Chromium، و
+     navigator.standalone که فقط iOS دارد. */
+  standalone(){
+    try{
+      const mm = window.matchMedia;
+      if(mm && (mm('(display-mode: standalone)').matches ||
+                mm('(display-mode: minimal-ui)').matches ||
+                mm('(display-mode: window-controls-overlay)').matches)) return true;
+    }catch(e){}
+    try{ if(navigator.standalone === true) return true; }catch(e){}
+    return false;
+  }
+};
+
+/* ─────────────────── 20.8 Install — نصب روی دستگاه ───────────────────
+   سه وضعیت داریم و هر سه پیام خودش را می‌خواهد:
+     installed   — همین حالا در حالت برنامه‌ایم؛ دکمه بی‌معنی است.
+     ready       — کروم رویداد نصب را داده؛ یک ضربه کافی است.
+     manual-*    — دکمهٔ خودکار نیست (iOS هیچ‌وقت ندارد)؛ راهنمای گام‌به‌گام.
+   اشتباه رایج این است که برای همه یک دکمه بگذاریم و کاربر آیفون هر بار
+   بزند و هیچ نشود. پس وضعیت را اول تشخیص می‌دهیم، بعد دکمه را می‌سازیم.
+   ──────────────────────────────────────────────────────────────── */
+const Install = {
+  OS_LABEL: { android:'اندروید', ios:'آیفون و آیپد', desktop:'رایانه', other:'دستگاه' },
+  os(){
+    try{
+      const ua = navigator.userAgent || '';
+      if(/iPhone|iPad|iPod/.test(ua)) return 'ios';
+      /* آیپدِ تازه خودش را Macintosh معرفی می‌کند؛ تنها نشانهٔ فرقش با
+         مکِ واقعی، پشتیبانی از لمس چندنقطه‌ای است. */
+      if(navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return 'ios';
+      if(/Android/.test(ua)) return 'android';
+      if(/Windows|Macintosh|Linux|CrOS/.test(ua)) return 'desktop';
+    }catch(e){}
+    return 'other';
+  },
+  armed(){ return !!window.__bip; },
+  installed(){ return Shell.standalone(); },
+  state(){
+    if(this.installed()) return 'installed';
+    if(this.armed())     return 'ready';
+    return this.os() === 'ios' ? 'manual-ios' : 'manual';
+  },
+
+  /* نصب واقعی: فقط وقتی رویداد در دست است. */
+  async prompt(){
+    const e = window.__bip;
+    if(!e) return false;
+    try{
+      e.prompt();
+      const c = await e.userChoice;
+      /* رویداد یک‌بارمصرف است؛ چه پذیرفته چه رد شده باشد. */
+      window.__bip = null;
+      if(c && c.outcome === 'accepted'){
+        Haptic.success();
+        UI.toast('📲 نورستان نصب شد — از صفحهٔ اصلی بازش کن', 'ok', 3000);
+        return true;
+      }
+      UI.toast('نصب لغو شد. هر وقت خواستی از همین‌جا میشود.', '', 2600);
+      return false;
+    }catch(err){
+      window.__bip = null;
+      return false;
+    }
+  },
+
+  /* ── بنر نصب خودکار ────────────────────────────────────────────
+     مثل توییتر: خودش می‌آید، یک دکمهٔ اصلی و یک دکمهٔ بستن دارد، و اگر
+     بستی دیگر نمی‌آید.
+
+     ذخیرهٔ رد شدن در localStorage است — از راه Store که خودش روی
+     localStorage می‌نشیند. ولی «همیشه» نیست: رد کردنِ ابدی یعنی کسی که
+     یک بار بست، هرگز دوباره دعوت نشود، حتی ماه‌ها بعد که نظرش عوض شده.
+     پس زمانِ رد شدن ذخیره می‌شود و پس از OFFER_AGAIN_MS دوباره پیشنهاد
+     می‌شود. عدد در یک ثابت است تا تغییرش یک‌جا باشد. */
+  BAR_KEY: 'installBar',
+  OFFER_AGAIN_MS: 14 * 24 * 60 * 60 * 1000,   // دو هفته
+  SPLASH_GRACE_MS: 4000,                      // بیمهٔ زمانی پردهٔ آغازین
+  T0: Date.now(),
+
+  barClosedAt(){ return +Store.get(this.BAR_KEY) || 0; },
+  barSnoozed(){
+    const t = this.barClosedAt();
+    return !!t && (Date.now() - t) < this.OFFER_AGAIN_MS;
+  },
+  /* بستن = نادیده‌گرفتن، نه لغو نصب. کارت تنظیمات سر جایش می‌ماند. */
+  snooze(){
+    Store.set(this.BAR_KEY, Date.now());
+    this.hide();
+  },
+  showing(){
+    const el = U.$('#ib');
+    return !!el && !el.hidden;
+  },
+  /* چهار شرط، و هر چهارتا لازم‌اند. ترتیبشان از ارزان به گران است. */
+  canOffer(){
+    if(this.installed()) return false;   // نصب شده — بنر بی‌معناست
+    if(this.barSnoozed()) return false;  // کاربر تازه بسته
+    const st = this.state();
+    /* فقط جایی که پیشنهاد واقعاً کار می‌کند، یا راهِ دستی‌اش را می‌دانیم.
+       روی «manual» (کرومِ دسکتاپی که هنوز رویداد نداده) بنر نمی‌آید،
+       چون دکمه‌اش یا بی‌اثر می‌شود یا کاربر را به راهنمایی می‌فرستد که
+       خودش می‌تواند باز کند. */
+    if(st !== 'ready' && st !== 'manual-ios') return false;
+    if(document.hidden) return false;                        // تب پنهان است
+    const m = U.$('#modal');
+    if(m && m.classList.contains('on')) return false;        // مودال باز است
+    /* پردهٔ آغازین: تا نرفته بنر نمیآید، وگرنه روی آن میافتد. سه نشانه
+       را میپذیریم و هر کدام کافی است — نبودِ عنصر، کلاس out، یا گذشتن
+       SPLASH_GRACE_MS. بیمهٔ زمانی مهم است: Splash در پایان عنصر را
+       حذف میکند، ولی اگر روزی آن مسیر خراب شود و کلاس out نیاید، بنر
+       تا ابد خفه میماند و هیچ‌کس هم نمی‌فهمد چرا. */
+    const sp = U.$('#splash');
+    if(sp && !sp.classList.contains('out') && (Date.now() - this.T0) < this.SPLASH_GRACE_MS)
+      return false;
+    return true;
+  },
+  /* جای عمودی از روی ارتفاع واقعی حساب می‌شود، نه عدد ثابت: نوار پایین
+     روی گوشی‌های باریک کوتاه‌تر است، و پخش‌کنندهٔ کوچک قرآن فقط وقتی
+     هست که کلاس on داشته باشد. با عدد ثابت، بنر روی یکی از آن دو
+     می‌افتاد. */
+  place(){
+    const el = U.$('#ib');
+    if(!el) return;
+    const nav = U.$('#nav');
+    const navTop = nav && typeof nav.getBoundingClientRect === 'function'
+      ? window.innerHeight - nav.getBoundingClientRect().top : (nav ? nav.offsetHeight : 62);
+    let bottom = Math.max(0, navTop) + 12;
+    const mini = U.$('#miniQ');
+    if(mini) mini.style.bottom = bottom + 'px';
+    if(mini && mini.classList.contains('on')) bottom += mini.offsetHeight + 12;
+    el.style.bottom = bottom + 'px';
+  },
+  /* همان شکل «ن» که در آیکن‌های واقعی است، درون‌خطی و کوچک. پهنای
+     کادر ۱۰۰ گرفتیم نه ۹۲: سرِ دُم تا x≈۹۳٫۵ می‌رود و با ۹۲ بریده
+     می‌شد. */
+  LOGO: `<span class="ib-logo" aria-hidden="true">
+      <svg viewBox="0 0 100 100" fill="none" stroke="url(#ibg)" stroke-width="13" stroke-linecap="round">
+        <defs><linearGradient id="ibg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe08f"/><stop offset="1" stop-color="#dfa02b"/>
+        </linearGradient></defs>
+        <path d="M 77.95 57.63 A 34 34 0 0 1 14.05 57.63"/>
+        <path d="M 77.95 57.63 L 86.95 29"/>
+        <circle cx="46" cy="28" r="8" fill="url(#ibg)" stroke="none"/>
+      </svg></span>`,
+  paint(){
+    const el = U.$('#ib');
+    if(!el) return;
+    const ios = this.os() === 'ios';
+    const sub = ios
+      ? 'روی آیفون: «اشتراک» ← «Add to Home Screen»'
+      : 'آیکنش روی صفحهٔ اصلی می‌آید و بدون نوار آدرس باز می‌شود';
+    el.innerHTML = this.LOGO +
+      `<span class="ib-t"><b>نورستان را نصب کن</b>
+        <small>${U.esc(sub)}</small></span>
+      <span class="ib-btns">
+        <button class="ib-go" id="ibGo">${ios ? 'چطور؟' : 'نصب'}</button>
+        <button class="ib-x" id="ibX" aria-label="بستن این پیشنهاد" title="بستن">${Icon.of('close')}</button>
+      </span>`;
+    U.$('#ibGo', el).onclick = () => this.act();
+    U.$('#ibX', el).onclick  = () => { Haptic.hit(); this.snooze(); };
+  },
+  /* دکمهٔ بنر: روی اندروید و دسکتاپ نصب واقعی، روی iOS راهنما. چرا؟
+     چون iOS هیچ‌وقت beforeinstallprompt نمی‌دهد؛ اگر همان‌جا دکمهٔ
+     «نصب» می‌گذاشتیم، کاربر آیفون هر بار می‌زد و هیچ نمی‌شد — همان
+     اشتباهی که در کارت تنظیمات هم از آن پرهیز شده. */
+  async act(){
+    Haptic.hit();
+    if(this.armed()){
+      const ok = await this.prompt();
+      if(ok) this.hide(); else this.snooze();
+      return;
+    }
+    this.guide();
+  },
+  open(){
+    const el = U.$('#ib');
+    if(!el) return false;
+    this.paint();
+    this.place();
+    el.hidden = false;
+    el.classList.remove('out');
+    return true;
+  },
+  /* بستن پویانمایى دارد، پس پیش از hidden شدن صبر می‌کنیم؛ وگرنه بنر
+     یک‌دفعه ناپدید می‌شود و پرش دیده می‌شود. */
+  hide(){
+    const el = U.$('#ib');
+    if(!el || el.hidden) return;
+    el.classList.add('out');
+    setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 220);
+  },
+  show(){
+    if(!this.canOffer()) return false;
+    if(this.showing()){ this.place(); return true; }
+    return this.open();
+  },
+
+  /* راهنمای هر پلتفرم. متن‌ها عمداً کوتاه و شماره‌دارند: کاربر موبایل
+     وسط کار است و نمی‌خواهد پاراگراف بخواند. */
+  STEPS: {
+    android: {
+      title: '📲 نصب روی اندروید',
+      rows: [
+        ['۱', 'اگر بالای همین کارت دکمهٔ «نصب» فعال است، همان را بزن و تمام.'],
+        ['۲', 'وگرنه سه‌نقطهٔ بالا-راست کروم را بزن.'],
+        ['۳', '«نصب برنامه» (Install app) یا «افزودن به صفحهٔ اصلی» را انتخاب کن.'],
+        ['۴', 'تأیید کن. آیکن «ن» روی صفحهٔ اصلی می‌آید و بدون نوار آدرس باز می‌شود.']
+      ]
+    },
+    ios: {
+      title: '📲 نصب روی آیفون و آیپد',
+      rows: [
+        ['۱', 'باید با Safari بازش کنی. کروم و فایرفاکس روی iOS این کار را نمی‌کنند.'],
+        ['۲', 'دکمهٔ «اشتراک» را بزن — مربع با فلشِ رو به بالا، پایین صفحه.'],
+        ['۳', 'در فهرست پایین بیا و «Add to Home Screen» را بزن.'],
+        ['۴', 'بالا-راست «Add» را بزن. آیکن «ن» روی صفحهٔ اصلی می‌آید.']
+      ]
+    },
+    desktop: {
+      title: '📲 نصب روی رایانه',
+      rows: [
+        ['۱', 'در نوار آدرس کروم یا اج، سمت راست، آیکن نصب (⊕ یا صفحه‌نمایش) را بزن.'],
+        ['۲', 'یا از فهرست سه‌نقطه: «Install Noorestan».'],
+        ['۳', 'تأیید کن. نورستان در پنجرهٔ خودش و جدا از مرورگر باز می‌شود.']
+      ]
+    },
+    other: {
+      title: '📲 نصب نورستان',
+      rows: [
+        ['۱', 'از فهرست مرورگر گزینهٔ «افزودن به صفحهٔ اصلی» یا «نصب» را پیدا کن.'],
+        ['۲', 'اگر نبود، این صفحه را در کروم یا سافاری باز کن.']
+      ]
+    }
+  },
+
+  /* کارت تنظیمات — وضعیت را می‌گوید و تنها یک دکمهٔ درست نشان می‌دهد. */
+  card(){
+    const st = this.state(), os = this.os();
+    const head = `<div class="card mt14"><b style="font-size:13px">${Icon.of('download')} نصب اپلیکیشن</b><div class="sep"></div>`;
+    if(st === 'installed')
+      return head + `<div class="kv"><span>وضعیت</span><b>${Icon.of('check')} نصب شده — در حالت برنامه اجرا می‌شوی</b></div></div>`;
+    const hint = st === 'ready'
+      ? 'مرورگر آمادهٔ نصب است — یک ضربه کافی است.'
+      : os === 'ios'
+        ? 'سافاری دکمهٔ نصب خودکار ندارد؛ چند گام دستی لازم است.'
+        : 'مرورگر هنوز دکمهٔ نصب را آماده نکرده؛ راهنمای گام‌به‌گام را ببین.';
+    return head +
+      `<p style="font-size:11.5px;color:var(--mut);margin:0 0 10px">${U.esc(hint)}</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn ${st === 'ready' ? '' : 'gh'}" id="setInstall" style="flex:1">
+          📲 نصب روی ${U.esc(this.OS_LABEL[os])}</button>
+        <button class="btn gh" id="setInstallGuide">${Icon.of('help')} راهنمای نصب</button>
+      </div>
+      <div class="tiny" id="setInstallMsg" role="status" aria-live="polite" style="margin-top:8px;min-height:1em"></div>
+    </div>`;
+  },
+
+  guide(){
+    const s = this.STEPS[this.os()] || this.STEPS.other;
+    UI.modal(`<h3 style="margin-bottom:4px">${s.title}</h3>
+      <p style="font-size:11.5px;color:var(--mut);margin-bottom:12px">
+        نورستان یک وب‌اپ است. با این کار آیکنش روی صفحهٔ اصلی می‌آید و مثل
+        برنامه‌های دیگر باز می‌شود — بدون نوار آدرس و با پردهٔ آغازین کامل.</p>
+      <div class="steps">${s.rows.map(r =>
+        `<div class="step"><b>${r[0]}</b><span>${U.esc(r[1])}</span></div>`).join('')}</div>
+      ${this.armed() ? `<button class="btn w mt14" id="gInstall">${Icon.of('download')} همین حالا نصب کن</button>` : ''}
+      <p style="font-size:11px;color:var(--mut);margin-top:12px">
+        نصب از مسیر <span dir="ltr">file://</span> کار نمی‌کند؛ صفحه باید از
+        <span dir="ltr">http</span> یا <span dir="ltr">https</span> باز شده باشد.</p>`,
+      box => {
+        const b = U.$('#gInstall', box);
+        if(b) b.onclick = async () => { UI.closeModal(); await this.prompt(); Me.render(); };
+      });
+  },
+
+  wire(){
+    const b = U.$('#setInstall');
+    if(b) b.onclick = async () => {
+      Haptic.hit();
+      /* دکمه همیشه یک کار مفید می‌کند: اگر رویداد آماده است نصب می‌کند،
+         وگرنه راهنما را باز می‌کند. هیچ‌وقت بی‌واکنش نمی‌ماند. */
+      if(this.armed()){ await this.prompt(); Me.render(); return; }
+      this.guide();
+    };
+    const g = U.$('#setInstallGuide');
+    if(g) g.onclick = () => this.guide();
+  },
+
+  init(){
+    const reg = () => {
+      /* Router.current وجود ندارد؛ صفحهٔ جاری آخرین قلمِ پشته است. */
+      const onMe = () => Router.stack[Router.stack.length - 1] === 'me';
+      window.addEventListener('noorestan:bip', () => {
+        UI.toast('📲 نورستان قابل نصب است', 'ok', 3200);
+        if(onMe()) Me.render();
+        this.show();          // رویداد تازه رسید — بنر را بیاور
+      });
+      window.addEventListener('noorestan:installed', () => {
+        UI.toast('✅ نصب شد. حالا از صفحهٔ اصلی بازش کن.', 'ok', 3200);
+        if(onMe()) Me.render();
+        this.hide();          // دیگر بنری لازم نیست
+      });
+      /* نوار پایین و پخش‌کنندهٔ کوچک با چرخش صفحه ارتفاعشان عوض می‌شود */
+      window.addEventListener('resize', () => this.place());
+      /* یک بار پس از پردهٔ آغازین و راهنمای شروع. چرا لازم است؟ چون iOS
+         هیچ رویدادی نمی‌دهد؛ اگر فقط به noorestan:bip تکیه کنیم، کاربر
+         آیفون هرگز بنر را نمی‌بیند — و او بیش از همه به راهنما نیاز دارد.
+         تایمر از نوع sys است نه page: تایمرهای page با هر تغییر مسیر پاک
+         می‌شوند و اگر کاربر در دو ثانیهٔ اول جایی برود، بنر نمی‌آمد. */
+      Timers.after(() => this.show(), 2200, 'sys');
+    };
+    try{ reg(); }catch(e){}
+  }
+};
+
+/* ─────────────────── 20.9 SMS — دروازهٔ پیامک (‏textbee.dev) ───────────────────
+   سه راه برای فرستادن پیامک، به همین ترتیب اولویت:
+
+   ۱. سرور  — اگر برنامه از سرورِ خودمان باز شده باشد و سرور کلید را داشته
+              باشد (NOOR_SMS_KEY)، درخواست به /api/otp/send می‌رود و کلید
+              هرگز به مرورگر نمی‌آید. این تنها راهی است که کلید در سورسِ
+              صفحهٔ سرو‌شده نمی‌نشیند.
+   ۲. مستقیم — کلید در همین دستگاه ذخیره شده و مرورگر خودش به textbee می‌زند.
+              کار می‌کند (‏textbee هدر CORS باز می‌گذارد — آزموده شد)، ولی
+              هر کس به پروفایل این مرورگر دسترسی داشته باشد کلید را می‌بیند.
+   ۳. آزمایشی — هیچ کلیدی نیست. کد ساخته می‌شود، در کنسول و روی صفحه نشان
+              داده می‌شود، و هیچ پیامکی نمی‌رود.
+
+   چرا ترتیب این‌طور است؟ چون کلید یک اعتبار خرج‌شدنی است: کسی که آن را
+   بردارد می‌تواند به حساب صاحبش پیامک بفرستد. پس هر جا راه ایمن‌تری هست،
+   همان اول می‌آید. */
+const SMS = {
+  provider: 'textbee',
+  config: {
+    apiKey: '',      // در تنظیمات وارد شه (یا روی سرور بماند)
+    deviceId: '',    // در تنظیمات وارد شه
+    endpoint: 'https://api.textbee.dev/api/v1/gateway/send-sms'
+  },
+  /* نشانی پروکسی روی سرور خودمان — نسبی است تا هر جا برنامه باز شود کار کند */
+  PROXY: '/api/otp',
+  /* ۳۰ ثانیه، نه ۲۰. textbee گاهی کند پاسخ می‌دهد و ۲۰ ثانیه زود تمام می‌شد.
+     مهم‌تر: «تمام شدن وقت» یعنی «نمی‌دانم»، نه «نشد». */
+  TIMEOUT_MS: 30000,
+  server: { on: false, configured: false, at: 0 },
+
+  /* ── گزارش ──
+     هر رفت‌وبرگشت پیامک ثبت می‌شود تا وقتی کاربر می‌گوید «پیامک نیامد» بتوانیم
+     بگوییم کدام مرحله شکست خورد. کلید، کد تأیید و هدرها هرگز ثبت نمی‌شوند. */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* رشتهٔ فشرده، نه آبجکت: در کنسول موبایل یک خط می‌شود و می‌شود
+         کپی‌اش کرد و در گزارش باگ فرستاد. */
+log(ev,data){if(new URLSearchParams(location.search).get('debug')==='1')console.log('[SMS]',ev);},
+
+  /* ── داوری پاسخ سرویس پیامک ──
+     قرارداد واقعی:
+       موفق : { success: true, data: { _id: 'abc123', status: 'pending' } }
+       خطا  : { success: false, message: 'Invalid API key' }
+     ولی به هیچ‌کدام تکیه نمی‌کنیم: هر نشانه‌ای از موفقیت کافی است و هر نشانه‌ای
+     از شکست، خطا.
+
+     سه حالت داریم، نه دو حالت:
+       sent    → قطعاً پذیرفته شد
+       failed  → قطعاً رد شد
+       pending → نمی‌دانیم: وقت تمام شد یا شبکه پاسخ نداد. پیامک ممکن است رسیده
+                 باشد، پس کاربر را از صفحهٔ کد بیرون نمی‌کنیم.
+
+     چرا pending لازم است: پیش‌تر هر «نمی‌دانم» به «نشد» ترجمه می‌شد و کاربری که
+     پیامکش رسیده بود خطا می‌دید و کد را وارد نمی‌کرد. */
+  verdict(r){
+    const st = (r && typeof r.status === 'number') ? r.status : 0;
+    const j  = r && r.json;
+
+    /* ۰ یعنی درخواست به هیچ نتیجه‌ای نرسید: قطعی شبکه، یا CORS که پاسخ را دور
+       انداخته. در حالت دوم درخواست به textbee رسیده و پیامک رفته است. */
+    if(st === 0)
+      return { state: 'pending', error: (r && r.error) || 'پاسخی از سرویس پیامک نیامد' };
+
+    if(j && typeof j === 'object'){
+      const d  = (j.data && typeof j.data === 'object') ? j.data : {};
+      const id = j._id || j.messageId || j.id || d._id || d.messageId || d.id || '';
+      if(j.success === true || id) return { state: 'sent', id: String(id || '') };
+      const why = j.message || j.error || '';
+      if(j.success === false || why) return { state: 'failed', error: why || ('HTTP ' + st) };
+    }
+
+    /* ۲۰۰ ولی نه نشانهٔ موفقیت و نه شکست ⇒ نمی‌دانیم */
+    if(r && r.ok) return { state: 'pending', error: 'پاسخ سرویس پیامک خوانده نشد' };
+    /* ۵xx خطای موقت است؛ درخواست ممکن است بعداً پذیرفته شود */
+    if(st >= 500) return { state: 'pending', error: 'سرویس پیامک الان در دسترس نیست (HTTP ' + st + ')' };
+    return { state: 'failed', error: (j && (j.message || j.error)) || ('HTTP ' + st), status: st };
+  },
+
+  /* پیام یکسانِ حالت «نمی‌دانیم» — یک‌جا نوشته می‌شود تا همه‌جا یکی باشد. */
+  PENDING_MSG: 'در حال ارسال... لطفاً چک کنید',
+
+  /* ── پیکربندی ── */
+  hydrate(){this.config.apiKey='';this.config.deviceId='';return this.config;},
+  save(){Store.update(d=>{d.sms={apiKey:'',deviceId:'',testPhone:''};});this.hydrate();},
+
+  /* ── حالت جاری ──
+     تنها جایی که تصمیم گرفته می‌شود. «کلید دارم؟» هرگز تنها معیار نیست؛
+     اگر سرور کلید داشته باشد، کلید محلی نادیده می‌ماند. */
+  mode(){return this.server.configured?'server':'unavailable';},
+  modeName(){return this.ready()?'پیامکی':'در دسترس نیست';},
+  ready(){return this.server.configured;},
+
+  /* ── شمارهٔ موبایل ──
+     هر شکل معقولی را می‌پذیرد و به شکل ۰۹xxxxxxxxx درمی‌آورد، چون
+     textbee همین را می‌خواهد. کاربر ممکن است +۹۸ یا ۰۰۹۸ یا ۹۱۲… بنویسد
+     یا با فاصله و خط تیره جدا کند. */
+  norm(phone){
+    let d = U.unfa(phone).replace(/\D/g, '');
+    if(d.startsWith('0098')) d = d.slice(4);
+    else if(d.startsWith('98') && d.length >= 12) d = d.slice(2);
+    if(d.length === 10 && d.startsWith('9')) d = '0' + d;
+    /* عمداً بریده نمی‌شود. اگر شمارهٔ ۱۳ رقمی را به ۱۱ رقم می‌بریدیم،
+       یک شمارهٔ **معتبر ولی دیگر** می‌ساختیم و کد به یک غریبه می‌رفت.
+       بلندتر از حد ⇒ معتبر نیست، تمام. */
+    return d;
+  },
+  phoneOk(phone){
+    const p = this.norm(phone);
+    /* موبایل ایران: ۱۱ رقم و با ۰۹ شروع می‌شود. عمداً فقط همین اندازه
+       سخت‌گیریم؛ فهرست پیش‌شماره‌ها عوض می‌شود و سخت‌گیریِ بیشتر،
+       شمارهٔ درست را هم رد می‌کند. */
+    return /^09\d{9}$/.test(p);
+  },
+  faPhone(phone){
+    const p = this.norm(phone);
+    return p.length === 11 ? `${p.slice(0, 4)} ${p.slice(4, 7)} ${p.slice(7)}` : p;
+  },
+
+  /* ── یک درخواست، بی آنکه هیچ‌وقت پرتاب کند ──
+     هر خطای شبکه به {success:false, error} تبدیل می‌شود تا صداکننده یک
+     شکل ثابت ببیند. */
+  async req(url, opt){
+    opt = opt || {};
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    /* `opt.ms` برای پرس‌وجوهای کوتاه است (مثلاً «سرور همین‌جاست؟» هنگامِ
+       بالا آمدن). ۳۰ ثانیه برای پیامک درست است، برای آن پرس‌وجو نه. */
+    const ms = Math.max(500, +opt.ms || this.TIMEOUT_MS);
+    const tid = ctrl ? Timers.after(() => { try{ ctrl.abort(); }catch(e){} }, ms, 'sys') : null;
+    try{
+      const res = await fetch(url, {
+        method: opt.method || 'POST',
+        headers: { 'Content-Type': 'application/json', ...(opt.headers || {}) },
+        body: opt.body ? JSON.stringify(opt.body) : undefined,
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      let j = null;
+      try{ j = await res.json(); }catch(e){}
+      return { ok: res.ok, status: res.status, json: j };
+    }catch(e){
+      const abort = !!e && e.name === 'AbortError';
+      this.log('req:err', { url, abort, name: (e && e.name) || '', msg: (e && e.message) || '' });
+      return { ok: false, status: 0, json: null,
+               error: abort ? `پاسخی نیامد — وقت ${Math.round(ms / 1000)} ثانیه‌ای تمام شد`
+                            : 'اتصال برقرار نشد' };
+    }finally{ if(tid) Timers.clear(tid); }
+  },
+
+  /* ── پرس‌وجوی سرور ──
+     فقط می‌پرسیم «کلید داری؟». نه کلید می‌فرستیم و نه می‌گیریم. */
+  async probe(){
+    this.server = { on: false, configured: false, at: U.now() };
+    if(typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return this.server;
+    const r = await this.req(this.PROXY + '/status', { method: 'GET' });
+    if(r.ok && r.json && typeof r.json === 'object')
+      this.server = { on: true, configured: !!r.json.configured,
+                      device: r.json.device || '', at: U.now() };
+    return this.server;
+  },
+
+  /* ── فرستادن از راه سرور ──
+     این‌جا عمداً **متن آزاد نمی‌فرستیم**، بلکه «کد» یا «آزمایش» می‌فرستیم
+     و سرور خودش متن را می‌سازد. چرا؟ چون سرور کلید را دارد و اگر متن آزاد
+     بپذیرد، هر کسی می‌تواند از آن مثل یک رلهٔ پیامک استفاده کند و هزینه‌اش
+     پای صاحب کلید بیفتد. با دو قالبِ ثابت، بدترین کاری که می‌شود کرد
+     فرستادنِ همان کد به یک شماره است — که کرانِ نرخ جلویش را می‌گیرد. */
+  async viaServer(payload){
+    this.log('server:req', { url: this.PROXY + '/send', keys: Object.keys(payload || {}).join(',') });
+    const r = await this.req(this.PROXY + '/send', { body: payload });
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+
+    if(j && j.state){
+      /* سرور خودش داوری کرده است؛ حرفش را قبول می‌کنیم. */
+      this.log('server:res', { state: j.state, status: r.status, id: j.id || '' });
+      return j;
+    }
+    /* نسخهٔ قدیمی سرور یا پاسخ غیر-JSON ⇒ خودمان داوری می‌کنیم. */
+    const v = this.verdict(r);
+    const out = v.state === 'sent'
+      ? { success: true,  state: 'sent', id: v.id || '' }
+      : v.state === 'pending'
+        ? { success: false, pending: true, state: 'pending', status: r.status, error: this.PENDING_MSG }
+        : { success: false, state: 'failed', status: r.status,
+            error: v.error || r.error || ('HTTP ' + r.status) };
+    this.log('server:res', { state: out.state, status: r.status });
+    return out;
+  },
+
+  /* ── فرستادن مستقیم به textbee ──
+     تنها جایی که کلید محلی به کار می‌آید. */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* قالب دقیقاً همان چیزی است که textbee می‌خواهد:
+         recipients آرایه است، نه رشته — و deviceId کلیدواژهٔ درست است. */
+/* حالت مستقیم از مرورگر می‌رود و مرورگر به CORS حساس است. اگر شبکه پاسخ
+       نداد، احتمال زیادی هست که پاسخ را دور انداخته باشد — یعنی پیامک رفته و
+       ما ندیدیم. راه‌حل واقعی، بردن کلید به سرور است. */
+async direct(){return {success:false,error:'پیامک فقط از سرور ارسال می‌شود'};},
+
+  /* ── کد تأیید ──
+     متن پیام عیناً همان است که خواسته شد؛ فقط کد داخلش می‌نشیند.
+     در حالت سرور، همین متن آن‌طرف ساخته می‌شود. */
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* حالت آزمایشی: کد جایی نمی‌رود، فقط روی همان صفحه نشان داده می‌شود.
+       کد در log نمی‌رود — لاگ می‌تواند ذخیره، فرستاده یا در گزارش خطا دیده شود. */
+async sendOTP(phone){return this.request(phone);},
+
+  /* ── درخواستِ کد از سرور ──
+     در حالتِ سرور، کد را *سرور* می‌سازد و کد هرگز به این دستگاه نمی‌آید.
+     این تفاوتِ اصلیِ فاز ۹ است: پیش‌تر کلاینت کد را می‌ساخت و هشش را نگه
+     می‌داشت، پس می‌توانست بی‌نیاز از پیامک ردش کند. حالا تنها چیزی که
+     برمی‌گردد «فرستادم» است، نه خودِ کد. */
+  async request(phone){
+    const p = this.norm(phone);
+    this.log('server:req', { url: this.PROXY + '/request', keys: 'phone' });
+    const r = await this.req(this.PROXY + '/request', { body: { phone: p } });
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+
+    if(j && j.state){
+      this.log('server:res', { state: j.state, status: r.status });
+      return j;                                  // شامل ttl و len — بی هیچ کدی
+    }
+    const v = this.verdict(r);
+    const out = v.state === 'sent'
+      ? { success: true, state: 'sent' }
+      : v.state === 'pending'
+        ? { success: false, pending: true, state: 'pending', status: r.status, error: this.PENDING_MSG }
+        : { success: false, state: 'failed', status: r.status,
+            error: v.error || r.error || ('HTTP ' + r.status) };
+    this.log('server:res', { state: out.state, status: r.status });
+    return out;
+  },
+
+  /* ── بررسیِ کد روی سرور ──
+     پاسخِ موفق یک نشانهٔ نشستِ کاربر است. نشانه در Store می‌ماند تا پیامِ
+     بعدی به سرور بگوید «همان کاربرم» — و سرور فقط با همین باورش می‌کند. */
+  async verifyServer(phone, code){
+    const p = this.norm(phone);
+    const id = (User.get() || {}).id || '';
+    this.log('server:req', { url: this.PROXY + '/verify', keys: 'phone,code,userId' });
+    const r = await this.req(this.PROXY + '/verify', { body: { phone: p, code, userId: id } });
+    const j = (r.json && typeof r.json === 'object') ? r.json : null;
+    if(!j) return { ok: false, why: r.error || 'پاسخ سرور خوانده نشد' };
+    if(r.ok && j.success && /^[a-f0-9]{64}$/.test(j.token) && /^usr_[a-f0-9]{20}$/.test(j.id)){
+      Store.update(d => { d.userToken = j.token; d.userTokenExp = U.now() + (+j.exp || 0); });
+      this.log('server:res', { verified: true });
+      return { ok: true, id: j.id || '', server: true };
+    }
+    this.log('server:res', { verified: false, status: r.status });
+    return { ok: false, why: 'کد پذیرفته نشد یا منقضی شده است؛ دوباره تلاش کن.', expired: !!j.expired,
+             burned: !!j.burned, left: j.left };
+  },
+
+  async sendTest(phone){
+    const p = this.norm(phone);
+    if(!this.phoneOk(p)) return { success: false, error: 'شمارهٔ موبایل معتبر نیست' };
+    if(this.mode() === 'server') return await this.viaServer({ phone: p, test: true });
+    return await this.direct(p,
+      '🌟 نورستان\n✅ آزمایش اتصال پیامک با موفقیت انجام شد.\n' +
+      '⏱ ' + new Date().toLocaleTimeString('fa-IR'));
+  },
+
+  /* ── کارت تنظیمات ── */
+  card(){return '';},
+
+  /* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* اگر کاربر تازه کلید را تایپ کرده ولی ذخیره نکرده، همان را برمی‌داریم
+         تا مجبور نباشد اول ذخیره کند و بعد آزمایش. */
+wire(){},
+
+  async init(){
+    this.hydrate();
+    try{ await this.probe(); }catch(e){}
+    /* اگر سرور کلید دارد، کلید محلی بی‌مصرف است — و نگه‌داشتنش فقط
+       ریسک است. پس پاکش می‌کنیم. */
+    if(this.server.configured && (this.config.apiKey || this.config.deviceId))
+      this.save({ apiKey: '', deviceId: '' });
+    /* پاسخِ سرور ممکن است پس از باز شدنِ صفحهٔ ورود برسد. تا آن لحظه
+       دکمهٔ «دریافت کد» غیرفعال است؛ همین که فهمیدیم کلید دارد، باید
+       بی‌درنگ روشن شود — وگرنه کاربر می‌بیند «به سرور متصل شوید» در حالی
+       که سرور هست. */
+    try{ Gate.sync(); }catch(e){}
+  }
+};
+
+/* ─────────────────── 20.10 OTP — ورود با موبایل ───────────────────
+   چرخه: شماره → کد پنج‌رقمی → تأیید → ورود.
+
+   سه قاعدهٔ امنیتی که همه در همین یک شیء پیاده شده‌اند:
+   • خودِ کد هرگز ذخیره نمی‌شود، فقط SHA-256 آن همراه یک «نمک» تازه.
+     نمک مهم است: بی آن، دو کد یکسان هش یکسان می‌دادند و از روی هش
+     می‌شد فهمید کاربر چه کدی گرفته.
+   • انقضا: ۲ دقیقه.
+   • سه تلاش؛ بار چهارم ۱۰ دقیقه قفل.
+
+   چرا در Store می‌نشیند و نه در حافظه؟ چون در حافظه، یک رفرشِ صفحه
+   شمارندهٔ تلاش را صفر می‌کرد و قفل بی‌معنا می‌شد. */
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+// ۲ دقیقه
+// ۱۰ دقیقه
+// فاصلهٔ لازم میان دو ارسال
+/* آخرین شماره‌ای که کد برایش درخواست شد — تنها حالتی که این‌جا می‌ماند.
+     ظاهرِ صفحه در Gate است؛ این شیء فقط منطقِ کد و شمارنده‌هاست. */
+/* ── حالت ذخیره‌شده ── */
+/* ثانیه‌های مانده تا انقضا — ۰ یعنی تمام شده */
+/* ── گام ۱: ساختن و فرستادن کد ── */
+/* ── روی سرور: کد را سرور می‌سازد ──
+       هیچ کدی روی این دستگاه ساخته و هیچ هشی نگه داشته نمی‌شود. اگر اینجا
+       هم کد می‌ساختیم، دو منبعِ حقیقت می‌داشتیم و آنکه روی دستگاه بود
+       می‌توانست پلهٔ پیامک را رد کند. */
+/* قطعاً نشد ⇒ هیچ حالتی نمی‌نشیند، وگرنه کاربر بی کدِ گرفته، دو دقیقه
+           انتظار و سه تلاش بی‌فایده می‌گیرد. */
+/* ── بی سرور: همان مسیرِ محلی ── */
+/* کد ساخته نشد ⇒ هیچ پیامکی هم نباید برود. اگر بی کد ادامه می‌دادیم،
+       پیامکی با متن «کد تأیید: » می‌رفت و کاربر پشت در می‌ماند. */
+/* «نمی‌دانیم» با «نشد» یکی نیست. اگر وقت تمام شد یا شبکه پاسخ نداد، پیامک
+       ممکن است رسیده باشد. در آن حالت هم حالت را می‌نشانیم تا کاربر بتواند کدی
+       را که گرفته وارد کند — ولی پیام روشن می‌دهیم که ارسال تأیید نشده.
+       پیش‌تر این حالت «ارسال نشد» شمرده می‌شد و همین باگ گزارش‌شده بود:
+       پیامک می‌رسید ولی برنامه خطا نشان می‌داد و کاربر کد را وارد نمی‌کرد. */
+/* قطعاً ارسال نشد ⇒ هیچ حالتی نمی‌نشیند. وگرنه کاربر بی آنکه کدی گرفته
+         باشد، دو دقیقه انتظار و سه تلاش بی‌فایده می‌گرفت. */
+/* ── گام ۲: بررسی کد ──
+     ناهمگام است چون روی سرور یک رفت‌وبرگشت دارد. مسیرِ محلی هم داخلش
+     همان‌جا و بی‌درنگ جواب می‌دهد. */
+/* ── روی سرور: تنها سرور می‌داند کد درست چیست ── */
+/* سرور خودش تلاش‌ها را می‌شمارد و کد را می‌سوزاند؛ ما فقط حالتی را
+           که گفته می‌نشانیم تا شمارندهٔ صفحه هم درست بماند. */
+/* درست بود: کد سوخته و شماره ثبت می‌شود. */
+/* شماره روی *هویت* می‌نشیند، نه فقط روی وضعیتِ دستگاه؛ پنل ادمین
+       کاربر را با همین شماره می‌شناسد. */
+
+
+/* ─────────────────── 20.11 GATE — صفحهٔ ورودِ تمام‌صفحه ───────────────────
+   یک صفحه، سه راه: ورود با موبایل، مهمان، مدیر.
+
+   چرا تمام‌صفحه و پیش از هر چیز: ورودِ لابه‌لای تنظیمات، برای کسی که
+   تازه برنامه را باز کرده، عملاً پنهان است. حالا اول می‌پرسیم.
+
+   ولی *هر بار* نه. صفحه فقط وقتی خودبه‌خود می‌آید که کاربر هنوز تصمیم
+   نگرفته باشد (Store.gate خالی). پس از انتخابِ «مهمان» یا ورود، دیگر
+   نمی‌آید — چون تحمیلِ ورود در هر باز کردن، برنامهٔ قرآنی را به دیوار
+   بدل می‌کند و همان کسی که فقط یک آیه می‌خواست را بیرون می‌گذارد. */
+/* یادداشت‌های تاریخیِ مسیر قبلی؛ منطق فعال در ادامه آمده است. */
+/* خودش آمده یا کاربر خواسته؟ تنها تفاوتش این است که پس از «مهمان» فقط در
+     حالتِ خودآمده کاربر را به خانه می‌بریم؛ وگرنه از هر صفحه‌ای که بودیم
+     بیرونش می‌انداختیم. */
+/* آیا کاربرِ همین نشست تأیید کرده که می‌خواهد نخستین رمزِ مدیر را بسازد؟ */
+/* الان باز است؟ (نامش `open` نمی‌تواند باشد — همنامِ همان متد می‌شد و
+     متد را بازنویسی می‌کرد؛ یک اشتباهِ یک‌حرفی که تا مدت‌ها دیده نمی‌شود.) */
+/* حالتِ بصریِ جاریِ صفحه (`is-typing`، `is-checking`، …) — فاز ۲. */
+/* دستهٔ لغوِ WebOTP؛ با رفتن از گامِ کد باید بسته شود، وگرنه
+     درخواستِ نیمه‌باز در پس‌زمینه می‌ماند. */
+/* الان صفحهٔ «قفلِ موقت» بالا است؟ تصمیمِ `tick` به این بند است، نه
+     به بودنِ گره در DOM — استابِ آزمون هرگز null برنمی‌گرداند. */
+/* `at` گامِ آغازین است: `Gate.open('phone')` از درونِ برنامه می‌آید و
+     مستقیم سرِ شماره می‌رود، ولی `Gate.maybe()` همیشه از «خوش آمدی» شروع
+     می‌کند تا کاربر بداند سه راه دارد. */
+/* تأییدِ ساختنِ رمز به نشستِ بعدی نمی‌رسد: هر بار از نو پرسیده می‌شود. */
+/* فوکوس به داخلِ صفحه می‌رود، وگرنه صفحه‌خوان همچنان پشتِ آن را
+       می‌خواند و کاربر نمی‌داند چیزی جلوی صفحه باز شده. */
+/* اگر کاربر تصمیمش را گرفته، صفحه خودبه‌خود نمی‌آید. */
+/* همین حالا باز است؟ از نو نکش.
+       صفحه یک بار در آغازِ برنامه باز می‌شود (پشتِ پردهٔ آغازین) و یک بار
+       هم پس از کنار رفتنِ پرده از این راه صدا زده می‌شود. بی این سطر،
+       فراخوانیِ دوم گامِ کاربر را به «خوش آمدی» برمی‌گرداند و هر چه تا
+       آن لحظه زده باشد پاک می‌شد. */
+/* درخواستِ WebOTP باید بسته شود، وگرنه نیمه‌باز در پس‌زمینه می‌ماند. */
+/* حالتِ ورود را از نو رنگ کن — پس از رسیدنِ پاسخِ سرور.
+     گامِ «مدیر» هم این‌جاست: تا پاسخِ میزبان نرسد، شکلِ درستِ آن گام
+     معلوم نیست. */
+/* ── ورود با پیامک ممکن است؟ ──
+     سه حالت داریم: سرور کلید دارد، خودِ دستگاه کلید دارد، یا هیچ‌کدام.
+     در حالت سوم ورود ممکن نیست و باید صریح گفته شود — نه اینکه دکمه
+     باشد و بی‌صدا کار نکند. */
+/* ── چرا نمی‌شود؟ ──
+     یک جملهٔ کلی («به سرور وصل شو») برای سه وضعیتِ متفاوت کافی نیست:
+     کاربری که سرورش بالاست ولی کلید ندارد، با آن جمله به جای اشتباهی
+     فرستاده می‌شود. */
+/* ── برچسبِ دکمهٔ آیکن‌دار ──
+     دکمه‌ها حالا `<svg>` + `<span>` دارند؛ `textContent` آیکن را پاک
+     می‌کند، پس فقط متنِ span را عوض می‌کنیم.
+     حالا به `U.label` سپرده شده تا یک پیاده‌سازی باشد، نه دو تا. */
+/* ── شمارندهٔ زنده ──
+     بی این، کاربر نمی‌داند کدش چقدر اعتبار دارد و «ارسال دوباره» را
+     بی‌دلیل می‌زند. حلقه خودترمیم است: اگر گره‌ها نیستند (کاربر از صفحه
+     بیرون رفته) خودش را می‌خواباند. */
+/* ── حلقهٔ قفلِ موقت (فاز ۲) ──
+       تصمیم روی `lockShown` است، نه روی *بودنِ* گره: در برخی محیط‌ها
+       (از جمله استابِ آزمون) `querySelector` هرگز null برنمی‌گرداند،
+       پس «گره هست؟» به «قفل باز است؟» ترجمه نمی‌شود و حلقهٔ
+       tick→paint→run→tick تا سرریزِ پشته می‌چرخد. */
+/* محیطِ دایره ≈ ۲۸۹؛ هرچه زمان بیشتر گذشته، کمان کوتاه‌تر. */
+/* شمارش تمام شد: خودش به فرمِ کد برگردد، بی آنکه کاربر کاری کند.
+         `lockShown` را *پیش از* رنگ‌آمیزی صفر می‌کنیم، وگرنه paint
+         دوباره run می‌زند و حلقه از نو شروع می‌شود. */
+/* ═══════════ فاز ۲ — حالت‌ها، نشان، جعبه‌ها، WebOTP ═══════════
+     نامِ حالت‌ها همان‌های فایلِ مرجع است. روی خودِ #gate می‌نشینند تا
+     قفل، مدار، جرقه‌ها و جعبه‌ها یک‌صدا عوض شوند — نه هر کدام جدا. */
+/* ── قفلِ موقت ──
+     مرجع پنج تلاش و ۶۰ ثانیه داشت و در حافظهٔ صفحه نگه می‌داشت؛ اینجا
+     در Store می‌ماند، وگرنه کاربر با یک نوسازیِ صفحه قفل را دور می‌زد
+     و محافظ بی‌معنی می‌شد. */
+/* ── چرا `|0` روی `until` نمی‌گذاریم ──
+       مُهرِ زمانیِ میلی‌ثانیه (≈۱.۷۶e۱۲) از ۳۲ بیت می‌گذرد و `|0`
+       دورش می‌اندازد به عددی بی‌ربط — و آن‌وقت قفل هرگز درست بسته
+       نمی‌شد. `fails` کوچک است و `|0` برایش بی‌خطر. */
+/* یک تلاشِ ناموفق. به سقف که رسید، در باز می‌شود. */
+/* ── نشانِ قفل ──
+     گرادیان‌ها این‌جا تعریف می‌شوند چون رنگِ بدنه در حالت‌های موفق و
+     قفل عوض می‌شود و CSS بی آن‌ها نمی‌تواند fill را بشکند. */
+/* `kind` اگر `lock` باشد قفلِ جان‌دار می‌آید؛ وگرنه آیکنِ ساده در
+     همان قاب، تا هر چهار گام یک زبانِ بصری داشته باشند. */
+/* ── جعبه‌های کد ──
+     پنج جعبه (OTP.LEN) که فقط *آینه*‌اند. inputِ راستین شفاف رویشان
+     نشسته و همه‌چیز — تایپ، لمس، WebOTP — به همان یک گره می‌رسد. */
+/* آینه را از روی input پر کن. */
+/* ── WebOTP ──
+     اندرویدِ کروم می‌تواند کد را خودش از پیامک بردارد و بی هیچ تایپی
+     پرش کند. سه شرط دارد که هر سه رعایت شده: پیامکِ قالب‌بندی‌شده با
+     «@دامنه #کد»، اتصالِ امن (https یا localhost)، و autocomplete
+     روی یک inputِ واقعی. اگر نبود، بی‌صدا رد می‌شویم — نه خطا، نه وعده. */
+// رد شدن = کاربر دستی می‌زند
+/* مرورگرِ قدیمی: بی‌صدا رد شو */
+/* هر رنگ‌آمیزی از حالتِ پاک شروع می‌شود؛ وگرنه `is-failing` گامِ
+       پیشین روی گامِ تازه می‌ماند و جعبه‌ها بی‌دلیل سرخ می‌مانند. */
+/* اگر پاسخِ میزبان نرسیده، همین‌جا منتظرش بمان و پس از رسیدن
+           دوباره رنگ کن — گامِ «مدیر» شکلِ درستش به آن پاسخ بند است. */
+/* ── قفلِ موقت ──
+         پیش از هر چیز: اگر در باز است، فرمِ کد را نکش. کشیدنش یعنی
+         کاربر پنج بار دیگر هم می‌تواند امتحان کند و قفل بی‌معنی شود. */
+/* در باز شد؛ اگر قفلی مانده بود پاکش کن. */
+// پنج رقم که کامل شد، خودش می‌رود
+/* لمسِ هر جعبه = فوکوسِ inputِ شفاف؛ بی این، لمسِ جعبه‌ها کاری نمی‌کرد
+         چون کاربر جعبه را می‌بیند، نه input را. */
+/* کد را خودِ اندروید از پیامک بردارد — کاربر بی تایپ وارد شود. */
+/* در حالت آزمایشی کد همان‌جا نشان داده می‌شود، وگرنه کاربر بی کد
+         گیر می‌افتد و فکر می‌کند برنامه خراب است. */
+/* تا پاسخِ «سرور همین‌جاست؟» نرسیده، تصمیم نگیر. یک لحظه فرمِ
+         ساختنِ رمزِ محلی نشان‌دادن روی صفحه‌ای که سرور سرو کرده، همان
+         باگی است که کاربر دید: دو تا رمزِ ادمین.
+
+         سنجش روی `_yes` است نه `asked`: `asked` به‌محضِ *شروعِ* درخواست
+         پر می‌شود، پس اگر کاربر پیش از رسیدنِ پاسخ روی «ورود مدیر» بزند،
+         با `asked` از این نگهبان رد می‌شد و همان فرمِ خطرناک را می‌دید. */
+/* ── ساختنِ نخستین رمز، نه با یک ضربهٔ ناخواسته ──
+         اگر این دستگاه هنوز رمزِ مدیر ندارد، فرم را *نمی‌کاریم*؛ اول یک
+         هشدار می‌گذاریم که صریح می‌گوید این کار چه معنایی دارد. بی این،
+         هر کسی که روی «ورود مدیر» می‌زد — از جمله مهمان — بی‌آنکه بخواهد
+         مدیرِ دستگاه می‌شد. */
+/* ── مهمان ──
+     تصمیمش در Store می‌ماند تا صفحه دیگر خودبه‌خود نیاید. */
+/* اگر این صفحه خودش آمده بود (نه به درخواستِ کاربر)، کاربر را به خانه
+       می‌بریم؛ وگرنه پشتِ صفحهٔ ورود، هر صفحه‌ای که قبلاً باز بود می‌ماند و
+       کاربر نمی‌داند وارد شده یا نه. */
+/* نمی‌دانیم رسید یا نه. کاربر را بیرون نمی‌کنیم و وعدهٔ دروغ هم نمی‌دهیم. */
+/* دکمه در همان فاصله قفل می‌شود؛ وگرنه دو بار زدن، دو رفت‌وبرگشت و
+     دو شمارشِ تلاش روی سرور می‌سازد. */
+/* ── قفلِ موقت ──
+         `bumpFail` خودش تصمیم می‌گیرد: یا لرزشِ سرخ نشان بده، یا اگر
+         به سقف رسیدیم صفحه را به گامِ قفل ببر. */
+/* دو حالتِ متفاوت را یک‌جور نگوییم: «وارد شدی» با «شماره‌ات عوض شد» یکی نیست */
+/* بستن را کمی عقب می‌اندازیم تا قفل واقعاً *باز شود* و کاربر ببیند
+       کد پذیرفته شد؛ بستنِ فوری، همهٔ انیمیشنِ موفقیت را خفه می‌کرد. */
+/* مدیر هم تصمیمش را گرفته؛ صفحه دیگر خودبه‌خود نمی‌آید. «مهمان»
+       نمی‌نویسیم چون مدیر مهمان نیست — و دروغ‌نوشتن در حافظه، بعداً
+       به تصمیمِ غلط می‌رسد. */
+/* پنل را باز می‌کنیم، نه فقط پروفایل را: کسی که رمز مدیر زده،
+       مقصدش پنل است. */
+/* ورود نسخهٔ تازه: اعتبار نشست فقط از سرور می‌آید؛ پیشرفت قدیمی حذف نمی‌شود. */
+const PersonalData = {
+  keys: ['playerName','score','xp','level','stars','completed','badges','best','stats','dailyChallenge','missions','bookmarks','tree','gamesPlayed','savedGame','coins','wallet','profile'],
+  clean(value){
+    return JSON.parse(JSON.stringify(value, (key,v) => /token|password|admin|apikey|deviceid|secret|phone|serverurl|vip|entitlement|__proto__|constructor|prototype/i.test(key) ? undefined : v));
+  },
+  snapshot(data = Store.data){
+    const out = {};
+    this.keys.forEach(k => {if(data[k] !== undefined) out[k] = this.clean(data[k]);});
+    return out;
+  },
+  export(){ return JSON.stringify({format:'noorestan-personal',version:1,exportedAt:new Date().toISOString(),progress:this.snapshot()},null,2); },
+  download(){
+    const url = URL.createObjectURL(new Blob([this.export()],{type:'application/json'}));
+    const a = document.createElement('a'); a.href=url; a.download='noorestan-progress-'+U.today()+'.json';a.click();
+    Timers.after(()=>URL.revokeObjectURL(url),4000,'sys');
+  },
+  import(text){
+    if(typeof text !== 'string' || text.length > 2000000) throw new Error('فایل بیش از اندازه بزرگ است');
+    const raw=JSON.parse(text), data=raw.format==='noorestan-personal'?raw.progress:raw;
+    if(!data || typeof data!=='object' || Array.isArray(data)) throw new Error('فایل نامعتبر');
+    const safe=this.snapshot(data); Store.update(d=>Object.assign(d,safe));Store.sanitize();Store.save();
+  }
+};
+const Session = {
+  role: '', restoring: false,
+  user(){return this.role==='user' && Store.get('userTokenExp')>U.now();},
+  admin(){return this.role==='admin' && Admin.hasToken();},
+  layout(){
+    document.body.dataset.role=this.role;
+    const app=U.$('#app');if(app) app.inert=!this.user()&&!this.admin();
+    ['#nav','#miniQ','.top'].forEach(s=>{const e=U.$(s);if(e)e.hidden=!this.user();});
+  },
+  prepare(){
+    const d=Store.data;
+    if(!d.progressOwner && !d.guestMigration && (d.gate==='guest'||d.score>0||d.xp>0))
+      d.guestMigration={at:U.now(),claimed:false,progress:PersonalData.snapshot(d)};
+    d.isAdmin=false;d.adminHash='';d.otp=null;
+    if(d.sms){d.sms.apiKey='';d.sms.deviceId='';}
+    if(d.gate==='guest')d.gate='';
+    Store.save();this.layout();
+  },
+  accept(id,phone){
+    Store.update(d=>{
+      d.accountProgress=d.accountProgress||{};
+      if(d.progressOwner && d.progressOwner!==id){
+        d.accountProgress[d.progressOwner]=PersonalData.snapshot(d);
+        Object.assign(d,PersonalData.snapshot(Store.defaults()),d.accountProgress[id]||{});
+      }
+      d.progressOwner=id;
+      if(d.guestMigration&&!d.guestMigration.claimed){d.guestMigration.claimed=true;d.guestMigration.owner=id;}
+      d.phone=phone;d.gate='user';d.isAdmin=false;
+      if(d.user){d.user.id=id;d.user.phone=phone;}
+    });
+    this.role='user';this.layout();PaidAccount.refresh();
+  },
+  async restore(){
+    if(this.restoring)return;this.restoring=true;
+    try{
+      if(location.hash==='#admin'){
+        if(await Admin.confirmServer()){this.role='admin';Store.set('isAdmin',true);this.layout();Gate.close();Router.go('admin',true);Net.connect(Host.defaultUrl());return;}
+        AdminLogin.open();return;
+      }
+      if(Store.get('userToken')){
+        const r=await SMS.req('/api/account/me',{body:{token:Store.get('userToken')},ms:8000});
+        if(r.ok&&r.json?.success){this.accept(r.json.id,r.json.phone);Gate.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();if(new URLSearchParams(location.search).has('payment')){Router.go('me');PaidAccount.open();}return;}
+      }
+      Gate.open('phone',true);
+    }finally{this.restoring=false;}
+  },
+  async logout(){
+    Net.disconnect();PaidAccount.data=null;PaidAccount.token='';
+    const role=this.role, token=role==='admin'?Admin.token():Store.get('userToken');
+    this.role='';
+    Store.update(d=>{d.isAdmin=false;d.gate='';d.userToken='';d.userTokenExp=0;d.adminToken='';d.adminTokenExp=0;});
+    history.replaceState({},'','#home');AdminLogin.shown=false;this.layout();Gate.open('phone',true);
+    if(token) await SMS.req(role==='admin'?'/api/admin/logout':'/api/account/logout',{body:{token}});
+  },
+  allow(name){
+    if(name==='admin'){if(this.admin())return true;AdminLogin.open();return false;}
+    if(this.admin()){UI.toast('برای استفاده از برنامه، از مدیریت خارج شو.','');return false;}
+    if(!this.user()){Gate.open('phone',true);return false;}return true;
+  }
+};
+const OTP = {
+  LEN:5, TTL_MS:120000, RESEND_MS:60000, MAX_TRIES:3, LOCK_MS:600000, lastPhone:'',
+  st(){return Store.get('otp');},put(s){Store.set('otp',s);},clear(){Store.set('otp',null);},
+  leftSec(){return Math.max(0,Math.ceil(((this.st()?.exp||0)-U.now())/1000));},
+  lockSec(){return 0;},waitSec(){return Math.max(0,Math.ceil(((this.st()?.at||0)+this.RESEND_MS-U.now())/1000));},
+  async start(raw){
+    const phone=SMS.norm(raw);
+    if(!SMS.phoneOk(phone))return {ok:false,why:'شمارهٔ موبایل معتبر نیست'};
+    if(this.waitSec())return {ok:false,why:'برای ارسال دوباره کمی صبر کن'};
+    const r=await SMS.request(phone);
+    if(!r || (!r.success&&!r.pending))return {ok:false,why:'ارسال پیامک ممکن نشد؛ کمی بعد دوباره تلاش کن.'};
+    this.put({phone,server:true,exp:U.now()+(+r.ttl||this.TTL_MS),at:U.now()});this.lastPhone=phone;
+    return {ok:true,pending:!!r.pending,phone};
+  },
+  async verify(raw,input){
+    const phone=SMS.norm(raw),code=U.unfa(input).replace(/\D/g,'');
+    if(!this.st()?.server||this.st().phone!==phone)return {ok:false,why:'ابتدا کد پیامکی بگیر'};
+    if(code.length!==this.LEN)return {ok:false,why:'کد پنج‌رقمی را وارد کن'};
+    const r=await SMS.verifyServer(phone,code);
+    if(!r.ok)return {ok:false,why:'کد پذیرفته نشد یا منقضی شده است؛ دوباره تلاش کن.',...r};
+    this.clear();Session.accept(r.id,phone);return {ok:true,phone};
+  }
+};
+const Gate = {
+  shown:false,auto:false,step:'phone',phone:'',busy:false,tid:null,
+  el(){return U.$('#gate');},canLogin(){return SMS.ready();},
+  whyNot(){return 'ورود پیامکی اکنون در دسترس نیست. اتصال اینترنت را بررسی کن؛ اگر مشکل ادامه داشت با پشتیبانی تماس بگیر. پیشرفت قبلی‌ات محفوظ است.';},
+  open(at='phone',auto=false){
+    /* مدیریت از این‌جا راه ندارد: در Gate فقط ورودِ پیامکیِ کاربر جریان
+       دارد. صفحهٔ مدیر تنها از نشانیِ مستقیمِ #admin زنده می‌شود. */
+    this.auto=auto;this.step=at==='code'?'code':'phone';this.shown=true;
+    this.el()?.classList.remove('hide','leaving');Session.layout();this.paint();return true;
+  },
+  maybe(){if(Session.user()||Session.admin())return false;if(this.shown)return true;return location.hash==='#admin'?AdminLogin.open():this.open('phone',true);},
+  close(){if(!Session.user()&&!Session.admin())return;this.shown=false;this.stop();this.el()?.classList.add('hide');Session.layout();},
+  stop(){if(this.tid)Timers.clear(this.tid);this.tid=null;},
+  sync(){if(this.shown&&!AdminLogin.shown&&this.step==='phone')this.paint();},
+  msg(text){const e=U.$('#gtMsg');if(e)e.textContent=text;},
+  paint(){
+    this.stop();
+    /* Gate و صفحهٔ مدیر رقیبِ یکدیگرند: رسمِ ورودِ کاربر، صفحهٔ مدیر را
+       می‌بندد — هرگز هر دو هم‌زمان باز نیستند. */
+    AdminLogin.shown=false;U.$('#alog')?.classList.add('hide');
+    const box=U.$('#gateBox');if(!box)return;
+    const migration=Store.get('guestMigration');
+    if(this.step==='phone'){
+      box.innerHTML=`<h2>به نورستان خوش آمدی</h2><p class="gt-sub">برای ادامه، با شمارهٔ موبایل خودت وارد شو.</p>
+      ${migration&&!migration.claimed?'<p class="gt-note">ورود مهمان برداشته شده؛ امتیاز، نشان‌ها و پیشرفت این دستگاه پاک نشده‌اند و پس از تأیید شماره به حسابت متصل می‌شوند. پیش از ورود می‌توانی نسخهٔ شخصی بگیری.</p><button class="btn gh w" id="gtExport">دریافت پیشرفت قبلی</button>':''}
+      <div class="gt-card"><label for="gtPhone">شمارهٔ موبایل</label><input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${U.esc(this.phone||Store.get('phone')||'')}">
+      <button class="btn w" id="gtSend" style="margin-top:14px" ${this.canLogin()?'':'disabled'}>دریافت کد پیامکی</button><p class="gt-msg" id="gtMsg" role="status">${this.canLogin()?'':this.whyNot()}</p>
+      <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div>`;
+      U.$('#gtSend').onclick=()=>this.send();U.$('#gtPhone').onkeydown=e=>{if(e.key==='Enter')this.send();};
+      U.$('#gtRefresh').onclick=async()=>{await SMS.probe();this.sync();};
+      /* نکتهٔ امنیتی: در این صفحه هیچ نشانه‌ای از ورودِ مدیریت نیست —
+         نه لینک، نه دکمه، نه متن. تنها مسیرِ مدیر، نشانیِ مستقیمِ «#admin»
+         است که بیرون از برنامه دانسته می‌شود. */
+      const exp=U.$('#gtExport');if(exp)exp.onclick=()=>PersonalData.download();
+    }else{
+      box.innerHTML=`<h2>کد پیامکی را وارد کن</h2><p class="gt-sub" dir="ltr">${U.esc(SMS.faPhone(this.phone))}</p><div class="gt-card"><label for="gtCode">کد پنج‌رقمی</label><input class="inp" id="gtCode" inputmode="numeric" autocomplete="one-time-code" maxlength="5" dir="ltr"><button class="btn w" id="gtOk">تأیید و ورود</button><p id="gtMsg" class="gt-msg" role="status"></p><p id="gtLeft"></p><button class="btn gh w" id="gtAgain">ارسال دوباره</button><button class="btn gh w" id="gtEdit">تغییر شماره</button></div>`;
+      U.$('#gtOk').onclick=()=>this.check();U.$('#gtCode').onkeydown=e=>{if(e.key==='Enter')this.check();};
+      U.$('#gtAgain').onclick=()=>this.again();U.$('#gtEdit').onclick=()=>{this.step='phone';this.paint();};
+      this.tick();this.tid=Timers.every(()=>this.tick(),1000,'sys');
+    }
+    Icon.hydrate(box);
+  },
+  tick(){const e=U.$('#gtLeft'),b=U.$('#gtAgain');if(e)e.textContent=OTP.leftSec()?U.fa(OTP.leftSec())+' ثانیه تا انقضا':'کد منقضی شد؛ کد تازه بگیر';if(b)b.disabled=this.busy||OTP.waitSec()>0;},
+  async send(){
+    if(this.busy)return;const p=SMS.norm(U.$('#gtPhone')?.value||this.phone);
+    if(!SMS.phoneOk(p)){this.msg('شمارهٔ موبایل معتبر نیست');return;}this.phone=p;this.busy=true;this.msg('در حال ارسال…');
+    try{const r=await OTP.start(p);if(!r.ok){this.msg(r.why);return;}this.step='code';this.paint();this.msg(r.pending?'ارسال هنوز تأیید نشده؛ اگر پیامک رسید کد را وارد کن.':'کد پیامک شد.');}catch(e){this.msg('اتصال برقرار نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+  },
+  async again(){if(this.busy)return;this.busy=true;try{const r=await OTP.start(this.phone);this.msg(r.ok?(r.pending?'اگر پیامک رسید کد را وارد کن.':'کد تازه پیامک شد.'):r.why);}finally{this.busy=false;}},
+  async check(){
+    if(this.busy)return;this.busy=true;this.msg('در حال بررسی…');
+    try{const r=await OTP.verify(this.phone,U.$('#gtCode')?.value||'');if(!r.ok){this.msg(r.why);return;}this.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();}
+    catch(e){this.msg('بررسی کد ممکن نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+  }
+};
+/* ── ورودِ مدیر — صفحه‌ای کاملاً مجزا از Gate ──
+   سه قاعده:
+     ۱) هیچ عنصری در نسخهٔ کاربرِ عادی به این‌جا راه ندارد؛ تنها ورودی،
+        نشانیِ مستقیمِ «#admin» است (همچنین بازکردنِ دوبارهٔ همان نشانی).
+     ۲) طراحیِ این صفحه به Gate تعلق ندارد — مارک‌آپ و کلاس‌هایش (#alog)
+        از پیش در سند هستند و این‌جا فقط زنده می‌شوند.
+     ۳) سنجشِ رمز از Admin.tryPass می‌گذرد؛ همان‌جا قفلِ نمایی (شمارندهٔ
+        ناموفق + تأخیرِ تصاعدی) اعمال می‌شود و این‌جا بازگشتِ آن را با
+        شمارشِ معکوس نشان می‌دهد. */
+const AdminLogin = {
+  shown:false,busy:false,tid:null,
+  el(){return U.$('#alog');},
+  open(){
+    Gate.stop();Gate.shown=false;this.shown=true;
+    try{history.replaceState({screen:'admin'},'','#admin');}catch(e){}
+    const el=this.el();if(!el)return true;
+    el.classList.remove('hide','leaving');
+    Session.layout();
+    U.$('#adminMessage').textContent='';
+    U.$('#adminMessage').classList.remove('error');
+    /* اتصالِ فرم: با preventDefault، سابمیتِ بومی (بارگذاریِ دوبارهٔ صفحه)
+       می‌خوابد و هر دو راه — دکمه و Enter — از همان submitِ ما می‌گذرد. */
+    const form=U.$('#alogForm');
+    if(form) form.onsubmit = e => { e.preventDefault(); this.submit(); };
+    const back=U.$('#adminBack');
+    if(back) back.onclick = () => { try{Sound.click();}catch(e){} this.back(); };
+    this.paintLock();
+    Icon.hydrate(el);
+    try{ U.$('#adminPassword').focus({preventScroll:true}); }catch(e){}
+    return true;
+  },
+  /* پیامِ قفل: تا کدام ثانیه باید صبر کرد */
+  lockWait(){return Math.max(0,((Store.get('adminAttempts')||{}).until||0)-U.now());},
+  paintLock(){
+    const msg=U.$('#adminMessage'),btn=U.$('#adminSignIn');
+    if(!msg||!btn)return;
+    const wait=this.lockWait();
+    if(this.tid)Timers.clear(this.tid);this.tid=null;
+    if(wait>0){
+      btn.disabled=true;
+      msg.classList.add('error');
+      msg.textContent='ورود موقتاً قفل شد — '+U.fa(Math.ceil(wait/1000))+' ثانیه صبر کن';
+      this.tid=Timers.every(()=>{const w=this.lockWait();if(w<=0){Timers.clear(this.tid);this.tid=null;btn.disabled=false;msg.textContent='می‌توانی دوباره تلاش کن.';return;}msg.textContent='ورود موقتاً قفل شد — '+U.fa(Math.ceil(w/1000))+' ثانیه صبر کن';},1000,'sys');
+    }else if(!this.busy){ btn.disabled=false; }
+  },
+  close(){
+    this.shown=false;
+    if(this.tid){Timers.clear(this.tid);this.tid=null;}
+    const el=this.el();
+    if(el){el.classList.add('leaving');setTimeout(()=>el.classList.add('hide'),FX.reduced?0:240);}
+    const inp=U.$('#adminPassword');if(inp)inp.value='';
+  },
+  /* خروج از این صفحه: به نورستانِ عادی برمی‌گردیم — این یک «خروج» است
+     نه یک راه ورود؛ در نسخهٔ کاربر هیچ نشانی از این صفحه دیده نمی‌شود. */
+  back(){
+    this.close();
+    try{history.replaceState({screen:'home'},'','#home');}catch(e){}
+    if(Session.user()){Gate.close();Router.go('home',true);}
+    else{Router.go('home',true);Gate.open('phone',true);}
+  },
+  async submit(){
+    if(this.busy)return;this.busy=true;
+    const input=U.$('#adminPassword'),button=U.$('#adminSignIn'),msg=U.$('#adminMessage');
+    if(button)button.disabled=true;
+    if(msg){msg.classList.remove('error');msg.textContent='در حال بررسی…';}
+    try{
+      const r=await Admin.tryPass(input?input.value:'');
+      if(input)input.value='';
+      if(!r.ok){
+        if(msg){msg.classList.add('error');msg.textContent=r.why;}
+        FX.shake(U.$('#alog .al-card'));
+        Sound.buzz&&Sound.buzz();
+        this.paintLock();
+        return;
+      }
+      this.close();
+      Gate.close();
+      Session.layout();
+      Sound.chime&&Sound.chime();
+      Router.go('admin',true);
+      Net.connect(Host.defaultUrl());
+    }catch(e){
+      if(msg){msg.classList.add('error');msg.textContent='ورود ممکن نشد؛ اتصال را بررسی کن.';}
+    }finally{this.busy=false;if(button&&!this.lockWait())button.disabled=false;}
+  }
+};
+
+
+
+/* ─────────────────── 21. INIT ─────────────────── */
+function init(){
+  Store.load();
+  RoundControl.bind();
+  Session.prepare();
+  document.body.dataset.debug=new URLSearchParams(location.search).get('debug')==='1'?'1':'0';
+  applyTheme(Store.get('settings').theme);
+  /* روکشِ ویرایشِ محتوا، پیش از آن‌که چیزی از بانک‌ها بخواند */
+  try{ Content.apply(); }catch(e){ console.warn('content', e); }
+  /* هویت، پیش از هر چیزی که نام یا شناسهٔ کاربر را می‌خواند */
+  try{
+    User.enter();
+    if(!User.get()) console.warn('هویت ساخته نشد — مولدِ امن در دسترس نیست');
+  }catch(e){ console.warn('user', e); }
+
+  /* ── نسخهٔ ۱۵: تصویرها، PWA، دسترس‌پذیری، پنل اشکال‌زدایی ── */
+  try{ Assets.watch(); Assets.pwa(); }catch(e){ console.warn('assets', e); }
+  /* آیکن‌های ثابتِ سند — نوار پایین، نوار بالا، سرِ صفحه‌ها، نوار پخش.
+     اول از همه، تا هیچ‌وقت جای خالی دیده نشود. */
+  try{ Icon.hydrate(); }catch(e){ console.warn('icons', e); }
+  try{
+    Theme.fromSystem(); Theme.paintAmbient();
+    if(Store.get('settings').motionOff) document.documentElement.setAttribute('data-motion', 'off');
+  }catch(e){ console.warn('theme', e); }
+  try{ Debug.mount(); }catch(e){ console.warn('debug', e); }
+  try{ A11y.run(); }catch(e){ console.warn('a11y', e); }
+  try{ Missions.ensure(); Weekly.ensure(); }catch(e){ console.warn('missions', e); }
+  try{ Tips.init(); }catch(e){ console.warn('tips', e); }
+  try{ Install.init(); }catch(e){ console.warn('install', e); }
+  /* پیامک: پیکربندی خوانده می‌شود و یک بار از سرور می‌پرسیم کلید دارد یا نه.
+     بی پاسخ هم چیزی نمی‌شکند — به حالت آزمایشی برمی‌گردد. */
+  try{ SMS.init(); }catch(e){ console.warn('sms', e); }
+
+  /* فونت‌های فارسی: نمایشی (نستعلیق) و قرآنی — با تنبلی بار می‌شوند */
+  try{ Fonts.apply(Store.get('fonts')); }catch(e){ console.warn('fonts', e); }
+  /* و سنجشِ قلمِ رابط کاربری — نتیجه‌اش در selfTest و پروفایل دیده می‌شود */
+  try{ Fonts.ensureUI().catch(() => {}); }catch(e){ console.warn('font-ui', e); }
+
+  /* پردهٔ آغازین قرآنی — پیش از هر چیز */
+  try{ Splash.init(); }catch(e){ console.warn('splash', e); }
+
+  /* ── صفحهٔ ورود همین‌جا باز می‌شود، نه پس از کنار رفتنِ پرده ──
+     اگر تا لحظهٔ برداشتنِ پرده صبر کنیم، برای یک لحظه صفحهٔ خانه دیده
+     می‌شود و بعد صفحهٔ ورود رویش می‌افتد — همان «پرش»ی که کاربر می‌دید.
+     پرده z-index ۹۹۹۹ دارد و این صفحه ۹۰۰۰، پس بازش کردن همین‌جا هیچ
+     چیزی را لو نمی‌دهد: پشتِ پرده آماده می‌شود. */
+  try{ Gate.maybe(); }catch(e){ console.warn('gate', e); }
+
+  /* صدای مرورگر با اولین لمس باز می‌شود (سیاست خودکارپخش موبایل) */
+  const unlock = () => { Sound.ensure(); document.removeEventListener('pointerdown', unlock); document.removeEventListener('keydown', unlock); };
+  document.addEventListener('pointerdown', unlock);
+  document.addEventListener('keydown', unlock);
+
+  Router.hooks = {
+    home:    () => { renderHome(); updateHomeStats(); Daily.render(); },
+    quran:   () => QuranUI.render(),
+    read:    () => ReaderUI.render(),
+    online:  () => { renderOnline(); Net.requestRooms(); Net.requestBoard(); },
+    room:    () => renderRoom(),
+    notif:   () => renderNotif(),
+    me:      () => Me.render(),
+    admin:   () => Admin.render(),
+    /* فقط اگر محتوای صفحه خالی است بکش — بدون ناوبری، وگرنه قلاب خودش را
+       دوباره صدا می‌زند و پشته سرریز می‌شود. */
+    play:    () => { if(!U.$('#pgBody').innerHTML.trim()) Launcher.paint(); }
+  };
+
+  Router.init();
+  renderHome(); updateHomeStats(); updateNotifDot();
+  try{ HomeCarousel.init(); }catch(e){ console.warn('carousel', e); }
+  Me.render();
+
+  // نوار پایین
+  U.$$('.nav button').forEach(b => b.onclick = () => {
+    const n = b.dataset.nav;
+    if(n === 'play' && Router.stack[Router.stack.length-1] === 'play'){ Launcher.open(); return; }
+    if(n === 'play'){ U.$('#pgBody').innerHTML = ''; Router.go('play'); Launcher.open(); return; }
+    Router.go(n);
+  });
+  U.$('#btnNotif').onclick = () => Router.go('notif');
+  U.$('#btnNet').onclick = () => Router.go('online');
+  U.$('#btnQuran').onclick = () => { Sound.page(); Router.go('quran'); };
+  QuranUI.render();	// نگاره‌ها از همان آغاز ساخته می‌شوند
+  Daily.render();
+  ReaderUI.paint();
+  Focus.paint(); NightRepeat.paint();
+
+  /* خروج از حالت تمرکز */
+  const fx = U.$('#focusExit');
+  if(fx) fx.onclick = () => Focus.toggle(false);
+
+  /* پیوند دعوت در نشانی — مستقیم به محفل می‌برد */
+  const invite = Friends.fromHash();
+  if(invite){
+    setTimeout(() => {
+      Router.go('online');
+      U.$('#joinRoom')?.click();
+      const box = U.$('#rmCodeIn');
+      if(box){
+        box.value = invite;
+        UI.toast(`📨 دعوت به روم ${U.fa(invite)} — «اتصال به روم» را بزن`, 'ok', 4200);
+      } else UI.toast(`📨 کد دعوت: ${U.fa(invite)}`, 'ok', 4000);
+    }, 1000);
+  }
+
+  /* ── مصحف‌نما ── */
+  const toReader = () => {
+    const q = Store.get('quran');
+    Sound.page();
+    ReaderUI.open(q.surah || 1, q.ayah || 1);
+  };
+  U.$('#qOpenReader').onclick = toReader;
+  U.$('#qOpenReader2').onclick = toReader;
+  U.$('#readToQuran').onclick = () => { Sound.page(); Router.go('quran'); };
+  U.$('#readPrevS').onclick = () => { Sound.page(); ReaderUI.step(-1); };
+  U.$('#readNextS').onclick = () => { Sound.page(); ReaderUI.step(1); };
+  U.$('#readSizeUp').onclick = () => ReaderUI.setSize(2);
+  U.$('#readSizeDown').onclick = () => ReaderUI.setSize(-2);
+  U.$('#readToggleFa').onclick = () => ReaderUI.toggleFa();
+  U.$('#readPlay').onclick = () => {
+    const s = ReaderUI.s, a = Store.get('quran').ayah || 1;
+    Recite.playSurah(s, a);
+    UI.toast('▶️ پخش سوره آغاز شد', 'ok', 1400);
+  };
+  U.$('#readPickS').onclick = () => pickSurah(s => ReaderUI.open(s, 1));
+  U.$('#readFont').onclick = () => openFontPicker('quran');
+  U.$('#readMarks').onclick = () => {
+    const q = Store.get('quran');
+    const at = q.readAt;
+    UI.modal(`<h3 style="margin-bottom:10px">${Icon.of('mark')} نشانهٔ من</h3>
+      <p style="font-size:13px;color:var(--mut);line-height:2">
+        آخرین جای خوانده‌شده: <b>سورهٔ ${U.esc(QURAN[(q.surah || 1) - 1].name)}</b>، آیهٔ ${U.fa(q.ayah || 1)}
+        ${at ? '<br>زمان: ' + U.esc(new Date(at).toLocaleString('fa-IR')) : ''}</p>
+      <button class="btn w" id="mkGo" style="margin-top:14px">${Icon.of('book-open')} رفتن به همان آیه</button>`, box => {
+      U.$('#mkGo', box).onclick = () => { UI.closeModal(); ReaderUI.open(q.surah || 1, q.ayah || 1); };
+    });
+  };
+  U.$$('[data-back]').forEach(b => b.onclick = () => {
+    const cur = Router.stack[Router.stack.length-1];
+    if(cur === 'play' && Net.room){ Router.go('room'); return; }
+    Router.back();
+  });
+  U.$('#clearNotif').onclick = () => {
+    Store.update(d => d.notifications = []);
+    renderNotif(); updateNotifDot();
+    UI.toast('🧹 پاک شد', 'ok');
+  };
+
+  // تب‌های «حساب من»
+  U.$$('#meTabs .tab').forEach(t => t.onclick = () => { Me.tab = t.dataset.metab; Me.render(); });
+  // تب‌های پنل مدیریت
+  U.$$('.tab[data-tab]').forEach(t => t.onclick = () => { Admin.currentTab = t.dataset.tab; Admin.renderTab(); });
+
+  /* ── شبکه ── */
+  /* همان نشانیِ یکدست‌شده نشان داده می‌شود که ذخیره می‌شود — وگرنه کاربر
+     `ws://1.2.3.4` می‌بیند، برنامه `ws://1.2.3.4:8787` وصل می‌شود، و
+     این دوگانگی خودش باگِ بعدی است. */
+  const savedUrl = Net.normUrl(Store.get('serverUrl'));
+  U.$('#netReconnect').onclick=()=>Net.connect(Host.defaultUrl());
+  /* همان چیزی کپی می‌شود که نشان داده شده — نه شناسهٔ دیگری. پیش‌تر
+     شناسهٔ گذرای اتصال کپی می‌شد که روی سرور معنایی ندارد. */
+  U.$('#copyPeer').onclick = async () => {
+    const ok = await copyText(netIdText());
+    UI.toast(ok ? '📋 شناسه کپی شد' : 'کپی نشد', ok ? 'ok' : 'err');
+  };
+
+  U.$('#mkRoom').onclick = () => {
+    UI.modal(`
+      <h3 style="margin-bottom:14px">${Icon.of('plus')} ساخت روم جدید</h3>
+      <label class="lbl">نام روم</label>
+      <input class="inp" id="rmName" maxlength="24" value="${U.esc('روم ' + Store.get('playerName'))}">
+      <label class="lbl">نوع بازی</label>
+      <div class="row" style="gap:8px">
+        <button class="btn" data-g="dooz" style="flex:1">❌⭕ دوز</button>
+        <button class="btn gh" data-g="esmfamil" style="flex:1">${Icon.of('pen')} اسم فامیل</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--mut);margin-top:10px">
+        روم یک کد ۶ رقمی می‌گیرد؛ دوستت با همان کد وارد می‌شود.</p>
+      <button class="btn w" id="rmCreate" style="margin-top:14px">${Icon.of('home')} ایجاد روم</button>`, box => {
+      let game = 'dooz';
+      U.$$('[data-g]', box).forEach(b => b.onclick = () => {
+        game = b.dataset.g;
+        U.$$('[data-g]', box).forEach(x => x.classList.toggle('gh', x.dataset.g !== game));
+      });
+      U.$('#rmCreate', box).onclick = () => {
+        const name = U.$('#rmName', box).value.trim().slice(0, 24) || 'روم من';
+        Store.update(d => d.stats.rooms++);
+        checkBadges();
+        Net.createRoom(name, game);
+      };
+    });
+  };
+
+  U.$('#joinRoom').onclick = () => {
+    UI.modal(`
+      <h3 style="margin-bottom:14px">${Icon.of('key')} ورود با کد روم</h3>
+      <label class="lbl">کد ۶ رقمی روم</label>
+      <input class="inp code" id="rmCodeIn" inputmode="numeric" maxlength="6" placeholder="------"
+             style="text-align:center;letter-spacing:8px;font-size:22px">
+      <button class="btn w" id="rmJoin" style="margin-top:14px">اتصال به روم</button>`, box => {
+      const go = () => {
+        const code = U.$('#rmCodeIn', box).value.trim();
+        if(!/^\d{6}$/.test(code)){ UI.toast('کد باید ۶ رقم باشد', 'err'); return; }
+        if(Net.status !== 'online'){ UI.toast('محفل اکنون متصل نیست؛ دوباره اتصال را بررسی کن', 'err'); return; }
+        if(!Net.roomMap.has(code)){
+          // ممکن است روم تازه ساخته شده باشد
+          Net.requestRooms();
+        }
+        Net.joinRoom(code);
+        UI.toast('⏳ در حال اتصال...', '');
+      };
+      U.$('#rmJoin', box).onclick = go;
+      U.$('#rmCodeIn', box).onkeydown = e => { if(e.key === 'Enter') go(); };
+    });
+  };
+
+  U.$('#rmCopyCode').onclick = async () => {
+    const ok = await copyText(Net.room?.code || '');
+    UI.toast(ok ? '📋 کد کپی شد' : 'کپی نشد', ok ? 'ok' : 'err');
+  };
+
+  /* ── نسخهٔ ۱۵: پیوند دعوت، اتاق صوتی، واکنش زنده، دوست کردن ── */
+  const linkBtn = U.$('#rmInviteLink');
+  if(linkBtn) linkBtn.onclick = () => Share.copy(Friends.invite(Net.room?.code || ''));
+  const vz = U.$('#vzBtn');
+  if(vz) vz.onclick = async () => {
+    await Voice.toggle();
+    if(Voice.on){
+      Voice.paint();
+      if(Net.room && Net.room.isHost) Voice.offer();
+    }
+  };
+  Voice.paint();
+  const rb = U.$('#rmReact');
+  if(rb){ rb.innerHTML = Reactions.bar(); Reactions.wire(rb); }
+  const fr = U.$('#rmFriend');
+  if(fr) fr.onclick = () => {
+    const others = (Net.room && Net.room.members || []).filter(m => m.id && m.id !== Net.id);
+    if(!others.length){ UI.toast('کسی در روم نیست', '', 1600); return; }
+    others.forEach(m => Friends.add(m.id, m.name));
+    UI.toast(`👥 ${U.fa(others.length)} نفر به دوستانت اضافه شد`, 'ok', 2200);
+    Sound.chime();
+  };
+  const sp = U.$('#rmSpec');
+  if(sp) sp.classList.toggle('hide', !(Net.room && Net.room.spectator));
+  U.$('#rmStart').onclick = () => {
+    if(!Net.room){ UI.toast('اول یک روم بساز', 'err'); return; }
+    Net.startMatch(Net.room.game);
+
+    Timers.after(() => {
+      if(Net.room?.game === 'esmfamil') EsmFamilEngine.start(true);
+      else DoozEngine.start(true);
+    }, 250);
+  };
+  U.$('#rmSwitch').onclick = () => {
+    if(!Net.room){ return; }
+    if(!Net.room.isHost){ UI.toast('فقط میزبان می‌تواند بازی را عوض کند', 'err'); return; }
+    Net.room.game = Net.room.game === 'dooz' ? 'esmfamil' : 'dooz';
+    renderRoom();
+    UI.toast('🔀 بازی روم: ' + (Net.room.game === 'esmfamil' ? 'اسم فامیل' : 'دوز'), 'ok');
+  };
+  U.$('#rmLeave').onclick = () => {
+    Net.leaveRoom();
+    appendChat({ sys: true, text: 'از روم خارج شدی' });
+    Router.go('online');
+  };
+  U.$('#chatSend').onclick = () => {
+    const inp = U.$('#chatInp');
+    const txt = inp.value.trim();
+    if(!txt) return;
+    if(Net.status !== 'online'){ UI.toast('آفلاین هستی', 'err'); return; }
+    Net.say(txt);
+    appendChat({ text: txt, me: true });
+    inp.value = '';
+    inp.focus();
+  };
+  U.$('#chatInp').onkeydown = e => { if(e.key === 'Enter') U.$('#chatSend').click(); };
+  /* «در حال نوشتن…» — حداکثر هر ۲ ثانیه یک بار فرستاده می‌شود */
+  let lastTyping = 0;
+  U.$('#chatInp').oninput = () => {
+    if(Net.status !== 'online') return;
+    const now = U.now();
+    if(now - lastTyping < 2000) return;
+    lastTyping = now;
+    try{ Net.send({ t:'typing', name: Store.get('playerName') }); }catch(e){}
+  };
+
+  /* ── رویدادهای شبکه ── */
+  Net.on('state', () => {
+    const chip = U.$('#cNet');
+    if(chip){ chip.className = netChipCls(); chip.textContent = netChipText(); }
+    netStateChip();
+  });
+  Net.on('peers', () => { if(Router.stack[Router.stack.length-1] === 'online') renderOnline(); });
+  Net.on('rooms', () => { if(Router.stack[Router.stack.length-1] === 'online') renderOnline(); });
+  Net.on('board', () => { if(Router.stack[Router.stack.length-1] === 'online') renderOnline(); });
+  Net.on('chat', ({ name, text }) => appendChat({ name, text }));
+  Net.on('tick', () => {
+    if(Router.stack[Router.stack.length-1] === 'online') renderOnline();
+    if(Store.get('hearts') < Store.HEART_MAX) Store.regenHearts(), updateHearts();
+  });
+
+  /* ── اتصالِ خودکار ──
+     ترتیبِ اولویت:
+       ۱) نشانیِ خودِ کاربر — تصمیمِ او مقدم است.
+       ۲) اگر همین میزبان سرورِ نورستان است، همان خاستگاه. این همان چیزی
+          است که «از localhost:8787 باز شد ولی محلی ماند» را می‌بندد.
+       ۳) وگرنه حالت محلی. */
+  Timers.after(async () => {
+    if(!Session.user()&&!Session.admin())return;
+    if(Net.status !== 'offline') return;
+    if(savedUrl){ Net.connect(savedUrl); return; }
+    await Host.ready();
+    if(Net.status !== 'offline') return;      // کاربر در این فاصله دستی وصل شد
+    Net.connect(Host.defaultUrl());
+  }, 600, 'sys');
+
+  // اعلان خوش‌آمد
+  Timers.after(() => {
+    if(!Store.get('notifications').length){
+      pushNotif('به نورستان ۱۴ خوش آمدی!', 'از تلاوت، بازی‌ها و مأموریت‌های روزانه شروع کن. بازی گروهی در بخش محفل است.', '🌟');
+    }
+  }, 1500);
+
+  // محافظت از خروج در میانه بازی
+  window.addEventListener('beforeunload', e => {
+    if(Router.stack[Router.stack.length-1] === 'play' && Net.room){
+      e.preventDefault(); e.returnValue = '';
+    }
+  });
+
+  U.$$('[data-foyer-route]').forEach(button => button.onclick = () => Router.go(button.dataset.foyerRoute));
+  UI.observeShell();
+  Host.ready().then(()=>Session.restore());
+  if(document.fonts?.ready){
+    UI.busy('.brand', true);
+    document.fonts.ready.finally(() => UI.busy('.brand', false));
+  }
+  if(new URLSearchParams(location.search).get('debug')==='1'){
+  console.log('%c🌟 نورستان ۱۴', 'font-size:16px;font-weight:bold;color:#f5c451');
+  console.log('📡 شبکه:', Net.status, '| حالت:', Net.mode);
+  /* عمداً هیچ رمزی چاپ نمی‌شود. رمز ادمین را کاربر در پنل خودش می‌سازد و
+     رمزِ سرور از متغیر محیطی NOOR_ADMIN_PASS می‌آید. */
+  console.log('👑 رمز ادمین: در پنل مدیریت ساخته می‌شود • رمز سرور: NOOR_ADMIN_PASS');
+  console.log('💡 برای چندنفره واقعی: node server.js');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);

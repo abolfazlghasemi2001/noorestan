@@ -1,0 +1,2420 @@
+ پایین است و
+     فایل‌ها در assets/fonts می‌نشینند. این پیش‌اتصال فقط برای فونت‌های
+     نمایشی و قرآنیِ اختیاری است که خودِ کاربر انتخاب می‌کند. -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="assets/fonts/vazirmatn-regular.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="assets/fonts/vazirmatn-bold.woff2">
+<!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
+<!-- اسلایدر اکنون بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
+<style>
+@font-face{font-family:Lalezar;font-style:normal;font-weight:400;font-display:swap;
+  src:url("assets/fonts/lalezar-arabic-400.woff2") format("woff2")}
+/* ═══════════════ 0. LAYER STACK ═══════════════
+   ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
+   مستقل از specificity. پس «تم روشن» و «حرکت» می‌توانند پایه را
+   بازنویسی کنند بی‌آنکه لازم باشد سلکتورها سنگین‌تر شوند.
+   تقدم:  tokens < base < layout < comp < anim < theme < motion < utils      */
+@layer tokens, base, layout, comp, anim, theme, motion, utils;
+
+/* ── فونت پایه، میزبانی‌شده روی خودِ برنامه ──
+   پیش‌تر این فونت از jsDelivr می‌آمد، با یک <link> در <head> — یعنی
+   قلمِ پایهٔ برنامه به شبکه گره خورده بود و آن <link> هم رندر را
+   می‌بست. اگر CDN در دسترس نبود (که برای کاربر ایرانی زیاد پیش می‌آید)
+   برنامه با قلمِ پیش‌فرضِ سیستم بالا می‌آمد و هیچ‌وقت آفلاین درست
+   نمی‌شد. حالا سه وزنِ لازم در assets/fonts هست، بی‌هیچ درخواست بیرونی.
+   وزن ۵۰۰ در برنامه یک بار به کار رفته؛ مرورگر خودش آن را به ۴۰۰ یا
+   ۷۰۰ می‌بندد، پس فایلِ جدا لازم نیست.
+
+   پیش‌بارگذاریِ زیر اختیاری است و فقط پنجرهٔ «swap» را کوتاه می‌کند: بی آن،
+   چند صد میلی‌ثانیهٔ اول متن با قلمِ سیستم دیده می‌شود و کاربر فکر می‌کند
+   قلمِ برنامه بار نشده. `crossorigin` لازم است، وگرنه درخواستِ پیش‌بار با
+   درخواستِ خودِ @font-face یکی شمرده نمی‌شود و فایل دوباره گرفته می‌شود. */
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:400; font-display:swap;
+  src:url("assets/fonts/vazirmatn-regular.woff2") format("woff2");
+}
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:700; font-display:swap;
+  src:url("assets/fonts/vazirmatn-bold.woff2") format("woff2");
+}
+@font-face{
+  font-family:Vazirmatn; font-style:normal; font-weight:800; font-display:swap;
+  src:url("assets/fonts/vazirmatn-extrabold.woff2") format("woff2");
+}
+
+@layer base {
+/* ═══════════════ 1. TOKENS ═══════════════ */
+:root{
+  --bg:#080d18; --bg2:#0e1526; --card:#131c31; --card2:#18233c;
+  --line:#22304f; --txt:#e8eefc; --mut:#8fa0c4;
+  --gold:#f5c451; --gold2:#e0a325; --grn:#2fd39b; --red:#ff5f6d;
+  --blu:#4d9fff; --prp:#a77bff;
+  --glow1:#1b2a4d; --glow2:#1d3a34;
+  /* --float1/--float2 = سطحِ شناورِ روی صفحه: نوار پخشِ کوچک، بنرِ نصب،
+     پنل اشکال‌زدایی. این‌ها نیمه‌شفاف‌اند و روی --bg می‌نشینند، پس متنِ
+     داخلشان باید با همان زمینه سنجیده شود، نه با --card. پیش‌تر هر سه
+     به‌صورت رنگِ تیرهٔ ثابت نوشته شده بودند؛ در تم روشن زمینه روشن
+     می‌شد ولی متن تیره نمی‌شد و نوارِ پخشِ «آیهٔ روز» ناخوانا می‌ماند. */
+  --float1:rgba(24,35,60,.97); --float2:rgba(19,28,49,.97);
+  --ink:#1a1204;
+  --r:18px; --r2:12px;
+  --sh:0 10px 30px rgba(0,0,0,.45);
+  --grad:linear-gradient(135deg,#f5c451,#e0a325);
+  /* --fill: پرِ نوارهای پیشرفت. جدا از --grad است چون شرطِ خوانایی‌اش
+     فرق دارد: --grad روی سطحِ خودش متن می‌گیرد (مرکبِ تیره)، ولی --fill
+     باید از «زمینهٔ خودش» جدا دیده شود (حداقل ۳ به ۱، قاعدهٔ ۱٫۴٫۱۱).
+     در تم تاریک هر دو یکی‌اند؛ در تم روشن، پرِ طلاییِ روشن روی زمینهٔ
+     روشن گم می‌شد، پس آنجا طلاییِ تیره پر می‌کند. */
+  --fill:linear-gradient(135deg,#f5c451,#e0a325);
+  /* ── فونت‌ها: همه با متغیر، تا از تنظیمات زنده عوض شوند ── */
+  --f-ui: Vazirmatn, system-ui, "Segoe UI", Tahoma, sans-serif;
+  --f-disp: Lalezar, Vazirmatn, system-ui, sans-serif;   /* تیتر و نام نورستان */
+  --f-disp-w: 400;  --f-disp-lh: 1.3;  --f-disp-ls: 0px;
+  --f-quran: Amiri, "Scheherazade New", Vazirmatn, serif;  /* متن قرآن */
+  --f-quran-w: 400; --f-quran-lh: 2.05;
+  --read-size: 25px;
+
+  /* ═══════════════ 1.۵ سیستمِ حرکت ═══════════════
+     برگرفته از مرجعِ طراحیِ صفحهٔ ورود. پیش از این، هر قاعدهٔ CSS
+     منحنیِ خودش را درجا نوشته بود (`cubic-bezier(.22,.9,.3,1)` در
+     `.a-in`، `cubic-bezier(.36,.07,.19,.97)` در `.a-shake`، …) و نتیجه
+     این بود که دو انیمیشنِ هم‌خانواده با دو «احساس» تمام می‌شدند.
+     حالا دو منحنیِ نام‌دار داریم و چیزِ تازه فقط از این دو استفاده
+     می‌کند. قواعدِ قدیمی عمداً دست نخورده‌اند: عوض‌کردنشان هر ۱۷۹۹
+     آزمون را سبز نگه می‌دارد ولی ظاهرِ جاهای سنجیده‌شده را بی‌دلیل
+     جابه‌جا می‌کند، و آن کارِ این فاز نیست. */
+  --ease:cubic-bezier(.22,1,.36,1);      /* ورودِ نرم، توقفِ بی‌لرزش */
+  --bounce:cubic-bezier(.34,1.56,.64,1); /* برگشتِ کشسان، برای لمس */
+
+  /* ── شیشه و لبه ──
+     `--card` رنگِ *پُر* است؛ کارتِ شیشه‌ای به رنگِ نیمه‌شفافِ جدا نیاز
+     دارد، وگرنه `backdrop-filter` روی رنگِ پُر هیچ اثری ندارد و فقط
+     هزینهٔ رندر می‌دهد. `--glass-edge` لبهٔ روشنِ بالای کارت است که
+     ضخامتِ شیشه را می‌سازد. */
+  --glass:rgba(19,28,49,.72);
+  --glass-edge:rgba(255,255,255,.08);
+  --hairline:rgba(255,255,255,.06);
+  --shadow:rgba(0,0,0,.55);
+  /* برقِ روی دکمه (sheen). در تم روشن سفیدِ خالص دیده نمی‌شود. */
+  --sheen:rgba(255,255,255,.22);
+  /* گوی‌های محیطیِ پس‌زمینه — طلایی و سبز، هم‌خانوادهٔ --gold/--grn */
+  --orb1:#5a4a1e; --orb2:#1e4a3c;
+}
+/* ── تم‌ها: قبلاً فقط در تنظیمات بودند و هیچ اثری نداشتند ──
+   هر تمِ تازه `--glass` و دو گویِ محیطیِ خودش را می‌آورد. `--glass` عمداً
+   *هم‌خانوادهٔ* `--card` همان تم است، نه یک مقدارِ ثابت: وگرنه کارتِ
+   شیشه‌ای در تمِ کویر آبی می‌شد و تم معنایش را از دست می‌داد. */
+[data-theme="ocean"]{
+  --bg:#03101a; --bg2:#062230; --card:#0a2c3f; --card2:#0e374d;
+  --line:#1a4d68; --txt:#e2f6ff; --mut:#88b6cc;
+  --gold:#4ad8ff; --gold2:#0fa5d6; --grn:#2fd3c0; --red:#ff6b8a; --prp:#af87ff;
+  --glow1:#0a3550; --glow2:#0b3b3a; --ink:#04202b;
+  --grad:linear-gradient(135deg,#4ad8ff,#0fa5d6);
+  --glass:rgba(10,44,63,.72); --orb1:#123a52; --orb2:#0e3a44;
+}
+[data-theme="forest"]{
+  --bg:#05100b; --bg2:#0a1f14; --card:#0e2a1c; --card2:#123726;
+  --line:#1d4c34; --txt:#e6fff1; --mut:#89bfa3;
+  --gold:#6fe08a; --gold2:#33b35c; --grn:#2fd39b; --red:#ff7a6b; --prp:#ab82ff;
+  --glow1:#0d3324; --glow2:#123b26; --ink:#04200f;
+  --grad:linear-gradient(135deg,#6fe08a,#33b35c);
+  --glass:rgba(14,42,28,.72); --orb1:#1e4a2a; --orb2:#14403c;
+}
+[data-theme="royal"]{
+  --bg:#080f20; --bg2:#111e35; --card:#172840; --card2:#20344f;
+  --line:#344967; --txt:#eff4fc; --mut:#b1bfd4;
+  --gold:#efd18a; --gold2:#d9af53; --grn:#65dbb8; --red:#ff8990; --prp:#bba4ef;
+  --glow1:#1a3255; --glow2:#243649; --ink:#171e2d;
+  --grad:linear-gradient(135deg,#f2d596,#d9af53);
+  --glass:rgba(23,40,64,.8); --orb1:#244368; --orb2:#4b422c;
+}
+/* تم ششم — کویر. در فروشگاه با سکه باز می‌شود و پیش از خرید قفل است. */
+[data-theme="desert"]{
+  --bg:#171008; --bg2:#241708; --card:#2e1e0d; --card2:#3b2712;
+  --line:#54381a; --txt:#fff3e0; --mut:#d3ab7c;
+  --gold:#ffc46b; --gold2:#e08b2c; --grn:#8fd36f; --red:#ff7a5c;
+  --glow1:#3a2408; --glow2:#43260a; --ink:#241505;
+  --grad:linear-gradient(135deg,#ffc46b,#e08b2c);
+  --glass:rgba(46,30,13,.72); --orb1:#5a4a1e; --orb2:#40481a;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* در زوم، تصویر و شکلِ پهن ستون را می‌شکست و اسکرولِ افقی می‌ساخت.
+   `height:auto` فقط برای `img`: آیکن‌های SVG این پرونده کلاس `.ic` با
+   پهنا/بلندای صریح دارند و آن‌ها از این قاعده مستثنا می‌مانند، ولی
+   SVGهایی که اندازه را از صفت گرفته‌اند با `height:auto` جابه‌جا می‌شدند. */
+img{max-width:100%;height:auto}
+svg{max-width:100%}
+html,body{height:100%;max-width:100%}
+body{
+  font-family:var(--f-ui);
+  background:
+    radial-gradient(1100px 600px at 85% -10%,var(--glow1) 0%,transparent 60%),
+    radial-gradient(900px 500px at 10% 110%,var(--glow2) 0%,transparent 60%),
+    var(--bg);
+  color:var(--txt); overflow-x:hidden;
+  transition:background .35s;
+}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+.hide{display:none!important}
+
+/* ═══════════════ 2. LAYOUT ═══════════════ */
+#app{max-width:940px;margin:0 auto;padding:0 14px calc(120px + env(safe-area-inset-bottom,0px))}
+.screen{display:none;animation:in .28s ease both}
+.screen.active{display:block}
+@keyframes in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* Topbar */
+.top{
+  position:sticky;top:0;z-index:40;margin:0 -14px 14px;padding:12px 16px;
+  background:rgba(8,13,24,.82);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:12px
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800}
+.logo{
+  width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:21px;
+  background:var(--grad);color:var(--ink);box-shadow:0 6px 18px rgba(0,0,0,.3)
+}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--mut)}
+.top .sp{flex:1}
+.iconbtn{
+  width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+  display:grid;place-items:center;cursor:pointer;position:relative;transition:.18s
+}
+.iconbtn:hover{background:var(--card2);transform:translateY(-2px)}
+.dot{position:absolute;top:5px;left:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--red);border:2px solid var(--card)}
+/* قلب‌ها فقط داخلِ بازی دیده می‌شوند و فقط با SVG کشیده می‌شوند. ایموجیِ
+   قلب رنگِ قلم را نمی‌گیرد و در پوسته‌های روشن ناخوانا می‌شد. */
+.game-hearts{display:inline-flex;gap:6px;align-items:center}
+.gh{width:22px;height:22px;transition:.3s;filter:drop-shadow(0 0 6px rgba(255,95,109,.5))}
+.gh-full{fill:#ff5f6d;stroke:#ff5f6d}
+/* قلبِ خالی فقط خطِ دور دارد — «از دست رفته» باید خالی دیده شود، نه سیاه. */
+.gh-empty{fill:transparent;stroke:var(--line);opacity:.4;filter:none}
+.gh.lost{animation:heartBreak .4s ease}
+@keyframes heartBreak{
+  0%{transform:scale(1) rotate(0)}
+  50%{transform:scale(1.4) rotate(-15deg);filter:drop-shadow(0 0 12px rgba(255,95,109,.8))}
+  100%{transform:scale(1) rotate(0);opacity:.3}
+}
+
+/* Hero */
+.hero{
+  position:relative;border-radius:26px;padding:26px 22px;margin-bottom:20px;
+  background:linear-gradient(150deg,var(--card2),var(--bg2) 60%);
+  border:1px solid var(--line);overflow:hidden;box-shadow:var(--sh)
+}
+.hero:before{
+  content:"";position:absolute;inset:0;border-radius:26px;padding:1.5px;
+  background:linear-gradient(120deg,var(--gold),transparent 45%,var(--prp));
+  opacity:.75;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none
+}
+.hero:after{
+  content:"";position:absolute;width:230px;height:230px;border-radius:50%;left:-70px;top:-110px;
+  background:radial-gradient(circle,var(--glow2),transparent 70%)
+}
+.hero h1{font-size:clamp(21px,5.4vw,30px);line-height:1.5}
+.hero p{color:var(--mut);margin:8px 0 16px;font-size:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  font-size:12px;padding:7px 12px;border-radius:999px;
+  background:var(--card2);border:1px solid var(--line);color:var(--mut)
+}
+.chip.on{background:rgba(47,211,155,.13);border-color:rgba(47,211,155,.45);color:var(--grn)}
+.chip.off{background:rgba(255,95,109,.12);border-color:rgba(255,95,109,.4);color:var(--red)}
+.chip.wr{background:rgba(245,196,81,.12);border-color:rgba(245,196,81,.45);color:var(--gold)}
+
+/* Level bar */
+.lvlwrap{margin-top:16px}
+.lvlwrap .lbl2{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:6px}
+.lvlbar{height:8px;border-radius:9px;background:var(--card);overflow:hidden;border:1px solid var(--line)}
+.lvlbar i{display:block;height:100%;background:var(--fill);width:0;transition:.5s}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 8px;text-align:center;transition:.2s
+}
+.stat:hover{transform:translateY(-3px);border-color:var(--gold)}
+.stat b{display:block;font-size:20px;color:var(--gold)}
+.stat span{font-size:11px;color:var(--mut)}
+
+/* Category */
+.cat{margin-bottom:26px}
+.cat-head{
+  display:flex;align-items:center;gap:12px;padding:0 4px 12px;margin-bottom:14px;
+  border-bottom:1px dashed var(--line);position:relative
+}
+.cat-head:after{
+  content:"";position:absolute;bottom:-1px;right:0;width:120px;height:2px;
+  border-radius:2px;background:var(--grad)
+}
+.cat-ico{
+  width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:22px;
+  background:var(--card2);border:1px solid var(--line);flex:none
+}
+.cat-head h2{font-size:16px}
+.cat-head p{font-size:12px;color:var(--mut);margin-top:3px}
+.cat-cnt{margin-right:auto;font-size:11px;color:var(--mut);background:var(--card);
+  border:1px solid var(--line);padding:5px 10px;border-radius:999px;white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px}
+.tile{
+  position:relative;background:linear-gradient(160deg,var(--card),var(--bg2));
+  border:1px solid var(--line);border-radius:var(--r);padding:16px 14px;
+  cursor:pointer;transition:.2s;overflow:hidden;text-align:right
+}
+.tile:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 12px 26px rgba(0,0,0,.4)}
+.tile .ti{font-size:30px;margin-bottom:10px;display:block}
+.tile b{display:block;font-size:14px;margin-bottom:5px}
+.tile small{color:var(--mut);font-size:11.5px;line-height:1.7}
+.tile .rec{display:block;margin-top:8px;font-size:11px;color:var(--gold);opacity:.9}
+.badge{
+  position:absolute;top:10px;left:10px;font-size:11px;padding:4px 8px;border-radius:999px;
+  background:var(--grad);color:var(--ink);font-weight:700
+}
+.badge.g{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.badge.p{background:linear-gradient(135deg,#a77bff,#7c4dff);color:#fff}
+.badge.rd{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
+.tile.locked{opacity:.42;filter:grayscale(.7);cursor:not-allowed}
+.tile.locked:hover{transform:none;border-color:var(--line)}
+
+/* Buttons */
+.btn{
+  border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer;
+  background:var(--grad);color:var(--ink);transition:.18s;display:inline-flex;
+  align-items:center;justify-content:center;gap:8px;min-height:44px
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.28)}
+.btn:active{transform:none}
+.btn.gh{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+.btn.gh:hover{box-shadow:none;background:var(--card2)}
+.btn.dg{background:linear-gradient(135deg,#ff5f6d,#d63447);color:#fff}
+.btn.ok{background:linear-gradient(135deg,#2fd39b,#12a97a);color:#04231a}
+.btn.w{width:100%}
+.btn.sm{padding:9px 13px;font-size:12px;border-radius:11px;min-height:44px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+/* دکمهٔ «ساخت روم جدید».
+   پیش‌تر فقط `flex:1` داشت و در ردیفِ فلکس اجازهٔ خرد‌شدن می‌گرفت:
+   زیرِ ۳۶۰px متن می‌شکست و آیکن به لبه می‌چسبید. این کلاس همان چیزی
+   است که باید باشد — اندازهٔ ثابتِ متن، وسط‌چین، و آیکنِ ۲۰px. */
+.room-create-btn{
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;font-size:16px;padding:14px 20px;
+  white-space:nowrap;min-width:0
+}
+.room-create-btn .icon{font-size:20px;line-height:1}
+.room-create-btn .ic{width:20px;height:20px}
+/* ردیفِ دکمه‌های روم: اگر جا کم بیاید می‌شکنند و زیرِ هم می‌روند،
+   به‌جای اینکه هم‌دیگر را له کنند. */
+.room-row{display:flex;flex-wrap:wrap;gap:10px}
+.room-row .btn{flex:1 1 auto;white-space:nowrap;min-width:148px}
+/* ردیفِ شناسه: ورودی کشسان است و دکمهٔ کنارش *هرگز* خرد نمی‌شود.
+   باگِ «باکس خالی» از همین‌جا بود: دکمه `flex-shrink:1` داشت و
+   ورودی با `width:100%` آن را تا عرضِ صفر می‌فشرد. */
+.peer-row .inp{flex:1;min-width:0}
+.peer-row .btn{flex:none}
+.inp{
+  width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;outline:0;transition:.18s
+}
+.inp:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(128,128,128,.14)}
+.lbl{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.row{display:flex;align-items:center;gap:10px}
+.sep{height:1px;background:var(--line);margin:14px 0}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv b{color:var(--gold)}
+
+/* Page header */
+.phead{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.phead h2{font-size:18px}
+.phead p{font-size:12px;color:var(--mut);margin-top:2px}
+.back{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);cursor:pointer;font-size:18px;flex:none}
+
+/* هدف لمسی — کمینهٔ ۴۴ پیکسل، ولی بی آنکه چیدمان تنگِ ردیف‌ها به‌هم بخورد.
+   ردیف‌های فشرده (مثل جفت‌های «✕» و «پخش») جای رشدِ خودِ دکمه را ندارند،
+   پس خودِ دکمه کوچک می‌ماند و یک لایهٔ نامرئی ::after روی آن کشیده می‌شود
+   که انگشت را می‌گیرد. پهنا دست‌نخورده می‌ماند تا همسایهٔ چسبیده کلیک
+   دزدیده‌نشود؛ فقط ارتفاع تا ۴۴ بالا می‌رود. */
+.rec .prev,.ib .ib-x,.ib .ib-go,.emoji-bar button,.wbx,.bm-row .bx,.dua-word{position:relative}
+.rec .prev::after,.ib .ib-x::after,.ib .ib-go::after,.emoji-bar button::after,
+.wbx::after,.bm-row .bx::after,.dua-word::after{
+  content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  min-height:44px;pointer-events:auto
+}
+
+/* Game shell */
+.gbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:7px 13px;font-size:12.5px}
+.pill b{color:var(--gold)}
+.pill.danger{border-color:var(--red);color:var(--red)}
+.prog{height:7px;background:var(--card);border-radius:9px;overflow:hidden;margin-bottom:18px}
+.prog i{display:block;height:100%;background:var(--fill);width:0;transition:.35s linear}
+.prog.timer i{background:linear-gradient(90deg,var(--grn),var(--gold),var(--red));transition:width 1s linear}
+/* ── حلقهٔ پیشرفتِ #s-play ──
+   جای نوارِ خطی، حلقهٔ SVG می‌آید. خودِ نوار سرِ جایش می‌ماند ولی دیده
+   نمی‌شود: ۱۷ محلِ فراخوانی، `FX.levelBurst` و سنجش‌های کهنه همه به
+   همان `#pgProg` تکیه دارند. رنگ‌ها از نشانه‌های خودِ نورستان‌اند
+   (`--gold`/`--grn`/`--red`) نه از دفترِ نشانهٔ مرجع. */
+.game-progress{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  width:100px;height:100px;margin:0 auto 18px
+}
+.game-progress .prog{position:absolute;inset:0;margin:0;opacity:0;pointer-events:none}
+.progress-ring{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.progress-ring circle{fill:none;stroke-width:4;stroke-linecap:round}
+.ring-track{stroke:var(--line)}
+.ring-progress{
+  stroke:var(--gold);stroke-dasharray:289.03;stroke-dashoffset:289.03;
+  transition:stroke-dashoffset .45s var(--ease),stroke .3s linear
+}
+.progress-text{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;line-height:1.15;pointer-events:none
+}
+.progress-text b{font-size:18px;color:var(--txt);font-variant-numeric:tabular-nums}
+.progress-text small{font-size:11px;color:var(--mut)}
+/* رنگِ زمینهٔ حالتِ سرعت، و بعد مهرِ پاسخ رویش — ترتیب مهم است:
+   هر سه یک وزنِ انتخابی دارند، پس آن که پایین‌تر است برنده می‌شود و
+   مهرِ درست/نادرست باید بر زمینهٔ تایمر غالب باشد. */
+.game-progress.timer .ring-progress{stroke:var(--red)}
+.game-progress.is-correct .ring-progress{stroke:var(--grn)}
+.game-progress.is-wrong   .ring-progress{stroke:var(--red)}
+.game-progress.is-complete .ring-progress{stroke:var(--gold)}
+@media(max-width:400px){
+  .game-progress{width:80px;height:80px;margin-bottom:14px}
+  .progress-text b{font-size:16px}
+}
+.qbox{
+  background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+  border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:16px
+}
+.qbox .ar{font-size:20px;line-height:2.3;color:var(--gold);direction:rtl}
+.qbox .qq{font-size:16px;line-height:2}
+.qbox .hint{font-size:12px;color:var(--mut);margin-top:10px}
+.qbox.flash-ok{border-color:var(--grn);animation:pop .25s}
+.qbox.flash-no{border-color:var(--red);animation:shake .3s}
+.opts{display:grid;gap:10px}
+.opt{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  cursor:pointer;text-align:right;transition:.16s;display:flex;align-items:center;gap:10px
+}
+.opt:hover{border-color:var(--gold);transform:translateX(-4px)}
+.opt .n{width:26px;height:26px;border-radius:8px;background:var(--bg2);display:grid;
+  place-items:center;font-size:12px;color:var(--mut);flex:none}
+.opt.right{background:rgba(47,211,155,.14);border-color:var(--grn)}
+.opt.wrong{background:rgba(255,95,109,.14);border-color:var(--red)}
+.opt:disabled{cursor:default;transform:none}
+
+/* Scramble */
+.chipsrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.lchip{width:46px;height:52px;border-radius:12px;background:var(--card);border:1px solid var(--line);
+  font-size:21px;cursor:pointer;transition:.15s;color:var(--gold)}
+.lchip:hover{background:var(--card2);transform:translateY(-3px)}
+.lchip.used{opacity:.25;pointer-events:none}
+.slot{min-height:56px;border:1.5px dashed var(--line);border-radius:14px;display:flex;
+  gap:8px;justify-content:center;align-items:center;padding:8px;flex-wrap:wrap;margin-bottom:14px}
+
+/* Memory / Match */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+@media(max-width:420px){.mgrid{grid-template-columns:repeat(3,1fr)}}
+.mcard{aspect-ratio:3/4;border-radius:14px;border:1px solid var(--line);background:var(--card2);
+  display:grid;place-items:center;cursor:pointer;font-size:13px;padding:6px;text-align:center;
+  transition:.25s}
+.mcard.flip{background:linear-gradient(150deg,var(--card2),var(--card));border-color:var(--gold)}
+.mcard.done{background:rgba(47,211,155,.15);border-color:var(--grn);pointer-events:none}
+.mcard .face{display:none}.mcard.flip .face,.mcard.done .face{display:block}
+.mcard .cover{font-size:24px;color:var(--gold)}
+.mcard.flip .cover,.mcard.done .cover{display:none}
+.mcols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mitem{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;
+  cursor:pointer;font-size:12.5px;line-height:1.8;transition:.15s}
+.mitem.sel{border-color:var(--gold);background:var(--card2)}
+.mitem.done{opacity:.35;pointer-events:none;border-color:var(--grn)}
+.mitem.wrong{border-color:var(--red);background:rgba(255,95,109,.12)}
+
+/* Dooz */
+.dooz{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:320px;margin:0 auto 18px}
+.dcell{aspect-ratio:1;border-radius:16px;background:var(--card);border:1px solid var(--line);
+  font-size:36px;cursor:pointer;transition:.15s;display:grid;place-items:center}
+.dcell:hover{background:var(--card2)}
+.dcell.win{background:rgba(47,211,155,.2);border-color:var(--grn)}
+.dcell.last{outline:2px solid var(--gold);outline-offset:-2px}
+.dcell:disabled{cursor:default}
+
+/* EsmFamil */
+.efgrid{display:grid;gap:10px}
+.efrow{display:grid;grid-template-columns:92px 1fr;gap:9px;align-items:center}
+.efrow span{font-size:12.5px;color:var(--mut)}
+.letter{width:74px;height:74px;border-radius:20px;background:var(--grad);color:var(--ink);
+  display:grid;place-items:center;font-size:36px;font-weight:800;margin:0 auto 8px}
+
+/* Result */
+.res{text-align:center;padding:26px 18px}
+.res .big{font-size:56px;margin-bottom:8px}
+/* آیکنِ نتیجه اندازه‌اش را از همان ۵۶px می‌گیرد، نه از ۲۰pxِ پیش‌فرضِ
+   `.ic` — وگرنه نتیجهٔ بازی با یک آیکنِ کوچک نشان داده می‌شد. */
+.res .big .ic{width:56px;height:56px;margin:0 auto}
+.res h3{font-size:20px;margin-bottom:6px}
+.res .stars{font-size:32px;letter-spacing:6px;margin:12px 0}
+
+/* Lists / Chat */
+.list{display:grid;gap:9px}
+.item{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r2);padding:11px 13px}
+.item .av{width:36px;height:36px;border-radius:11px;background:var(--card2);display:grid;
+  place-items:center;font-size:17px;flex:none}
+.item b{font-size:13px}.item small{color:var(--mut);font-size:11px;display:block}
+.item .sp{flex:1;min-width:0}
+.item.click{cursor:pointer;transition:.16s}
+.item.click:hover{border-color:var(--gold);background:var(--card2)}
+/* ── پنل مدیریت ── */
+.item .adm-id{cursor:pointer;color:var(--blu);
+  direction:ltr;display:inline-block;margin-top:2px}
+.item .adm-id:hover{color:var(--gold)}
+.adm-bar{padding:7px 0}
+.adm-bar .row{font-size:12.5px;margin-bottom:6px}
+.adm-bar .mp{height:6px;background:var(--card2);border-radius:99px;overflow:hidden}
+.adm-bar .mp i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.chatbox{height:250px;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r2);padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.msg{max-width:80%;padding:9px 12px;border-radius:14px;font-size:12.5px;line-height:1.7;
+  background:var(--card2);align-self:flex-start;word-break:break-word}
+.msg.me{background:linear-gradient(135deg,var(--card2),var(--card));border:1px solid var(--line);align-self:flex-end}
+.msg.sys{align-self:center;background:transparent;color:var(--mut);font-size:11px;text-align:center;max-width:100%}
+.msg .who{font-size:11px;color:var(--gold);display:block;margin-bottom:3px}
+.code{font-family:ui-monospace,monospace;letter-spacing:3px;font-size:22px;color:var(--gold);font-weight:800}
+
+/* Tabs */
+.tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px}
+.tab{white-space:nowrap;padding:9px 14px;border-radius:999px;background:var(--card);
+  border:1px solid var(--line);cursor:pointer;font-size:12.5px;transition:.16s;
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.tab.on{background:var(--grad);color:var(--ink);border-color:transparent;font-weight:700}
+
+/* Bottom nav */
+.nav{
+  position:fixed;bottom:0;right:0;left:0;z-index:50;
+  background:rgba(8,13,24,.9);backdrop-filter:blur(16px);border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;padding:9px 6px calc(9px + env(safe-area-inset-bottom))
+}
+/* نوار پایین پرمصرف‌ترین کلیدهای اپ است. برچسب‌هایش ۹٫۵px بود (و در
+   صفحه‌های باریک هم همان) — روی گوشی خواندنش زحمت داشت. حالا ۱۱٫۵px
+   است، با ۴۴px ارتفاع برای لمس. */
+.nav button{
+  background:0;border:0;cursor:pointer;color:var(--mut);font-size:11.5px;
+  display:grid;justify-items:center;gap:3px;padding:5px 10px;border-radius:12px;
+  min-height:44px;transition:.16s
+}
+.nav button i{font-size:19px;font-style:normal}
+
+/* ── آیکن‌ها: SVGِ درون‌خطی، رنگ از currentColor ── */
+.ic{ width:20px; height:20px; display:block; flex:none; fill:none;
+  stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round }
+.icf{ fill:currentColor; stroke:none }
+.nav button .ic{ width:22px; height:22px }
+.iconbtn .ic{ width:21px; height:21px }
+.qsm .ic{ width:19px; height:19px }
+.qbig .ic{ width:22px; height:22px }
+#miniQ button .ic{ width:19px; height:19px }
+.btn .ic{ width:17px; height:17px }
+.rec .prev .ic{ width:14px; height:14px }
+.playb .ic{ width:15px; height:15px }
+.wbx .ic,.bx .ic{ width:15px; height:15px }
+.ib-x .ic,.ib-go .ic{ width:16px; height:16px }
+/* دکمه‌هایی که تنها فرزندشان آیکن است، باید وسط‌چین باشند؛ SVG بلوکی
+   است و وگرنه می‌چسبد به کنارِ جعبهٔ دکمه. */
+#miniQ button,.qbig,.wbx,.bm-row .bx,.ib-x{ display:grid; place-items:center }
+/* پنج دکمه در نوار پایین — روی گوشی‌های باریک جا شود.
+   «مدیریت» عمداً این‌جا نیست؛ از «حساب ← تنظیمات» باز می‌شود. */
+@media(max-width:430px){
+  .nav{padding:8px 2px calc(8px + env(safe-area-inset-bottom))}
+  .nav button{padding:5px 4px;font-size:11px;gap:2px}
+  .nav button i{font-size:17px}
+  #miniQ{inset:auto 8px calc(74px + env(safe-area-inset-bottom,0px)) 8px;padding:8px 10px;gap:7px}
+}
+.nav button.on{color:var(--gold);background:rgba(128,128,128,.12)}
+
+/* Toast / Modal */
+/* زیرِ نوارِ بالا (بلندایش ~۶۴px)، نه روی آن: پیش‌تر توست روی عنوان و
+   دکمه‌های هدر می‌افتاد و همان‌ها را می‌پوشاند. */
+#toasts{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:200;
+  display:grid;gap:8px;width:calc(100% - 28px);max-width:480px}
+.toast{background:var(--card2);border:1px solid var(--line);border-right:4px solid var(--gold);
+  border-radius:12px;padding:12px 14px;font-size:13px;box-shadow:var(--sh);animation:in .25s both}
+.toast.ok{border-right-color:var(--grn)}.toast.err{border-right-color:var(--red)}
+/* همین کلاس در جاهای دیگر به‌عنوان پیامِ درون‌صفحه‌ای هم به کار می‌رود
+   (مثلاً زیرِ گزینه‌های بازی). پس چیدمانِ نواری فقط روی توستِ زنده می‌آید
+   و آن پیام‌ها دست‌نخورده می‌مانند. */
+.toast.live{display:flex;align-items:flex-start;gap:10px}
+.toast.live .tx{flex:1;min-width:0;text-align:right}
+.toast.live .x{flex:none;width:28px;height:28px;margin:-2px -4px 0 0;border:0;
+  background:transparent;color:var(--mut);font-size:14px;line-height:1;
+  border-radius:8px;cursor:pointer;display:grid;place-items:center}
+.toast.live .x:hover,.toast.live .x:focus-visible{background:rgba(128,128,128,.16);color:var(--txt)}
+.toast.live .x .ic{width:14px;height:14px}
+/* آیکنِ پیشوندیِ پیام. با `align-items:flex-start` باید کمی پایین‌تر
+   بنشیند تا با خطِ اولِ متن جور شود، نه با لبهٔ بالای جعبه. */
+.toast.live .ic-w{flex:none;display:flex;color:var(--gold);margin-top:1px}
+.toast.live .ic-w .ic{width:15px;height:15px}
+.toast.live.ok .ic-w{color:var(--grn)}
+.toast.live.err .ic-w{color:var(--red)}
+#modal{position:fixed;inset:0;z-index:300;background:rgba(4,7,14,.75);backdrop-filter:blur(6px);
+  display:none;place-items:center;padding:18px}
+#modal.on{display:grid}
+/* ── برگهٔ پایین‌کش ──
+   انتخابِ سریعِ قاری هنگامِ پخش باید از پایین بیاید تا انگشت به آن برسد و
+   پخش هم زیرش دیده بماند. قاعده باید *پس از* `#modal.on` بنشیند؛ هر دو
+   هم‌وزن‌اند و ترتیبِ سند تعیین می‌کند. */
+#modal.sheet.on{display:flex;align-items:flex-end;justify-content:center;padding:0}
+#modal.sheet .box{width:100%;max-width:560px;border-radius:22px 22px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  max-height:min(78vh,620px);overflow-y:auto;overscroll-behavior:contain;
+  animation:sheetUp .28s cubic-bezier(.22,.9,.3,1) both}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* دستهٔ برگه — نشانهٔ بصریِ اینکه می‌شود کشیدش پایین */
+.sheet-grab{width:38px;height:4px;border-radius:99px;background:var(--line);
+  margin:0 auto 12px}
+.rec-row{display:flex;gap:10px;align-items:center;padding:10px;border-radius:15px;
+  background:var(--card2);border:1px solid var(--line);margin-bottom:7px;cursor:pointer;
+  transition:.16s}
+.rec-row:hover{transform:translateY(-2px)}
+.rec-row.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold2) inset}
+.rec-row .rb{flex:1;min-width:0;font-size:12.5px;font-weight:700}
+.rec-row .rb small{display:block;font-weight:500;color:var(--mut);font-size:11px;margin-top:2px}
+.rec-row .rk{font-size:16px;color:var(--gold)}
+.rec-row .rw{font-size:11px;color:var(--red);margin-top:3px}
+#modal .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;
+  width:100%;max-width:420px;animation:in .25s both;max-height:86vh;overflow:auto}
+.empty{text-align:center;color:var(--mut);font-size:13px;padding:30px 12px}
+@media(max-width:420px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ═══════════════ 19.5 تصاویر قرآنی (Art) ═══════════════ */
+.art{display:block;width:100%;height:auto}
+.art-frame{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);
+  background:linear-gradient(160deg,var(--card2),var(--card));box-shadow:var(--sh)}
+.art-cap{position:absolute;inset:auto 0 0 0;padding:10px 14px;font-size:12px;color:var(--mut);
+  background:linear-gradient(to top,rgba(0,0,0,.6),transparent)}
+.art-hero{margin:0 0 16px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);
+  position:relative;background:linear-gradient(170deg,#0d1b36,#0a1122)}
+.art-hero .art-cap{font-size:12.5px;position:absolute;inset:auto 0 0 0;padding:10px 14px;
+  color:#c3d2ee;background:linear-gradient(to top,rgba(0,0,0,.66),transparent)}
+.art-hero svg{display:block;width:100%;height:auto}
+.art-hero:active{transform:scale(.995)}
+.medal{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-weight:700;
+  font-size:15px;color:#0b0f18;flex:none;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.divider{display:block;width:100%;height:22px;opacity:.55;margin:4px 0}
+#bgArt{position:fixed;inset:0;z-index:0;opacity:.05;pointer-events:none;
+  background-repeat:repeat;background-size:220px 220px}
+#app{position:relative;z-index:1}
+
+/* ═══════════════ 19.6 پردهٔ آغازین (Splash) ═══════════════ */
+#splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;padding:26px 20px;overflow:hidden;
+  background:radial-gradient(1200px 720px at 50% 8%,#1a3567 0%,#0b1a35 42%,#04070e 100%);
+  transition:opacity .75s ease,visibility .75s}
+#splash.out{opacity:0;visibility:hidden;pointer-events:none}
+/* محافظ: اگر JavaScript به هر دلیلی از کار بیفتد، پرده خودش کنار می‌رود */
+#splash{animation:spFailsafe 0s 11s forwards}
+@keyframes spFailsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
+#splash .sp-pat{position:absolute;inset:-10%;opacity:.09;background-repeat:repeat;
+  background-size:190px 190px;animation:spin 160s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#splash .sp-stars{position:absolute;inset:0;overflow:hidden}
+#splash .sp-stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:var(--gold2);
+  animation:tw 3.4s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.12;transform:scale(.6)}50%{opacity:.95;transform:scale(1.3)}}
+.sp-stage{position:relative;width:min(360px,88vw);z-index:2}
+.sp-art{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 40px rgba(0,0,0,.6));
+  animation:rise 1.1s cubic-bezier(.2,.8,.25,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(22px) scale(.94)}to{opacity:1;transform:none}}
+.sp-ray{animation:rayP 4.5s ease-in-out infinite}
+@keyframes rayP{0%,100%{opacity:.35}50%{opacity:.9}}
+.sp-float{animation:float 5.5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.sp-glow{animation:glowP 3.2s ease-in-out infinite}
+@keyframes glowP{0%,100%{opacity:.5}50%{opacity:1}}
+
+.sp-basmala{font-size:clamp(19px,5vw,25px);color:var(--gold);letter-spacing:.5px;z-index:2;
+  text-shadow:0 0 22px rgba(245,196,81,.55);animation:rise 1.2s .1s both}
+.sp-title{font-size:clamp(40px,13vw,66px);font-weight:800;line-height:1.15;z-index:2;
+  background:linear-gradient(100deg,#f5c451 0%,#fff6d8 22%,#e0a325 46%,#fff2c9 68%,#f5c451 100%);
+  background-size:280% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 4.5s linear infinite;letter-spacing:1px}
+@keyframes shine{to{background-position:280% 0}}
+/* نوارِ آمادگی و متن‌های پیرامونش از توکن می‌آیند.
+   پیش‌تر رنگ‌ها ثابت و مخصوص تم تاریک بودند (#8fa0c4، #cfe0ff، #cdd9f0،
+   سفیدِ نیمه‌شفاف) و در تم روشن که پس‌زمینهٔ اسپلش روشن می‌شود، متنِ
+   روشن روی زمینهٔ روشن می‌نشست و خوانده نمی‌شد. حالا در هر شش تم
+   درست است. */
+.sp-title-sub{font-size:11px;color:var(--mut);letter-spacing:7px;margin-top:-4px;z-index:2;
+  animation:rise 1.3s .2s both}
+.sp-sub{font-size:13.5px;color:var(--txt);z-index:2;text-align:center;animation:rise 1.3s .25s both}
+.sp-bar{position:relative;width:min(280px,76vw);height:7px;border-radius:99px;overflow:hidden;
+  background:var(--card2);border:1px solid var(--line);z-index:2;
+  animation:rise 1.3s .3s both}
+.sp-bar i{display:block;height:100%;width:0;border-radius:99px;
+  background:var(--grad);box-shadow:0 0 16px var(--glow1);
+  transition:width .35s ease}
+.sp-meta{display:flex;justify-content:space-between;width:min(280px,76vw);font-size:11.5px;
+  color:var(--mut);z-index:2;animation:rise 1.3s .35s both}
+.sp-note{font-size:12.5px;color:var(--txt);z-index:2;text-align:center;min-height:19px;
+  transition:opacity .35s;animation:rise 1.3s .4s both}
+.sp-note b{color:var(--gold)}
+.sp-skip{position:absolute;bottom:22px;z-index:3;background:var(--card2);
+  border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:8px 18px;
+  font-size:12.5px;cursor:pointer;backdrop-filter:blur(6px);
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.sp-skip:hover{background:var(--card)}
+
+/* ═══════════════ 19.7 تلاوت قرآن (Quran screen) ═══════════════ */
+.qnow{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);
+  background:linear-gradient(150deg,var(--card2),var(--card));padding:16px;margin-bottom:12px}
+.qnow .q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.qnow .q-name{font-weight:700;font-size:15px}
+.qnow .q-meta{font-size:11.5px;color:var(--mut);margin-top:2px}
+.qnow .q-ar{font-size:22px;line-height:2;text-align:center;color:var(--gold);
+  margin:6px 0 2px;direction:rtl;text-shadow:0 0 18px rgba(245,196,81,.25);min-height:44px}
+.qnow .q-tr{font-size:12.5px;color:var(--mut);text-align:center;line-height:1.9}
+.qwave{display:flex;align-items:flex-end;gap:2.5px;height:26px;margin:10px 0 4px;justify-content:center}
+.qwave i{width:3px;border-radius:2px;background:var(--gold);opacity:.55;
+  animation:eq 1.1s ease-in-out infinite}
+@keyframes eq{0%,100%{height:18%}50%{height:100%}}
+.qwave.pause i{animation-play-state:paused;height:22%}
+.qctrls{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.qbig{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;font-size:22px;
+  background:var(--grad);color:var(--ink);display:grid;place-items:center;
+  box-shadow:0 8px 22px rgba(0,0,0,.35);transition:transform .15s}
+.qbig:active{transform:scale(.93)}
+.qsm{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+  color:var(--txt);cursor:pointer;font-size:16px;display:grid;place-items:center}
+.qsm.on{border-color:var(--gold);color:var(--gold)}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.qcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 8px;
+  text-align:center;cursor:pointer;transition:.15s;font-size:12.5px}
+.qcard:hover{border-color:var(--gold);transform:translateY(-2px)}
+.qcard.on{border-color:var(--gold);background:var(--card2);box-shadow:0 0 0 1px var(--gold) inset}
+.qcard b{display:block;font-size:14px;margin-bottom:3px}
+.qcard small{color:var(--mut);font-size:11px}
+.qcard .qnum{font-size:11px;color:var(--mut);margin-top:3px}
+.ayahgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px;
+  margin-top:10px;max-height:210px;overflow:auto;padding:2px}
+.ayahgrid button{aspect-ratio:1;border-radius:11px;border:1px solid var(--line);background:var(--card);
+  color:var(--txt);font-size:12px;cursor:pointer}
+.ayahgrid button.on{background:var(--grad);color:var(--ink);border-color:transparent;font-weight:700}
+.ayahgrid button.done{border-color:var(--grn);color:var(--grn)}
+.qsrc{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--mut);margin-top:8px}
+#miniQ{position:fixed;inset:auto 10px calc(82px + env(safe-area-inset-bottom,0px)) 10px;z-index:45;display:none;align-items:center;gap:10px;
+  padding:9px 12px 12px;border-radius:16px;border:1px solid var(--line);overflow:hidden;
+  background:var(--float2);backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(0,0,0,.5)}
+#miniQ.on{display:flex;animation:in .25s both}
+#miniQ .m-t{flex:1;min-width:0}
+#miniQ .m-t b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#miniQ .m-t small{color:var(--mut);font-size:11px;display:block;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+#miniQ button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);
+  background:var(--card2);color:var(--txt);cursor:pointer;font-size:15px;flex:none}
+/* ── دکمهٔ قاری در نوار پخش ──
+   تنها راهِ عوض کردنِ قاری *بدونِ* ترکِ صفحه. متنِ داخلش باید بُرش بخورد،
+   وگرنه نامِ بلندِ قاری چهار دکمهٔ پخش را از لبه بیرون می‌راند. */
+#mqRec{display:flex;align-items:center;gap:5px;max-width:100%;width:auto;height:auto;
+  padding:2px 8px;border-radius:99px;font-size:11px;margin-bottom:3px;
+  background:var(--card);border:1px solid var(--gold2);color:var(--gold)}
+#mqRec .ic{width:12px;height:12px}
+#mqRec b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:11ch}
+#mqRec .car{font-size:11px;opacity:.7;line-height:1}
+#mqRec:hover{background:var(--card2)}
+/* نوارِ پیشرفتِ نازک چسبیده به لبهٔ پایین — بی اینکه ارتفاع نوار را زیاد کند */
+#mqBar{position:absolute;inset:auto 0 0 0;height:3px;background:var(--line)}
+#mqBar i{display:block;height:100%;width:0;background:var(--grad);transition:width .25s linear}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:26px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:99px;background:var(--card2);
+  border:1px solid var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:19px;height:19px;
+  margin-top:-7px;border-radius:50%;background:var(--grad);border:2px solid var(--bg);
+  box-shadow:0 3px 10px rgba(0,0,0,.45)}
+input[type=range]::-moz-range-track{height:7px;border-radius:99px;background:var(--card2);border:1px solid var(--line)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(--bg);border-radius:50%;
+  background:var(--gold)}
+
+/* ═══════════════ 19.9 فونت‌های فارسی و نمای خواندن ═══════════════ */
+/* تیترها و نام نورستان با فونت نمایشی (نستعلیق) */
+.sp-title,.hero h1,.cat-head h2,.read-surah-name,.daily-ayah-ar,.qnow .q-name{
+  font-family:var(--f-disp);font-weight:var(--f-disp-w);line-height:var(--f-disp-lh);
+  letter-spacing:var(--f-disp-ls)}
+
+/* نام نورستان: طلاکوبِ درخشان */
+.sp-title{
+  background:linear-gradient(178deg,#fff8e2 4%,#ffd97a 34%,#f0a92c 62%,#ffe9ad 96%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:var(--gold);
+  filter:drop-shadow(0 3px 20px rgba(245,196,81,.42));
+  padding:.06em .08em .22em}
+.hero h1{
+  background:linear-gradient(180deg,#fffdf6,#ffdf95 55%,#f2b53c);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:var(--gold);
+  padding:.05em .06em .18em}
+
+/* نستعلیق: درشت‌تر، بازتر و با فضای کافی تا دنبالهٔ حرف‌ها بریده نشود */
+[data-nast="1"] .sp-title{
+  font-size:clamp(52px,17vw,88px);line-height:1.75;padding:.1em .12em .3em}
+[data-nast="1"] .hero h1{
+  font-size:clamp(26px,7.4vw,40px);line-height:2;padding:.06em .08em .22em}
+[data-nast="1"] .cat-head h2{font-size:21px;line-height:1.95}
+[data-nast="1"] .qnow .q-name{font-size:20px;line-height:1.95}
+[data-nast="1"] .phead h2{font-size:21px;line-height:1.85}
+[data-nast="1"] .read-surah-name{line-height:1.95}
+/* نستعلیق در جاهای تنگ بریده می‌شود — کمی جا باز می‌کنیم */
+[data-nast="1"] .cat-head{padding-bottom:4px}
+[data-nast="1"] .phead{padding-bottom:6px}
+/* فونت‌های تیتری درشت (لاله‌زار) به وزن بیشتری نیاز دارند */
+[data-disp="lalezar"] .hero h1,[data-disp="lalezar"] .cat-head h2{letter-spacing:0}
+
+/* متن قرآن کریم با فونت نسخ قرآنی */
+.qbox .ar,.qnow .q-ar,#qAr,.read-ar,.daily-ayah-ar,.bism{
+  font-family:var(--f-quran);font-weight:var(--f-quran-w);line-height:var(--f-quran-lh)}
+
+/* ── نمای خواندن سوره (مصحف‌نما) ── */
+.read-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.read-tools .btn{padding:7px 11px;font-size:12px;border-radius:11px}
+.read-card{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+  border-radius:18px;padding:4px 0;margin-bottom:12px;overflow:hidden}
+.read-ayah{position:relative;padding:13px 16px;cursor:pointer;transition:background .2s;
+  border-bottom:1px dashed rgba(128,128,128,.16)}
+.read-ayah:last-child{border-bottom:0}
+.read-ayah.on{background:rgba(245,196,81,.1)}
+.read-ayah.on:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--gold)}
+.read-ar{font-size:var(--read-size);text-align:right;color:var(--txt);direction:rtl;padding-left:42px}
+/* رنگ آیهٔ انتخاب‌شده از توکن می‌آید. پیش‌تر #ffe9b0 ثابت بود و در تم
+   روشن، طلاییِ روشن روی زمینهٔ طلاییِ روشن می‌نشست و خوانده نمی‌شد. */
+.read-ayah.on .read-ar{color:var(--gold)}
+.read-fa{font-size:13px;color:var(--mut);margin-top:9px;line-height:2;padding-left:42px}
+/* پیش‌تر زمینهٔ این قرص rgba(0,0,0,.22) بود: یک لکهٔ تیره که فقط در تم
+   تاریک جا می‌افتاد و در تم روشن، عددِ طلاییِ تیره را روی خاکستریِ تیره
+   می‌نشاند. حالا از سطحِ خودِ تم می‌آید. */
+.read-num{position:absolute;left:12px;top:15px;width:30px;height:30px;border-radius:50%;
+  border:1px solid var(--gold2);color:var(--gold);display:grid;place-items:center;font-size:11.5px;
+  background:var(--card2)}
+.read-ayah.on .read-num{background:var(--grad);color:var(--ink);border-color:transparent;font-weight:700}
+.bism{text-align:center;color:var(--gold);font-size:calc(var(--read-size) * .92);
+  padding:14px 0 8px;border-bottom:1px dashed rgba(128,128,128,.2);margin-bottom:2px}
+
+/* ── آیهٔ روز ── */
+.daily{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--gold2);
+  background:linear-gradient(150deg,var(--card2),var(--card));padding:16px;
+  margin-bottom:16px;cursor:pointer}
+.daily .daily-tag{font-size:11px;color:var(--gold);text-align:center;margin-bottom:8px;letter-spacing:1px}
+/* `.ic` پیش‌فرض `display:block` است و در یک divِ متنیِ وسط‌چین، آیکن را
+   به سطرِ جدا می‌برد. این‌جا باید هم‌خطِ «آیهٔ امروز» بنشیند. */
+.daily .daily-tag .ic{ display:inline-block; width:13px; height:13px; vertical-align:-2px; margin-inline-end:4px }
+/* جاهایی که ایموجی با `font-size` بزرگ‌تر بود و حالا SVG نشسته: اندازه را
+   از همان عددِ پیشین می‌گیریم تا چیدمان تکان نخورد. */
+.gi19 .ic{ display:inline-block; width:19px; height:19px; vertical-align:-3px }
+.gi26 .ic{ display:block; width:26px; height:26px; margin:0 auto }
+/* اندازه‌ها از همان `font-size`های پیشین گرفته شده‌اند تا چیدمان تکان
+   نخورد: `.miss .mi` ۲۰px بود، `.shop-item .si` ۲۴px، و `.tree-row .tl`
+   متنِ ۱۱٫۵px بود پس آیکنش کوچک‌تر می‌نشیند. */
+.tl .ic, .mi .ic, .si .ic{ display:inline-block; vertical-align:-3px }
+.miss .mi .ic{ width:20px; height:20px }
+.shop-item .si .ic{ width:24px; height:24px; margin:0 auto }
+.tree-row .tl .ic{ width:14px; height:14px; vertical-align:-3px }
+.daily-ayah-ar{font-size:23px;color:var(--gold);text-align:center;margin-bottom:8px}
+.daily-ayah-ar.long{font-size:17px;line-height:2.15}
+.daily-fa{font-size:13px;color:var(--txt);text-align:center;line-height:2}
+.daily .ref{font-size:11px;color:var(--mut);text-align:center;margin-top:8px}
+.daily .playb{position:absolute;top:10px;left:10px}
+
+/* ── گزینش فونت ── */
+.fpicks{display:grid;gap:8px}
+.fgroup{font-size:11px;color:var(--gold);letter-spacing:.5px;margin:14px 0 2px;
+  display:flex;align-items:center;gap:8px}
+.fgroup:first-child{margin-top:2px}
+.fgroup:after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold2),transparent)}
+.fpick{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;cursor:pointer;transition:.15s;overflow:hidden}
+.fpick:hover{border-color:var(--gold);transform:translateY(-1px)}
+.fpick.on{border-color:var(--gold);background:var(--card2);box-shadow:0 0 0 1px var(--gold2) inset}
+.fpick .fname{flex:1;font-size:13px;min-width:0}
+.fpick .fname small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+/* قلمی که بارگیری نشد باید خودش را نشان دهد. وگرنه کاربر می‌بیند
+   پیش‌نمایشش با بقیه یکی است و فکر می‌کند قلم‌ها شبیه هم‌اند. */
+.fpick.miss{opacity:.62}
+.fpick.miss .fname small::after{content:' · بارگیری نشد — اینترنت را بررسی کن';color:var(--red)}
+.fpick .fdemo{font-size:25px;color:var(--gold);white-space:nowrap;line-height:1.5;
+  padding:.04em .1em .14em;max-width:46%}
+.fpick .fdemo.nast{font-size:28px;line-height:1.85;padding:.08em .14em .3em}
+.fpick .fdemo.kufi{font-size:21px}
+.fpick .tick{font-size:15px;color:var(--gold);opacity:0}
+.fpick.on .tick{opacity:1}
+/* گنجینهٔ نهج‌البلاغه */
+.nahj-list{display:grid;gap:9px;max-height:56vh;overflow-y:auto;padding-inline-end:4px}
+.nahj-card{position:relative;background:var(--card2);border:1px solid var(--line);
+  border-radius:16px;padding:14px 15px 12px 46px}
+/* مثل بقیهٔ قرص‌های طلایی: پرِ گرادیانِ تم با مرکبِ تم. پیش‌تر گرادیانِ
+   دستیِ روشن→طلایی با متنِ تیرهٔ ثابت بود و در تم روشن، نیمهٔ راستش
+   خوانده نمی‌شد. */
+.nahj-n{position:absolute;inset-inline-start:12px;top:12px;width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;font-size:11px;color:var(--ink);font-weight:800;
+  background:var(--grad);opacity:.85}
+.nahj-ar{font-family:var(--f-quran);font-size:19px;line-height:2.05;color:var(--gold);
+  padding-bottom:.16em;direction:rtl}
+.nahj-fa{font-size:13px;line-height:1.95;margin-top:7px}
+.nahj-src{font-size:11px;color:var(--mut);margin-top:7px}
+.ornsvg{display:block;width:100%;height:22px;opacity:.5;margin:2px 0 10px}
+
+/* ── منبع و توضیح سوال ── */
+.qbox .qsrc{font-size:11px;color:var(--gold);opacity:.9;margin-bottom:9px;letter-spacing:.3px}
+.qbox .qhint{display:inline-block;margin-top:11px;font-size:11px;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--line);color:var(--mut)}
+.qbox .qhint.d1{border-color:rgba(90,200,140,.5);color:var(--grn)}
+.qbox .qhint.d2{border-color:rgba(245,196,81,.5);color:var(--gold)}
+.qbox .qhint.d3{border-color:rgba(230,110,110,.5);color:var(--red)}
+.qwhy{margin-top:12px;border-radius:16px;padding:13px 15px;border:1px solid var(--line);
+  background:var(--card);animation:pop .25s}
+.qwhy.good{border-color:rgba(90,200,140,.42);background:linear-gradient(160deg,rgba(90,200,140,.1),var(--card))}
+.qwhy.bad{border-color:rgba(230,110,110,.42);background:linear-gradient(160deg,rgba(230,110,110,.1),var(--card))}
+.qwhy-h{font-size:12.5px;font-weight:700;margin-bottom:7px}
+.qwhy-b{font-size:13px;line-height:2;color:var(--txt)}
+.qwhy-s{font-size:11px;color:var(--gold);margin-top:8px;line-height:1.8}
+} /* ── پایان لایهٔ base ── */
+
+/* ════════════════════════════════════════════════════════════════
+   لایهٔ anim — حرکت. همه‌جا فقط transform و opacity (GPU-friendly).
+   ════════════════════════════════════════════════════════════════ */
+@layer anim {
+@keyframes fadeUp   { from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none} }
+@keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+@keyframes scaleIn  { from{opacity:0; transform:scale(.9)} to{opacity:1; transform:none} }
+@keyframes popIn    { 0%{opacity:0;transform:scale(.6)} 60%{opacity:1;transform:scale(1.08)} 100%{transform:scale(1)} }
+@keyframes slideDown{ from{opacity:0; transform:translateY(-18px)} to{opacity:1; transform:none} }
+@keyframes slideInR { from{opacity:0; transform:translateX(26px)} to{opacity:1; transform:none} }
+@keyframes slideInL { from{opacity:0; transform:translateX(-26px)} to{opacity:1; transform:none} }
+@keyframes shakeX   { 0%,100%{transform:translateX(0)} 18%{transform:translateX(-7px)}
+                      36%{transform:translateX(6px)} 54%{transform:translateX(-4px)} 76%{transform:translateX(2px)} }
+@keyframes pulseOk  { 0%{box-shadow:0 0 0 0 rgba(47,211,155,.55)} 100%{box-shadow:0 0 0 22px rgba(47,211,155,0)} }
+@keyframes ring     { 0%{transform:scale(.9);opacity:.7} 70%{transform:scale(1.5);opacity:0} 100%{opacity:0} }
+@keyframes shine    { from{transform:translateX(-120%)} to{transform:translateX(220%)} }
+@keyframes floaty   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+@keyframes kenburns { from{transform:scale(1) translate(0,0)} to{transform:scale(1.13) translate(-2%,-3%)} }
+@keyframes spinSlow { to{transform:rotate(360deg)} }
+@keyframes dots     { 0%,80%,100%{opacity:.25;transform:translateY(0)} 40%{opacity:1;transform:translateY(-4px)} }
+@keyframes bounceY  { 0%,100%{transform:translateY(0)} 35%{transform:translateY(-6px)} 60%{transform:translateY(-2px)} }
+@keyframes glowPulse{ 0%,100%{filter:drop-shadow(0 0 6px rgba(245,196,81,.35))}
+                      50%{filter:drop-shadow(0 0 18px rgba(245,196,81,.75))} }
+@keyframes irisOut  { to{clip-path:circle(0% at 50% 46%); opacity:0} }
+@keyframes curtainOut{ to{transform:translateY(-101%); opacity:.4} }
+@keyframes riseIn   { from{opacity:0; transform:translateY(8px) scale(.98)} to{opacity:1; transform:none} }
+
+/* ═══════════════ انیمیشن‌های مرجعِ طراحی ═══════════════
+   هر ۱۸ کی‌فریمِ فایلِ مرجع، با پیشوندِ `sk-`.
+
+   چرا پیشوند؟ سه نام از این‌ها در همین پرونده *از قبل* وجود داشت و
+   بازنویسی‌شان یک باگِ خاموش می‌ساخت — انیمیشنِ جای دیگری بی‌هیچ
+   خطایی عوض می‌شد:
+     float  → خطِ ۵۹۰  (شناوریِ نشان‌ها)  ← از `sk-float` استفاده کنید
+     shine  → خطِ ۶۰۰ و ۸۴۰ (دو بار تعریف شده!)
+     pop    → خطِ ۱۵۵  (ورودِ گزینه‌ها)   ← از `sk-pop` استفاده کنید
+   پس نامِ تازه هرگز روی نامِ موجود نمی‌نشیند.
+
+   توجه: مرجع ۱۷ گفته شده بود، ولی فایلِ مرجع ۱۸ تا دارد
+   (`entrance` هم شمرده شد). همه پیاده شدند. */
+@keyframes sk-entrance { from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:translateY(0)} }
+@keyframes sk-float    { 0%,100%{transform:translateY(0) rotate(-1.5deg)} 50%{transform:translateY(-7px) rotate(1.5deg)} }
+@keyframes sk-drift    { to{transform:translate(55px,60px) scale(1.18)} }
+@keyframes sk-rotate   { to{transform:rotate(360deg)} }
+@keyframes sk-keyPulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+@keyframes sk-key-unlock {
+  0%  {opacity:0; transform:rotate(-45deg) translate(0,20px)}
+  25% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  50% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  75% {opacity:1; transform:rotate(0deg)   translate(0,0)}
+  100%{opacity:1; transform:rotate(90deg)  translate(0,0)} }
+@keyframes sk-key-reject {
+  0%  {opacity:0; transform:rotate(-45deg) translate(0,20px)}
+  20% {opacity:1; transform:rotate(-45deg) translate(0,0)}
+  45% {transform:rotate(-45deg) translate(0,0)}
+  55% {transform:rotate(-30deg) translate(-4px,0)}
+  70% {transform:rotate(-45deg) translate(0,0)}
+  100%{opacity:0; transform:rotate(-45deg) translate(0,20px)} }
+@keyframes sk-shackle-open { 0%{transform:translateY(0) rotate(0)} 60%{transform:translateY(-12px) rotate(30deg)} 100%{transform:translateY(-9px) rotate(32deg)} }
+@keyframes sk-shackle-jam  { 0%,100%{transform:translateY(0)} 25%{transform:translateY(-4px) rotate(-3deg)} 75%{transform:translateY(2px) rotate(3deg)} }
+@keyframes sk-lock-clunk   { 0%,100%{transform:translateX(0)} 30%{transform:translateX(-3px)} 60%{transform:translateX(3px)} }
+@keyframes sk-body-shake   { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)}
+                             60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+@keyframes sk-flash-ring   { 0%{opacity:0; transform:scale(.7)} 50%{opacity:1; transform:scale(1.05)} 100%{opacity:0; transform:scale(1.4)} }
+@keyframes sk-spark-burst  { 0%{opacity:0; transform:translate(0,0) scale(0)}
+                             20%{opacity:1; transform:translate(calc(var(--tx) * .5),calc(var(--ty) * .5)) scale(1.4)}
+                             100%{opacity:0; transform:translate(var(--tx),var(--ty)) scale(.4)} }
+@keyframes sk-shine  { 0%,55%{transform:translateX(140%) skewX(-22deg)} 100%{transform:translateX(-180%) skewX(-22deg)} }
+@keyframes sk-pop    { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+@keyframes sk-blink  { 0%,100%{opacity:1} 50%{opacity:.45} }
+@keyframes sk-twinkle{ 0%,100%{opacity:.35; transform:scale(.85)} 50%{opacity:1; transform:scale(1.15)} }
+@keyframes sk-wave   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+/* فاز ۳: توست از راست می‌آید، نه از بالا. در چیدمانِ RTL «از راست آمدن»
+   یعنی از همان سمتی که چشمِ کاربر انتظارِ خبر دارد. */
+@keyframes sk-toast  { from{opacity:0; transform:translateX(30px) scale(.97)} to{opacity:1; transform:none} }
+@keyframes sk-toastOut{ from{opacity:1; transform:none} to{opacity:0; transform:translateX(30px) scale(.97)} }
+/* درخششِ دکمه. `sk-shine` نسخهٔ لغزاندنِ جعبه است که به `overflow:hidden`
+   نیاز داشت؛ این یکی فقط گرادیانِ پس‌زمینه را جابه‌جا می‌کند، پس دکمه
+   می‌تواند هر عرضی داشته باشد و متنش هرگز بریده نمی‌شود. */
+@keyframes sk-sheen  { 0%{background-position:180% 0} 55%,100%{background-position:-60% 0} }
+
+.a-in     { animation:fadeUp .42s cubic-bezier(.22,.9,.3,1) both }
+.a-fade   { animation:fadeIn .5s both }
+.a-scale  { animation:scaleIn .34s cubic-bezier(.22,.9,.3,1) both }
+.a-pop    { animation:popIn .4s cubic-bezier(.22,1.2,.36,1) both }
+.a-rise   { animation:riseIn .34s cubic-bezier(.22,.9,.3,1) both }
+.a-shake  { animation:shakeX .42s cubic-bezier(.36,.07,.19,.97) both }
+.a-pulse  { animation:pulseOk .6s ease-out both }
+.a-shine  { position:relative; overflow:hidden }
+.a-shine:after{ content:""; position:absolute; inset:0 auto 0 0; width:34%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);
+  animation:shine 1.5s ease-out }
+.a-float  { animation:floaty 3.6s ease-in-out infinite }
+.a-ken    { animation:kenburns 22s ease-in-out infinite alternate }
+
+/* ── ۲.۱ پردهٔ آغازین: پارالاکس، ذرات، نوشتن بِسْمِ الله، خروج ── */
+#splash{ will-change:clip-path,opacity }
+#splash.out-iris { animation:irisOut .72s cubic-bezier(.6,0,.4,1) forwards }
+#splash.out-curtain{ animation:curtainOut .68s cubic-bezier(.6,0,.4,1) forwards }
+.sp-canvas-hold{ position:absolute; inset:0; overflow:hidden; pointer-events:none }
+/* پارالاکس: لایهٔ پشت مطلق است، دو لایهٔ جلو در جریان flex می‌مانند و فقط translate می‌خورند */
+.sp-layer{ will-change:transform; transition:transform .28s ease-out; transform:translateZ(0) }
+.sp-par1{ position:absolute; inset:-4%; pointer-events:none }
+.sp-par2{ display:grid; place-items:center; width:100% }
+.sp-par3{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100% }
+.sp-par2 .sp-stage{ max-height:38vh }
+.sp-par2 .sp-stage svg{ max-height:38vh; width:auto; max-width:100%; margin-inline:auto }
+#spDust{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none }
+.sp-pat{ pointer-events:none }
+.sp-star{ position:absolute; border-radius:50%; background:var(--gold); opacity:.0;
+  animation:starIn 1.4s ease-out forwards, floaty 5s ease-in-out infinite 1.4s }
+@keyframes starIn{ from{opacity:0; transform:scale(.2)} to{opacity:var(--o,.6); transform:scale(1)} }
+/* نوشتن بِسْمِ الله با پردهٔ ماسک که کنار می‌رود */
+.sp-bism{ position:relative; display:inline-block; overflow:hidden; padding:.1em .2em }
+.sp-bism .ink{ display:block; font-family:var(--f-quran); }
+.sp-bism .veil{ position:absolute; inset:0; background:linear-gradient(90deg,var(--bg) 0 62%,transparent);
+  transform-origin:right center; animation:veil .95s .35s cubic-bezier(.7,0,.3,1) forwards }
+@keyframes veil{ to{transform:translateX(-104%) } }
+.sp-iris{ position:absolute; left:50%; top:46%; width:150vmax; height:150vmax; margin:-75vmax 0 0 -75vmax;
+  border-radius:50%; background:radial-gradient(circle,rgba(245,196,81,.16),transparent 62%);
+  animation:irisGrow 2.4s ease-out both }
+@keyframes irisGrow{ from{transform:scale(.15); opacity:0} to{transform:scale(1); opacity:1} }
+.sp-seen{ animation:fadeUp .6s both }
+.sp-latin{ font-size:11px; color:var(--mut); letter-spacing:7px; margin-top:-4px; text-align:center }
+.sp-roles{ display:grid; gap:6px; font-size:11.5px; color:var(--mut); text-align:center }
+.sp-roles span{ display:block }
+.sp-bar{ position:relative; overflow:hidden }
+.sp-bar .fill{ transition:width .5s cubic-bezier(.22,.9,.3,1) }
+
+/* ── ۲.۲ خانه: ورود پله‌ای، تیلت، شمارش، درخشش نوار ── */
+.stagger > *{ animation:fadeUp .5s cubic-bezier(.22,.9,.3,1) both;
+  animation-delay:calc(var(--i,0) * 55ms) }
+.tilt{ transform-style:preserve-3d; transition:transform .22s ease-out;
+  will-change:transform }
+.tilt .tilt-in{ transform:translateZ(22px) }
+.hero-art{ overflow:hidden }
+.hero-art .ken{ animation:kenburns 24s ease-in-out infinite alternate }
+.count{ font-variant-numeric:tabular-nums }
+.bar-shine:after{ content:""; position:absolute; inset:0; border-radius:inherit;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);
+  animation:shine 1.1s ease-out }
+
+/* ── ۲.۳ بازی‌ها ── */
+.opt{ animation:slideInR .32s cubic-bezier(.22,.9,.3,1) both;
+  animation-delay:calc(var(--i,0) * 60ms) }
+.qbox.q-enter{ animation:fadeUp .34s cubic-bezier(.22,.9,.3,1) both }
+.opt.right{ animation:pulseOk .55s ease-out both }
+.opt.wrong{ animation:shakeX .42s cubic-bezier(.36,.07,.19,.97) both }
+.starfly{ position:fixed; pointer-events:none; z-index:900; font-size:18px; will-change:transform,opacity }
+.combo-pop{ animation:popIn .5s cubic-bezier(.22,1.2,.36,1) both }
+.mcard{ perspective:900px }
+.mcard .mface{ transform-style:preserve-3d; transition:transform .46s cubic-bezier(.3,.8,.3,1) }
+.mcard.open .mface{ transform:rotateY(180deg) }
+.mcard .mback,.mcard .mfront{ backface-visibility:hidden; position:absolute; inset:0 }
+.mcard .mfront{ transform:rotateY(180deg) }
+.dz-piece{ animation:dropIn .42s cubic-bezier(.34,1.4,.5,1) both }
+@keyframes dropIn{ from{opacity:0; transform:translateY(-38px) scale(.7)} to{opacity:1; transform:none} }
+.flip-tile{ transition:transform .36s cubic-bezier(.3,.9,.3,1) }
+.levelburst{ animation:popIn .7s cubic-bezier(.22,1.2,.36,1) both }
+.lv-burst{ position:fixed; inset:0; pointer-events:none; z-index:950 }
+
+/* ── ۲.۴ محفل و چت ── */
+.chat-line{ animation:slideInR .3s cubic-bezier(.22,.9,.3,1) both }
+.chat-line.me{ animation-name:slideInL }
+.typing{ display:inline-flex; gap:3px; align-items:center }
+.typing i{ width:5px; height:5px; border-radius:50%; background:var(--mut); display:block;
+  animation:dots 1.2s infinite }
+.typing i:nth-child(2){ animation-delay:.18s }
+.typing i:nth-child(3){ animation-delay:.36s }
+.av-pulse{ position:relative }
+.av-pulse.on:after{ content:""; position:absolute; inset:-4px; border-radius:50%;
+  border:2px solid var(--grn); animation:ring 1.6s ease-out infinite }
+.lbrow .fill{ transition:width .7s cubic-bezier(.22,.9,.3,1) }
+.react-fly{ position:fixed; font-size:26px; pointer-events:none; z-index:940;
+  animation:reactFly 1.5s cubic-bezier(.2,.8,.3,1) forwards }
+@keyframes reactFly{ 0%{opacity:0; transform:translateY(0) scale(.5)}
+  18%{opacity:1; transform:translateY(-26px) scale(1.15)}
+  100%{opacity:0; transform:translateY(-140px) scale(.85)} }
+
+/* ── ۲.۵ سراسری ── */
+body.nav-bounce #nav .navi.on .ni{ animation:bounceY .46s ease-out }
+#nav .navi{ transition:transform .18s ease-out }
+#modal .box{ animation:scaleIn .3s cubic-bezier(.22,.9,.3,1) both }
+#modal.closing .box{ animation:scaleIn .22s cubic-bezier(.4,0,1,1) reverse both }
+.toast{ animation:slideDown .4s cubic-bezier(.22,1.15,.36,1) both }
+.toast.out{ animation:fadeIn .28s reverse both }
+#dustBg{ position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.55 }
+.badge-open{ animation:popIn .6s cubic-bezier(.22,1.2,.36,1) both }
+.badge-halo{ animation:glowPulse 2.4s ease-in-out infinite }
+@media (prefers-reduced-motion:no-preference){
+  .screen.on > .card, .screen.on > .grid{ animation:fadeUp .45s both }
+}
+
+/* ── حالت تمرکز (Focus Mode) ── */
+body.focus #top,body.focus #nav,body.focus #miniQ,body.focus .stats,
+body.focus #cats,body.focus #daily,body.focus .hero{ display:none }
+body.focus #s-read{ padding-top:14px }
+body.focus .read-tools{ opacity:.35; transition:opacity .25s }
+body.focus .read-tools:hover,body.focus .read-tools:focus-within{ opacity:1 }
+#focusExit{ position:fixed; top:12px; inset-inline-end:12px; z-index:80 }
+body.focus #focusExit{ animation:fadeIn .3s both }
+
+/* ── بازی‌های تازه ── */
+.had-slot{ display:inline-block; min-width:104px; border-bottom:2px dashed var(--gold2);
+  text-align:center; color:var(--gold); font-family:var(--f-quran); font-size:20px;
+  line-height:1.9; padding:0 .3em; transition:.2s }
+.had-slot.empty{ opacity:.4 }
+.had-bank{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px }
+.had-chip{ font-family:var(--f-quran); font-size:19px; padding:7px 13px; border-radius:14px;
+  background:var(--card2); border:1px solid var(--line); cursor:pointer; transition:.16s;
+  transform:translateZ(0) }
+.had-chip:hover{ border-color:var(--gold); transform:translateY(-2px) }
+.had-chip.used{ opacity:.28; pointer-events:none }
+.imam-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:9px }
+.imam-card{ position:relative; border-radius:16px; padding:13px 11px; text-align:center;
+  background:var(--card2); border:1px solid var(--line); cursor:pointer; transition:.18s }
+.imam-card:hover{ transform:translateY(-3px); border-color:var(--gold) }
+.imam-card.done{ border-color:var(--grn) }
+.imam-card .ino{ font-size:22px; font-weight:800; color:var(--gold) }
+.imam-card .inm{ font-size:11.5px; margin-top:5px; line-height:1.8 }
+.imam-card .itick{ position:absolute; top:7px; inset-inline-start:8px; font-size:12px; opacity:0 }
+.imam-card.done .itick{ opacity:1 }
+.dua-tray{ display:flex; flex-wrap:wrap; gap:7px; min-height:56px; padding:9px; border-radius:14px;
+  background:var(--card2); border:1px dashed var(--line); align-items:flex-start }
+.dua-word{ font-family:var(--f-quran); font-size:20px; padding:5px 11px; border-radius:12px;
+  background:var(--card); border:1px solid var(--line); cursor:pointer; transition:.16s }
+.dua-word.ok{ border-color:var(--grn) }
+.dua-src{ font-size:11px; color:var(--mut); margin-top:10px; line-height:1.9 }
+
+/* ── مأموریت، کلکسیون، درخت دانش ── */
+.miss{ display:flex; gap:10px; align-items:flex-start; padding:11px 12px; border-radius:14px;
+  background:var(--card2); border:1px solid var(--line) }
+.miss.done{ border-color:rgba(47,211,155,.45); background:linear-gradient(160deg,rgba(47,211,155,.09),var(--card2)) }
+.miss .mi{ font-size:20px }
+.miss .mb{ flex:1; min-width:0 }
+.miss .mt{ font-size:12.5px; font-weight:700 }
+.miss .md{ font-size:11px; color:var(--mut); margin-top:3px }
+.miss .mp{ height:5px; border-radius:4px; background:var(--line); margin-top:7px; overflow:hidden }
+.miss .mp i{ display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--gold2));
+  transition:width .6s cubic-bezier(.22,.9,.3,1) }
+.coll-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:9px }
+.coll{ text-align:center; padding:12px 6px; border-radius:16px; background:var(--card2);
+  border:1px solid var(--line); opacity:.42; filter:grayscale(1) }
+.coll.got{ opacity:1; filter:none; border-color:var(--gold);
+  box-shadow:0 0 0 1px var(--gold2) inset }
+.coll .ci{ font-size:26px; display:block }
+.coll .cn{ font-size:11px; margin-top:6px; line-height:1.6 }
+.tree-wrap{ position:relative; padding:6px 0 }
+.tree-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px }
+.tree-row .tl{ width:112px; font-size:11.5px; color:var(--mut); text-align:end; flex:none }
+.tree-row .tb{ flex:1; height:16px; border-radius:9px; background:var(--line); position:relative; overflow:hidden }
+.tree-row .tb i{ position:absolute; inset-block:0; inset-inline-start:0; border-radius:9px;
+  background:linear-gradient(90deg,var(--gold2),var(--gold)); transition:width .8s cubic-bezier(.22,.9,.3,1) }
+.tree-row .tn{ width:38px; font-size:11px; color:var(--gold); flex:none; text-align:start }
+
+/* ── دسترس‌پذیری ── */
+.sr{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0 0 0 0); white-space:nowrap; border:0 }
+/* outline-offset خودش از گردیِ خودِ عنصر پیروی می‌کند؛ border-radius
+   این‌جا فقط شکلِ عنصر را عوض می‌کرد (دکمهٔ گردِ پخش وقتی با تب‌گردی
+   روی آن می‌رفت مربعی می‌شد). */
+:focus-visible{ outline:3px solid var(--gold); outline-offset:2px }
+[aria-busy="true"]{ cursor:progress }
+
+/* ── پنل اشکال‌زدایی ?debug=1 ── */
+#dbg{ position:fixed; inset-inline-start:10px; bottom:calc(78px + env(safe-area-inset-bottom,0px)); z-index:500; width:min(92vw,340px);
+  max-height:52vh; overflow:auto; background:var(--float2); border:1px solid var(--line);
+  border-radius:16px; padding:12px 14px; font:11.5px/1.9 ui-monospace,monospace; color:var(--txt);
+  backdrop-filter:blur(8px); display:none }
+#dbg.on{ display:block }
+#dbg b{ color:var(--gold) }
+#dbg .k{ color:var(--mut) }
+#dbgBtn{ position:fixed; inset-inline-start:10px; bottom:calc(44px + env(safe-area-inset-bottom,0px)); z-index:501; width:34px; height:34px;
+  border-radius:50%; display:none; place-items:center; background:var(--card);
+  border:1px solid var(--line); color:var(--gold); font-size:15px }
+#dbgBtn.on{ display:grid }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   لایهٔ theme — تم روشن. چون بعد از base می‌آید، روی آن می‌نشیند.
+   ════════════════════════════════════════════════════════════════ */
+@layer theme {
+/* ── تم روشن: اندازه‌گیری‌شده، نه چشمی ──
+   سه رنگ در نسخهٔ پیشین از حدِ AA رد می‌شدند و روی هر سه سطح روشن
+   (bg / card / card2) سنجیده و اصلاح شدند:
+     --gold  #b8801a → #8f6314   (۳٫۰۹ → ۴٫۶۲ در بدترین حالت)
+     --grn   #12855f → #117a57   (۴٫۱۷ → ۴٫۶۴)
+     --mut   #7d6f58 → #776a54   (۴٫۴۲ → ۴٫۶۱)
+   بقیه از قبل می‌گذشتند و دست نخوردند. */
+html[data-theme="light"]{
+  --bg:#f7f3ea; --bg2:#fffdf8; --card:#ffffff; --card2:#f4efe4;
+  --line:#e0d6c2; --txt:#231c10; --mut:#776a54;
+  --gold:#8f6314; --gold2:#8f6210; --grn:#117a57; --red:#c53549;
+  --blu:#2563c9; --prp:#6d43c8;
+  --glow1:#efe4cc; --glow2:#e6efe4;
+  /* --ink = «مرکب روی طلایی»، نه «مرکب روی سطح». تنها جایی که به کار
+     می‌رود متنِ روی var(--grad) است. نسخهٔ پیشین این‌جا #fffaf0 گذاشته
+     بود و نتیجه‌اش متنِ سفید روی طلایی روشن بود: نسبت ۱٫۵۷ به ۱ روی
+     هر دکمهٔ اصلی، تبِ فعال و گزینهٔ انتخاب‌شده. حالا مثل پنج تم دیگر
+     تیره است و نسبت ۸٫۳۳ به ۱ می‌دهد. */
+  --ink:#1a1204;
+  /* پرِ نوارهای پیشرفت با طلاییِ تیره پر می‌شود تا از زمینهٔ روشن جدا
+     بماند (۴٫۶۲ به ۱). گرادیانِ روشنِ --grad این‌جا فقط ۱٫۵ می‌داد. */
+  --fill:linear-gradient(135deg,#8f6314,#8f6210);
+  /* سطحِ شناور در تم روشن هم روشن است؛ وگرنه متنِ --txt (که این‌جا تیره
+     است) روی زمینهٔ تیرهٔ ثابت می‌نشست و ناخوانا می‌شد. */
+  --float1:rgba(255,253,248,.97); --float2:rgba(246,240,228,.97);
+  /* ── شیشه در تم روشن ──
+     اگر این‌ها از `:root` ارث می‌رسیدند، کارتِ شیشه‌ای در تم روشن با
+     رنگِ تیرهٔ تمِ تاریک پر می‌شد و متنِ --txt (که این‌جا تیره است) روی
+     آن گم می‌شد — همان اشتباهی که یک بار با --float1/--float2 رخ داد و
+     در کامنتِ بالای همان توکن‌ها نوشته شده. */
+  --glass:rgba(255,255,255,.78);
+  --glass-edge:rgba(255,255,255,.96);
+  --hairline:rgba(35,28,16,.07);
+  --shadow:rgba(44,73,129,.24);
+  --sheen:rgba(255,255,255,.5);
+  --orb1:#f0e2c2; --orb2:#dcefe4;
+  color-scheme:light;
+}
+html[data-theme="light"] body{
+  background:
+    radial-gradient(1100px 620px at 50% -12%, var(--glow1), transparent 70%),
+    radial-gradient(900px 520px at 118% 8%, var(--glow2), transparent 72%),
+    var(--bg);
+}
+html[data-theme="light"] #nav,
+html[data-theme="light"] #top,
+html[data-theme="light"] #modal .box,
+html[data-theme="light"] .card,
+html[data-theme="light"] .tile,
+html[data-theme="light"] .fpick,
+html[data-theme="light"] .opt,
+html[data-theme="light"] #dbg{ background:var(--card) }
+html[data-theme="light"] #nav{ box-shadow:0 -6px 22px rgba(80,60,20,.09) }
+html[data-theme="light"] .sp-title,
+html[data-theme="light"] .hero h1{
+  background:linear-gradient(178deg,#8f6210,#b8801a 42%,#7a5409);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  filter:none }
+html[data-theme="light"] #splash{ background:linear-gradient(180deg,#fffdf8,#f2ead8) }
+html[data-theme="light"] #dustBg{ opacity:.35 }
+html[data-theme="light"] .nahj-ar{ color:#8f6210 }
+html[data-theme="light"] .read-ar{ color:#2a2114 }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   لایهٔ comp — اجزای تازهٔ نسخهٔ ۱۵
+   ════════════════════════════════════════════════════════════════ */
+@layer comp {
+/* ── تصویر با واپس‌روی به SVG ── */
+.art-img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:inherit;
+  background:var(--card2); opacity:0; transition:opacity .5s ease-out }
+.art-img.ld{ opacity:1 }
+.art-svg{ display:block; width:100%; height:100% }
+.art-svg svg{ display:block; width:100%; height:100% }
+
+/* ── گزینشگر قاری ── */
+.rec-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:9px }
+.rec{ display:flex; gap:9px; align-items:center; padding:9px; border-radius:15px;
+  background:var(--card2); border:1px solid var(--line); cursor:pointer; transition:.16s }
+.rec:hover{ transform:translateY(-2px); border-color:var(--gold) }
+.rec.on{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold2) inset }
+.rec .rav{ width:38px; height:38px; border-radius:50%; flex:none; overflow:hidden;
+  border:1.5px solid var(--gold2); display:grid; place-items:center; font-size:17px;
+  background:var(--card) }
+.rec .rn{ font-size:11.5px; font-weight:700; line-height:1.6 }
+.rec .rc{ font-size:11px; color:var(--mut) }
+.rec .prev{ width:28px; height:28px; border-radius:50%; flex:none; display:grid; place-items:center;
+  background:var(--card); border:1px solid var(--line); font-size:11px; cursor:pointer }
+.rec .prev.on{ background:var(--grad); color:var(--ink); border-color:transparent }
+
+/* ── نشانه‌ها و ادامهٔ خواندن ── */
+.bm-row{ display:flex; gap:9px; align-items:center; padding:10px 11px; border-radius:14px;
+  background:var(--card2); border:1px solid var(--line); margin-bottom:7px }
+.bm-row .bi{ font-size:17px }
+.bm-row .bb{ flex:1; min-width:0; font-size:12px }
+.bm-row .bd{ font-size:11px; color:var(--mut); margin-top:3px }
+.bm-row .bx{ font-size:15px; color:var(--mut); cursor:pointer; padding:4px 7px }
+.bm-row .bx:hover{ color:var(--red) }
+.resume-bar{ display:flex; gap:9px; align-items:center; padding:9px 12px; border-radius:14px;
+  background:linear-gradient(160deg,rgba(245,196,81,.13),var(--card2));
+  border:1px solid var(--gold2); margin-bottom:11px }
+.resume-bar .rb{ flex:1; font-size:12px; min-width:0 }
+.resume-bar .ri{ font-size:19px; flex:none }
+/* نوار «ادامهٔ بازی» در صدر صفحهٔ بازی‌ها — کمی گرم‌تر از نوار ادامهٔ خواندن */
+.resume-bar.as-bar{ background:linear-gradient(160deg,rgba(245,196,81,.2),var(--card2));
+  animation:asIn .34s cubic-bezier(.2,1.3,.4,1) both }
+.resume-bar.as-bar .rb b{ font-size:12.5px }
+@keyframes asIn{ from{ opacity:0; transform:translateY(-9px) scale(.98) } to{ opacity:1; transform:none } }
+
+/* ── تکرار شبانه ── */
+.night-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px }
+.night-row select,.night-row input[type=number]{ background:var(--card2); color:var(--txt);
+  border:1px solid var(--line); border-radius:11px; padding:6px 9px; font:inherit }
+.fade-note{ font-size:11px; color:var(--mut); margin-top:6px; line-height:1.8 }
+
+/* ── کارت اشتراک‌گذاری آیه ── */
+#shareWrap{ display:grid; place-items:center; gap:11px }
+#shareCv{ max-width:100%; border-radius:16px; border:1px solid var(--gold2);
+  box-shadow:0 10px 34px rgba(0,0,0,.4) }
+
+/* ── مأموریت روزانه ── */
+.miss-list{ display:grid; gap:8px }
+.prize{ display:flex; gap:10px; align-items:center; padding:11px 12px; border-radius:14px;
+  background:linear-gradient(160deg,rgba(245,196,81,.14),var(--card2));
+  border:1px solid var(--gold2); font-size:12px }
+
+/* ── دوستان و دعوت ── */
+.fr-row{ display:flex; gap:9px; align-items:center; padding:9px 11px; border-radius:14px;
+  background:var(--card2); border:1px solid var(--line); margin-bottom:7px }
+.fr-row .fav{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:var(--card); border:1px solid var(--line); font-size:15px; flex:none }
+.fr-row .fb{ flex:1; min-width:0; font-size:12px }
+.fr-row .fd{ font-size:11px; color:var(--mut) }
+.invite-box{ display:flex; gap:7px; align-items:center; margin-top:9px }
+.invite-box input{ flex:1; background:var(--card2); color:var(--txt); border:1px solid var(--line);
+  border-radius:12px; padding:9px 11px; font:11px/1.6 ui-monospace,monospace; direction:ltr }
+
+/* ── تماشاچی و واکنش زنده ── */
+.spec-badge{ font-size:11px; padding:3px 9px; border-radius:9px; background:var(--card2);
+  border:1px solid var(--line); color:var(--mut) }
+.emoji-bar{ display:flex; gap:6px; flex-wrap:wrap; margin-top:9px }
+.emoji-bar button{ font-size:19px; padding:6px 9px; border-radius:13px; background:var(--card2);
+  border:1px solid var(--line); cursor:pointer; transition:.15s }
+.emoji-bar button:hover{ transform:translateY(-3px) scale(1.08); border-color:var(--gold) }
+.voice-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--mut);
+  vertical-align:middle }
+.voice-dot.on{ background:var(--grn); animation:glowPulse 1.3s infinite }
+
+/* ── بازی حدیث‌یاب ── */
+.had-text{ font-family:var(--f-quran); font-size:20px; line-height:2.4; text-align:center;
+  padding:14px 10px; direction:rtl }
+.had-src{ font-size:11px; color:var(--mut); text-align:center; margin-top:9px }
+
+/* ── بازی چهارده معصوم ── */
+.imam-q{ text-align:center; font-size:13px; line-height:2; margin-bottom:12px }
+.imam-hint{ font-size:11px; color:var(--mut); text-align:center; margin-top:11px; line-height:2.1 }
+.imam-hint b{ color:var(--txt) }
+.laqab-list{ color:var(--gold); font-size:12px; line-height:2.2; display:inline-block }
+
+/* ── بازی نجوا (چیدن کلمات دعا) ── */
+.dua-target{ text-align:center; font-size:11.5px; color:var(--mut); line-height:2.1;
+  margin-bottom:9px }
+.dua-done{ font-family:var(--f-quran); font-size:20px; line-height:2.2; text-align:center;
+  padding:12px; border-radius:14px; background:var(--card2); border:1px solid var(--line);
+  direction:rtl; min-height:54px }
+
+/* ── حالت سازگاری ── */
+.adapt-note{ font-size:11px; color:var(--gold); text-align:center; margin-top:9px }
+.winrec{ font-size:11.5px; line-height:2; text-align:center; padding:11px;
+  border-radius:14px; background:var(--card2); border:1px solid var(--line) }
+
+/* ── نمودار میله‌ای زندهٔ محفل ── */
+.lbwrap{ display:grid; gap:7px }
+.lbrow{ display:flex; align-items:center; gap:8px }
+.lbrow .av{ display:grid; place-items:center; background:var(--card2); border:1px solid var(--line) }
+.lbbar{ height:14px; border-radius:8px; background:var(--line); overflow:hidden; display:block;
+  position:relative }
+.lbbar .fill{ display:block; height:100%; border-radius:8px;
+  background:linear-gradient(90deg,var(--gold2),var(--gold)); box-shadow:0 0 10px rgba(245,196,81,.35) }
+
+/* ── نوار «ادامهٔ خواندن» و کلیدهای صفحهٔ بازی ── */
+.tile[data-th].on{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold2) inset }
+.btn.gh{ background:var(--card2) }
+.wbx{ background:none; border:0; color:var(--mut); font-size:15px; cursor:pointer; padding:4px 7px }
+.wbx:hover{ color:var(--red) }
+.typing-row{ color:var(--mut); font-size:11px; display:flex; gap:5px; align-items:center }
+.screen{ scroll-margin-top:8px }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   لایهٔ motion — احترام به prefers-reduced-motion
+   ════════════════════════════════════════════════════════════════ */
+@layer motion {
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:.001ms !important; scroll-behavior:auto !important }
+  #dustBg,.starfly,.lv-burst,.react-fly{ display:none !important }
+  .hero-art .ken{ animation:none }
+  .tilt{ transform:none !important }
+  .confetti{ display:none !important }
+}
+html[data-motion="off"] .starfly,
+html[data-motion="off"] .react-fly,
+html[data-motion="off"] .lv-burst{ display:none !important }
+html[data-motion="off"] .hero-art .ken{ animation:none }
+html[data-motion="off"] *{ animation-duration:.001ms !important; transition-duration:.06s !important }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   لایهٔ utils — آخرین لایه، پس بر همه چیز می‌نشیند
+   ════════════════════════════════════════════════════════════════ */
+@layer utils {
+.hide{ display:none !important }
+.nowrap{ white-space:nowrap }
+.cup{ cursor:pointer }
+.dim{ opacity:.6 }
+.noscroll{ overflow:hidden }
+.mt6{ margin-top:6px } .mt10{ margin-top:10px } .mt14{ margin-top:14px }
+.row{ display:flex; gap:8px; align-items:center }
+.row.wrap{ flex-wrap:wrap }
+.grow{ flex:1; min-width:0 }
+.tiny{ font-size:11px; color:var(--mut) }
+.ctr{ text-align:center }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   نورستان ۱۶ — اجزای تازه (تازه‌وارد، راهنما، پروفایل، سکه، فروشگاه)
+   این بلوک بیرون از @layer است تا لایه‌های پیشین آن را بازنویسی نکنند.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── تازه‌وارد: چهار اسلاید تمام‌صفحه ── */
+.onb{ position:fixed; inset:0; z-index:10000; display:none; background:var(--bg);
+  padding:calc(env(safe-area-inset-top,0px) + 16px) 20px calc(env(safe-area-inset-bottom,0px) + 16px);
+  flex-direction:column }
+.onb.on{ display:flex }
+.onb-skip{ align-self:flex-start; background:none; border:0; color:var(--mut);
+  font:inherit; font-size:12px; cursor:pointer; padding:6px 2px }
+.onb-slide{ flex:1; display:none; flex-direction:column; align-items:center;
+  justify-content:center; text-align:center; gap:15px }
+.onb-slide.on{ display:flex; animation:onbIn .44s cubic-bezier(.2,1,.3,1) both }
+@keyframes onbIn{ from{ opacity:0; transform:translateY(20px) } to{ opacity:1; transform:none } }
+.onb-art{ width:min(44vw,180px); aspect-ratio:1; display:grid; place-items:center;
+  border-radius:30px; background:radial-gradient(circle at 50% 28%, var(--glow1), var(--bg2));
+  border:1px solid var(--line); font-size:66px; line-height:1 }
+.onb-art svg{ width:64%; height:64% }
+.onb-slide h3{ font-size:20px }
+.onb-slide p{ font-size:13px; color:var(--mut); line-height:1.95; max-width:36ch }
+.onb-dots{ display:flex; gap:7px; justify-content:center; margin:16px 0 }
+.onb-dots i{ width:7px; height:7px; border-radius:50%; background:var(--line); transition:.28s }
+.onb-dots i.on{ width:22px; border-radius:4px; background:var(--grad) }
+.onb-act{ display:flex; gap:10px }
+.onb-act .btn{ flex:1 }
+
+/* ── راهنمای شناور: هر عنصر با data-tip ── */
+[data-tip]{ position:relative }
+.tipb{ position:fixed; z-index:9500; max-width:min(78vw,270px); background:var(--card2);
+  color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:8px 11px;
+  font-size:11.5px; line-height:1.8; box-shadow:0 12px 34px rgba(0,0,0,.5);
+  animation:tipIn .2s ease both; pointer-events:none }
+@keyframes tipIn{ from{ opacity:0; transform:translateY(6px) scale(.95) } to{ opacity:1; transform:none } }
+
+/* ── چهرک: رنگ از شناسهٔ بازیکن می‌آید، پس همیشه یک رنگ دارد ── */
+.ava{ width:52px; height:52px; border-radius:50%; display:grid; place-items:center;
+  font-size:26px; background:var(--card2); border:2px solid var(--line); flex:none; position:relative }
+.ava.sm{ width:38px; height:38px; font-size:19px; border-width:1.5px }
+.ava.lg{ width:84px; height:84px; font-size:44px; border-width:3px }
+.ava.ring::after{ content:''; position:absolute; inset:-6px; border-radius:50%;
+  border:2px solid var(--gold); opacity:.45; animation:avaPulse 2.6s ease-in-out infinite }
+@keyframes avaPulse{ 50%{ transform:scale(1.08); opacity:.18 } }
+.ava-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(46px,1fr)); gap:8px }
+.ava-pick{ aspect-ratio:1; border-radius:14px; border:1.5px solid var(--line);
+  background:var(--card2); font-size:22px; display:grid; place-items:center; cursor:pointer }
+.ava-pick.on{ border-color:var(--gold); background:var(--glow1) }
+
+/* ── حلقهٔ پیشرفت ── */
+.ring{ position:relative; width:96px; height:96px; flex:none }
+.ring svg{ width:100%; height:100%; transform:rotate(-90deg) }
+.ring .rt{ stroke:var(--line); fill:none }
+.ring .rf{ stroke:var(--gold); fill:none; stroke-linecap:round;
+  transition:stroke-dashoffset .85s cubic-bezier(.2,1,.3,1) }
+.ring .rv{ position:absolute; inset:0; display:grid; place-items:center;
+  text-align:center; line-height:1.25 }
+.ring .rv b{ font-size:19px; display:block }
+.ring .rv span{ font-size:11px; color:var(--mut) }
+.xpbar{ height:7px; border-radius:5px; background:var(--line); overflow:hidden; margin-top:8px }
+.xpbar i{ display:block; height:100%; background:var(--grad); border-radius:5px;
+  transition:width .75s cubic-bezier(.2,1,.3,1) }
+
+/* ── سرصفحهٔ پروفایل ── */
+.prof{ display:flex; gap:14px; align-items:center; padding:16px; border-radius:18px;
+  background:radial-gradient(circle at 15% 0%, var(--glow1), var(--card)); border:1px solid var(--line) }
+.prof .pb{ flex:1; min-width:0 }
+.prof .pb h3{ font-size:17px; margin-bottom:3px; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap }
+.prof .pb .psub{ font-size:11px; color:var(--mut) }
+.prof .pb .prow{ display:flex; gap:7px; margin-top:9px; flex-wrap:wrap }
+
+/* ── سکه ── */
+.coin{ display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  background:linear-gradient(135deg,rgba(245,196,81,.24),rgba(245,196,81,.07));
+  border:1px solid rgba(245,196,81,.4); font-size:12px; font-weight:700; color:var(--gold) }
+.coin.big{ font-size:15px; padding:7px 14px }
+@keyframes coinPop{ 0%{ transform:scale(1) } 40%{ transform:scale(1.2) } 100%{ transform:scale(1) } }
+.coin.pop{ animation:coinPop .45s cubic-bezier(.2,1.4,.4,1) }
+
+/* ── فروشگاه ── */
+.shop-item{ display:flex; gap:11px; align-items:center; padding:11px; border:1px solid var(--line);
+  border-radius:14px; background:var(--card); margin-bottom:9px }
+.shop-item.owned{ opacity:.6 }
+.shop-item .si{ font-size:24px; flex:none; width:38px; text-align:center }
+.shop-item .sb{ flex:1; min-width:0 }
+.shop-item .sb b{ font-size:13px; display:block }
+.shop-item .sb small{ font-size:11px; color:var(--mut); line-height:1.7 }
+.shop-item .sp{ flex:none }
+.shop-item .btn.sm{ padding:7px 12px; font-size:11.5px }
+
+/* ── هشدار زنجیره ── */
+.streak-warn{ display:flex; gap:10px; align-items:center; padding:11px 13px; border-radius:14px;
+  background:linear-gradient(160deg,rgba(255,122,107,.2),var(--card2));
+  border:1px solid rgba(255,122,107,.38); margin-bottom:12px;
+  animation:asIn .34s cubic-bezier(.2,1.3,.4,1) both }
+.streak-warn .swe{ font-size:22px; flex:none }
+.streak-warn b{ font-size:12.5px; display:block }
+.streak-warn small{ font-size:11px; color:var(--mut) }
+/* ─────────── نسخهٔ ۱۶: گام‌های راهنمای نصب ───────────
+   بیرون از @layer نوشته می‌شود تا بر همهٔ لایه‌ها مقدم باشد (همان قاعدهٔ
+   بلوک‌های نسخهٔ ۱۶). هر گام یک شمارهٔ طلایی و یک متن دارد؛ چیدمان با
+   grid تا شماره هرگز زیر متن نرود، حتی در باریک‌ترین صفحه. */
+.steps{ display:flex; flex-direction:column; gap:9px; margin-top:4px }
+.step{ display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start;
+  background:var(--card2); border:1px solid var(--line);
+  border-radius:13px; padding:10px 12px }
+.step b{ display:grid; place-items:center; width:24px; height:24px; flex:0 0 auto;
+  border-radius:50%; font-size:12px; font-weight:700;
+  background:linear-gradient(135deg,#ffd27d,#e0a02c); color:#231603 }
+.step span{ font-size:12.5px; line-height:1.95; color:var(--txt) }
+html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
+/* ── بنر نصب خودکار PWA ──
+   چرا پایین و نه بالا؟ چون بالای صفحه یک سرصفحهٔ چسبان هست
+   (position:sticky; z-index:40) و بنر رویش می‌افتاد. پایین تنها جای
+   آزاد است، ولی سه چیز آن‌جا شلوغی می‌کنند: نوار پایین (z-50)،
+   پخش‌کنندهٔ کوچک قرآن (z-45، فقط هنگام خواندن) و پنل اشکال‌زدایی
+   (z-500). پس جای عمودی بنر با JS از روی ارتفاع واقعی آن‌ها حساب می‌شود،
+   نه با عدد ثابت؛ و z آن ۶۰ است: بالای نوار پایین، پایین‌تر از
+   toastها (۲۰۰) و مودال (۳۰۰) تا هیچ‌وقت رویشان نیفتد. */
+.ib{
+  position:fixed; inset-inline:10px; z-index:60;
+  display:flex; align-items:center; gap:11px;
+  padding:11px 12px; border-radius:16px;
+  border:1px solid var(--line);
+  background:linear-gradient(135deg,var(--float1),var(--float2));
+  backdrop-filter:blur(14px); box-shadow:0 14px 34px rgba(0,0,0,.55);
+  animation:ibIn .34s cubic-bezier(.2,.85,.25,1) both;
+}
+.ib[hidden]{ display:none }
+@keyframes ibIn{ from{ transform:translateY(120%); opacity:0 } to{ transform:none; opacity:1 } }
+.ib.out{ animation:ibOut .22s ease-in both }
+@keyframes ibOut{ to{ transform:translateY(120%); opacity:0 } }
+/* آیکن خودِ برنامه — همان شکل «ن» که در آیکن‌ها هست، کوچک */
+.ib .ib-logo{
+  width:40px; height:40px; flex:0 0 auto; border-radius:12px;
+  background:linear-gradient(135deg,#1b2946,#0a1020);
+  display:grid; place-items:center;
+  box-shadow:inset 0 0 0 1px rgba(245,196,81,.28);
+}
+.ib .ib-logo svg{ width:26px; height:26px; display:block }
+.ib .ib-t{ flex:1; min-width:0 }
+.ib .ib-t b{ display:block; font-size:13px; line-height:1.5 }
+.ib .ib-t small{ display:block; font-size:11px; color:var(--mut); line-height:1.7; margin-top:1px }
+.ib .ib-btns{ display:flex; align-items:center; gap:6px; flex:0 0 auto }
+.ib .ib-go{
+  border:0; cursor:pointer; font:inherit; font-weight:700; font-size:12px;
+  padding:9px 14px; border-radius:12px; white-space:nowrap;
+  background:var(--grad); color:var(--ink);
+}
+.ib .ib-go:active{ transform:scale(.96) }
+.ib .ib-x{
+  border:0; cursor:pointer; font:inherit; font-size:15px; line-height:1;
+  width:30px; height:30px; border-radius:50%;
+  background:var(--card2); color:var(--mut);
+}
+.ib .ib-x:hover{ background:var(--line); color:var(--txt) }
+.ib :focus-visible{ outline:3px solid var(--gold); outline-offset:2px }
+@media(max-width:360px){
+  .ib .ib-t small{ display:none }
+  .ib{ gap:8px; padding:9px 10px }
+}
+
+/* ── کد پنج‌رقمی پیامک ──
+   حرف‌فاصلهٔ زیاد تا پنج رقم مثل جعبه‌های جدا دیده شوند، و padding
+   هم‌اندازه تا فاصلهٔ حرفِ آخر، کشیدگیِ وسط‌چین را به هم نزند. */
+.otp-in{
+  text-align:center; letter-spacing:.42em; font-size:21px; font-weight:700;
+  padding-inline: .42em 0; font-variant-numeric: tabular-nums;
+}
+.otp-in::placeholder{ letter-spacing:.42em; color:var(--mut); opacity:.55 }
+
+/* ── صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱) ──
+   پیش از هر چیز می‌آید: نه نوار پایین زیرش دیده می‌شود، نه نوار بالا.
+   z-index کمتر از پردهٔ آغازین است تا پرده رویش بیفتد و بعد کنار برود —
+   وگرنه کاربر صفحهٔ ورود را پشتِ پرده می‌دید و فکر می‌کرد برنامه گیر کرده. */
+#gate{
+  position:fixed; inset:0; z-index:9000; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  padding:calc(20px + env(safe-area-inset-top,0px)) 18px
+          calc(20px + env(safe-area-inset-bottom,0px));
+  background:var(--bg); color:var(--txt); text-align:center;
+}
+/* هالهٔ محیطی (فاز ۲) بالای این لایه می‌نشیند، پس کم‌رنگش کردیم تا
+   هر دو با هم خوانا بمانند و صفحه گل‌آلود نشود. */
+#gate::before{
+  content:''; position:fixed; inset:0; pointer-events:none; opacity:.3;
+  background:radial-gradient(120% 70% at 50% 0%, var(--float1), transparent 62%),
+             radial-gradient(90% 60% at 50% 100%, var(--float2), transparent 60%);
+}
+#gate .gt-in{ position:relative; width:100%; max-width:430px; margin:auto }
+#gate .gt-mark{
+  width:76px; height:76px; margin:0 auto 12px; border-radius:26px;
+  background:var(--grad); color:var(--ink); display:grid; place-items:center;
+  font-size:34px; box-shadow:var(--sh);
+}
+#gate h2{ font-family:var(--f-disp); font-size:23px; margin-bottom:4px }
+#gate .gt-sub{ font-size:12.5px; color:var(--mut); line-height:1.9; margin-bottom:16px }
+#gate .gt-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:16px; text-align:right; box-shadow:var(--sh);
+}
+#gate .gt-foot{ font-size:11px; color:var(--mut); line-height:1.9; margin-top:12px }
+#gate .gt-note{
+  display:flex; gap:8px; align-items:flex-start; font-size:11.5px; line-height:1.9;
+  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2);
+  padding:10px 12px; margin-top:12px; color:var(--mut); text-align:right;
+}
+#gate .gt-note.warn{ border-color:var(--gold2); color:var(--gold) }
+/* همان هشدار، بیرون از صفحهٔ ورود (پروفایل مهمان) — کلاسِ بالا به #gate
+   چسبیده و آنجا کار نمی‌کند، پس یک کلاسِ هم‌ریخت و عمومی داریم. */
+.note{
+  display:flex; gap:8px; align-items:flex-start; font-size:11.5px; line-height:1.9;
+  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2);
+  padding:10px 12px; margin-top:12px; color:var(--mut); text-align:right;
+}
+.note.warn{ border-color:var(--gold2); color:var(--gold) }
+#gate.leaving{ animation:gateOut .26s ease forwards }
+@keyframes gateOut{ to{ opacity:0; transform:translateY(-8px) } }
+/* دکمهٔ غیرفعال باید *دیده* شود که غیرفعال است، نه فقط کار نکند. */
+#gate .btn:disabled{ opacity:.45; cursor:not-allowed }
+@media(prefers-reduced-motion:reduce){ #gate.leaving{ animation:none; opacity:0 } }
+
+/* ═══════════════ صفحهٔ ورودِ مدیر — طراحیِ کاملاً مجزا (#alog) ═══════════════
+   این صفحه عمداً شبیه Gate نیست: شبِ کامل، افقِ مسجد و هلال، و مُهرِ
+   طلاییِ «ن» — تا از لحظهٔ نخست روشن باشد این‌جا نورستانِ عادی نیست.
+   تنها از نشانیِ مستقیمِ #admin باز می‌شود و در رابطِ کاربرِ عادی
+   هیچ نشانه‌ای از آن نیست. */
+#alog{
+  position:fixed; inset:0; z-index:9000; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 18px
+          calc(24px + env(safe-area-inset-bottom,0px));
+  color:#eef2f8; text-align:center;
+  background:linear-gradient(180deg,#050a13 0%,#0a1322 46%,#0e1a2e 100%);
+}
+#alog.leaving{ animation:gateOut .24s ease forwards }
+/* آسمان: ستاره‌های چشمک‌زن + افقِ مسجد */
+#alog .al-sky{ position:fixed; inset:0; pointer-events:none; overflow:hidden }
+#alog .al-star{ position:absolute; display:block; width:3px; height:3px; border-radius:50%;
+  background:#e9d9a8; opacity:.55; animation:sk-twinkle 3.2s var(--ease) infinite }
+#alog .al-star.s1{ left:14%; top:14% } #alog .al-star.s2{ left:26%; top:30%; animation-delay:.9s }
+#alog .al-star.s3{ left:70%; top:12%; animation-delay:1.4s } #alog .al-star.s4{ left:84%; top:26%; animation-delay:.4s }
+#alog .al-star.s5{ left:55%; top:22%; animation-delay:2s } #alog .al-star.s6{ left:38%; top:9%; animation-delay:1.1s }
+#alog .al-skyline{ position:absolute; inset-inline:0; bottom:0; width:100%; height:34vh; opacity:.9 }
+/* مُهرِ مدیر: دایرهٔ طلایی با نبضِ آرام نور */
+#alog .al-seal{
+  width:88px; height:88px; margin:0 auto 14px; border-radius:50%;
+  display:grid; place-items:center; position:relative;
+  background:radial-gradient(circle at 32% 26%, #f6e3ae, #d9af53 58%, #b3873a);
+  color:#1b2334; font-family:var(--f-disp); font-size:40px;
+  box-shadow:0 14px 34px -12px rgba(217,175,83,.55), inset 0 -3px 6px rgba(0,0,0,.22);
+  animation:al-pulse 4.2s var(--ease) infinite;
+}
+#alog .al-seal::before{
+  content:''; position:absolute; inset:6px; border-radius:50%;
+  border:1px dashed rgba(27,35,52,.45);
+}
+@keyframes al-pulse{
+  0%,100%{ box-shadow:0 14px 34px -12px rgba(217,175,83,.45), inset 0 -3px 6px rgba(0,0,0,.22) }
+  50%{ box-shadow:0 18px 44px -10px rgba(233,201,118,.7), inset 0 -3px 6px rgba(0,0,0,.22) }
+}
+#alog h2{ font-family:var(--f-disp); font-size:23px; color:#fff; margin-bottom:4px }
+#alog .al-sub{ font-size:12.5px; color:#93a3ba; line-height:1.9; margin-bottom:18px }
+#alog .al-card{
+  width:100%; max-width:360px; text-align:right;
+  background:rgba(16,26,43,.86); border:1px solid #2b3a55; border-radius:20px;
+  padding:18px 16px; box-shadow:0 24px 60px -24px rgba(0,0,0,.8);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  animation:sk-entrance .45s var(--ease) both;
+}
+#alog .al-card label{ font-size:12px; color:#c6d2e4; display:block; margin-bottom:8px }
+#alog .al-card .inp{
+  width:100%; background:#0b1424; border:1px solid #31415f; color:#fff;
+  border-radius:12px; padding:12px 14px; font-size:15px; letter-spacing:.14em;
+  transition:border-color .3s var(--ease), box-shadow .3s var(--ease);
+}
+#alog .al-card .inp:focus{ outline:none; border-color:var(--gold,#d9af53);
+  box-shadow:0 0 0 3px rgba(217,175,83,.18) }
+#alog .al-card .btn{ margin-top:12px }
+#alog .al-card .btn[type=submit]{
+  background:linear-gradient(135deg,#f2d596,#d9af53); color:#171e2d; font-weight:700;
+}
+#alog .al-card .btn:disabled{ opacity:.45; cursor:not-allowed }
+#alog .al-msg{ min-height:20px; font-size:11.5px; color:#93a3ba; line-height:1.9; margin-top:8px }
+#alog .al-msg.error{ color:#f2a4b2 }
+#alog .al-foot{ font-size:10.5px; color:#5b6b85; margin-top:14px }
+@media(prefers-reduced-motion:reduce){
+  #alog .al-seal, #alog .al-star{ animation:none }
+  #alog.leaving{ animation:none; opacity:0 }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۲ — صفحهٔ ورودِ بازطراحی‌شده
+   ساختار از فایلِ مرجع آمد، ولی سه چیز عوض شد:
+     ۱) آبیِ مرجع (#347df2) جایش را به طلاییِ خودِ نورستان داد
+        (--gold/--gold2/--grad)؛ تمِ تاریک پیش‌فرض است.
+     ۲) جعبه‌های کد پنج‌تاست نه چهارتا — OTP.LEN = 5.
+     ۳) نشانِ قفل در مرجع با top:-73px *روی* کارت سوار می‌شد؛ اینجا
+        درونِ جریان است، وگرنه روی نمایشگرهای کوتاه بریده می‌شد.
+
+   نکتهٔ پیاده‌سازیِ مهم: #gtCode همچنان *یک* inputِ راستین است، چون
+   هم آزمون‌ها و هم WebOTP به آن بندند (autocomplete="one-time-code"
+   باید روی یک inputِ واقعی باشد). آن input شفاف روی جعبه‌ها نشسته و
+   پنج .gt-pin فقط آینهٔ اویند — پس منطقِ oninput/onkeydown/check
+   دست‌نخورده مانده و رفتار عوض نشده.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── هالهٔ محیطی: دو گویِ طلایی و سبز که آرام شنا می‌کنند ── */
+#gate .gt-amb{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden }
+#gate .gt-amb i{ position:absolute; display:block; border-radius:50%; filter:blur(72px); opacity:.55 }
+#gate .gt-amb i:nth-child(1){
+  width:64vmin; height:64vmin; left:-16vmin; top:-12vmin;
+  background:var(--orb1); animation:sk-drift 19s var(--ease) infinite;
+}
+#gate .gt-amb i:nth-child(2){
+  width:54vmin; height:54vmin; right:-14vmin; bottom:-14vmin;
+  background:var(--orb2); animation:sk-drift 24s var(--ease) infinite reverse;
+}
+#gate .gt-in{ z-index:1 }
+
+/* ── نشان ── */
+#gate .gt-emblem{ position:relative; width:126px; height:126px; margin:0 auto 12px; display:grid; place-items:center }
+#gate .gt-tile{
+  position:relative; width:96px; height:96px; border-radius:30px; display:grid; place-items:center;
+  background:var(--grad); border:1px solid var(--gold2);
+  box-shadow:var(--sh), inset 0 -3px 5px rgba(255,255,255,.16);
+  animation:sk-float 5.5s var(--ease) infinite;
+  transition:box-shadow .5s var(--ease);
+}
+#gate .gt-tile::before{ content:''; position:absolute; inset:24px; border:1px solid rgba(0,0,0,.16); border-radius:50% }
+#gate:focus-within .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--gold) }
+#gate.is-success .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--grn) }
+#gate.is-locked  .gt-tile{ box-shadow:var(--sh), 0 20px 46px -14px var(--red) }
+
+/* مدارِ چرخان دورِ نشان */
+#gate .gt-orbit{
+  position:absolute; inset:24px; border:2px solid transparent; border-radius:50%;
+  border-top-color:var(--gold); border-bottom-color:var(--grn);
+  animation:sk-rotate 12s linear infinite; transition:border-color .5s;
+}
+#gate .gt-orbit::after{
+  content:''; position:absolute; top:11px; right:7px; width:7px; height:7px; border-radius:50%;
+  background:var(--gold); box-shadow:0 0 0 5px rgba(245,196,81,.14);
+}
+#gate.is-checking .gt-orbit{ animation-duration:1.1s; border-top-color:var(--gold); border-bottom-color:var(--gold2) }
+#gate.is-success  .gt-orbit{ border-top-color:var(--grn); border-bottom-color:#a7e8d7 }
+#gate.is-locked   .gt-orbit{ animation-duration:30s; border-top-color:#eda4b2; border-bottom-color:#f6d6dc }
+
+/* حلقهٔ نوریِ لحظهٔ گشوده‌شدن */
+#gate .gt-flash{
+  position:absolute; inset:27px; border-radius:50%;
+  border:2px solid var(--grn); opacity:0; pointer-events:none;
+}
+#gate.is-success .gt-flash{ animation:sk-flash-ring .9s var(--ease) forwards }
+
+/* جرقه‌های موفقیت */
+#gate .gt-spark{
+  position:absolute; top:50%; left:50%; width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+  border-radius:50%; opacity:0; pointer-events:none;
+}
+#gate .gt-spark:nth-of-type(1){ --tx:0;    --ty:-62px; background:var(--gold) }
+#gate .gt-spark:nth-of-type(2){ --tx:52px; --ty:-34px; background:var(--grn) }
+#gate .gt-spark:nth-of-type(3){ --tx:59px; --ty:24px;  background:var(--gold) }
+#gate .gt-spark:nth-of-type(4){ --tx:0;    --ty:62px;  background:var(--grn) }
+#gate .gt-spark:nth-of-type(5){ --tx:-56px;--ty:28px;  background:var(--gold) }
+#gate .gt-spark:nth-of-type(6){ --tx:-50px;--ty:-36px; background:var(--grn) }
+#gate.is-success .gt-spark{ animation:sk-spark-burst .85s .1s var(--ease) forwards }
+
+/* ستاره‌های چشمک‌زن */
+#gate .gt-sparkle{ position:absolute; color:var(--gold); font-size:11px; pointer-events:none; animation:sk-twinkle 2.6s var(--ease) infinite }
+#gate .gt-sparkle.s1{ top:12px; left:4px }
+#gate .gt-sparkle.s2{ bottom:16px; right:6px; animation-delay:1.3s }
+
+/* ── قفل و کلید ── */
+#gate .gt-lock{ width:62px; height:62px; overflow:visible; filter:drop-shadow(0 4px 5px rgba(0,0,0,.3)) }
+#gate .gt-lock .g-shackle,
+#gate .gt-lock .g-key,
+#gate .gt-lock .g-body,
+#gate .gt-lock .g-hole{ transform-box:view-box }
+#gate .gt-lock .g-shackle{
+  transform-origin:53px 39px; transition:transform .6s var(--bounce), stroke .5s;
+}
+#gate .gt-lock .g-body{ transform-origin:40px 52px; transition:fill .5s, stroke .5s }
+#gate .gt-lock .g-hole{ transform-origin:40px 50px; animation:sk-keyPulse 3s ease-in-out infinite; transition:opacity .4s }
+#gate .gt-lock .g-key{ transform-origin:40px 52px; opacity:0 }
+#gate.is-typing   .gt-lock .g-shackle{ transform:translateY(-2px) }
+#gate.is-checking .gt-lock .g-hole{ animation:sk-keyPulse .5s ease-in-out infinite }
+#gate.is-checking .gt-lock .g-key { animation:sk-key-unlock 1.9s var(--ease) forwards }
+#gate.is-checking .gt-lock .g-shackle{ animation:sk-shackle-open .75s 1.2s var(--bounce) forwards }
+#gate.is-checking .gt-lock .g-body{ animation:sk-lock-clunk .45s 1.2s var(--ease) }
+#gate.is-checking .gt-lock .g-hole,
+#gate.is-success  .gt-lock .g-hole{ opacity:.18; animation:none }
+#gate.is-success .gt-lock .g-key{ opacity:1; transform:rotate(90deg) }
+#gate.is-success .gt-lock .g-shackle{ transform:translateY(-9px) rotate(32deg); stroke:var(--grn) }
+#gate.is-success .gt-lock .g-body{ fill:url(#gtBodyOk); stroke:var(--grn) }
+#gate.is-failing .gt-lock .g-key{ animation:sk-key-reject 1.25s ease forwards }
+#gate.is-failing .gt-lock .g-shackle{ animation:sk-shackle-jam .5s .45s ease }
+#gate.is-failing .gt-lock .g-body{ animation:sk-body-shake .5s .45s ease }
+#gate.is-locked .gt-lock .g-shackle{ stroke:var(--red) }
+#gate.is-locked .gt-lock .g-body{ fill:url(#gtBodyNo); stroke:var(--red) }
+#gate.is-locked .gt-lock .g-hole{ animation:sk-keyPulse 2s ease-in-out infinite }
+
+/* ── جعبه‌های کد ──
+   inputِ راستین شفاف روی جعبه‌ها می‌نشیند تا لمس و تایپ و WebOTP
+   همه به همان یک گره برسند. */
+#gate .gt-pins{ position:relative; direction:ltr; margin-top:2px }
+#gate .gt-pin-group{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; direction:ltr }
+#gate .gt-pin{
+  height:64px; display:grid; place-items:center; border-radius:17px;
+  background:var(--card2); border:1.5px solid var(--line); color:var(--txt);
+  font-size:26px; font-weight:700; font-variant-numeric:tabular-nums;
+  transition:transform .25s var(--ease), border-color .25s, background .25s, box-shadow .25s;
+}
+#gate .gt-pin.on{ background:rgba(245,196,81,.13); border-color:var(--gold); color:var(--gold) }
+#gate .gt-pin.caret{ border-color:var(--gold); transform:translateY(-4px); box-shadow:0 0 0 4px rgba(245,196,81,.12) }
+#gate.is-failing .gt-pin{ border-color:var(--red); background:rgba(224,86,110,.12); color:var(--red) }
+#gate.is-success .gt-pin{ border-color:var(--grn); color:var(--grn); background:transparent }
+/* inputِ شفاف: اندازهٔ کلِ نوار تا هر لمس روی جعبه‌ها فوکوسش بدهد */
+#gate .gt-code-in{
+  position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0;
+  border:0; padding:0; background:transparent; color:transparent; caret-color:transparent;
+}
+#gate .gt-pins:focus-within .gt-pin.caret{ border-color:var(--gold); box-shadow:0 0 0 4px rgba(245,196,81,.18) }
+
+/* ── نوارِ پیشرفت (یک نقطه به‌ازای هر رقم) ── */
+#gate .gt-progress{ display:flex; direction:ltr; justify-content:center; gap:5px; margin-top:15px }
+#gate .gt-progress span{
+  height:4px; width:21px; border-radius:10px; background:var(--line);
+  transition:background .3s var(--ease), width .3s var(--ease);
+}
+#gate .gt-progress span.complete{ background:var(--gold); width:29px }
+#gate.is-checking .gt-progress span{ animation:sk-wave 1s ease-in-out infinite }
+#gate.is-checking .gt-progress span:nth-child(2){ animation-delay:.1s }
+#gate.is-checking .gt-progress span:nth-child(3){ animation-delay:.2s }
+#gate.is-checking .gt-progress span:nth-child(4){ animation-delay:.3s }
+#gate.is-checking .gt-progress span:nth-child(5){ animation-delay:.4s }
+
+/* ── قفلِ موقت پس از تلاش‌های ناموفق ── */
+#gate .gt-lockout{ padding:6px 0 2px; animation:sk-entrance .5s var(--ease) both }
+#gate .gt-ring{ position:relative; width:104px; height:104px; margin:0 auto 14px; display:grid; place-items:center }
+#gate .gt-ring svg{ position:absolute; inset:0; transform:rotate(-90deg) }
+#gate .gt-ring .track{ fill:none; stroke:var(--line); stroke-width:4 }
+#gate .gt-ring .bar{
+  fill:none; stroke:var(--red); stroke-width:4; stroke-linecap:round;
+  stroke-dasharray:289; stroke-dashoffset:289; transition:stroke-dashoffset 1s linear;
+}
+#gate .gt-ring b{ font-size:31px; font-weight:800; color:var(--red); font-variant-numeric:tabular-nums }
+#gate .gt-msg{
+  min-height:2.2em; display:grid; place-items:center; margin:8px 0 0;
+  padding:0 6px; font-size:11.5px; line-height:1.9; text-align:center;
+}
+#gate .gt-msg.error{ color:var(--red) }
+#gate .gt-msg.ok{ color:var(--grn) }
+
+/* ── ورودِ ملایمِ کارت ── */
+#gate .gt-card{ animation:sk-entrance .45s var(--ease) both }
+#gate .gt-emblem{ animation:sk-entrance .5s var(--ease) both }
+
+/* ── کارتِ شیشه‌ای با خطِ طلاییِ بالای آن ──
+   `backdrop-filter` روی کارتِ ورود می‌نشیند تا هالهٔ پشتش از پشتِ شیشه
+   دیده شود. `-webkit-` جدا نوشته شده چون وبیوِ اندرویدِ قدیمی‌تر فقط
+   همان را می‌شناسد. */
+#gate .gt-card{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--glass-edge);
+  position:relative; overflow:hidden;
+}
+#gate .gt-card::before{
+  content:''; position:absolute; inset-inline:0; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.75;
+}
+/* ── درخششِ گذرِ دکمهٔ اصلی ──
+   فقط دکمه‌های اصلیِ صفحهٔ ورود؛ پوستهٔ کلِ برنامه فاز ۳ است. */
+#gate .btn.w{ position:relative; overflow:hidden }
+#gate .btn.w::after{
+  content:''; position:absolute; top:0; bottom:0; width:38%; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--sheen),transparent);
+  animation:sk-shine 3.4s var(--ease) infinite;
+}
+/* احترام به «کم‌حرکتی»: درخشش و شنا بی‌حرکت می‌شوند. قاعدهٔ سراسریِ
+   @layer motion مدت را صفر می‌کند، ولی این‌ها را صریح خاموش می‌کنیم تا
+   در مرورگرهایی که آن لایه را نمی‌شناسند هم بی‌حرکت بمانند. */
+@media(prefers-reduced-motion:reduce){
+  #gate .btn.w::after,
+  #gate .gt-lock .g-hole,
+  #gate .gt-orbit,
+  #gate .gt-tile,
+  #gate .gt-sparkle{ animation:none !important }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۳ — پوستهٔ کلِ برنامه
+   همان زبانِ بصریِ صفحهٔ ورود، این بار روی همهٔ صفحه‌ها:
+     • کارتِ شیشه‌ای با خطِ طلاییِ بالا
+     • درخششِ گذری روی دکمه‌های اصلی
+     • بالاآمدنِ کاشی‌ها با هالهٔ شعاعی
+     • توست از راست، مودال با مقیاس
+     • هالهٔ محیطیِ دو گوی
+   همه از `--ease`/`--bounce` و کی‌فریم‌های `sk-` استفاده می‌کنند.
+
+   دو تصمیمِ آگاهانه دربارهٔ کارایی و تم:
+     ۱) `backdrop-filter` فقط روی کارت‌های *سطحِ اول* می‌نشیند. اگر روی
+        هر ۶۴ کارت بگذاریم، اندرویدِ میان‌رده ده‌ها لایهٔ بلور را هم‌زمان
+        رندر می‌کند و اسکرول می‌لنگد. کارت‌های تودرتو رنگِ شیشه می‌گیرند
+        ولی بلور نمی‌گیرند — چشم تفاوت را روی زمینهٔ پُر نمی‌بیند.
+     ۲) `--glass` در هر شش تم جدا تعریف شده، پس کارتِ کویر طلایی-خاکی
+        می‌ماند و آبی نمی‌شود.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── هالهٔ محیطی ── */
+#amb{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden }
+#amb i{ position:absolute; display:block; border-radius:50%; filter:blur(80px); opacity:.4 }
+#amb i:nth-child(1){
+  width:70vmin; height:70vmin; left:-20vmin; top:-16vmin;
+  background:var(--orb1); animation:sk-drift 26s var(--ease) infinite;
+}
+#amb i:nth-child(2){
+  width:60vmin; height:60vmin; right:-18vmin; bottom:-18vmin;
+  background:var(--orb2); animation:sk-drift 32s var(--ease) infinite reverse;
+}
+/* #app و #bgArt هر دو بالای هاله می‌مانند. */
+#app, #bgArt{ z-index:1 }
+
+/* ── کارتِ شیشه‌ای ── */
+.card{
+  background:var(--glass);
+  border:1px solid var(--glass-edge);
+  position:relative;
+}
+/* خطِ طلاییِ بالای کارت. `inset-inline` است تا در RTL و LTR یکسان بماند. */
+.card::before{
+  content:''; position:absolute; inset-inline:14px; top:0; height:1px;
+  pointer-events:none; border-radius:0 0 2px 2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:.55;
+}
+/* بلور فقط جایی که واقعاً لایه‌ای پشتش هست: کارتِ سطحِ اولِ صفحهٔ فعال. */
+.screen.active > .card,
+.screen.active > .grid > .card{
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+}
+/* درخششِ لبهٔ بالای کارت وقتی کاربر با آن کار می‌کند. */
+.card:focus-within::before{ opacity:.95 }
+
+/* ── کاشی‌ها: بالا آمدن + هالهٔ شعاعی ── */
+/* `position:relative` روی `.stat` لازم است وگرنه هاله به نزدیک‌ترین
+   جدِّ موقعیت‌دار می‌چسبد و کجای صفحه درمی‌آید. `.tile` از قبل دارد.
+   `will-change` عمداً نیست: روی ۴۰ کاشیِ هم‌زمان، خودش ۴۰ لایه می‌سازد
+   و بیشتر از خودِ انیمیشن هزینه دارد. */
+.stat{ position:relative; overflow:hidden }
+.tile::after, .stat::after{
+  content:''; position:absolute; top:-30%; inset-inline-end:-25%;
+  width:68%; aspect-ratio:1; border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, rgba(245,196,81,.20), transparent 68%);
+  opacity:0; transition:opacity .35s var(--ease);
+}
+.tile:hover::after, .tile:focus-visible::after,
+.stat:hover::after, .stat:focus-visible::after{ opacity:1 }
+.tile, .stat{ transition:transform .25s var(--ease), border-color .25s, box-shadow .25s }
+.tile:hover, .stat:hover{
+  transform:translateY(-5px);
+  border-color:var(--gold);
+  box-shadow:0 14px 30px -10px var(--shadow), 0 0 0 1px var(--gold2) inset;
+}
+.tile:active, .stat:active{ transform:translateY(-1px) scale(.995) }
+
+/* ── دکمه‌ها: درخششِ گذری ──
+   فقط دکمهٔ اصلی (نه `gh`، نه غیرفعال): درخششِ ۵۰ دکمهٔ همزمان هم
+   پرت است، هم بی‌دلیل هزینهٔ رندر دارد. */
+/* ── چرا دیگر `overflow:hidden` روی `.btn` نیست ──
+   نسخهٔ پیشین یک نوارِ باریک را از بیرونِ دکمه می‌لغزاند و برای بُریدنش
+   `overflow:hidden` می‌گذاشت. ولی هر `overflow` غیرِ `visible`، «کمینهٔ
+   خودکارِ» آیتمِ فلکس را از `auto` به صفر می‌برد؛ یعنی دکمه‌های یک ردیفِ
+   فلکس می‌توانستند از عرضِ متنشان کوچک‌تر شوند و متنشان بریده شود —
+   دقیقاً همان باگی که در کارتِ «آیهٔ امروز» دیده شد. حالا جای لغزاندنِ
+   جعبه، `background-position` تکان می‌خورد؛ گرادیان همیشه داخلِ خودِ
+   دکمه است و هیچ بریدنی لازم نیست. */
+.btn{ position:relative }
+.btn:not(.gh):not(:disabled)::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  border-radius:inherit; background-size:250% 100%; background-position:180% 0;
+  background-image:linear-gradient(100deg,transparent 32%,var(--sheen) 50%,transparent 68%);
+  animation:sk-sheen 3.6s var(--ease) infinite;
+}
+/* دکمه‌های یک‌ردیفی کمی دیرتر می‌درخشند تا هم‌زمان برق نزنند. */
+.btn:nth-of-type(2)::after{ animation-delay:.9s }
+.btn:nth-of-type(3)::after{ animation-delay:1.8s }
+.btn:disabled{ transform:none }
+
+/* ── کنش‌های کارتِ آیهٔ روز: دو دکمهٔ برچسب‌دار ──
+   این‌ها عمداً `.btn` نیستند. `.btn.sm` برای ردیفِ فلکسِ کارت کوتاه
+   می‌آمد و متنش بریده می‌شد؛ این‌جا یک گریدِ دوستونیِ صریح داریم با
+   ارتفاعِ لمسیِ ۴۸ پیکسل، و آیکنِ SVG جای ایموجی.
+
+   `white-space:nowrap` تنها راهِ نگه‌داشتنِ متن در یک خط است، ولی
+   به‌تنهایی کافی نیست: در گرید، ستون می‌تواند از متن باریک‌تر شود.
+   `min-width:0` روی دکمه و روی `span` لازم است تا `text-overflow`
+   واقعاً کار کند و متن به‌جای بریدنِ خام، «…» بگیرد. */
+.ayah-actions{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  margin-top:12px; padding-top:12px; border-top:1px solid var(--line);
+}
+.ayah-action{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  min-width:0; min-height:48px; padding:12px 14px;
+  border:1px solid var(--line); border-radius:var(--r2);
+  background:var(--card2); color:var(--txt);
+  font-family:inherit; font-size:12.5px; font-weight:600;
+  white-space:nowrap; cursor:pointer;
+  transition:transform .18s var(--ease), border-color .18s,
+             background .18s, box-shadow .18s;
+}
+.ayah-action .ic{ width:18px; height:18px; color:var(--gold) }
+.ayah-action span{ min-width:0; overflow:hidden; text-overflow:ellipsis }
+.ayah-action:hover, .ayah-action:focus-visible{
+  transform:translateY(-2px); border-color:var(--gold);
+  background:rgba(245,196,81,.10);
+  box-shadow:0 8px 16px -8px rgba(245,196,81,.55);
+}
+.ayah-action:active{ transform:translateY(0) scale(.98) }
+/* زیرِ ۴۰۰ پیکسل دو دکمه کنارِ هم جا نمی‌شوند و متنشان می‌بُرد؛
+   روی هم می‌روند. */
+@media(max-width:400px){ .ayah-actions{ grid-template-columns:1fr } }
+
+/* ── فاز ۴: اندازهٔ آیکن‌هایی که جای ایموجی نشستند ──
+   ایموجی اندازه‌اش را از `font-size` والد می‌گرفت؛ SVG ندارد، پس همان
+   اندازه‌ها را صریح می‌دهیم تا چیدمان جابه‌جا نشود. `.ic` پیش‌فرض
+   `display:block` است و در بج و برچسب باید هم‌خطِ متن بنشیند. */
+.tile .ti .ic{ width:30px; height:30px }
+.cat-ico .ic{ width:24px; height:24px }
+.badge .ic{ display:inline-block; width:13px; height:13px; vertical-align:-2px }
+
+/* ── آیکن‌های هم‌خطِ متن ──
+   `.ic` پیش‌فرض `display:block` است؛ در چیپ، آماره، تب و برچسب باید
+   کنارِ کلمه بنشیند، وگرنه هر آیکن یک سطرِ جدا می‌گیرد. */
+.chip .ic, .stat span .ic, .tab .ic, .lbl2 .ic,
+.spec-badge .ic, .fade-note .ic, .daily-tag .ic{
+  display:inline-block; width:13px; height:13px; vertical-align:-2px;
+}
+.tab .ic{ width:14px; height:14px }
+.phead h2 .ic{ display:inline-block; width:17px; height:17px; vertical-align:-3px }
+.logo .ic{ width:21px; height:21px }
+
+/* ── توست: از راست می‌آید ──
+   سمتِ نوار (`border-right`) عمداً دست‌نخورده ماند: در RTL همان لبهٔ
+   راست است که کاربر انتظارش را دارد، و `border-inline-end` آن را به چپ
+   می‌برد. فقط شیشه و حرکتِ ورود تازه است. */
+#toasts{ z-index:200 }
+.toast{
+  background:var(--glass); border:1px solid var(--glass-edge);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  backdrop-filter:blur(16px) saturate(140%);
+  animation:sk-toast .34s var(--bounce) both;
+}
+.toast.out{ animation:sk-toastOut .24s var(--ease) both }
+
+/* ── مودال: مقیاس + شیشه ── */
+#modal .box{
+  background:var(--glass); border:1px solid var(--glass-edge);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  backdrop-filter:blur(20px) saturate(140%);
+  position:relative;
+}
+#modal .box::before{
+  content:''; position:absolute; inset-inline:16px; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.7;
+}
+#modal.sheet .box{ animation:sheetUp .3s var(--ease) both }
+
+/* ── ورودِ صفحه‌ها ── */
+.screen{ animation:sk-entrance .34s var(--ease) both }
+
+/* ── کم‌حرکتی ──
+   قاعدهٔ سراسریِ @layer motion مدت را صفر می‌کند؛ این‌ها را صریح خاموش
+   می‌کنیم تا در مرورگرهایی که آن لایه را نمی‌شناسند هم بی‌حرکت بمانند
+   و ذره‌ای هزینهٔ رندر ندهند. */
+@media(prefers-reduced-motion:reduce){
+  #amb i, .btn::after{ animation:none !important }
+  #amb i{ opacity:.28 }
+  .btn::after{ display:none }
+  .tile, .stat{ will-change:auto }
+}
+/* ═══════════════ بنر چرخشی خانه (Swiper) ═══════════════ */
+.home-slider{position:relative;margin:0 0 24px;border-radius:26px;isolation:isolate;border:1px solid var(--line);background:#102139;color:#f4f6fb;box-shadow:var(--sh);touch-action:pan-y pinch-zoom;overflow:hidden}
+.home-slider{perspective:1200px;cursor:grab}
+.promo-panels{display:grid;transform-style:preserve-3d;transition:transform 800ms cubic-bezier(.22,1,.36,1)}
+.promo-panel{grid-area:1/1;min-width:0;display:flex;align-items:center;position:relative;opacity:0;visibility:hidden;pointer-events:none;transform:translateZ(-80px) scale(.85);transform-style:preserve-3d;transition:opacity 600ms ease,visibility 600ms,transform 800ms cubic-bezier(.22,1,.36,1);min-height:300px;padding:30px 32px 64px;gap:20px;contain:layout}
+.promo-panel.is-prev{transform:translateX(-40px) translateZ(-40px) rotateY(4deg) scale(.92)}
+.promo-panel.is-next{transform:translateX(40px) translateZ(-40px) rotateY(-4deg) scale(.92)}
+.promo-panel.is-active{opacity:1;visibility:visible;pointer-events:auto;transform:translateZ(0) scale(1)}
+.promo-scene{transition:transform 800ms cubic-bezier(.22,1,.36,1)}
+.promo-panel.is-active .promo-scene{transform:scale(1.05) translateX(-8px)}
+.home-slider.dragging .promo-panels{will-change:transform}
+/* حالتِ کشیدن: گذارها خاموش تا کارت ۱:۱ انگشت را دنبال کند */
+.home-slider.dragging{cursor:grabbing}
+.home-slider.dragging .promo-panel,.home-slider.dragging .promo-panels{transition:none}
+.home-slider.dragging .promo-panel{pointer-events:none}
+.promo-copy{position:relative;z-index:1;flex:1;min-width:0}
+.promo-kicker{display:inline-flex;align-items:center;gap:7px;color:#eed79d;font-size:12px;letter-spacing:.1px;margin-bottom:12px}
+.promo-copy h2{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:clamp(26px,4vw,38px);line-height:1.5;color:#fff;margin-bottom:6px}
+.promo-copy p{max-width:480px;font-size:13px;line-height:2;color:#c6d2e4}
+.promo-go.btn{margin-top:18px;background:linear-gradient(135deg,#f2d596,#d9af53);color:#171e2d;gap:14px}
+.promo-go .ic{width:17px;height:17px;transform:rotate(180deg)}
+.promo-scene{width:42%;max-width:380px;flex:none;align-self:stretch;object-fit:cover;object-position:center;border-radius:120px 120px 14px 14px;border:1px solid #edcd8233;opacity:.95}
+.slider-controls{position:absolute;bottom:12px;inset-inline:24px;display:flex;align-items:center;justify-content:center;gap:12px}
+.slider-dots{display:flex;align-items:center;direction:rtl}
+.slider-dots button{display:grid;place-items:center;width:36px;height:32px;border:0;background:none;cursor:pointer}
+.slider-dots button::after{content:'';width:7px;height:7px;border-radius:10px;background:#8f9fb5;transition:width .3s var(--ease),background .3s}
+.slider-dots button.on::after{width:24px;background:#efd18a}
+.slider-pause{width:32px;height:32px;display:grid;place-items:center;border:1px solid #8f9fb566;background:#ffffff09;border-radius:50%;color:#efd18a;cursor:pointer}
+.slider-pause .ic{width:15px;height:15px}
+.slider-pause:disabled{opacity:.45;cursor:default}
+@media(max-width:540px){.promo-panel{padding:24px 20px 58px;min-height:335px;gap:12px}.promo-copy{flex:1.7}.promo-scene{width:30%;max-height:200px;align-self:center;border-radius:75px 75px 10px 10px}.promo-copy h2{font-size:27px}.promo-copy p{font-size:12px}}
+@media(max-width:360px){.promo-panel{padding-inline:16px}.promo-scene{position:absolute;inset:0;width:100%;height:100%;max-height:none;max-width:none;opacity:.16;border:0;border-radius:0}.promo-copy p{max-width:260px}}
+
+/* OS preference and in-app setting both disable spatial motion. */
+@media(prefers-reduced-motion:reduce){#homeSlider .promo-panel,#homeSlider .promo-scene,#homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}}
+html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSlider .promo-scene,html[data-motion="off"] #homeSlider .promo-panels{transform:none!important;transition:none!important;animation:none!important}
+
+/* ═══════════════ کاروسلِ دسته‌ها (CategoryCarousel) ═══════════════
+   سه تصمیم که پیش از خواندنِ کد باید روشن باشد:
+
+   ۱) هیچ عددِ جابه‌جایی این‌جا hardcode نشده. کنترل‌کننده `offsetLeft` هر
+      اسلاید را نسبت به اسلایدِ نخست اندازه می‌گیرد و قرینه‌اش را به
+      `transform` می‌دهد. نتیجه: هم در `direction:rtl` درست است (اسلایدِ ۰
+      راست‌ترین است و بقیه به چپ می‌روند، پس track باید به *راست* بلغزد)
+      و هم با عرض و فاصلهٔ متغیر.
+   ۲) فقط `transform`، `opacity`، `filter`، `border-color` و `visibility`
+      گذار می‌گیرند — هرگز width/height/top/left، و `box-shadow` در فهرستِ
+      گذار نیست (انیمیشنِ سایه یعنی رنگ‌آمیزیِ دوبارهٔ هر فریم).
+   ۳) کم‌حرکتی — هم ترجیحِ سیستم‌عامل، هم تنظیمِ درون‌برنامهٔ
+      `html[data-motion="off"]` — گذارها، عمق و محوکردن را خاموش می‌کند.
+      در آن حالت کاروسل به «یک کارتِ قابلِ رفتن با نقطه/کلید/کشیدن»
+      تبدیل می‌شود و حرکتِ خودکار هرگز تایمر نمی‌گیرد. */
+.category-carousel{position:relative;margin:0 0 6px}
+.carousel-viewport{position:relative;overflow:hidden;padding:12px 0 20px;touch-action:pan-y pinch-zoom}
+/* `perspective` روی خودِ track است، نه روی جد: `.carousel-viewport` به
+   خاطرِ `overflow:hidden` ناچار transform-style:flat می‌شود و زنجیرهٔ
+   سه‌بعدی را قطع می‌کند. با گذاشتنِ پرسپکتیو روی track، هر `.slide`
+   (فرزندِ بی‌واسطه) عمقِ `translateZ` را درست می‌گیرد. */
+.carousel-track{display:flex;gap:12px;padding:0 4px;perspective:1200px;transition:transform 800ms var(--ease);cursor:grab}
+.category-carousel.dragging .carousel-track{transition:none;will-change:transform;cursor:grabbing}
+.category-carousel.dragging .slide{transition:none;pointer-events:none}
+
+.slide{
+  flex:0 0 78%;min-width:0;position:relative;overflow:hidden;text-align:right;
+  border-radius:24px;padding:24px 20px;border:1px solid var(--line);
+  /* زمینهٔ طلایی با color-mix تا در هر پوسته همان طلاییِ خودِ پوسته باشد؛
+     اگر مرورگری color-mix نداند، اعلامِ نخست (var(--card)) برجا می‌ماند. */
+  background:var(--card);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 9%,transparent),transparent 52%),var(--card);
+  contain:layout paint;
+  /* حالتِ پیش‌فرض = اسلایدِ دور: بیرون از قاب، پس دیده نمی‌شود و رنگ هم
+     نمی‌خورد. `visibility` در فهرستِ گذار است تا هنگامِ پنهان‌شدن در پایانِ
+     گذار خاموش شود و هنگامِ آشکارشدن بی‌درنگ روشن. */
+  opacity:0;visibility:hidden;transform:scale(.85) translateZ(-80px);
+  transition:transform 600ms var(--ease),opacity 600ms ease,filter 600ms ease,border-color 300ms ease,visibility 600ms
+}
+.slide.is-far{opacity:.35;visibility:visible;transform:scale(.85) translateZ(-80px);filter:blur(2.5px)}
+.slide.is-prev,.slide.is-next{opacity:.72;visibility:visible;transform:scale(.92) translateZ(-40px);filter:blur(1.5px)}
+.slide.is-active{
+  opacity:1;visibility:visible;filter:none;transform:scale(1) translateZ(0);
+  border-color:var(--gold);
+  box-shadow:0 18px 34px -18px rgba(0,0,0,.6),0 0 0 1px color-mix(in srgb,var(--gold) 22%,transparent) inset
+}
+/* درخششِ طلایی که نشانگر را دنبال می‌کند (--mx/--my را کنترل‌کننده می‌نویسد) */
+.slide::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--gold) 16%,transparent),transparent 62%);
+  opacity:0;transition:opacity 400ms ease
+}
+.slide.is-active:hover::before,.slide.is-active:focus-within::before{opacity:1}
+/* خطِ طلاییِ بالای کارتِ فعال */
+.slide::after{
+  content:"";position:absolute;top:0;left:20%;right:20%;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:0;transition:opacity 400ms ease
+}
+.slide.is-active::after{opacity:1}
+
+/* تایپوگرافیِ کارت */
+.slide .slide-icon{display:block;margin-bottom:12px;color:var(--gold);filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+.slide .slide-icon>.ic,.slide .slide-icon>.glyph-token>.ic{width:32px;height:32px}
+.slide .slide-title{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:19px;line-height:1.5;color:var(--gold);margin-bottom:6px}
+.slide .slide-desc{font-size:13px;color:var(--mut);line-height:1.9;margin-bottom:14px}
+.slide .slide-rec{display:block;margin-bottom:12px;font-size:11px;color:var(--gold);opacity:.9}
+.slide .slide-cta{
+  display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;
+  padding:10px 16px;border-radius:12px;background:var(--grad);color:var(--ink);
+  font-size:13px;font-weight:700;font-family:inherit;min-height:44px;
+  transition:transform 200ms var(--ease)
+}
+.slide .slide-cta:hover{transform:translateX(-4px)}
+.slide .slide-cta .ic{width:15px;height:15px;transform:rotate(180deg)}
+.slide .badge{top:14px;left:14px}
+
+/* نقطه‌ها، شمارِ اسلاید و مکثِ چرخش خودکار */
+.carousel-controls{display:flex;align-items:center;justify-content:center;gap:10px;min-height:38px;margin-top:8px;direction:rtl}
+.carousel-dots{display:flex;gap:6px;justify-content:center;align-items:center;direction:rtl;margin:0;padding:0}
+.carousel-dots .dot{
+  width:8px;height:8px;padding:0;border:0;border-radius:50%;background:var(--line);
+  cursor:pointer;transition:width 300ms var(--ease),background 300ms ease
+}
+.carousel-dots .dot.active{width:24px;background:var(--gold)}
+.carousel-dots .dot:hover:not(.active){background:var(--gold2)}
+/* ناحیهٔ لمسِ بزرگ‌تر از خودِ نقطه، بی آنکه فاصلهٔ دیداری عوض شود */
+.carousel-dots .dot{position:relative}
+.carousel-dots .dot::before{content:"";position:absolute;inset:-11px -5px}
+.carousel-toggle{
+  flex:none;width:36px;height:36px;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--gold);
+  cursor:pointer;transition:background 200ms ease,color 200ms ease,border-color 200ms ease
+}
+.carousel-toggle .ic{width:15px;height:15px}
+.carousel-toggle:hover:not(:disabled){background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.carousel-toggle:disabled{opacity:.45;cursor:not-allowed}
+.carousel-dots:focus-visible,.carousel-dots .dot:focus-visible,.carousel-nav:focus-visible,.carousel-toggle:focus-visible,.slide .slide-cta:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* فلش‌ها در لمس هم دیده می‌شوند تا راهِ دیدنِ کارت‌های دیگر روشن باشد. */
+.carousel-nav{
+  position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  border-radius:50%;background:var(--card2);border:1px solid var(--line);color:var(--gold);
+  cursor:pointer;display:grid;place-items:center;z-index:3;font-size:19px;line-height:1;opacity:.82;
+  transition:background 200ms ease,color 200ms ease,border-color 200ms ease,opacity 200ms ease
+}
+.carousel-nav:hover{background:var(--gold);color:var(--ink);border-color:var(--gold);opacity:1}
+.carousel-nav.prev{right:6px}
+.carousel-nav.next{left:6px}
+@media(hover:hover) and (pointer:fine){
+  .carousel-nav{opacity:0}
+  .category-carousel:hover .carousel-nav,.category-carousel:focus-within .carousel-nav{opacity:.95}
+}
+
+/* گزارشِ زندهٔ صفحه‌خوان — دیده نمی‌شود، خوانده می‌شود */
+.carousel-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ── آمارِ سریعِ خانه: ردیفِ افقیِ اسکرول‌شدنی ── */
+.stats-row{
+  display:flex;gap:10px;overflow-x:auto;padding:0 4px 12px;margin-bottom:16px;
+  scrollbar-width:none;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch
+}
+.stats-row::-webkit-scrollbar{display:none;width:0;height:0}
+.stat-card{
+  flex:0 0 auto;scroll-snap-align:start;min-width:88px;padding:14px 16px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  border-radius:18px;background:var(--card);border:1px solid var(--line);
+  transition:transform 200ms var(--ease),border-color 200ms ease
+}
+.stat-card:hover{transform:translateY(-4px);border-color:var(--gold)}
+.stat-card .stat-icon{color:var(--gold);display:block}
+.stat-card .stat-icon>.ic,.stat-card .stat-icon>.glyph-token>.ic{width:22px;height:22px}
+.stat-card .stat-value{font-size:18px;font-weight:800;color:var(--gold);line-height:1.5}
+.stat-card .stat-label{font-size:10.5px;color:var(--mut);white-space:nowrap}
+
+/* ── کارتِ «ادامهٔ یادگیری» ── */
+.continue-card{
+  position:relative;overflow:hidden;padding:20px;margin-bottom:18px;
+  border-radius:24px;border:1px solid var(--gold);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 12%,transparent),var(--card) 62%)
+}
+.continue-card::before{
+  content:"";position:absolute;top:-50%;right:-50%;width:200%;height:200%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--gold) 15%,transparent),transparent 60%);
+  animation:continuePulse 4s ease-in-out infinite
+}
+@keyframes continuePulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:.8}}
+.continue-card>*{position:relative}
+.continue-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.continue-head .ci{color:var(--gold);flex:none}
+.continue-head .ci>.ic,.continue-head .ci>.glyph-token>.ic{width:22px;height:22px}
+.continue-head b{font-size:13.5px}
+.continue-head .sp{flex:1}
+.continue-title{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:18px;line-height:1.6;margin-bottom:2px}
+.continue-sub{font-size:12px;color:var(--mut);line-height:1.9}
+.continue-progress{height:6px;border-radius:3px;margin:12px 0;overflow:hidden;background:color-mix(in srgb,var(--gold) 15%,transparent)}
+/* نوار با `transform:scaleX` پر می‌شود، نه با `width`: گذارِ عرض یعنی
+   چیدمانِ دوباره در هر فریم، و قواعدِ خودِ برنامه هم width/height را
+   ممنوع کرده‌اند. مبدأ از راست است چون صفحه RTL است. */
+.continue-progress .fill{
+  position:relative;height:100%;width:100%;border-radius:3px;background:var(--fill);
+  transform:scaleX(0);transform-origin:right center;
+  transition:transform 800ms var(--ease)
+}
+/* برقِ روی نوار: background-position جابه‌جا می‌شود، نه سایه و نه اندازه */
+.continue-progress .fill::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  background-size:220% 100%;animation:continueShine 2.4s ease-in-out infinite
+}
+@keyframes continueShine{from{background-position:180% 0}to{background-position:-80% 0}}
+.continue-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.continue-pct{font-size:11.5px;color:var(--mut)}
+
+/* ── پیشنهادِ امروز ── */
+.today-card{
+  position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;
+  padding:18px;margin-bottom:20px;border-radius:22px;border:1px dashed var(--line);
+  background:var(--card);transition:border-color 300ms ease
+}
+.today-card:hover{border-color:var(--gold)}
+.today-card .ti{flex:none;color:var(--gold)}
+.today-card .ti>.ic,.today-card .ti>.glyph-token>.ic{width:30px;height:30px}
+.today-card .tc{flex:1;min-width:0}
+.today-card .tc b{display:block;font-size:14px;margin-bottom:3px}
+.today-card .tc small{display:block;font-size:11.5px;color:var(--mut);line-height:1.8}
+.today-card .btn{flex:none}
+
+/* ── جداکنندهٔ بخش‌های خانه ── */
+.cat-divider{height:1px;margin:6px 4px 22px;background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent)}
+
+/* ── کم‌حرکتیِ کاروسلِ دسته‌ها ──
+   گذار و عمق و محوکردن خاموش؛ اسلایدها با opacity دیده/پنهان می‌شوند و
+   حرکتِ خودکار هم تایمر نمی‌گیرد (در خودِ کنترل‌کننده). */
+@media(prefers-reduced-motion:reduce){
+  .category-carousel,.carousel-track,.slide{perspective:none;transform:none!important;transition:none!important;filter:none!important}
+  .slide{opacity:0;visibility:hidden}
+  .slide.is-active,.slide.is-prev,.slide.is-next,.slide.is-far{opacity:1;visibility:visible}
+  .slide.is-prev,.slide.is-next,.slide.is-far{display:none}
+  .slide.is-active::before,.continue-card::before,.continue-progress .fill::after{animation:none!important;opacity:0}
+  .continue-progress .fill,.carousel-dots .dot,.carousel-toggle,.slide .slide-cta,.stat-card{transition:none}
+}
+html[data-motion="off"] .category-carousel,html[data-motion="off"] .carousel-track,html[data-motion="off"] .slide{perspective:none;transform:none!important;transition:none!important;filter:none!important}
+html[data-motion="off"] .slide{opacity:0;visibility:hidden}
+html[data-motion="off"] .slide.is-active,html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{opacity:1;visibility:visible}
+html[data-motion="off"] .slide.is-prev,html[data-motion="off"] .slide.is-next,html[data-motion="off"] .slide.is-far{display:none}
+html[data-motion="off"] .slide.is-active::before,html[data-motion="off"] .continue-card::before,html[data-motion="off"] .continue-progress .fill::after{animation:none!important;opacity:0}
+html[data-motion="off"] .continue-progress .fill,html[data-motion="off"] .carousel-dots .dot,html[data-motion="off"] .carousel-toggle,html[data-motion="off"] .slide .slide-cta,html[data-motion="off"] .stat-card{transition:none}
+/* صفحهٔ باریک: کارت کمی باریک‌تر تا همسایه بیشتر دیده شود */
+@media(max-width:360px){.slide{flex-basis:82%;padding:20px 16px;border-radius:20px}.slide .slide-title{font-size:17px}}
+
+/* پرداختِ صحن نور: سطح‌های آرام، لبهٔ طلایی و قوس معماری */
+.hero{border-radius:28px 28px 18px 18px;border-color:var(--line);background:radial-gradient(ellipse at 10% 0%,var(--glow1),transparent 65%),var(--glass)}
+.hero::after{content:'';position:absolute;inset:16px auto 0 5%;width:160px;border:1px solid var(--gold);border-bottom:0;border-radius:120px 120px 0 0;opacity:.08;pointer-events:none}
+.hero h1,.brand>div,.cat-head h2{font-family:var(--f-disp);font-weight:var(--f-disp-w)}
+.card,.tile{border-color:var(--line)}
+.tile{border-radius:22px 22px 14px 14px}
+.btn,.btn.sm,.room-row .btn,.peer-row .btn{min-width:0;max-width:100%;height:auto;min-height:44px;padding:10px 16px;line-height:1.8;white-space:normal;overflow-wrap:break-word;flex-shrink:1;text-align:center;gap:7px}
+.btn.sm{padding:7px 12px;min-height:40px}
+.shop-item .sp{flex:0 0 86px;min-width:86px}.shop-item .btn.sm{width:100%;white-space:nowrap;overflow-wrap:normal}
+@media(max-width:350px){.shop-item{flex-wrap:wrap}.shop-item .sp{margin-inline-start:auto}}
+.btn>span{min-width:0;overflow-wrap:anywhere}
+.row:has(>.btn){flex-wrap:wrap}
+.btn:focus-visible,.slider-dots button:focus-visible,.slider-pause:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.bar-shine{position:relative;overflow:hidden}.bar-shine::after{pointer-events:none;animation-fill-mode:forwards}
+.btn.gh{filter:none;width:auto}.btn.w{width:100%}
+h1>.ic,h2>.ic,h3>.ic,h1>i>.ic{display:inline-block;vertical-align:middle}
+.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:width .4s var(--ease)}
+.streak-warn .swe.at-risk{animation:streakGlow 2.8s ease-in-out infinite}
+@keyframes streakGlow{50%{opacity:.65;filter:drop-shadow(0 0 5px var(--gold));transform:scale(1.08)}}
+.skeleton,.shimmer{position:relative;background-image:linear-gradient(100deg,transparent 20%,var(--sheen) 50%,transparent 80%);background-size:220% 100%;animation:loadingSheen 1.8s ease-in-out infinite}
+.skeleton{min-height:60px;border-radius:14px;background-color:var(--card2)}
+@keyframes loadingSheen{from{background-position:180% 0}to{background-position:-80% 0}}
+.glyph-token,.completion-check{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center}.glyph-token>.ic,.completion-check>.ic{width:1.2em;height:1.2em;min-width:16px;min-height:16px}
+.empty-state{display:grid;justify-items:center;gap:10px;text-align:center;padding:28px 18px;border:1px dashed var(--line);border-radius:20px;background:var(--glass);color:var(--mut);margin:12px 0;font-size:12px;line-height:1.9}
+.empty-state>.ic{width:32px;height:32px;color:var(--gold)}
+.empty-state strong{color:var(--txt);font-size:14px}
+.ayah-embed-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.ayah-embed-tools>.tiny{flex-basis:100%;line-height:1.9}
+.ayah-stars{display:flex;justify-content:center;gap:6px}.ayah-stars .ic{width:32px;height:32px}.ayah-stars>.ic{fill:currentColor}.ayah-stars .unearned{opacity:.3}
+/* ── قابِ بازی «نورِ آیه‌ها» — حالتِ عمودی ──
+   پیش‌تر ارتفاع ثابتِ ۸۵۰/۷۲۰ بود و صفحه در بازشدن خودش را تمام‌صفحه و
+   افقی می‌کرد. حالا ارتفاع از خودِ صفحه حساب می‌شود: `dvh` واحدِ واقعیِ
+   گوشی است و نوارِ آدرس هم در آن حساب می‌شود، پس قاب دقیقاً همان‌قدر
+   جا می‌گیرد که مانده. خطِ نخستِ `height` برای مرورگرهای کهنه است. */
+.ayah-frame-shell{width:100%;min-width:0;height:520px;height:clamp(420px,calc(100dvh - 170px),900px);border:1px solid var(--line);border-radius:18px;background:#081323;overflow:hidden}
+.ayah-frame-shell iframe{display:block;width:100%;height:100%;border:0}
+.ayah-frame-shell:fullscreen{height:100dvh;border:0;border-radius:0}
+.ayah-frame-shell:fullscreen iframe{height:100%}
+/* گوشیِ کوتاه یا صفحهٔ چرخیدهٔ افقی: قاب جمع می‌شود تا دکمه‌های زیرش گم
+   نشوند. کفِ ۱۹۰px همان کفِ `AyahEmbed.fit` است؛ اگر اندازه‌گیریِ JS هم
+   کار نکند، قابِ CSS هم از جا نمی‌زند. */
+@media(orientation:landscape) and (max-height:560px){.ayah-frame-shell{height:clamp(190px,calc(100dvh - 130px),760px)}}
+/* در گوشیِ افقی و کوتاه (ارتفاعِ کمتر از ۵۶۰)، سربرگِ چسبانِ برنامه و
+   «شروع دوباره»ی سرصفحه جمع می‌شوند تا قابِ عمودی جا بماند و ردیفِ
+   دکمه‌ها بی‌اسکرول دیده شود. هر دو کارشان در ردیفِ زیرِ قاب هم هست،
+   پس چیزی از دست نمی‌رود. `data-ayah` فقط تا وقتی این صفحه باز است
+   روی `html` می‌ماند، پس بقیهٔ صفحه‌ها دست‌نخورده‌اند. */
+@media(orientation:landscape) and (max-height:560px){
+  html[data-ayah="1"] .top{display:none}
+  html[data-ayah="1"] .phead{display:none}
+  html[data-ayah="1"] #pgRestart{display:none}
+}
+/* دیر رسیدنِ قابِ بازی (اینترنت/میزبان): پیام رنگ می‌گیرد تا چشم آن را بگیرد. */
+#ayahFrameStatus.slow{color:var(--txt);border-inline-start:3px solid var(--gold);padding-inline-start:10px}
+html[data-theme="light"] .top{background:var(--float1);color:var(--txt)}
+html[data-theme="light"] #bgArt{opacity:.035}
+html[data-theme="light"] #modal .box{background:#fffdf8;border-color:var(--line)}
+html[data-theme="light"] .hero{background:radial-gradient(ellipse at 10% 0%,#ece2c9,transparent 70%),#fffdf8}
+html[data-theme="light"] .ayah-stage{--txt:#edf3fd;--mut:#bbcada;--gold:#f5d27d;--grn:#66dfba;color:var(--txt)}
+html[data-theme="light"] .promo-kicker{color:#eed79d}
+html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .promo-go:focus-visible{outline-color:#fff}
+@media(prefers-reduced-motion:reduce){.promo-panel{transform:none;transition:opacity .3s linear,visibility .3s linear}.home-slider[data-dir] .promo-panel.is-active{animation:none}.promo-panels{transition:none}.slider-dots button::after{transition:none}.streak-warn .swe,.shimmer,.skeleton{animation:none!important}.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:none}}
+
+/* ═══════════════ بازی «نور آیه‌ها» ═══════════════ */
+.ayah-stage{position:relative;overflow:hidden;border:1px solid rgba(245,196,81,.28);border-radius:26px;min-height:470px;padding:22px;background:linear-gradient(#071323 0 42%,#102433 43% 64%,#14231e 65%);box-shadow:0 24px 55px rgba(0,0,0,.34);isolation:isolate}
+.ayah-stage::before{content:"";position:absolute;left:50%;top:60px;width:250px;height:190px;transform:translateX(-50%);border-radius:130px 130px 15px 15px;background:radial-gradient(circle at 50% 20%,rgba(245,196,81,.28),transparent 57%),linear-gradient(90deg,transparent 7%,rgba(245,196,81,.14) 8% 10%,transparent 11% 89%,rgba(245,196,81,.14) 90% 92%,transparent 93%);border-top:2px solid rgba(245,196,81,.28);opacity:.75;z-index:-1}
+.ayah-stage::after{content:"";position:absolute;inset:auto -10% -28% -10%;height:58%;z-index:-2;transform:perspective(400px) rotateX(60deg);background:repeating-linear-gradient(90deg,rgba(245,196,81,.08) 0 1px,transparent 1px 48px),repeating-linear-gradient(0deg,rgba(245,196,81,.07) 0 1px,transparent 1px 48px)}
+.ayah-lanterns{position:absolute;inset:16px 18px auto;display:flex;justify-content:space-between;color:var(--gold);opacity:.7;font-size:25px;pointer-events:none}.ayah-lanterns i{font-style:normal;filter:drop-shadow(0 0 10px var(--gold));animation:lantern 3s ease-in-out infinite alternate}@keyframes lantern{to{transform:translateY(7px) rotate(3deg);opacity:1}}
+.ayah-setup{text-align:center;position:relative;z-index:1}.ayah-mark{font-size:64px;filter:drop-shadow(0 0 20px rgba(245,196,81,.25));margin:10px}.ayah-setup h2{font-size:25px;margin-bottom:6px}.ayah-setup>p{color:var(--mut);font-size:13px;line-height:1.9}.ayah-setting-label{font-weight:700;color:var(--mut);margin-top:8px}
+.ayah-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0 12px}.ayah-opt{min-width:0;min-height:104px;padding:12px 8px;border:1px solid var(--line);background:rgba(8,13,24,.76);border-radius:15px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .2s,border-color .2s,background .2s}.ayah-opt>span{min-height:25px;display:grid;place-items:center}.ayah-opt:hover,.ayah-opt.on{border-color:var(--gold);background:rgba(245,196,81,.12);transform:translateY(-2px)}.ayah-opt b{display:block;font-size:13px;line-height:1.45;margin-top:4px;overflow-wrap:anywhere}.ayah-opt small{color:var(--mut);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.ayah-speed{display:flex;justify-content:center;gap:8px;margin:8px 0 14px;flex-wrap:wrap}.ayah-speed button{border:1px solid var(--line);background:rgba(8,13,24,.75);padding:7px 12px;border-radius:99px;cursor:pointer;font-size:11px}.ayah-speed button.on{border-color:var(--grn);color:var(--grn);background:rgba(47,211,155,.1)}
+.ayah-setup-actions{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.ayah-setup-actions #ayahStart{min-width:180px}.ayah-setup-actions #ayahExternal{min-height:44px}
+.ayah-head{position:relative;z-index:1;display:flex;align-items:center;gap:8px;margin-bottom:22px}.ayah-head .sp{flex:1}.ayah-time{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(8,13,24,.8);border:2px solid var(--gold);font-weight:800}.ayah-time.danger{border-color:var(--red);color:var(--red);animation:ayahPulse .7s infinite alternate}
+.ayah-board{position:relative;z-index:1;text-align:center}.ayah-board .question{font-size:12px;color:var(--gold);margin-bottom:12px}.ayah-text{font-family:var(--f-quran);font-size:clamp(24px,6vw,35px);line-height:2.1;margin:8px auto 16px;max-width:720px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.ayah-answer{min-height:74px;border:1px dashed rgba(245,196,81,.45);border-radius:18px;padding:12px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(8,13,24,.48);margin-bottom:13px}.word-chip,.ayah-choice{border:1px solid rgba(245,196,81,.35);background:rgba(18,35,52,.92);color:var(--txt);border-radius:13px;padding:10px 13px;cursor:pointer;line-height:1.6;transition:.18s;font-family:var(--f-quran);font-size:17px}.word-chip:hover,.ayah-choice:hover{transform:translateY(-2px);border-color:var(--gold)}.word-chip.used{opacity:.23;pointer-events:none}.word-chip.picked{background:rgba(245,196,81,.15)}
+.ayah-pool,.ayah-choices{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0}.ayah-choice{font-family:var(--f-ui);font-size:13px;min-width:120px}.ayah-choice.good{background:rgba(47,211,155,.2);border-color:var(--grn)}.ayah-choice.bad{background:rgba(255,95,109,.18);border-color:var(--red)}
+.ayah-feedback{min-height:58px;margin-top:13px;padding:10px 14px;border-radius:14px;background:rgba(8,13,24,.58);font-size:12px;line-height:1.8;color:var(--mut)}.ayah-feedback.ok{color:var(--grn);border:1px solid rgba(47,211,155,.3)}.ayah-feedback.err{color:#ff9da5;border:1px solid rgba(255,95,109,.3)}.ayah-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}.ayah-result{text-align:center;position:relative;z-index:1;padding-top:35px}.ayah-score{font-size:56px;color:var(--gold);font-weight:800;margin:14px}.ayah-stars{font-size:33px;letter-spacing:6px}
+@keyframes ayahPulse{to{transform:scale(1.07);box-shadow:0 0 18px rgba(255,95,109,.38)}}
+@media(max-width:520px){.ayah-stage{padding:16px;min-height:0}.ayah-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}.ayah-opt{min-height:104px;padding:8px 5px}.ayah-opt b{font-size:11px;margin-top:3px}.ayah-opt small{font-size:9px;line-height:1.35}.ayah-setup h2{font-size:21px}.ayah-setup-desc{font-size:12px!important}.ayah-speed{gap:5px;margin:7px 0 10px}.ayah-speed button{padding:6px 8px;font-size:10px}.ayah-setup-actions{flex-direction:column;align-items:stretch}.ayah-setup-actions .btn{width:100%}.ayah-mark{font-size:48px;margin:3px}.ayah-text{font-size:24px}.word-chip{padding:8px 10px;font-size:15px}}@media(max-width:350px){.ayah-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.ayah-opt{min-height:112px;padding:7px 3px}.ayah-opt b{font-size:10px}.ayah-opt small{font-size:8px;line-height:1.25}.ayah-setup h2{font-size:19px}.ayah-speed button{padding:5px 6px;font-size:9px}.ayah-mark{font-size:44px}}@media(max-width:520px) and (max-height:700px){.ayah-stage{padding:10px}.ayah-mark,.ayah-setup-desc{display:none}.ayah-setup h2{font-size:18px;margin-bottom:2px}.ayah-setting-label{margin-top:4px}.ayah-options{gap:4px;margin:5px 0}.ayah-opt{min-height:88px;padding:6px 4px}.ayah-opt small{font-size:9px;line-height:1.2}.ayah-speed{gap:4px;margin:4px 0 6px}.ayah-speed button{padding:4px 5px;font-size:9px}.ayah-setup-actions{flex-direction:row;align-items:stretch;gap:5px;margin-top:4px}.ayah-setup-actions .btn{width:auto}.ayah-setup-actions #ayahStart{min-width:0;flex:1}.ayah-setup-actions #ayahExternal{min-height:40px}}@media(max-width:350px) and (max-height:620px){.ayah-stage{padding:8px}.ayah-mark,.ayah-setup-desc{display:none}.ayah-setup h2{font-size:18px;margin-bottom:2px}.ayah-setting-label{margin-top:4px}.ayah-options{gap:4px;margin:5px 0}.ayah-opt{min-height:68px;padding:4px 2px}.ayah-opt b{font-size:10px}.ayah-opt small{display:block;font-size:9px;line-height:1.15}.ayah-speed{gap:3px;margin:4px 0 6px}.ayah-speed button{padding:4px 4px;font-size:9px}.ayah-setup-actions{flex-direction:row;align-items:stretch;gap:5px;margin-top:4px}.ayah-setup-actions .btn{width:auto}.ayah-setup-actions #ayahStart{min-width:0;flex:1}.ayah-setup-actions #ayahExternal{min-height:40px}}@media(prefers-reduced-motion:reduce){.ayah-lanterns i{animation:none}.home-slider.fallback .swiper-wrapper{transition:none}}
+
