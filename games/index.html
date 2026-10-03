@@ -4,42 +4,117 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070b18">
-<title>بازی‌های تازهٔ نورستان</title>
+<title>بازی‌های نورستان</title>
 <link rel="stylesheet" href="common.css">
 <style>
-.hero{text-align:center;margin:6px 0 18px}
-.hero p{color:var(--mut);font-size:13px;line-height:1.9}
-.g{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;margin-bottom:14px;transition:transform var(--dur-2) var(--bounce);animation:pp .5s var(--bounce) both}
-.g:nth-of-type(2){animation-delay:.08s}
+.prof{display:flex;gap:14px;align-items:center;margin-bottom:14px}
+.ring{--p:0;width:74px;height:74px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--gold) calc(var(--p)*1%),rgba(255,255,255,.08) 0);position:relative}
+.ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg2)}
+.ring b{position:relative;font-size:24px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
+.ring small{position:absolute;bottom:-8px;font-size:10px;background:var(--gold);color:#1b1206;border-radius:var(--r-full);padding:1px 8px;font-weight:800}
+.prof .who{flex:1;min-width:0}
+.prof h2{font-size:17px;margin-bottom:2px}
+.prof .meta{display:flex;gap:12px;color:var(--mut);font-size:12px;margin:4px 0 8px;flex-wrap:wrap}
+.prof .meta b{color:var(--txt)}
+.daily{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-bottom:14px;border-color:rgba(245,201,106,.45)}
+.daily .ic{width:56px;height:56px;border-radius:var(--r-lg);overflow:hidden;flex:none;box-shadow:var(--sh-gold)}
+.daily .ic img{width:100%;height:100%;display:block}
+.daily .tag{font-size:11px;color:#1b1206;background:var(--grad);border-radius:var(--r-full);padding:2px 10px;font-weight:800;display:inline-block;margin-bottom:4px}
+.daily h3{font-size:15px}
+.daily p{font-size:12px;color:var(--mut)}
+.daily.done{opacity:.75;border-color:rgba(61,220,151,.5)}
+.daily.done .tag{background:var(--grn)}
+.sec{font-size:13px;color:var(--mut);margin:18px 4px 10px;display:flex;justify-content:space-between;align-items:center}
+.g{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;margin-bottom:12px;transition:transform var(--dur-2) var(--bounce);animation:pp .5s var(--bounce) both}
+.g:nth-of-type(2){animation-delay:.06s}.g:nth-of-type(3){animation-delay:.12s}
 .g:hover,.g:focus-visible{transform:translateY(-3px) scale(1.01)}
 .g:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
-.g .ic{width:84px;height:84px;flex:none;border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--sh-gold);transition:transform var(--dur-3) var(--bounce)}
+.g .ic{width:80px;height:80px;flex:none;border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--sh-gold);transition:transform var(--dur-3) var(--bounce)}
 .g .ic img{display:block;width:100%;height:100%}
 .g:hover .ic{transform:rotate(-4deg) scale(1.06)}
-.g h3{font-size:17px;margin-bottom:var(--sp-1)}
+.g h3{font-size:16px;margin-bottom:var(--sp-1);display:flex;gap:6px;align-items:center}
+.g h3 .new{font-size:10px;background:var(--grn);color:#062a1c;border-radius:var(--r-full);padding:1px 8px}
 .g p{color:var(--mut);font-size:12.5px;line-height:1.8}
 .g .b{display:flex;gap:10px;align-items:center;color:var(--gold);font-size:11px;margin-top:var(--sp-1);min-height:16px}
 .g .st{letter-spacing:2px;color:var(--gold2)}
 .g .st .off{opacity:.25}
+.achs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ach{text-align:center;padding:10px 4px;border-radius:var(--r-md);background:var(--card);border:1px solid var(--edge);font-size:10.5px;color:var(--mut);line-height:1.6}
+.ach i{display:block;font-style:normal;font-size:24px;filter:grayscale(1);opacity:.35}
+.ach.on{border-color:rgba(245,201,106,.45);color:var(--txt)}
+.ach.on i{filter:none;opacity:1}
+@media (max-width:360px){.achs{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><a href="../">→ نورستان</a><div class="title">بازی‌های تازه</div></div>
-  <div class="hero"><p>هر بازی تا ۳ ستاره دارد. رکورد بزن، ستاره جمع کن و نتیجه‌ات را با دوستانت هم‌رسانی کن.</p></div>
-  <a class="card g" href="ayah-builder.html"><div class="ic"><img src="art/ayah-builder.svg" alt="" width="84" height="84"></div><div><h3>آیه‌ساز</h3><p>واژه‌های آیه را پیش از تمام شدن زمان، به ترتیب بچین. سه سطح، ترکیب، راهنما.</p><div class="b" id="b1"></div></div></a>
-  <a class="card g" href="hadith-rush.html"><div class="ic"><img src="art/hadith-rush.svg" alt="" width="84" height="84"></div><div><h3>باران حکمت</h3><p>واژهٔ گم‌شدهٔ حدیث را از میان گزینه‌های بارانی بگیر. هر سطح تندتر.</p><div class="b" id="b2"></div></div></a>
+  <div class="top"><a href="../">→ نورستان</a><div class="title">بازی‌ها</div><button class="btn-ghost" id="setBtn" aria-label="تنظیمات">⚙️</button></div>
+
+  <div class="card prof">
+    <div class="ring" id="ring"><b id="lvl">۱</b><small>سطح</small></div>
+    <div class="who">
+      <h2 id="title">نوآموز</h2>
+      <div class="meta"><span>🔥 <b id="streak">۰</b> روز پیاپی</span><span>🎮 <b id="plays">۰</b> بازی</span><span>🏅 <b id="achN">۰</b> دستاورد</span></div>
+      <div class="xp-bar"><i id="xpBar"></i></div>
+      <div class="mut" id="xpTxt" style="font-size:11px;margin-top:4px"></div>
+    </div>
+  </div>
+
+  <a class="card daily" id="daily" href="#"><div class="ic"><img id="dIc" alt="" width="56" height="56"></div><div><span class="tag" id="dTag">📅 چالش امروز · XP ×۲</span><h3 id="dName"></h3><p id="dTxt">یک دور بازی کن تا امتیاز تجربه‌ات دو برابر شود.</p></div></a>
+
+  <div class="sec"><span>همهٔ بازی‌ها</span></div>
+  <a class="card g" href="ayah-builder.html"><div class="ic"><img src="art/ayah-builder.svg" alt="" width="80" height="80"></div><div><h3>آیه‌ساز</h3><p>واژه‌های آیه را پیش از تمام شدن زمان، به ترتیب بچین. سه سطح، ترکیب، راهنما.</p><div class="b" id="b1"></div></div></a>
+  <a class="card g" href="hadith-rush.html"><div class="ic"><img src="art/hadith-rush.svg" alt="" width="80" height="80"></div><div><h3>باران حکمت</h3><p>واژهٔ گم‌شدهٔ حدیث را از میان گزینه‌های بارانی بگیر. هر سطح تندتر.</p><div class="b" id="b2"></div></div></a>
+  <a class="card g" href="noor-pairs.html"><div class="ic"><img src="art/noor-pairs.svg" alt="" width="80" height="80"></div><div><h3>جفت نور <span class="new">تازه</span></h3><p>کارت‌ها را برگردان و هر آیه را به سوره‌اش برسان. حافظه، دقت، سرعت.</p><div class="b" id="b3"></div></div></a>
+
+  <div class="sec"><span>دستاوردها</span><span id="achTxt"></span></div>
+  <div class="achs" id="achs"></div>
 </div>
+
+<div class="sheet" id="sheet"><div class="card">
+  <div class="row-set"><span>🔊 صدا</span><input type="checkbox" class="sw" id="sSound"></div>
+  <div class="row-set"><span>📳 لرزش</span><input type="checkbox" class="sw" id="sBuzz"></div>
+  <button class="btn" id="sClose" style="width:100%;margin-top:12px">بستن</button>
+</div></div>
+
 <script src="common.js"></script>
 <script>
+  const P = G.profile(), L = P.level;
+  G.$('#lvl').textContent = G.fa(L.lvl);
+  G.$('#title').textContent = L.title;
+  G.$('#streak').textContent = G.fa(P.streak);
+  G.$('#plays').textContent = G.fa(P.plays);
+  G.$('#achN').textContent = G.fa(P.ach.length);
+  G.$('#xpTxt').textContent = `${G.fa(P.xp - L.from)} از ${G.fa(L.to - L.from)} XP تا سطح ${G.fa(L.lvl + 1)}`;
+  requestAnimationFrame(() => setTimeout(() => {
+    G.$('#xpBar').style.width = Math.round(L.pct * 100) + '%';
+    G.$('#ring').style.setProperty('--p', Math.round(L.pct * 100));
+  }, 120));
+
+  const D = G.GAMES[P.daily];
+  G.$('#daily').href = D.href; G.$('#dIc').src = D.art; G.$('#dName').textContent = D.name;
+  if (P.dailyDone) { G.$('#daily').classList.add('done'); G.$('#dTag').textContent = '✅ چالش امروز انجام شد'; G.$('#dTxt').textContent = 'فردا یک بازی تازه منتظرت است.'; }
+
   const starRow = n => '<span class="st">' + [0, 1, 2].map(i => i < n ? '★' : '<span class="off">★</span>').join('') + '</span>';
-  const badge = (sel, rec, st) => {
+  const badge = (sel, keys) => {
+    const rec = Math.max(...keys.map(k => G.best(k).best)), st = Math.max(...keys.map(k => G.stars(k)));
     if (!rec && !st) return;
     G.$(sel).innerHTML = starRow(st) + (rec ? '<span>🏆 رکورد: ' + G.fa(rec) + '</span>' : '');
   };
-  const ab = [1, 2, 3].map(l => 'ayahbuilder_' + l);
-  badge('#b1', Math.max(...ab.map(k => G.best(k).best)), Math.max(...ab.map(k => G.stars(k))));
-  badge('#b2', G.best('hadithrush').best, G.stars('hadithrush'));
+  badge('#b1', [1, 2, 3].map(l => 'ayahbuilder_' + l));
+  badge('#b2', ['hadithrush']);
+  badge('#b3', ['noorpairs_6', 'noorpairs_6t', 'noorpairs_8', 'noorpairs_8t']);
+
+  const ids = Object.keys(G.ACH);
+  G.$('#achs').innerHTML = ids.map(id => `<div class="ach${P.ach.includes(id) ? ' on' : ''}" title="${G.esc(G.ACH[id].desc)}"><i>${G.ACH[id].ic}</i>${G.esc(G.ACH[id].name)}</div>`).join('');
+  G.$('#achTxt').textContent = `${G.fa(P.ach.length)}/${G.fa(ids.length)}`;
+
+  const sh = G.$('#sheet'), sS = G.$('#sSound'), sB = G.$('#sBuzz');
+  const sync = () => { sS.checked = !G.muted(); sB.checked = !G.noBuzz(); };
+  G.$('#setBtn').onclick = () => { sync(); sh.classList.add('on'); };
+  G.$('#sClose').onclick = () => sh.classList.remove('on');
+  sS.onchange = () => { try { localStorage.setItem('noorestan_g_mute', sS.checked ? '0' : '1'); } catch {} if (sS.checked) G.sfx.ok(); };
+  sB.onchange = () => { try { localStorage.setItem('noorestan_g_nobuzz', sB.checked ? '0' : '1'); } catch {} G.buzz(30); };
 </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-/* نورستان — ابزار مشترک بازی‌های مستقل: صدا، لرزش، ذرات، رکورد، رقم فارسی، صفحهٔ نتیجهٔ سینمایی */
+/* نورستان — ابزار مشترک بازی‌های مستقل: صدا، لرزش، ذرات، رکورد، رقم فارسی، صفحهٔ نتیجهٔ سینمایی،
+   نمایهٔ بازیکن (XP، سطح، روزهای پیاپی، دستاوردها) و چالش روزانه */
 const G = (() => {
   const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
   const $ = s => document.querySelector(s);
@@ -25,7 +26,8 @@ const G = (() => {
     tick: () => tone(1200, .03, 'square', .04),
     star: i => { tone(880 + i * 220, .22, 'sine', .15); tone(1320 + i * 220, .3, 'triangle', .08, .05); },
   };
-  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
+  const noBuzz = () => { try { return localStorage.getItem('noorestan_g_nobuzz') === '1'; } catch { return false; } };
+  const buzz = p => { if (noBuzz()) return; try { navigator.vibrate && navigator.vibrate(p); } catch {} };
   // ذرات
   const cv = document.createElement('canvas'); cv.id = 'fx';
   const ctx = cv.getContext('2d'); let parts = [], running = false;
@@ -138,12 +140,70 @@ const G = (() => {
     toast('تصویر نتیجه ذخیره شد');
   };
 
+  /* ── نمایهٔ بازیکن ─────────────────────────────────────────────────
+     XP از هر بازی: یک‌دهم امتیاز + ۲۰ برای هر ستاره، در چالش روزانه ×۲.
+     سطح = ⌊√(XP/50)⌋+1 — هر سطح کمی دیرتر از قبلی می‌رسد ولی هیچ‌وقت
+     دست‌نیافتنی نمی‌شود. روزِ پیاپی با تاریخ محلی شمرده می‌شود. */
+  const GAMES = {
+    ayahbuilder: { name: 'آیه‌ساز', href: 'ayah-builder.html', art: 'art/ayah-builder.svg' },
+    hadithrush: { name: 'باران حکمت', href: 'hadith-rush.html', art: 'art/hadith-rush.svg' },
+    noorpairs: { name: 'جفت نور', href: 'noor-pairs.html', art: 'art/noor-pairs.svg' },
+  };
+  const gameOf = key => String(key).split('_')[0];
+  const TITLES = ['نوآموز', 'جویا', 'رهرو', 'دانش‌پژوه', 'قاری', 'حافظ', 'استاد', 'نورانی'];
+  const ACH = {
+    first: { ic: '🌱', name: 'نخستین گام', desc: 'اولین بازی‌ات را تمام کردی' },
+    star3: { ic: '⭐', name: 'سه‌ستاره', desc: 'یک بازی را با ۳ ستاره تمام کردی' },
+    s1000: { ic: '💎', name: 'هزاری', desc: 'در یک بازی ۱۰۰۰ امتیاز گرفتی' },
+    all: { ic: '🧭', name: 'جهانگرد', desc: 'هر سه بازی را دست‌کم یک بار بازی کردی' },
+    streak3: { ic: '🔥', name: 'سه روز پیاپی', desc: '۳ روز پشت سر هم بازی کردی' },
+    streak7: { ic: '🏅', name: 'یک هفتهٔ نورانی', desc: '۷ روز پشت سر هم بازی کردی' },
+    daily: { ic: '📅', name: 'چالش روز', desc: 'چالش روزانه را انجام دادی' },
+    lvl5: { ic: '👑', name: 'سطح ۵', desc: 'به سطح ۵ رسیدی' },
+  };
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  const dayNum = (d = new Date()) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 864e5);
+  const loadProfile = () => {
+    let p = null; try { p = JSON.parse(localStorage.getItem('noorestan_g_profile') || 'null'); } catch {}
+    return Object.assign({ xp: 0, plays: 0, lastDay: null, streak: 0, bestStreak: 0, played: {}, ach: [], dailyDone: null }, p || {});
+  };
+  const saveProfile = p => { try { localStorage.setItem('noorestan_g_profile', JSON.stringify(p)); } catch {} };
+  const levelOf = xp => {
+    const lvl = Math.floor(Math.sqrt(xp / 50)) + 1;
+    const from = 50 * (lvl - 1) ** 2, to = 50 * lvl ** 2;
+    return { lvl, title: TITLES[Math.min(lvl - 1, TITLES.length - 1)], from, to, pct: (xp - from) / (to - from) };
+  };
+  /* چالش روزانه: هر روز یک بازی، برای همه یکسان (از شمارهٔ روز) */
+  const daily = () => { const keys = Object.keys(GAMES); return keys[dayNum() % keys.length]; };
+  const award = (key, score, starsN) => {
+    const p = loadProfile(), before = levelOf(p.xp).lvl, game = gameOf(key), today = dayNum();
+    const isDaily = daily() === game && p.dailyDone !== dayKey();
+    let xp = Math.round(score / 10 + starsN * 20);
+    if (isDaily) { xp *= 2; p.dailyDone = dayKey(); }
+    p.xp += xp; p.plays++; p.played[game] = (p.played[game] || 0) + 1;
+    if (p.lastDay !== today) { p.streak = p.lastDay === today - 1 ? p.streak + 1 : 1; p.lastDay = today; }
+    p.bestStreak = Math.max(p.bestStreak, p.streak);
+    const got = [], give = id => { if (!p.ach.includes(id)) { p.ach.push(id); got.push(id); } };
+    give('first');
+    if (starsN >= 3) give('star3');
+    if (score >= 1000) give('s1000');
+    if (Object.keys(GAMES).every(g => p.played[g])) give('all');
+    if (p.streak >= 3) give('streak3');
+    if (p.streak >= 7) give('streak7');
+    if (isDaily) give('daily');
+    const L = levelOf(p.xp); if (L.lvl >= 5) give('lvl5');
+    saveProfile(p);
+    return { xp, isDaily, levelUp: L.lvl > before, level: L, streak: p.streak, got };
+  };
+  const profile = () => { const p = loadProfile(); return { ...p, level: levelOf(p.xp), daily: daily(), dailyDone: p.dailyDone === dayKey() }; };
+
   let resEl = null;
   const result = async o => {
     /* o = { key, game, title, score, stars(0..3), lines:[...], onAgain } */
     const rec = best(o.key, o.score);
     stars(o.key, o.stars);
     report(o.key, o.score, o.stars);
+    const aw = award(o.key, o.score, o.stars);
     if (!resEl) { resEl = document.createElement('div'); resEl.className = 'overlay res'; resEl.id = 'result'; document.body.appendChild(resEl); }
     const max = Math.max(o.score, rec.prev, 1);
     resEl.innerHTML = `<div class="card res-card">
@@ -156,6 +216,13 @@ const G = (() => {
         <div class="res-bar prev"><span>رکورد پیشین</span><b><i id="barPrev"></i></b><em>${rec.prev ? fa(rec.prev) : '—'}</em></div>
       </div>
       <p class="mut res-lines">${(o.lines || []).map(esc).join('<br>')}</p>
+      <div class="res-xp">
+        <div class="res-xp-top"><span>سطحِ ${fa(aw.level.lvl)} · ${esc(aw.level.title)}</span><b>+${fa(aw.xp)} XP${aw.isDaily ? ' · 📅 چالش روز ×۲' : ''}</b></div>
+        <div class="res-xp-bar"><i id="resXp"></i></div>
+        <div class="res-lvlup" id="resLvl">⬆️ سطح تازه: ${fa(aw.level.lvl)} — ${esc(aw.level.title)}</div>
+        ${aw.streak > 1 ? `<div class="res-streak">🔥 ${fa(aw.streak)} روز پیاپی</div>` : ''}
+      </div>
+      <div class="res-ach" id="resAch">${aw.got.map(id => `<span class="ach-chip" title="${esc(ACH[id].desc)}">${ACH[id].ic} ${esc(ACH[id].name)}</span>`).join('')}</div>
       <div class="res-row">
         <button class="btn" id="resAgain">دوباره</button>
         <button class="btn-ghost" id="resShare">📤 هم‌رسانی</button>
@@ -177,9 +244,13 @@ const G = (() => {
       const r = s.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 18);
     }
     if (rec.isNew && o.score > 0) { await wait(250); resEl.querySelector('#resNew').classList.add('on'); sfx.win(); confetti(); }
-    return rec;
+    await wait(200);
+    resEl.querySelector('#resXp').style.width = Math.round(aw.level.pct * 100) + '%';
+    if (aw.levelUp) { await wait(500); resEl.querySelector('#resLvl').classList.add('on'); sfx.lvl(); confetti(); }
+    [...resEl.querySelectorAll('.ach-chip')].forEach((c, i) => setTimeout(() => { c.classList.add('on'); sfx.star(i % 3); }, calm() ? 0 : 300 + i * 260));
+    return { ...rec, award: aw };
   };
 
   document.addEventListener('DOMContentLoaded', () => { document.body.appendChild(cv); fit(); });
-  return { fa, $, shuffle, sfx, buzz, burst, confetti, best, stars, toast, hearts, reshake, norm, muted, esc, result, report };
+  return { fa, $, shuffle, sfx, buzz, burst, confetti, best, stars, toast, hearts, reshake, norm, muted, noBuzz, esc, result, report, profile, award, daily, levelOf, GAMES, ACH, calm };
 })();

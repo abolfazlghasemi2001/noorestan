@@ -43,13 +43,16 @@
    باز کردنِ بعدی جایگزین می‌شود — پس کاربرِ قدیمی هرگز نمی‌شکند و
    نسخهٔ کهنه هم بیش از یک بار دیده نمی‌شود. داده‌های بازی
    (hadith-bank.js و _quran-ref.json) هم در همین کش‌اند.
+
+   نسخهٔ ۲۸: بازی سوم «جفت نور» و نمایهٔ بازیکن به games/ آمد؛ دو فایل
+   تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-27';
-const SHELL = 'noorestan-shell-27';
-const MEDIA = 'noorestan-media-27';
-const TEXT  = 'noorestan-text-27';
-const GAMES = 'noorestan-games-27';
+const CACHE = 'noorestan-28';
+const SHELL = 'noorestan-shell-28';
+const MEDIA = 'noorestan-media-28';
+const TEXT  = 'noorestan-text-28';
+const GAMES = 'noorestan-games-28';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -104,8 +107,10 @@ const GAME_FILES = [
   './games/tokens.css',
   './games/ayah-builder.html',
   './games/hadith-rush.html',
+  './games/noor-pairs.html',
   './games/art/ayah-builder.svg',
   './games/art/hadith-rush.svg',
+  './games/art/noor-pairs.svg',
   './hadith-bank.js',
   './_quran-ref.json'
 ];

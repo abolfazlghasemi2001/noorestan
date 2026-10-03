@@ -71,4 +71,29 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.07;b
 .skel::after{content:"";position:absolute;inset:0;transform:translateX(100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);animation:skel 1.3s infinite}
 @keyframes skel{to{transform:translateX(-100%)}}
 
+/* ── XP، سطح و دستاوردها در صفحهٔ نتیجه ── */
+.res-xp{background:rgba(255,255,255,.04);border:1px solid var(--edge);border-radius:var(--r-md);padding:10px 12px;margin:0 0 12px;text-align:right}
+.res-xp-top{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-bottom:6px}
+.res-xp-top b{color:var(--gold2);font-weight:800}
+.res-xp-bar,.xp-bar{height:8px;border-radius:var(--r-full);background:rgba(255,255,255,.08);overflow:hidden}
+.res-xp-bar i,.xp-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7aa2ff,#3ddc97);border-radius:inherit;transition:width 1.1s var(--ease)}
+.res-lvlup{max-height:0;opacity:0;overflow:hidden;color:var(--gold2);font-weight:900;text-align:center;transition:all .5s var(--bounce)}
+.res-lvlup.on{max-height:40px;opacity:1;margin-top:8px}
+.res-streak{margin-top:6px;font-size:12px;color:#ff8a5c;text-align:center}
+.res-ach{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px}
+.res-ach:empty{display:none}
+.ach-chip{font-size:12px;padding:5px 10px;border-radius:var(--r-full);background:rgba(245,201,106,.12);border:1px solid rgba(245,201,106,.4);color:var(--gold2);opacity:0;transform:scale(.6)}
+.ach-chip.on{opacity:1;transform:scale(1);transition:all .45s var(--bounce)}
+
+/* ── پنجرهٔ تنظیمات کوچک (sheet) ── */
+.sheet{position:fixed;inset:auto 0 0 0;z-index:75;transform:translateY(105%);transition:transform .4s var(--ease);padding:0 var(--sp-3) var(--sp-3)}
+.sheet.on{transform:none}
+.sheet .card{max-width:560px;margin:0 auto}
+.row-set{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--edge);font-size:14px}
+.row-set:last-of-type{border-bottom:0}
+.sw{appearance:none;width:44px;height:26px;border-radius:var(--r-full);background:rgba(255,255,255,.15);position:relative;cursor:pointer;transition:background var(--dur-2)}
+.sw::after{content:"";position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform var(--dur-2) var(--bounce)}
+.sw:checked{background:var(--grn)}
+.sw:checked::after{transform:translateX(-18px)}
+
 @media (prefers-reduced-motion:reduce){*,::view-transition-old(root),::view-transition-new(root){animation-duration:.001ms!important;transition-duration:.001ms!important}}
