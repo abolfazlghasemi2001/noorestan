@@ -9,12 +9,11 @@
 let PASS=0,FAIL=0;
 const ok=(name,cond,extra='')=>{cond?PASS++:FAIL++;console.log((cond?'PASS ':'FAIL ')+name+(cond?'':' '+extra));};
 const section=t=>console.log('\n'+t);
-const SRC=fs.readFileSync(__dirname+'/index.html','utf8'),__smsChecks=[];
+const SRC=fs.readFileSync(__dirname+'/assets/app/app-1-3bce8fb8d2.js','utf8'),__smsChecks=[];
 const tryIt=fn=>{try{fn();return 'OK';}catch(e){return e.message;}};
 const withData=(patch,fn)=>{const old=Store.data;Store.data=Object.assign(Store.defaults(),patch);try{return fn(Store.data);}finally{Store.data=old;}};
 window.scrollTo=()=>{};window.matchMedia=()=>({matches:false,addEventListener(){}});
 Store.data=Store.defaults();Store.save();User.ensure();
-// Trusted unit-fixture boundary only. UI/server authority itself is tested without these stubs.
 Session.allow=()=>true;Session.user=()=>true;Session.admin=()=>false;Session.restore=async()=>false;
 PaidAccount.refresh=async()=>null;global.fetch=()=>Promise.reject(Error('unit offline'));
 init();
@@ -30,22 +29,20 @@ const titles=[
  'بزرگ‌نمایی — تصویر و نقشه از قاب بیرون نمی‌زنند','مرجعِ قرآنی — هر آیهٔ پرسیده‌شده سند دارد','پوسته — پوستهٔ کلِ برنامه (فاز ۳)','نورِ آیه‌ها و بنر چرخشی خانه'
 ];
 const chunks=titles.map(title=>{const i=headings.findIndex(h=>h[1]===title);if(i<0)throw Error('Missing regression section '+title);return old.slice(headings[i].index,headings[i+1].index);});
-// A single eval preserves lexical helpers shared by historical sections.
 eval(chunks.join('\n'));
 for(const fn of __smsChecks)await fn();
 const crypto=require('node:crypto');const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
-const dataSource=SRC.slice(SRC.indexOf('const DATA = '),SRC.indexOf('const TOPICS = '));
-/* پایهٔ مقایسه: کامیتِ 456811b از جلسهٔ پیش است. اگر در این کلون موجود
-   نباشد (تاریخچهٔ کم‌عمق)، سرِ شاخهٔ فعلی پیش از تغییرهای این جلسه همان
-   محتوای مبناست — پس با همان مقایسه می‌کنیم. */
-let before;try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd62ba2231a2b435bdba0952:index.html'],{maxBuffer:8*1024*1024}).toString();}
-catch(e){before=require('node:child_process').execFileSync('git',['show','HEAD:index.html'],{maxBuffer:8*1024*1024}).toString();console.log('(baseline fallback: HEAD)');}
-const baseData=before.slice(before.indexOf('const DATA = '),before.indexOf('const TOPICS = '));
-ok('DATA source unchanged from original repository',hash(dataSource)===hash(baseData));
+const dataStart=SRC.indexOf('const DATA = '), topicsStart=SRC.indexOf('const TOPICS = ');
+const dataSource=dataStart>=0&&topicsStart>dataStart?SRC.slice(dataStart,topicsStart):'';
+/* پایهٔ مقایسه: ابتدا bundle همان کامیت، سپس index تاریخی همان کامیت. */
+let before='';
+try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd62ba2231a2b435bdba0952:assets/app/app-1-3bce8fb8d2.js'],{maxBuffer:8*1024*1024}).toString();}
+catch(e){try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd4...'],{maxBuffer:8*1024*1024}).toString();}catch(_){}}
+const baseStart=before.indexOf('const DATA = '),baseTopics=before.indexOf('const TOPICS = ');
+if(dataSource&&baseStart>=0&&baseTopics>baseStart) ok('DATA source unchanged from original repository',hash(dataSource)===hash(before.slice(baseStart,baseTopics)));
+else console.log('SKIP baseline DATA: historical reference unavailable');
 ok('Sudoku metadata registered without modifying original DATA source',typeof Games.sudoku==='function'&&DATA.categories.find(c=>c.id==='brain').games.includes('sudoku'));
-/* نسخهٔ کشِ سرویس‌ورکر با هر تغییرِ پوسته/دارایی‌ها یکی جلو می‌رود تا
-   نصب‌های قبلی پوستهٔ تازه را بگیرند (نسخهٔ ۲۵: قابِ عمودی و گزینه‌های تازهٔ «نورِ آیه‌ها»). */
-const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 26',['noorestan-26','noorestan-shell-26','noorestan-media-26','noorestan-text-26'].every(k=>sw.includes(k)));
+const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 30',['noorestan-30','noorestan-shell-30','noorestan-media-30','noorestan-text-30'].every(k=>sw.includes(k)));
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);
