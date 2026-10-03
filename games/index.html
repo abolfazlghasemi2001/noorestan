@@ -7,114 +7,40 @@
 <title>بازی‌های نورستان</title>
 <link rel="stylesheet" href="common.css">
 <style>
-.prof{display:flex;gap:14px;align-items:center;margin-bottom:14px}
-.ring{--p:0;width:74px;height:74px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--gold) calc(var(--p)*1%),rgba(255,255,255,.08) 0);position:relative}
-.ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg2)}
-.ring b{position:relative;font-size:24px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
-.ring small{position:absolute;bottom:-8px;font-size:10px;background:var(--gold);color:#1b1206;border-radius:var(--r-full);padding:1px 8px;font-weight:800}
-.prof .who{flex:1;min-width:0}
-.prof h2{font-size:17px;margin-bottom:2px}
-.prof .meta{display:flex;gap:12px;color:var(--mut);font-size:12px;margin:4px 0 8px;flex-wrap:wrap}
-.prof .meta b{color:var(--txt)}
-.daily{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-bottom:14px;border-color:rgba(245,201,106,.45)}
-.daily .ic{width:56px;height:56px;border-radius:var(--r-lg);overflow:hidden;flex:none;box-shadow:var(--sh-gold)}
-.daily .ic img{width:100%;height:100%;display:block}
-.daily .tag{font-size:11px;color:#1b1206;background:var(--grad);border-radius:var(--r-full);padding:2px 10px;font-weight:800;display:inline-block;margin-bottom:4px}
-.daily h3{font-size:15px}
-.daily p{font-size:12px;color:var(--mut)}
-.daily.done{opacity:.75;border-color:rgba(61,220,151,.5)}
-.daily.done .tag{background:var(--grn)}
-.sec{font-size:13px;color:var(--mut);margin:18px 4px 10px;display:flex;justify-content:space-between;align-items:center}
-.g{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;margin-bottom:12px;transition:transform var(--dur-2) var(--bounce);animation:pp .5s var(--bounce) both}
-.g:nth-of-type(2){animation-delay:.06s}.g:nth-of-type(3){animation-delay:.12s}
-.g:hover,.g:focus-visible{transform:translateY(-3px) scale(1.01)}
-.g:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}
-.g .ic{width:80px;height:80px;flex:none;border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--sh-gold);transition:transform var(--dur-3) var(--bounce)}
-.g .ic img{display:block;width:100%;height:100%}
-.g:hover .ic{transform:rotate(-4deg) scale(1.06)}
-.g h3{font-size:16px;margin-bottom:var(--sp-1);display:flex;gap:6px;align-items:center}
-.g h3 .new{font-size:10px;background:var(--grn);color:#062a1c;border-radius:var(--r-full);padding:1px 8px}
-.g p{color:var(--mut);font-size:12.5px;line-height:1.8}
-.g .b{display:flex;gap:10px;align-items:center;color:var(--gold);font-size:11px;margin-top:var(--sp-1);min-height:16px}
-.g .st{letter-spacing:2px;color:var(--gold2)}
-.g .st .off{opacity:.25}
-.achs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.ach{text-align:center;padding:10px 4px;border-radius:var(--r-md);background:var(--card);border:1px solid var(--edge);font-size:10.5px;color:var(--mut);line-height:1.6}
-.ach i{display:block;font-style:normal;font-size:24px;filter:grayscale(1);opacity:.35}
-.ach.on{border-color:rgba(245,201,106,.45);color:var(--txt)}
-.ach.on i{filter:none;opacity:1}
-@media (max-width:360px){.achs{grid-template-columns:repeat(3,1fr)}}
+.prof{display:flex;gap:14px;align-items:center;margin-bottom:14px}.ring{--p:0;width:74px;height:74px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--gold) calc(var(--p)*1%),rgba(255,255,255,.08) 0);position:relative}.ring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg2)}.ring b{position:relative;font-size:24px;font-weight:900;color:var(--gold2);line-height:1}.ring small{position:absolute;bottom:-8px;font-size:10px;background:var(--gold);color:#1b1206;border-radius:var(--r-full);padding:1px 8px;font-weight:800}.prof .who{flex:1;min-width:0}.prof h2{font-size:17px;margin-bottom:2px}.prof .meta{display:flex;gap:12px;color:var(--mut);font-size:12px;margin:4px 0 8px;flex-wrap:wrap}.prof .meta b{color:var(--txt)}.daily{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-bottom:14px;border-color:rgba(245,201,106,.45)}.daily .ic{width:56px;height:56px;border-radius:var(--r-lg);overflow:hidden;flex:none;box-shadow:var(--sh-gold)}.daily .ic img{width:100%;height:100%;display:block}.daily .tag{font-size:11px;color:#1b1206;background:var(--grad);border-radius:var(--r-full);padding:2px 10px;font-weight:800;display:inline-block;margin-bottom:4px}.daily h3{font-size:15px}.daily p{font-size:12px;color:var(--mut)}.daily.done{opacity:.75;border-color:rgba(61,220,151,.5)}.daily.done .tag{background:var(--grn)}.sec{font-size:13px;color:var(--mut);margin:18px 4px 10px;display:flex;justify-content:space-between;align-items:center}.filters{display:flex;gap:7px;overflow:auto;padding:2px 2px 9px;margin-bottom:7px;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.filter{border:1px solid var(--edge);background:var(--card);color:var(--mut);border-radius:var(--r-full);padding:7px 12px;font:inherit;font-size:11px;white-space:nowrap;cursor:pointer}.filter.on{background:var(--gold);border-color:var(--gold);color:#1b1206;font-weight:800}.filter:focus-visible{outline:2px solid var(--gold2);outline-offset:2px}.catalog-note{font-size:11px;color:var(--mut);margin:0 4px 12px}.g{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;margin-bottom:12px;transition:transform var(--dur-2) var(--bounce);animation:pp .5s var(--bounce) both}.g:hover,.g:focus-visible{transform:translateY(-3px) scale(1.01)}.g:focus-visible{outline:2px solid var(--gold2);outline-offset:3px}.g .ic{width:80px;height:80px;flex:none;border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--sh-gold)}.g .ic img{display:block;width:100%;height:100%}.g h3{font-size:16px;margin-bottom:var(--sp-1);display:flex;gap:6px;align-items:center}.g h3 .new{font-size:10px;background:var(--grn);color:#062a1c;border-radius:var(--r-full);padding:1px 8px}.g p{color:var(--mut);font-size:12.5px;line-height:1.8}.g .b{display:flex;gap:10px;align-items:center;color:var(--gold);font-size:11px;margin-top:var(--sp-1);min-height:16px}.g .st{letter-spacing:2px;color:var(--gold2)}.g .st .off{opacity:.25}.meta-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}.meta-tag{font-size:10px;color:var(--mut);border:1px solid var(--edge);border-radius:var(--r-full);padding:2px 7px}.empty{padding:20px;text-align:center;color:var(--mut);font-size:13px}.achs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.ach{text-align:center;padding:10px 4px;border-radius:var(--r-md);background:var(--card);border:1px solid var(--edge);font-size:10.5px;color:var(--mut);line-height:1.6}.ach i{display:block;font-style:normal;font-size:24px;filter:grayscale(1);opacity:.35}.ach.on{border-color:rgba(245,201,106,.45);color:var(--txt)}.ach.on i{filter:none;opacity:1}@media(max-width:360px){.achs{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top"><a href="../">→ نورستان</a><div class="title">بازی‌ها</div><button class="btn-ghost" id="setBtn" aria-label="تنظیمات">⚙️</button></div>
-
-  <div class="card prof">
-    <div class="ring" id="ring"><b id="lvl">۱</b><small>سطح</small></div>
-    <div class="who">
-      <h2 id="title">نوآموز</h2>
-      <div class="meta"><span>🔥 <b id="streak">۰</b> روز پیاپی</span><span>🎮 <b id="plays">۰</b> بازی</span><span>🏅 <b id="achN">۰</b> دستاورد</span></div>
-      <div class="xp-bar"><i id="xpBar"></i></div>
-      <div class="mut" id="xpTxt" style="font-size:11px;margin-top:4px"></div>
-    </div>
-  </div>
-
+  <div class="card prof"><div class="ring" id="ring"><b id="lvl">۱</b><small>سطح</small></div><div class="who"><h2 id="title">نوآموز</h2><div class="meta"><span>🔥 <b id="streak">۰</b> روز پیاپی</span><span>🎮 <b id="plays">۰</b> بازی</span><span>🏅 <b id="achN">۰</b> دستاورد</span></div><div class="xp-bar"><i id="xpBar"></i></div><div class="mut" id="xpTxt" style="font-size:11px;margin-top:4px"></div></div></div>
   <a class="card daily" id="daily" href="#"><div class="ic"><img id="dIc" alt="" width="56" height="56"></div><div><span class="tag" id="dTag">📅 چالش امروز · XP ×۲</span><h3 id="dName"></h3><p id="dTxt">یک دور بازی کن تا امتیاز تجربه‌ات دو برابر شود.</p></div></a>
-
-  <div class="sec"><span>همهٔ بازی‌ها</span></div>
-  <a class="card g" href="ayah-builder.html"><div class="ic"><img src="art/ayah-builder.svg" alt="" width="80" height="80"></div><div><h3>آیه‌ساز</h3><p>واژه‌های آیه را پیش از تمام شدن زمان، به ترتیب بچین. سه سطح، ترکیب، راهنما.</p><div class="b" id="b1"></div></div></a>
-  <a class="card g" href="hadith-rush.html"><div class="ic"><img src="art/hadith-rush.svg" alt="" width="80" height="80"></div><div><h3>باران حکمت</h3><p>واژهٔ گم‌شدهٔ حدیث را از میان گزینه‌های بارانی بگیر. هر سطح تندتر.</p><div class="b" id="b2"></div></div></a>
-  <a class="card g" href="noor-pairs.html"><div class="ic"><img src="art/noor-pairs.svg" alt="" width="80" height="80"></div><div><h3>جفت نور <span class="new">تازه</span></h3><p>کارت‌ها را برگردان و هر آیه را به سوره‌اش برسان. حافظه، دقت، سرعت.</p><div class="b" id="b3"></div></div></a>
-
-  <div class="sec"><span>دستاوردها</span><span id="achTxt"></span></div>
-  <div class="achs" id="achs"></div>
+  <div class="sec"><span>همهٔ بازی‌ها</span><span id="count"></span></div>
+  <div class="filters" id="subjectFilters" aria-label="دسته‌بندی موضوعی"></div>
+  <div class="filters" id="skillFilters" aria-label="فیلتر مهارت"></div>
+  <p class="catalog-note">موضوع، چیزی است که یاد می‌گیری؛ مهارت، شیوه‌ای است که بازی می‌کنی.</p>
+  <div id="games"></div>
+  <div class="sec"><span>دستاوردها</span><span id="achTxt"></span></div><div class="achs" id="achs"></div>
 </div>
-
-<div class="sheet" id="sheet"><div class="card">
-  <div class="row-set"><span>🔊 صدا</span><input type="checkbox" class="sw" id="sSound"></div>
-  <div class="row-set"><span>📳 لرزش</span><input type="checkbox" class="sw" id="sBuzz"></div>
-  <button class="btn" id="sClose" style="width:100%;margin-top:12px">بستن</button>
-</div></div>
-
-<script src="common.js"></script>
+<div class="sheet" id="sheet"><div class="card"><div class="row-set"><span>🔊 صدا</span><input type="checkbox" class="sw" id="sSound"></div><div class="row-set"><span>📳 لرزش</span><input type="checkbox" class="sw" id="sBuzz"></div><button class="btn" id="sClose" style="width:100%;margin-top:12px">بستن</button></div></div>
+<script src="catalog.js"></script><script src="common.js"></script>
 <script>
-  const P = G.profile(), L = P.level;
-  G.$('#lvl').textContent = G.fa(L.lvl);
-  G.$('#title').textContent = L.title;
-  G.$('#streak').textContent = G.fa(P.streak);
-  G.$('#plays').textContent = G.fa(P.plays);
-  G.$('#achN').textContent = G.fa(P.ach.length);
-  G.$('#xpTxt').textContent = `${G.fa(P.xp - L.from)} از ${G.fa(L.to - L.from)} XP تا سطح ${G.fa(L.lvl + 1)}`;
-  requestAnimationFrame(() => setTimeout(() => {
-    G.$('#xpBar').style.width = Math.round(L.pct * 100) + '%';
-    G.$('#ring').style.setProperty('--p', Math.round(L.pct * 100));
-  }, 120));
-
-  const D = G.GAMES[P.daily];
-  G.$('#daily').href = D.href; G.$('#dIc').src = D.art; G.$('#dName').textContent = D.name;
-  if (P.dailyDone) { G.$('#daily').classList.add('done'); G.$('#dTag').textContent = '✅ چالش امروز انجام شد'; G.$('#dTxt').textContent = 'فردا یک بازی تازه منتظرت است.'; }
-
-  const starRow = n => '<span class="st">' + [0, 1, 2].map(i => i < n ? '★' : '<span class="off">★</span>').join('') + '</span>';
-  const badge = (sel, keys) => {
-    const rec = Math.max(...keys.map(k => G.best(k).best)), st = Math.max(...keys.map(k => G.stars(k)));
-    if (!rec && !st) return;
-    G.$(sel).innerHTML = starRow(st) + (rec ? '<span>🏆 رکورد: ' + G.fa(rec) + '</span>' : '');
-  };
-  badge('#b1', [1, 2, 3].map(l => 'ayahbuilder_' + l));
-  badge('#b2', ['hadithrush']);
-  badge('#b3', ['noorpairs_6', 'noorpairs_6t', 'noorpairs_8', 'noorpairs_8t']);
-
-  const ids = Object.keys(G.ACH);
-  G.$('#achs').innerHTML = ids.map(id => `<div class="ach${P.ach.includes(id) ? ' on' : ''}" title="${G.esc(G.ACH[id].desc)}"><i>${G.ACH[id].ic}</i>${G.esc(G.ACH[id].name)}</div>`).join('');
-  G.$('#achTxt').textContent = `${G.fa(P.ach.length)}/${G.fa(ids.length)}`;
-
-  const sh = G.$('#sheet'), sS = G.$('#sSound'), sB = G.$('#sBuzz');
-  const sync = () => { sS.checked = !G.muted(); sB.checked = !G.noBuzz(); };
-  G.$('#setBtn').onclick = () => { sync(); sh.classList.add('on'); };
-  G.$('#sClose').onclick = () => sh.classList.remove('on');
-  sS.onchange = () => { try { localStorage.setItem('noorestan_g_mute', sS.checked ? '0' : '1'); } catch {} if (sS.checked) G.sfx.ok(); };
-  sB.onchange = () => { try { localStorage.setItem('noorestan_g_nobuzz', sB.checked ? '0' : '1'); } catch {} G.buzz(30); };
+  const C = window.NoorestanGameCatalog, $ = G.$, P = G.profile(), L = P.level;
+  $('#lvl').textContent=G.fa(L.lvl); $('#title').textContent=L.title; $('#streak').textContent=G.fa(P.streak); $('#plays').textContent=G.fa(P.plays); $('#achN').textContent=G.fa(P.ach.length); $('#xpTxt').textContent=`${G.fa(P.xp-L.from)} از ${G.fa(L.to-L.from)} XP تا سطح ${G.fa(L.lvl+1)}`;
+  requestAnimationFrame(()=>setTimeout(()=>{$('#xpBar').style.width=Math.round(L.pct*100)+'%';$('#ring').style.setProperty('--p',Math.round(L.pct*100));},120));
+  const dailyGame=C.byId(G.daily()==='ayahbuilder'?'ayah-builder':G.daily()==='hadithrush'?'hadith-rush':'noor-pairs');
+  if(dailyGame){$('#daily').href=dailyGame.route;$('#dIc').src=dailyGame.art||'art/ayah-builder.svg';$('#dName').textContent=dailyGame.title;}
+  if(P.dailyDone){$('#daily').classList.add('done');$('#dTag').textContent='✅ چالش امروز انجام شد';$('#dTxt').textContent='فردا یک بازی تازه منتظرت است.';}
+  const starRow=n=>'<span class="st">'+[0,1,2].map(i=>i<n?'★':'<span class="off">★</span>').join('')+'</span>';
+  const badge=(node,keys)=>{const rec=Math.max(0,...keys.map(k=>G.best(k).best)),st=Math.max(0,...keys.map(k=>G.stars(k)));if(!rec&&!st)return '';return starRow(st)+(rec?'<span>🏆 رکورد: '+G.fa(rec)+'</span>':'');};
+  const scoreKeys=id=>C.byId(id)?.scoreKeys||[];
+  let subject='all', skill='all';
+  const labelSubject=s=>s==='all'?'همه':s, labelSkill=s=>s==='all'?'همهٔ مهارت‌ها':s;
+  const makeFilter=(host, value, label, group)=>{const b=document.createElement('button');b.className='filter'+((group==='subject'?subject:skill)===value?' on':'');b.type='button';b.textContent=label;b.setAttribute('aria-pressed',String((group==='subject'?subject:skill)===value));b.onclick=()=>{if(group==='subject')subject=value;else skill=value;render();};host.appendChild(b);};
+  function renderFilters(){const sf=$('#subjectFilters'),kf=$('#skillFilters');sf.innerHTML='';kf.innerHTML='';makeFilter(sf,'all','همهٔ موضوع‌ها','subject');C.subjects().forEach(s=>makeFilter(sf,s,labelSubject(s),'subject'));const skills=[...new Set(C.all.flatMap(g=>g.skills))];makeFilter(kf,'all',labelSkill('all'),'skill');skills.forEach(s=>makeFilter(kf,s,s,'skill'));}
+  function render(){renderFilters();const list=C.filter({subject:subject==='all'?undefined:subject,skill:skill==='all'?undefined:skill,status:'available'}), host=$('#games');$('#count').textContent=G.fa(list.length)+' بازی';host.innerHTML=list.length?list.map((g,i)=>`<a class="card g" style="animation-delay:${i*.06}s" href="${g.route}"><div class="ic"><img src="${g.art}" alt="" width="80" height="80"></div><div><h3>${G.esc(g.title)}${g.id==='noor-pairs'?'<span class="new">تازه</span>':''}</h3><p>${G.esc(g.description)}</p><div class="meta-tags"><span class="meta-tag">${G.esc(g.subject)}</span><span class="meta-tag">${G.esc(g.duration)}</span>${g.timed?'<span class="meta-tag">زمان‌دار</span>':''}</div><div class="b">${badge(null,scoreKeys(g.id))}</div></div></a>`).join(''):'<div class="card empty">بازی‌ای با این فیلتر پیدا نشد.</div>';}
+  render();
+  const ids=Object.keys(G.ACH);$('#achs').innerHTML=ids.map(id=>`<div class="ach${P.ach.includes(id)?' on':''}" title="${G.esc(G.ACH[id].desc)}"><i>${G.ACH[id].ic}</i>${G.esc(G.ACH[id].name)}</div>`).join('');$('#achTxt').textContent=`${G.fa(P.ach.length)}/${G.fa(ids.length)}`;
+  const sh=$('#sheet'),sS=$('#sSound'),sB=$('#sBuzz'),sync=()=>{sS.checked=!G.muted();sB.checked=!G.noBuzz();};$('#setBtn').onclick=()=>{sync();sh.classList.add('on');};$('#sClose').onclick=()=>sh.classList.remove('on');sS.onchange=()=>{try{localStorage.setItem('noorestan_g_mute',sS.checked?'0':'1');}catch{}if(sS.checked)G.sfx.ok();};sB.onchange=()=>{try{localStorage.setItem('noorestan_g_nobuzz',sB.checked?'0':'1');}catch{}G.buzz(30);};
 </script>
-</body>
-</html>
+</body></html>
