@@ -48,11 +48,11 @@
    تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-29';
-const SHELL = 'noorestan-shell-29';
-const MEDIA = 'noorestan-media-29';
-const TEXT  = 'noorestan-text-29';
-const GAMES = 'noorestan-games-29';
+const CACHE = 'noorestan-25';
+const SHELL = 'noorestan-25shell-29';
+const MEDIA = 'noorestan-25media-29';
+const TEXT  = 'noorestan-25text-29';
+const GAMES = 'noorestan-25games-29';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
