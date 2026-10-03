@@ -48,11 +48,11 @@
    تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-29';
-const SHELL = 'noorestan-shell-29';
-const MEDIA = 'noorestan-media-29';
-const TEXT  = 'noorestan-text-29';
-const GAMES = 'noorestan-games-29';
+const CACHE = 'noorestan-30';
+const SHELL = 'noorestan-shell-30';
+const MEDIA = 'noorestan-media-30';
+const TEXT  = 'noorestan-text-30';
+const GAMES = 'noorestan-games-30';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -63,7 +63,7 @@ const SHELL_PAGE = './index.html';
    پس فقط چیزهایی که واقعاً وجود دارند این‌جا می‌آیند. */
 const PRECACHE = [
   // split-index:start
-  './assets/app/style-1-5c101f5060.css',
+  './assets/app/style-1-fd30642d4f.css',
   './assets/app/app-1-3bce8fb8d2.js',
   // split-index:end
   './',

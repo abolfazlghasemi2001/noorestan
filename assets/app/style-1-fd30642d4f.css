@@ -1,16 +1,6 @@
- پایین است و
-     فایل‌ها در assets/fonts می‌نشینند. این پیش‌اتصال فقط برای فونت‌های
-     نمایشی و قرآنیِ اختیاری است که خودِ کاربر انتخاب می‌کند. -->
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preload" as="font" type="font/woff2" crossorigin
-      href="assets/fonts/vazirmatn-regular.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin
-      href="assets/fonts/vazirmatn-bold.woff2">
-<!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
-<!-- اسلایدر اکنون بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
-<style>
+
 @font-face{font-family:Lalezar;font-style:normal;font-weight:400;font-display:swap;
-  src:url("assets/fonts/lalezar-arabic-400.woff2") format("woff2")}
+  src:url("../../assets/fonts/lalezar-arabic-400.woff2") format("woff2")}
 /* ═══════════════ 0. LAYER STACK ═══════════════
    ترتیب لایه‌ها عمدی است: هر لایهٔ بعدی روی لایه‌های پیشین می‌نشیند،
    مستقل از specificity. پس «تم روشن» و «حرکت» می‌توانند پایه را
@@ -33,15 +23,15 @@
    درخواستِ خودِ @font-face یکی شمرده نمی‌شود و فایل دوباره گرفته می‌شود. */
 @font-face{
   font-family:Vazirmatn; font-style:normal; font-weight:400; font-display:swap;
-  src:url("assets/fonts/vazirmatn-regular.woff2") format("woff2");
+  src:url("../../assets/fonts/vazirmatn-regular.woff2") format("woff2");
 }
 @font-face{
   font-family:Vazirmatn; font-style:normal; font-weight:700; font-display:swap;
-  src:url("assets/fonts/vazirmatn-bold.woff2") format("woff2");
+  src:url("../../assets/fonts/vazirmatn-bold.woff2") format("woff2");
 }
 @font-face{
   font-family:Vazirmatn; font-style:normal; font-weight:800; font-display:swap;
-  src:url("assets/fonts/vazirmatn-extrabold.woff2") format("woff2");
+  src:url("../../assets/fonts/vazirmatn-extrabold.woff2") format("woff2");
 }
 
 @layer base {
