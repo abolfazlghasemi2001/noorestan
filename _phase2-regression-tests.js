@@ -9,7 +9,13 @@
 let PASS=0,FAIL=0;
 const ok=(name,cond,extra='')=>{cond?PASS++:FAIL++;console.log((cond?'PASS ':'FAIL ')+name+(cond?'':' '+extra));};
 const section=t=>console.log('\n'+t);
-const SRC=fs.readFileSync(__dirname+'/assets/app/app-1-3bce8fb8d2.js','utf8'),__smsChecks=[];
+/* منبعِ منتشرشده، در سه نمایِ جدا. چرا سه تا؟ چون پس از شکستنِ سند به
+   `assets/app/*`، یک رشتهٔ واحد هم برای سنجش‌های کد لازم است و هم برای
+   سنجش‌های استایل و هم برای سنجش‌های خودِ HTML؛ پیش‌تر همه از
+   `index.html` می‌خواندند و پس از آن جابه‌جایی کور شده بودند (و با
+   `.match(...)[1]` روی نال، هارنس را نیمه‌کاره می‌کشتند). */
+const _shipped=require('./_shipped.js');
+const SRC=_shipped.source(), CSS=_shipped.css(), DOC=_shipped.document(), __smsChecks=[];
 const tryIt=fn=>{try{fn();return 'OK';}catch(e){return e.message;}};
 const withData=(patch,fn)=>{const old=Store.data;Store.data=Object.assign(Store.defaults(),patch);try{return fn(Store.data);}finally{Store.data=old;}};
 window.scrollTo=()=>{};window.matchMedia=()=>({matches:false,addEventListener(){}});
@@ -42,7 +48,18 @@ const baseStart=before.indexOf('const DATA = '),baseTopics=before.indexOf('const
 if(dataSource&&baseStart>=0&&baseTopics>baseStart) ok('DATA source unchanged from original repository',hash(dataSource)===hash(before.slice(baseStart,baseTopics)));
 else console.log('SKIP baseline DATA: historical reference unavailable');
 ok('Sudoku metadata registered without modifying original DATA source',typeof Games.sudoku==='function'&&DATA.categories.find(c=>c.id==='brain').games.includes('sudoku'));
-const sw=fs.readFileSync(__dirname+'/sw.js','utf8');ok('all four SW caches at version 30',['noorestan-30','noorestan-shell-30','noorestan-media-30','noorestan-text-30'].every(k=>sw.includes(k)));
+const sw=fs.readFileSync(__dirname+'/sw.js','utf8');/* شمارهٔ کش در متنِ سنجش نوشته نمی‌شود: با هر نسخه بالا می‌رود و نوشتنِ
+   عدد یعنی سنجش با هر بالابردنِ درست هم قرمز می‌شود. چیزی که باید
+   درست بماند این است که چهار کش هم‌شماره باشند — نه شمارهٔ خودشان. */
+ok('all five SW caches share one version', (() => {
+  const ver = (sw.match(/const CACHE = 'noorestan-(\d+)'/) || [])[1];
+  if(!ver) return false;
+  return ['noorestan-','noorestan-shell-','noorestan-media-','noorestan-text-','noorestan-games-']
+    .every(p => sw.includes(p + ver));
+})(), (sw.match(/const CACHE = '[^']*'/) || [''])[0]);
+/* برگهٔ سبکِ تازه باید پیش‌ذخیره شود، وگرنه نصبِ آفلاین صفحهٔ ورودِ
+   کهنه را نشان می‌دهد. */
+ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.css'"));
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);

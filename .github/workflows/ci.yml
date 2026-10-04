@@ -1,0 +1,95 @@
+# نورستان — CI
+#
+# چرا این فایل این‌جاست و نه در docs/؟
+#   پیش‌تر در docs/ci/ci.yml بود، چون ابزارِ ساختِ آن مجوزِ نوشتن در
+#   .github/workflows را نداشت. یک CI که اجرا نمی‌شود، فقط این حس را
+#   می‌سازد که چیزی دارد بررسی می‌شود. این همان فایل است، در جای درست.
+#
+# روی هر pull request و هر push به main چهار دروازه می‌گذرد:
+#   ۱) سینتکسِ همهٔ اسکریپت‌های منتشرشده
+#   ۲) هارنسِ کلاینت (منطقِ برنامه در Node، با DOMِ استاب)
+#   ۳) نگهبان‌های tests/ (بازی‌ها، تصویرسازی، توکن‌ها)
+#   ۴) تستِ یکپارچهٔ سرور روی سوکتِ واقعی
+# به‌علاوهٔ اسکنِ secret روی کلِ تاریخچه.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: سینتکس + تست‌ها
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      # ۲۲ و ۲۴: خطوطِ LTSِ زنده. چرا ۲۰ نه؟ چون «تستِ یکپارچهٔ سرور»
+      # برای وصل‌شدن به سوکتِ واقعی به کلاینتِ WebSocketِ خودِ نود
+      # نیاز دارد و آن از ۲۲ سراسری است؛ در ۲۰ اصلاً نیست (و از ۲۱ تنها
+      # با پرچم). نود ۲۰ هم از فروردینِ ۱۴۰۵ پایان‌یافته است.
+      # نکته: این محدودیت فقط ابزارِ آزمون است، نه برنامه. خودِ
+      # server.js هیچ چیزِ تازه‌ای نمی‌خواهد و روی ۱۸ هم بالا می‌آید.
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: سلامتِ خودِ فایلِ workflow
+        # چرا این گام؟ یک تورفتگیِ اشتباه در این فایل همهٔ دروازه‌ها را
+        # خاموش می‌کند و تازه آن‌وقت دیگر هیچ‌کس نمی‌فهمد چرا اجرا نشد.
+        run: |
+          set -e
+          python3 -c "import yaml; d=yaml.safe_load(open('.github/workflows/ci.yml',encoding='utf-8')); st=d['jobs']['test']['strategy']; n=st['matrix']['node']; assert st.get('fail-fast') is False, 'fail-fast بايد false باشد'; assert n and all(isinstance(x,int) and x>=22 for x in n), 'تست سرور به WebSocket سراسري نياز دارد: %r' % (n,); print('workflow سالم؛ ماتريس:', n)"
+      - name: node --check روی همهٔ اسکریپت‌ها
+        run: |
+          set -e
+          shopt -s nullglob
+          fail=0
+          for f in *.js tools/*.js tests/*.js games/*.js; do
+            node --check "$f" || { echo "❌ $f"; fail=1; }
+          done
+          bash -n start.sh || fail=1
+          exit $fail
+
+      - name: برگهٔ سبک — نبودنِ نشانیِ بیرونی
+        run: node _check-scripts.js
+
+      - name: هارنسِ کلاینت
+        run: node _harness.js
+
+      - name: نگهبان‌های tests/
+        run: |
+          set -e
+          shopt -s nullglob
+          for f in tests/*.test.js; do echo "▶ $f"; node "$f"; done
+
+      - name: تستِ یکپارچهٔ سرور (سوکت واقعی)
+        run: node _servertest.js
+
+      - name: بازرسیِ محتوا
+        run: node _content-audit.js
+
+  secrets:
+    name: اسکن secret (کل تاریخچه)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

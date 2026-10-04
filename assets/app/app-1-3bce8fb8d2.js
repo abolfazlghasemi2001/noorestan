@@ -13499,48 +13499,251 @@ const Gate = {
     this.el()?.classList.remove('hide','leaving');Session.layout();this.paint();return true;
   },
   maybe(){if(Session.user()||Session.admin())return false;if(this.shown)return true;return location.hash==='#admin'?AdminLogin.open():this.open('phone',true);},
-  close(){if(!Session.user()&&!Session.admin())return;this.shown=false;this.stop();this.el()?.classList.add('hide');Session.layout();},
+  close(){if(!Session.user()&&!Session.admin())return;this.shown=false;this.stop();this.mark('');this.el()?.classList.add('hide');Session.layout();},
   stop(){if(this.tid)Timers.clear(this.tid);this.tid=null;},
   sync(){if(this.shown&&!AdminLogin.shown&&this.step==='phone')this.paint();},
-  msg(text){const e=U.$('#gtMsg');if(e)e.textContent=text;},
+
+  /* ── حالتِ دیداریِ صفحه ──
+     یک کلاس روی #gate می‌نشیند و بقیه با CSS می‌آیند: مدار تند
+     می‌چرخد، قفل باز می‌شود، جرقه‌ها می‌پرند، جعبه‌های کد قرمز
+     می‌شوند. چرا کلاس و نه دستکاریِ مستقیمِ استایل؟ چون حالت باید در
+     یک جا و قابلِ دیدن باشد، و چون «کم‌حرکتی» آن‌وقت یک قانونِ CSS
+     است نه ده تا شرطِ پراکنده در اینجا. */
+  mark(kind){
+    const g=this.el(); if(!g) return;
+    /* پیشوند پذیرفته می‌شود ولی اجباری نیست: صدازدن با 'success' یا
+       'is-success' هر دو یک نتیجه می‌دهد. چرا؟ چون این تابع از چند
+       جا صدا زده می‌شود و کلاسِ HTML یک چیز است و نامِ حالت چیزِ
+       دیگر؛ یکی‌کردنِ این دو اینجا، ارزان‌تر از آن است که هر
+       صدازننده‌ای جداگانه حواسش باشد. */
+    const k = String(kind||'').replace(/^is-/,'');
+    ['typing','checking','success','failing','locked'].forEach(x=>g.classList.remove('is-'+x));
+    if(k) g.classList.add('is-'+k);
+  },
+  /* پیام: متن به‌علاوهٔ لحن. گره از پیش `role="status"` دارد تا
+     صفحه‌خوان همان لحظه بگوید چه شد — نه اینکه کاربر حدس بزند. */
+  msg(text, tone){
+    const e=U.$('#gtMsg'); if(!e) return;
+    e.textContent=text||'';
+    e.classList.remove('error','ok');
+    if(tone) e.classList.add(tone);
+  },
+  /* دکمهٔ در حالِ کار: هم غیرفعال می‌شود و هم می‌گوید چرا. */
+  busyBtn(sel,on){
+    const b=U.$(sel); if(!b) return;
+    b.classList.toggle('is-busy',!!on);
+    if(on){ b.disabled=true; return; }
+    b.disabled = sel==='#gtSend' ? !this.canLogin() || !SMS.phoneOk(SMS.norm(U.$('#gtPhone')?.value||this.phone)) : false;
+  },
+  /* ── نشانِ برنامه: همان «ن»، با مدار و جرقه ── */
+  MARK: `<span class="gt-emblem" aria-hidden="true">
+      <i class="gt-flash"></i>
+      <i class="gt-spark"></i><i class="gt-spark"></i><i class="gt-spark"></i>
+      <i class="gt-spark"></i><i class="gt-spark"></i><i class="gt-spark"></i>
+      <div class="gt-tile"><svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round">
+        <path d="M 77.95 57.63 A 34 34 0 0 1 14.05 57.63"/>
+        <path d="M 77.95 57.63 L 86.95 29"/>
+        <circle cx="46" cy="28" r="8" fill="currentColor" stroke="none"/></svg></div>
+      <i class="gt-orbit"></i>
+      <i class="gt-sparkle s1">✦</i><i class="gt-sparkle s2">✦</i>
+    </span>`,
+  /* ── قفل: استعارهٔ خودِ کار ──
+     تایپ می‌کنی ← زبانه تکان می‌خورد؛ می‌فرستی ← کلید می‌چرخد و قفل
+     باز می‌شود؛ اشتباه ← کلید پس زده می‌شود و قفل می‌لرزد. این‌ها
+     تزئین نیستند: تنها نشانه‌ای‌اند که کاربرِ بی‌صدا هم می‌فهمد
+     برنامه دارد چه می‌کند. */
+  LOCK: `<svg class="gt-lock" viewBox="0 0 80 80" aria-hidden="true">
+      <defs>
+        <linearGradient id="gtBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7cd6a"/><stop offset="1" stop-color="#dfa02b"/></linearGradient>
+        <linearGradient id="gtBodyOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fe6bb"/><stop offset="1" stop-color="#2fd39b"/></linearGradient>
+        <linearGradient id="gtBodyNo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff97a1"/><stop offset="1" stop-color="#e0505f"/></linearGradient>
+      </defs>
+      <path class="g-shackle" d="M27 47 V36 a13 13 0 0 1 26 0 V47" fill="none" stroke-width="6" stroke-linecap="round"/>
+      <rect class="g-body" x="19" y="44" width="42" height="29" rx="9"/>
+      <circle class="g-hole" cx="40" cy="56" r="4.2"/>
+      <g class="g-key" fill="none" stroke-width="3.4" stroke-linecap="round">
+        <circle cx="33" cy="52" r="4.6"/><path d="M37.6 52h13M46.6 52v5.6M42.6 52v4.4"/>
+      </g>
+    </svg>`,
+  /* کجا هستیم و قدمِ بعدی چیست — پیش از آنکه کاربر بپرسد. */
+  steps(){
+    const at = this.step==='phone' ? 0 : 1;
+    return `<ol class="gt-steps" aria-label="مراحل ورود">` +
+      [['شماره','۱'],['کد','۲'],['ورود','۳']].map(([name,num],i)=>
+        `<li class="${i<at?'done':i===at?'on':''}"${i===at?' aria-current="step"':''}><b>${num}</b><span>${name}</span></li>`
+      ).join('') + `</ol>`;
+  },
+  /* بازخوردِ لحظه‌ایِ شماره: نه فقط رنگ، که جمله. */
+  field(state,why){
+    const wrap=U.$('#gtField'), ic=U.$('#gtField .gt-field-ic'), hint=U.$('#gtHint');
+    if(wrap){ wrap.classList.remove('ok','bad'); if(state!==null) wrap.classList.add(state?'ok':'bad'); }
+    if(ic) ic.innerHTML = state===true ? Icon.of('check') : state===false ? Icon.of('close') : '';
+    if(hint) hint.textContent = why || 'کدِ تأیید به این شماره پیامک می‌شود. چیزِ دیگری نمی‌فرستیم.';
+  },
+  /* جعبه‌های کد فقط آینهٔ همان یک input راستین‌اند: لمس، تایپ،
+     الصاق و پرکردنِ خودکارِ مرورگر همه به یک گره می‌رسند. */
+  pins(){
+    const inp=U.$('#gtCode'); if(!inp) return;
+    const v=U.unfa(inp.value||'').replace(/\D/g,'').slice(0,OTP.LEN);
+    if(v!==inp.value) inp.value=v;
+    U.$$('#gateBox .gt-pin').forEach((el,i)=>{
+      const ch=v[i]||'';
+      el.textContent=ch;
+      el.classList.toggle('on',!!ch);
+      el.classList.toggle('caret',i===v.length);
+    });
+    U.$$('#gateBox .gt-progress span').forEach((el,i)=>el.classList.toggle('complete',i<v.length));
+    this.mark(v.length?'is-typing':'');
+  },
   paint(){
     this.stop();
     /* Gate و صفحهٔ مدیر رقیبِ یکدیگرند: رسمِ ورودِ کاربر، صفحهٔ مدیر را
        می‌بندد — هرگز هر دو هم‌زمان باز نیستند. */
     AdminLogin.shown=false;U.$('#alog')?.classList.add('hide');
     const box=U.$('#gateBox');if(!box)return;
+    this.mark('');
     const migration=Store.get('guestMigration');
+    const head = `<h2 class="gt-word">نورستان</h2>
+      <p class="gt-sub">${this.step==='phone'
+        ? 'یک شماره بده، همهٔ نورستان مال تو: قرآن، بازی و محفل.'
+        : 'کدِ پنج‌رقمی را وارد کن تا وارد شوی.'}</p>`;
+
     if(this.step==='phone'){
-      box.innerHTML=`<h2>به نورستان خوش آمدی</h2><p class="gt-sub">برای ادامه، با شمارهٔ موبایل خودت وارد شو.</p>
+      box.innerHTML=`${this.MARK}${head}${this.steps()}
       ${migration&&!migration.claimed?'<p class="gt-note">ورود مهمان برداشته شده؛ امتیاز، نشان‌ها و پیشرفت این دستگاه پاک نشده‌اند و پس از تأیید شماره به حسابت متصل می‌شوند. پیش از ورود می‌توانی نسخهٔ شخصی بگیری.</p><button class="btn gh w" id="gtExport">دریافت پیشرفت قبلی</button>':''}
-      <div class="gt-card"><label for="gtPhone">شمارهٔ موبایل</label><input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="09123456789" value="${U.esc(this.phone||Store.get('phone')||'')}">
-      <button class="btn w" id="gtSend" style="margin-top:14px" ${this.canLogin()?'':'disabled'}>دریافت کد پیامکی</button><p class="gt-msg" id="gtMsg" role="status">${this.canLogin()?'':this.whyNot()}</p>
-      <button class="btn gh w" id="gtRefresh">بررسی دوبارهٔ اتصال</button></div>`;
-      U.$('#gtSend').onclick=()=>this.send();U.$('#gtPhone').onkeydown=e=>{if(e.key==='Enter')this.send();};
+      <div class="gt-card">
+        <label class="gt-lbl" for="gtPhone">شمارهٔ موبایل</label>
+        <div class="gt-field" id="gtField">
+          <input class="inp" id="gtPhone" dir="ltr" inputmode="tel" autocomplete="tel"
+                 placeholder="09123456789" aria-describedby="gtHint gtMsg"
+                 value="${U.esc(this.phone||Store.get('phone')||'')}">
+          <span class="gt-field-ic" aria-hidden="true"></span>
+        </div>
+        <p class="gt-hint" id="gtHint">کدِ تأیید به این شماره پیامک می‌شود. چیزِ دیگری نمی‌فرستیم.</p>
+        <button class="btn w gt-go" id="gtSend"><span class="gt-go-t">دریافت کد پیامکی</span></button>
+        <p class="gt-msg" id="gtMsg" role="status"></p>
+        <button class="btn gh w" id="gtRefresh">${Icon.of('refresh')} بررسی دوبارهٔ اتصال</button>
+      </div>
+      <p class="gt-foot">${Icon.of('lock')} شماره‌ات تنها برای ساختِ حساب به کار می‌رود و جایی نمایش داده نمی‌شود.</p>`;
+      const ph=U.$('#gtPhone');
+      if(ph){
+        ph.oninput=()=>{
+          const v=SMS.norm(ph.value);
+          if(!v) this.field(null);
+          else if(SMS.phoneOk(v)) this.field(true,'کدِ تأیید به این شماره پیامک می‌شود.');
+          else this.field(false,'شماره باید با ۰۹ شروع شود و ۱۱ رقم باشد.');
+          this.busyBtn('#gtSend',this.busy);
+        };
+        ph.onkeydown=e=>{if(e.key==='Enter')this.send();};
+        if(ph.value) ph.oninput();
+      }
+      U.$('#gtSend').onclick=()=>this.send();
       U.$('#gtRefresh').onclick=async()=>{await SMS.probe();this.sync();};
       /* نکتهٔ امنیتی: در این صفحه هیچ نشانه‌ای از ورودِ مدیریت نیست —
-         نه لینک، نه دکمه، نه متن. تنها مسیرِ مدیر، نشانیِ مستقیمِ «#admin»
-         است که بیرون از برنامه دانسته می‌شود. */
+         نه لینک، نه دکمه، نه متن. تنها مسیرِ مدیر، نشانیِ مستقیمِ
+         «#admin» است که بیرون از برنامه دانسته می‌شود. */
       const exp=U.$('#gtExport');if(exp)exp.onclick=()=>PersonalData.download();
+      this.msg(this.canLogin()?'':this.whyNot(), this.canLogin()?'':'error');
+      this.busyBtn('#gtSend',false);
     }else{
-      box.innerHTML=`<h2>کد پیامکی را وارد کن</h2><p class="gt-sub" dir="ltr">${U.esc(SMS.faPhone(this.phone))}</p><div class="gt-card"><label for="gtCode">کد پنج‌رقمی</label><input class="inp" id="gtCode" inputmode="numeric" autocomplete="one-time-code" maxlength="5" dir="ltr"><button class="btn w" id="gtOk">تأیید و ورود</button><p id="gtMsg" class="gt-msg" role="status"></p><p id="gtLeft"></p><button class="btn gh w" id="gtAgain">ارسال دوباره</button><button class="btn gh w" id="gtEdit">تغییر شماره</button></div>`;
-      U.$('#gtOk').onclick=()=>this.check();U.$('#gtCode').onkeydown=e=>{if(e.key==='Enter')this.check();};
-      U.$('#gtAgain').onclick=()=>this.again();U.$('#gtEdit').onclick=()=>{this.step='phone';this.paint();};
-      this.tick();this.tid=Timers.every(()=>this.tick(),1000,'sys');
+      box.innerHTML=`${this.LOCK}${head}
+      <p class="gt-to" dir="ltr">${U.esc(SMS.faPhone(this.phone))}
+        <button class="gt-link" id="gtEdit">تغییر شماره</button></p>
+      ${this.steps()}
+      <div class="gt-card">
+        <label class="gt-sr" for="gtCode">کد پنج‌رقمی پیامک</label>
+        <div class="gt-pins">
+          <div class="gt-pin-group" aria-hidden="true">${'<div class="gt-pin"></div>'.repeat(OTP.LEN)}</div>
+          <input class="gt-code-in" id="gtCode" inputmode="numeric" autocomplete="one-time-code"
+                 maxlength="${OTP.LEN}" dir="ltr" aria-describedby="gtMsg" placeholder="•••••">
+        </div>
+        <div class="gt-progress" aria-hidden="true">${'<span></span>'.repeat(OTP.LEN)}</div>
+        <button class="btn w gt-go" id="gtOk"><span class="gt-go-t">تأیید و ورود</span></button>
+        <p class="gt-msg" id="gtMsg" role="status"></p>
+        <p class="gt-timer" id="gtLeft"></p>
+        <button class="btn gh w" id="gtAgain">ارسال دوبارهٔ کد</button>
+      </div>`;
+      const code=U.$('#gtCode');
+      if(code){
+        code.oninput=()=>this.pins();
+        code.onkeydown=e=>{if(e.key==='Enter')this.check();};
+      }
+      U.$('#gtOk').onclick=()=>this.check();
+      U.$('#gtAgain').onclick=()=>this.again();
+      U.$('#gtEdit').onclick=()=>{this.step='phone';this.paint();};
+      this.pins();this.tick();this.tid=Timers.every(()=>this.tick(),1000,'sys');
+      try{ code?.focus({preventScroll:true}); }catch(e){}
     }
     Icon.hydrate(box);
   },
-  tick(){const e=U.$('#gtLeft'),b=U.$('#gtAgain');if(e)e.textContent=OTP.leftSec()?U.fa(OTP.leftSec())+' ثانیه تا انقضا':'کد منقضی شد؛ کد تازه بگیر';if(b)b.disabled=this.busy||OTP.waitSec()>0;},
-  async send(){
-    if(this.busy)return;const p=SMS.norm(U.$('#gtPhone')?.value||this.phone);
-    if(!SMS.phoneOk(p)){this.msg('شمارهٔ موبایل معتبر نیست');return;}this.phone=p;this.busy=true;this.msg('در حال ارسال…');
-    try{const r=await OTP.start(p);if(!r.ok){this.msg(r.why);return;}this.step='code';this.paint();this.msg(r.pending?'ارسال هنوز تأیید نشده؛ اگر پیامک رسید کد را وارد کن.':'کد پیامک شد.');}catch(e){this.msg('اتصال برقرار نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+  tick(){
+    const left=OTP.leftSec(), wait=OTP.waitSec();
+    const e=U.$('#gtLeft'), b=U.$('#gtAgain');
+    if(e) e.textContent = left ? U.fa(left)+' ثانیه تا پایان اعتبار کد' : 'کد منقضی شد؛ کد تازه بگیر';
+    if(e) e.classList.toggle('over', !left);
+    if(b){
+      b.disabled = this.busy || wait>0;
+      /* شمارشِ معکوس روی خودِ دکمه: کاربر نفهمد چرا دکمه خاموش است. */
+      b.textContent = wait>0 ? `ارسال دوباره تا ${U.fa(wait)} ثانیهٔ دیگر` : 'ارسال دوبارهٔ کد';
+    }
   },
-  async again(){if(this.busy)return;this.busy=true;try{const r=await OTP.start(this.phone);this.msg(r.ok?(r.pending?'اگر پیامک رسید کد را وارد کن.':'کد تازه پیامک شد.'):r.why);}finally{this.busy=false;}},
+  async send(){
+    if(this.busy)return;
+    const p=SMS.norm(U.$('#gtPhone')?.value||this.phone);
+    if(!SMS.phoneOk(p)){
+      this.field(false,'شماره باید با ۰۹ شروع شود و ۱۱ رقم باشد.');
+      this.mark('is-failing');
+      U.$('#gtPhone')?.focus();
+      return;
+    }
+    this.phone=p;this.busy=true;this.mark('is-checking');this.busyBtn('#gtSend',true);
+    this.msg('در حال فرستادن کد…');
+    try{
+      const r=await OTP.start(p);
+      if(!r.ok){this.mark('is-failing');this.busyBtn('#gtSend',false);this.msg(r.why,'error');return;}
+      this.step='code';this.paint();
+      this.msg(r.pending?'اگر پیامک رسید، کد را وارد کن؛ وگرنه کمی صبر کن.':'کد پیامک شد.','ok');
+    }catch(e){this.mark('is-failing');this.busyBtn('#gtSend',false);this.msg('اتصال برقرار نشد؛ دوباره تلاش کن.','error');}
+    finally{this.busy=false;}
+  },
+  async again(){
+    if(this.busy)return;this.busy=true;this.mark('is-checking');this.busyBtn('#gtAgain',true);
+    this.msg('در حال فرستادنِ دوباره…');
+    try{
+      const r=await OTP.start(this.phone);
+      this.mark(r.ok?'is-typing':'is-failing');
+      this.msg(r.ok?(r.pending?'اگر پیامک رسید، کد را وارد کن.':'کد تازه پیامک شد.'):r.why, r.ok?'ok':'error');
+    }catch(e){this.mark('is-failing');this.msg('اتصال برقرار نشد؛ دوباره تلاش کن.','error');}
+    finally{this.busy=false;this.busyBtn('#gtAgain',false);this.tick();}
+  },
   async check(){
-    if(this.busy)return;this.busy=true;this.msg('در حال بررسی…');
-    try{const r=await OTP.verify(this.phone,U.$('#gtCode')?.value||'');if(!r.ok){this.msg(r.why);return;}this.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();}
-    catch(e){this.msg('بررسی کد ممکن نشد؛ دوباره تلاش کن.');}finally{this.busy=false;}
+    if(this.busy)return;
+    const code=U.$('#gtCode')?.value||'';
+    if(U.unfa(code).replace(/\D/g,'').length!==OTP.LEN){
+      this.mark('is-failing');
+      this.msg('کد پنج‌رقمی را کامل وارد کن.','error');
+      return;
+    }
+    this.busy=true;this.mark('is-checking');this.busyBtn('#gtOk',true);this.msg('در حال بررسی…');
+    try{
+      const r=await OTP.verify(this.phone,code);
+      if(!r.ok){
+        this.mark(r.burned||r.expired?'is-locked':'is-failing');
+        this.busyBtn('#gtOk',false);
+        this.msg(r.why,'error');
+        const inp=U.$('#gtCode');
+        if(inp){inp.value='';this.pins();try{inp.focus({preventScroll:true});}catch(e){}}
+        return;
+      }
+      this.mark('is-success');
+      this.msg('خوش آمدی.','ok');
+      /* یک مکثِ کوتاه پیش از رفتن: اگر بی‌درنگ بپرد، کاربر نمی‌فهمد
+         چه شد — قفل باز شد و رفت. با «کم‌حرکتی» هیچ مکثی نیست. */
+      Timers.after(()=>{
+        this.close();Router.go('home',true);Net.connect(Host.defaultUrl());Onboarding.maybe();
+      }, FX.reduced?0:900,'sys');
+    }catch(e){this.mark('is-failing');this.busyBtn('#gtOk',false);this.msg('بررسی کد ممکن نشد؛ دوباره تلاش کن.','error');}
+    finally{this.busy=false;}
   }
 };
 /* ── ورودِ مدیر — صفحه‌ای کاملاً مجزا از Gate ──

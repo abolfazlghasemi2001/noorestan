@@ -71,6 +71,12 @@ function sha1B64(s){ return crypto.createHash('sha1').update(String(s)).digest('
 function now(){ return Date.now(); }
 function code6(){ return String(Math.floor(100000 + Math.random() * 900000)); }
 /* حذف نویسه‌های کنترلی (۰x00–0x1F و 0x7F) و بریدن به طول مجاز */
+/* نامی که کاربر هنوز انتخاب نکرده. یک ثابت است — نه رشته‌ای پراکنده در
+   چند جا — چون معنایش از خودِ مقدار مهم‌تر است: «این آدم هنوز نامی
+   نگفته». پایین‌تر در `hello` همین فرق تعیین می‌کند که نامِ فرستاده‌شدهٔ
+   کلاینت پذیرفته شود یا نامِ کارنامه. */
+const DEFAULT_USER_NAME = 'بازیکن';
+
 function clampStr(v, n){
   /* فقط مقدارهای ساده؛ شیءِ دست‌کاری‌شده (مثلاً {"toString":null}) پیش‌تر
      String() را می‌ترکاند و کلِ پیام بی‌پاسخ می‌ماند. */
@@ -469,6 +475,23 @@ function handleMessage(c, msg){
       c.adminExp=adminSessions.get(msg.adminToken).exp;
       sendRaw(c,{t:'authenticated',to:c.id,role:'admin'});return;
     }
+    /* مسدود، پیش از هر پاسخِ عمومی.
+       `userTokenGet` برای کاربرِ مسدود نال می‌دهد (درست)، ولی اگر همین‌جا
+       به آن نال بسنده کنیم، پیام «ورود پیامکی لازم است» می‌رود — یعنی
+       کاربری که مسدود شده، تشویق می‌شود دوباره و دوباره کد بخواهد و
+       سهمیهٔ پیامکش را بسوزاند، بی آنکه بداند دسترسیش بسته است. پس اول
+       مسدودبودن سنجیده می‌شود و علتِ راستین گفته می‌شود. */
+    const peek=userTokenPeek(msg.userToken);
+    if(peek && !c.isAdmin){
+      const blocked=userOf(peek.phone);
+      if(blocked && blocked.blocked){
+        c.known=true;                       // تا این یک پیام از صافیِ sendRaw بگذرد
+        sendRaw(c,{t:'notif',to:c.id,title:'دسترسی بسته است',
+                   desc:'این شماره مسدود شده — با مدیر تماس بگیر',icon:'🚫'});
+        log(`🚫 کاربرِ مسدود رد شد (${blocked.id})`);
+        Timers_sleep_close(c);return;
+      }
+    }
     const auth=userTokenGet(msg.userToken);
     if(!auth || c.role==='admin'){
       sendRaw(c,{t:'auth:error',to:c.id,msg:'ورود پیامکی لازم است'});Timers_sleep_close(c);return;
@@ -490,7 +513,7 @@ function handleMessage(c, msg){
 
   switch(msg.t){
     case 'hello': {
-      c.name = clampStr(msg.name, LIMITS.nameLen) || 'بازیکن';
+      c.name = clampStr(msg.name, LIMITS.nameLen) || DEFAULT_USER_NAME;
       c.level = Math.max(1, Math.min(999, +msg.level || 1));
       c.score = Math.max(0, +msg.score || 0);
       c.known = true;
@@ -507,21 +530,25 @@ function handleMessage(c, msg){
           c.user = rec;
           c.phone = rec.phone;
           c.uid = rec.id;
-          /* نام و امتیازِ اعلامی با کارنامهٔ ثبت‌شده هم‌تراز می‌شود. */
-          c.name = rec.name || c.name;
+          /* نام: کارنامه مقدم است — اما فقط اگر کاربر واقعاً نامی گفته
+             باشد. پیش‌تر مقدارِ پیش‌فرضِ «بازیکن» هم «نامِ ثبت‌شده» حساب
+             می‌شد و نامی را که کلاینت فرستاده بود می‌بلعید؛ نتیجه این بود
+             که در لابی و روم همه «بازیکن» دیده می‌شدند، بی آنکه کسی نامی
+             نگفته باشد. نامِ پیش‌فرض یعنی «نامی ندارد»، نه «نامش این است».
+             و اگر کارنامه هنوز بی‌نام است، نامی که همین حالا رسیده همان
+             نامی است که کاربر برای خودش خواسته — پس در کارنامه می‌نشیند
+             تا دفعهٔ بعد از اول درست باشد. */
+          if(rec.name && rec.name !== DEFAULT_USER_NAME) c.name = rec.name;
+          else if(c.name && c.name !== DEFAULT_USER_NAME){ rec.name = c.name; }
           rec.plays = Math.max(rec.plays || 0, 0);
           rec.lastLogin = now();
           saveData();
-          c.name = clampStr(c.name, LIMITS.nameLen) || 'بازیکن';
-        }else if(rec && rec.blocked){
-          /* مسدود: با خبر می‌فرستیمش بیرون. بی صدا قطع نمی‌کنیم تا کاربر
-             بداند چرا و بیهوده تلاش نکند. */
-          sendRaw(c, { t: 'notif', to: c.id, title: 'دسترسی بسته است',
-                       desc: 'این شماره مسدود شده — با مدیر تماس بگیر', icon: '🚫' });
-          log(`🚫 کاربرِ مسدود رد شد (${rec.id})`);
-          Timers_sleep_close(c);
-          return;
+          c.name = clampStr(c.name, LIMITS.nameLen) || DEFAULT_USER_NAME;
         }
+        /* مسدودبودن اینجا سنجیده نمی‌شود: دروازهٔ بالای `hello` پیش‌تر
+           آن را بسته و علتش را هم گفته است. گذاشتنِ یک شاخهٔ دوم اینجا
+           فقط کدِ مرده می‌ساخت — و کدِ مرده در مسیرِ امنیت یعنی خواننده
+           بعدی نمی‌داند کدام شاخه واقعاً اجرا می‌شود. */
       }else if(msg.userId && !USER_ID_RE.test(String(msg.userId))){
         /* شناسهٔ بی‌شکل نادیده گرفته می‌شود؛ ولی چیزی که مهم است این است که
            *هیچ* اختیاری به آن داده نمی‌شود. */
@@ -1172,7 +1199,7 @@ function userBind(phone, id, ip){
   let rec = userByPhone.get(phone);
   if(!rec){
     rec = { id: 'usr_' + crypto.randomBytes(10).toString('hex'),
-            phone, name: 'بازیکن', joinedAt: t, lastLogin: 0, visits: 0,
+            phone, name: DEFAULT_USER_NAME, joinedAt: t, lastLogin: 0, visits: 0,
             plays: 0, score: 0, level: 1, blocked: false, lastIp: '', ips: [],
             welcomed: false, welcomedAt: 0, welcomeTries: 0 };
     userByPhone.set(phone, rec);
@@ -1202,11 +1229,25 @@ function userTokenNew(id, phone){
   }
   return token;
 }
+/* نگاهِ بی‌داوری به نشانه: رکورد را برمی‌گرداند بی آنکه اعتبارسنجی یا
+   پاک کند. چرا لازم شد؟ چون کاربرِ مسدود باید *علتِ راستین* را بشنود،
+   و `userTokenGet` — درست — برای او نال می‌دهد؛ پس پیش از آن باید
+   بتوان فهمید «نشانه‌ای بوده و صاحبش مسدود است». */
+function userTokenPeek(token){
+  if(typeof token !== 'string' || token.length !== 64) return null;
+  return userTokens.get(token) || null;
+}
 function userTokenGet(token){
   if(typeof token !== 'string' || token.length !== 64) return null;
   const s = userTokens.get(token);
   if(!s) return null;
-  if(now() > s.exp || !userOf(s.phone) || userOf(s.phone).blocked || userOf(s.phone).id!==s.id){ userTokens.delete(token); return null; }
+  /* نشانهٔ کاربرِ مسدود *باطل* است ولی *پاک* نمی‌شود. چرا این فرق مهم
+     است؟ چون مسدودکردن برگشت‌پذیر است. اگر نشانه همان‌جا پاک می‌شد،
+     کاربر پس از آزاد شدن باید از نو کد پیامکی می‌گرفت — مجازاتی که
+     مدیر نخواسته بود و کاربر نمی‌فهمید چرا. بی‌اعتباری کافی است: هیچ
+     مسیری با این نشانه باز نمی‌شود و اتصالِ باز هم همان لحظه بسته شده. */
+  if(now() > s.exp || !userOf(s.phone) || userOf(s.phone).id !== s.id){ userTokens.delete(token); return null; }
+  if(userOf(s.phone).blocked) return null;
   return s;
 }
 /* حذفِ کاربر: هم از شماره، هم از شناسه، هم نشست‌هایش. */
@@ -1437,7 +1478,7 @@ server.on('upgrade', (req, sock) => {
      این‌طور کلاینت قبل از هر پیام دیگری هویت قطعی می‌گیرد. */
   let id; do { id = 'u-' + crypto.randomBytes(5).toString('hex'); } while(clients.has(id));
   const c = {
-    id, sock, name: 'بازیکن', level: 1, score: 0,
+    id, sock, name: DEFAULT_USER_NAME, level: 1, score: 0,
     room: null, spectator: false, ready: true, known: false, isAdmin: false,
     since: now(), lastSeen: now(), stamps: [], roomsMade: 0
   };
