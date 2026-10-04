@@ -1859,7 +1859,7 @@ async function handleHttp(req, res){
     return res.end(JSON.stringify({ success: true, state: 'sent', id: out.id || '' }));
   }
 
-  if(!['/','/index.html','/sw.js','/manifest.json','/offline.html'].includes(p) && !/^\/assets\/(fonts|images|styles|games|app)\/[a-zA-Z0-9_./-]+$/.test(p)){res.writeHead(404);return res.end('404');}
+  if(!['/','/index.html','/sw.js','/manifest.json','/offline.html'].includes(p) && !/^\/assets\/(fonts|images|styles|games|app)\/[a-zA-Z0-9_./-]+$/.test(p) && !/^\/games\/[a-zA-Z0-9_./-]+$/.test(p)){res.writeHead(404);return res.end('404');}
   if(p.includes('..')||p.includes('\\')){res.writeHead(403);return res.end('403');}
   let file = p === '/' ? '/index.html' : p;
   /* جلوگیری از فرار از پوشهٔ برنامه با ../ */

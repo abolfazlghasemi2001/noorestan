@@ -1936,6 +1936,33 @@ const Art = {
 </svg>`;
   },
 
+  /* موشن‌گرافیک آغازین: قرآن، مسیر نور و سه کارت بازی؛ کاملاً درون‌برنامه و بدون وابستگی بیرونی. */
+  motionIntro(){
+    return `<svg class="sp-motion" viewBox="0 0 520 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="موشن گرافیک نورستان؛ قرآن و بازی‌های نورانی">
+  <defs>
+    <radialGradient id="miHalo" cx="50%" cy="38%" r="62%"><stop offset="0%" stop-color="#fff2bd" stop-opacity=".92"/><stop offset="48%" stop-color="#f5c451" stop-opacity=".24"/><stop offset="100%" stop-color="#f5c451" stop-opacity="0"/></radialGradient>
+    <linearGradient id="miGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff0a8"/><stop offset="52%" stop-color="#f5c451"/><stop offset="100%" stop-color="#9a6507"/></linearGradient>
+    <linearGradient id="miBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#213563"/><stop offset="100%" stop-color="#0b1530"/></linearGradient>
+    <linearGradient id="miPage" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="1" stop-color="#e2cea6"/></linearGradient>
+    <filter id="miGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <circle cx="260" cy="156" r="162" fill="url(#miHalo)"/>
+  <g class="mi-rays" stroke="#f5c451" stroke-linecap="round">${Art.rays(260,150,86,150,24)}</g>
+  <g class="mi-stars" fill="#fff2bd"><circle cx="88" cy="76" r="2.4"/><circle cx="416" cy="88" r="2"/><circle cx="116" cy="214" r="1.7"/><circle cx="454" cy="232" r="2.2"/><path d="M260 28l7 15 16 7-16 7-7 16-7-16-16-7 16-7z" fill="url(#miGold)"/></g>
+  <g class="mi-mosque" fill="#0b1732" stroke="url(#miGold)" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M204 226c0-44 23-72 56-84 33 12 56 40 56 84z"/><rect x="144" y="168" width="16" height="58" rx="7"/><rect x="360" y="168" width="16" height="58" rx="7"/><circle cx="152" cy="164" r="9"/><circle cx="368" cy="164" r="9"/><path d="M152 154v-18M368 154v-18M260 142v-18"/><circle cx="260" cy="138" r="6"/>
+  </g>
+  <g class="mi-book" filter="url(#miGlow)">
+    <ellipse cx="260" cy="304" rx="160" ry="18" fill="#000" opacity=".24"/>
+    <path d="M260 210Q198 190 92 216v70q92-22 168 4z" fill="url(#miPage)" stroke="url(#miGold)" stroke-width="6" stroke-linejoin="round"/><path d="M260 210Q322 190 428 216v70q-92-22-168 4z" fill="url(#miPage)" stroke="url(#miGold)" stroke-width="6" stroke-linejoin="round"/><path d="M260 210v80" stroke="#8a7345" stroke-width="3" opacity=".55"/>
+    <g stroke="#a8792e" stroke-width="3" stroke-linecap="round" opacity=".55"><path d="M122 232q58-10 112 4"/><path d="M122 250q54-9 110 4"/><path d="M398 232q-58-10-112 4"/><path d="M398 250q-54-9-110 4"/></g>
+  </g>
+  <g class="mi-card mi-c1" transform="translate(68 122)"><rect width="94" height="78" rx="22" fill="url(#miBlue)" stroke="url(#miGold)" stroke-width="3"/><text x="47" y="36" text-anchor="middle" font-size="26">🧩</text><text x="47" y="60" text-anchor="middle" fill="#fff2bd" font-family="Vazirmatn,Tahoma" font-size="14" font-weight="800">آیه‌ساز</text></g>
+  <g class="mi-card mi-c2" transform="translate(213 74)"><rect width="94" height="78" rx="22" fill="url(#miBlue)" stroke="#68e6b7" stroke-width="3"/><text x="47" y="36" text-anchor="middle" font-size="26">📜</text><text x="47" y="60" text-anchor="middle" fill="#d4ffef" font-family="Vazirmatn,Tahoma" font-size="14" font-weight="800">حکمت</text></g>
+  <g class="mi-card mi-c3" transform="translate(358 122)"><rect width="94" height="78" rx="22" fill="url(#miBlue)" stroke="url(#miGold)" stroke-width="3"/><text x="47" y="36" text-anchor="middle" font-size="26">🧠</text><text x="47" y="60" text-anchor="middle" fill="#fff2bd" font-family="Vazirmatn,Tahoma" font-size="14" font-weight="800">جفت نور</text></g>
+</svg>`;
+  },
+
   /* نگارهٔ افقی مسجد برای سربرگ خانه */
   panorama(){
     return `<svg viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" role="img" aria-label="مسجد در شب">
@@ -3223,7 +3250,7 @@ const Splash = {
       const tile = Art.asBg(Art.patternTile('#f5c451', 60));
       U.$('#spPat').style.backgroundImage = tile;
       U.$('#bgArt').style.backgroundImage = tile;
-      U.$('#spArt').innerHTML = Art.mushaf();
+      U.$('#spArt').innerHTML = Art.motionIntro ? Art.motionIntro() : Art.mushaf();
     }catch(e){ console.warn('splash art', e); }
 
     let stars = '';
@@ -8683,6 +8710,7 @@ const HomeCarousel = {
       Sound.click();
       if(action === 'ayahlight') AyahLight.open();
       else if(action === 'quran') Router.go('quran');
+      else if(action === 'games') ExternalGameHost.open('ayah-builder');
       else DailyChallenge.open();
     };
     U.$$('[data-slide-action]', root).forEach(b => b.onclick = () => {
@@ -9614,6 +9642,95 @@ const Games = {
   settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
 };
 
+
+/* بازی‌های مستقلِ شاخهٔ /games/ اکنون با قاب بومی، تمام‌صفحه و پل امتیاز داخل برنامه باز می‌شوند. */
+const ExternalGameHost = {
+  catalog:{
+    'ayah-builder':{name:'آیه‌ساز',icon:'🧩',desc:'واژه‌های آیه را در زمان محدود مرتب کن',url:'games/ayah-builder.html',art:'games/art/ayah-builder.svg',keys:['ayahbuilder_1','ayahbuilder_2','ayahbuilder_3']},
+    'hadith-rush': {name:'باران حکمت',icon:'📜',desc:'واژهٔ گمشدهٔ حدیث را از میان گزینه‌های بارانی بگیر',url:'games/hadith-rush.html',art:'games/art/hadith-rush.svg',keys:['hadithrush']},
+    'noor-pairs':  {name:'جفت نور',icon:'🧠',desc:'هر آیه را به سوره‌اش برسان؛ حافظه و دقت',url:'games/noor-pairs.html',art:'games/art/noor-pairs.svg',keys:['noorpairs_6','noorpairs_6t','noorpairs_8','noorpairs_8t']}
+  },
+  current:null,onFs:null,onResize:null,ro:null,
+  open(id){
+    if(!Session.user())return Gate.open();
+    const g=this.catalog[id]; if(!g)return;
+    this.cleanup(); this.current=id; Stats.track(id); Router.go('play'); RoundControl.clear();
+    U.$('#pgTitle').innerHTML=`<img src="${g.art}" alt="" width="28" height="28" style="vertical-align:-7px;border-radius:8px"> ${U.esc(g.name)}`;
+    U.$('#pgSub').textContent='اجرای مستقیم از شاخهٔ /games/ با ذخیرهٔ رکورد در نورستان';
+    U.$('#pgBar').innerHTML=`<span class="pill">${Icon.of('sparkle')} بازی تازه</span><span class="pill">${Icon.of('coin')} پاداش رکورد</span>`;
+    U.$('#pgProgWrap').classList.add('hide');
+    U.$('#pgBody').innerHTML=`<div id="extGame" class="ext-game">
+      <div class="ext-game-hero"><img src="${g.art}" alt="" width="86" height="86"><div><b>${U.esc(g.name)}</b><span>${U.esc(g.desc)}</span></div></div>
+      <div class="ext-frame-shell" id="extFrameShell"><iframe id="extFrame" title="${U.esc(g.name)}" src="${g.url}" allow="fullscreen" allowfullscreen referrerpolicy="same-origin"></iframe></div>
+      <div class="ayah-under ext-actions"><button class="btn gh sm" id="extHome">خانه</button><button class="btn gh sm" id="extBack">بازگشت</button><button class="btn gh sm" id="extExit">فهرست بازی‌ها</button><button class="btn gh sm" id="extExpand">تمام‌صفحه</button><a class="btn gh sm" href="${g.url}" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a></div>
+      <p class="tiny ext-status" id="extStatus" role="status">نتیجه و رکورد بازی‌های مستقل پس از پایان، به امتیاز نورستان افزوده می‌شود.</p>
+    </div>`;
+    U.$('#extHome').onclick=()=>{this.cleanup();Router.go('home');};
+    U.$('#extBack').onclick=()=>{this.cleanup();Router.back();};
+    U.$('#extExit').onclick=()=>{this.cleanup();Launcher.open();};
+    U.$('#extExpand').onclick=()=>this.expand();
+    if(!U.$('#extGame')?.requestFullscreen) U.$('#extExpand').hidden=true;
+    document.documentElement.setAttribute('data-extgame','1');
+    this.onFs=()=>{this.paintExpand();this.fit();}; document.addEventListener('fullscreenchange',this.onFs);
+    this.bindFit(); this.fit(); this.consumePending();
+  },
+  fit(){
+    const shell=U.$('#extFrameShell'); if(!shell)return;
+    const box=U.$('#extGame'); if(box&&document.fullscreenElement===box){shell.style.height='';return;}
+    const nav=U.$('#nav'), row=U.$('.ext-actions'), top=Math.max(0,shell.getBoundingClientRect().top);
+    const navBox=(nav&&getComputedStyle(nav).display!=='none')?nav.getBoundingClientRect():null;
+    const limit=navBox&&navBox.height?navBox.top:window.innerHeight;
+    const rowH=row?row.getBoundingClientRect().height:0;
+    shell.style.height=Math.max(window.innerHeight<560?220:390,Math.round(limit-top-rowH-18))+'px';
+  },
+  bindFit(){
+    this.onResize=()=>{if(this._fitT)return;this._fitT=Timers.after(()=>{this._fitT=null;this.fit();},160);};
+    window.addEventListener('resize',this.onResize); window.addEventListener('orientationchange',this.onResize);
+    if(typeof ResizeObserver==='function'&&U.$('.ext-actions')){this.ro=new ResizeObserver(()=>this.fit());this.ro.observe(U.$('.ext-actions'));}
+    Timers.after(()=>this.fit(),420);
+  },
+  async expand(){
+    const box=U.$('#extGame'); if(!box||!box.requestFullscreen)return;
+    try{ if(document.fullscreenElement===box) await document.exitFullscreen?.(); else await box.requestFullscreen(); }
+    catch(e){ UI.toast('تمام‌صفحه در این مرورگر ممکن نشد.',''); }
+    this.paintExpand();
+  },
+  paintExpand(){ const on=document.fullscreenElement===U.$('#extGame'),btn=U.$('#extExpand'); if(btn)U.icLabel(btn,on?'collapse':'expand',on?'خروج از تمام‌صفحه':'تمام‌صفحه'); },
+  normalize(game){
+    const g=String(game||this.current||'');
+    if(g.startsWith('ayahbuilder'))return 'ayah-builder';
+    if(g.startsWith('hadithrush'))return 'hadith-rush';
+    if(g.startsWith('noorpairs'))return 'noor-pairs';
+    return this.catalog[g]?g:this.current;
+  },
+  accept(item){
+    const id=this.normalize(item.game); if(!id||!this.catalog[id])return;
+    const score=Math.max(0,Math.round(+item.score||0)), stars=U.clamp(Math.round(+item.stars||1),1,3);
+    Progress.award({game:id,pts:Math.max(5,Math.min(120,score||15)),ok:true,silent:true});
+    Progress.record(id,score); Store.update(d=>{d.stars[id]=Math.max(d.stars[id]||0,stars);d.completed[id]=true;});
+    Wallet.earn(stars*3,this.catalog[id].name); UI.toast(`نتیجهٔ ${this.catalog[id].name} ذخیره شد: ${U.fa(score)} امتیاز`, 'ok', 2600);
+    const st=U.$('#extStatus'); if(st)st.innerHTML=`✅ رکورد ذخیره شد: <b>${U.fa(score)}</b> امتیاز · ${U.fa(stars)} ستاره`;
+  },
+  consumePending(){
+    let q=[]; try{q=JSON.parse(localStorage.getItem('noorestan_g_pending')||'[]');localStorage.removeItem('noorestan_g_pending');}catch(e){}
+    q.forEach(x=>this.accept(x));
+  },
+  cleanup(){
+    this.consumePending();
+    if(this.onFs){document.removeEventListener('fullscreenchange',this.onFs);this.onFs=null;}
+    if(this.onResize){window.removeEventListener('resize',this.onResize);window.removeEventListener('orientationchange',this.onResize);this.onResize=null;}
+    if(this.ro){try{this.ro.disconnect();}catch(e){}this.ro=null;}
+    document.documentElement.removeAttribute('data-extgame');
+    if(document.fullscreenElement===U.$('#extGame'))document.exitFullscreen?.().catch(()=>{});
+    U.$('#pgProgWrap')?.classList.remove('hide');
+  }
+};
+window.addEventListener('message',e=>{try{if(e.origin!==location.origin||!e.data||e.data.t!=='noorestan:game-result')return;ExternalGameHost.accept(e.data);}catch(err){}},false);
+['ayah-builder','hadith-rush','noor-pairs'].forEach(id=>{
+  const g=ExternalGameHost.catalog[id]; DATA.GAMES[id]={name:g.name,icon:g.icon,desc:g.desc,tag:'new'}; Games[id]=()=>ExternalGameHost.open(id);
+});
+{ const brain=DATA.categories.find(c=>c.id==='brain'); if(brain){ brain.games.unshift('noor-pairs','hadith-rush','ayah-builder'); } }
+
 /* امکانات تازه بدون دست‌زدن به بانک سؤال‌ها؛ سودوکو تنها هنگام انتخاب بار می‌شود. */
 DATA.GAMES.sudoku={name:'سودوکو',icon:'🧩',desc:'جدول یکتاپاسخ، سه سطح و یادداشت مدادی',tag:'new'};
 DATA.categories.find(c=>c.id==='brain').games.unshift('sudoku');
@@ -9663,53 +9780,100 @@ const RoundControl={
 
 /* صفحه «همه بازی‌ها» — دکمه 🎮 در نوار پایین */
 const Launcher = {
-  /* open() هم به صفحه می‌رود و هم می‌کشد؛ paint() فقط می‌کشد.
-     این تفکیک ضروری است: قلاب صفحهٔ «بازی» وقتی #pgBody خالی باشد
-     paint() را صدا می‌زند. پیش‌تر همان‌جا open() صدا زده می‌شد و چون open
-     خودش Router.go('play') می‌کرد، قلاب دوباره اجرا می‌شد و تا سرریز
-     پشته بی‌پایان می‌چرخید — یعنی نخستین کلیک روی 🎮 برنامه را می‌خواباند. */
   open(){
     Router.go('play');
     this.paint();
   },
+  meta(id){
+    const cat = (DATA.categories || []).find(c => (c.games || []).includes(id));
+    const gm = DATA.GAMES[id] || {};
+    return { id, gm, cat: cat || { id:'other', title:'دیگر', icon:'✨' } };
+  },
   paint(){
     RoundControl.clear();
-    U.$('#pgTitle').innerHTML = Glyph.inline('🎮 همه بازی‌ها');
-    U.$('#pgSub').textContent = 'یکی را انتخاب کن';
+    U.$('#pgTitle').innerHTML = Glyph.inline('🎮 مرکز بازی‌های نورستان');
+    U.$('#pgSub').textContent = 'جست‌وجو کن، دسته را انتخاب کن و مستقیم وارد بازی شو';
     U.$('#pgBar').innerHTML = '';
-    /* فهرستِ بازی‌ها پیشرفتی ندارد؛ حلقه فقط خالی می‌مانَد. */
     U.prog(0, { cap: 'بازی' });
-    const ids = Object.keys(DATA.GAMES).filter(g => !['stats','badges','leaderboard','settings'].includes(g));
+    const blocked = new Set(['stats','badges','leaderboard','settings']);
+    const ids = Object.keys(DATA.GAMES).filter(g => !blocked.has(g));
+    const cats = (DATA.categories || []).filter(c => (c.games || []).some(g => ids.includes(g)));
+    const played = Store.get('gamesPlayed') || {};
+    const totalPlayed = Object.values(played).reduce((a,b)=>a+(+b||0),0);
+    const bestGame = Object.entries(played).sort((a,b)=>(b[1]||0)-(a[1]||0))[0]?.[0];
+    const featured = ['ayah-builder','hadith-rush','noor-pairs','sudoku','ayahlight'].filter(g => DATA.GAMES[g]);
+    const card = id => {
+      const {gm,cat} = this.meta(id);
+      const rec = Progress.recordLabel(id);
+      const stars = Store.get('stars')?.[id] || 0;
+      const done = Store.get('completed')?.[id];
+      const ext = ExternalGameHost?.catalog?.[id];
+      return `<button type="button" class="tile pro-tile" data-game="${id}" data-cat="${cat.id}" data-name="${U.esc(gm.name)} ${U.esc(gm.desc)} ${U.esc(cat.title)}" aria-label="شروع ${U.esc(gm.name)}">
+        <span class="pro-tile-glow" aria-hidden="true"></span>
+        <span class="ti">${ext?`<img src="${ext.art}" alt="" width="42" height="42">`:Glyph.of(gm.icon)}</span>
+        <span class="pro-tile-copy"><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
+        <span class="pro-tags"><i>${U.esc(cat.title)}</i>${gm.tag?`<i class="hot">${gm.tag==='new'?'تازه':gm.tag==='hot'?'محبوب':U.esc(gm.tag)}</i>`:''}${done?'<i class="ok">کامل</i>':''}</span>
+        <span class="pro-meta">${stars?`<em>${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</em>`:''}${rec !== '' && rec != null ? `<em>رکورد ${U.fa(rec)}</em>` : '<em>شروع سریع</em>'}</span>
+      </button>`;
+    };
     U.$('#pgBody').innerHTML = `
       ${Autosave.bar()}
       ${Streak.warn()}
-      <div class="card" style="margin-bottom:14px">
-        <div class="row"><b style="font-size:13px">${Icon.of('flame')} وضعیت تو</b><div class="sp" style="flex:1"></div>
-          <span class="chip wr">سطح ${U.fa(Store.get('level'))}</span>
-          <span class="chip wr">${U.fa(Store.get('score'))} امتیاز</span>
-          ${Wallet.chip()}
-          <button class="btn gh sm" data-shop="1" data-tip="فروشگاه: سکه را خرج کن" aria-label="فروشگاه">${Icon.of('cart')}</button></div>
-        <div class="sep"></div>
-        <div class="row" style="flex-wrap:wrap;gap:6px">
-          ${HeartBar.hud()}
-          <span style="font-size:11.5px;color:var(--mut)">
-            ${Store.get('hearts') < Store.HEART_MAX && Store.heartsLeftMs()
-              ? `— جان بعدی تا ${U.fmtTime(Store.heartsLeftMs()/1000)}` : '— جان‌ها کامل'}</span>
+      <section class="pro-launch" aria-label="مرکز بازی‌ها">
+        <div class="pro-launch-hero card">
+          <div class="pro-hero-copy">
+            <span class="pro-eyebrow">مسیر پیشنهادی امروز</span>
+            <h2>یک بازی کوتاه، یک قدم روشن‌تر.</h2>
+            <p>نورستان بازی‌های آموزشی، حافظه‌ای و چندنفره را بر اساس پیشرفتت مرتب کرده تا بدون فکر اضافه شروع کنی.</p>
+            <div class="pro-hero-actions">
+              <button class="btn ok" id="quickStart">شروع پیشنهادی</button>
+              <button class="btn gh" id="openDailyMini">چالش روزانه</button>
+            </div>
+          </div>
+          <div class="pro-hero-panel" aria-label="وضعیت تو">
+            <div class="pro-score"><b>${U.fa(Store.get('level'))}</b><span>سطح</span></div>
+            <div><small>امتیاز</small><strong>${U.fa(Store.get('score'))}</strong></div>
+            <div><small>بازی‌ها</small><strong>${U.fa(totalPlayed)}</strong></div>
+            ${Wallet.chip()}
+          </div>
         </div>
-      </div>
-      <div class="grid">
-        ${ids.map(g => {
-          const gm = DATA.GAMES[g];
-          const rec = Progress.recordLabel(g);
-          return `<div class="tile" data-game="${g}">
-            <span class="ti">${Glyph.of(gm.icon)}</span><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small>
-            ${rec !== '' && rec != null ? `<span class="rec">🏅 رکورد: ${U.fa(rec)}</span>` : ''}
-          </div>`;
-        }).join('')}
-      </div>`;
-    U.$$('.tile[data-game]').forEach(t => t.onclick = () => Games[t.dataset.game]?.());
+        <div class="pro-command card" role="search">
+          <label class="gt-sr" for="gameSearch">جست‌وجوی بازی</label>
+          <div class="pro-search"><span aria-hidden="true">⌕</span><input id="gameSearch" class="inp" type="search" autocomplete="off" placeholder="نام بازی، دسته یا موضوع را بنویس…"></div>
+          <div class="pro-filters" role="tablist" aria-label="فیلتر دسته بازی">
+            <button class="on" data-filter="all" role="tab" aria-selected="true">همه</button>
+            ${cats.map(c=>`<button data-filter="${c.id}" role="tab" aria-selected="false"><span>${Glyph.of(c.icon)}</span>${U.esc(c.title)}</button>`).join('')}
+          </div>
+        </div>
+        <div class="pro-featured" aria-label="پیشنهادهای سریع">
+          ${featured.map(id=>`<button type="button" data-game="${id}" class="pro-chip-game"><span>${ExternalGameHost?.catalog?.[id]?`<img src="${ExternalGameHost.catalog[id].art}" alt="">`:Glyph.of(DATA.GAMES[id].icon)}</span><b>${U.esc(DATA.GAMES[id].name)}</b></button>`).join('')}
+        </div>
+        <div class="grid pro-grid" id="gameGrid">${ids.map(card).join('')}</div>
+        <div class="pro-empty card hide" id="gameEmpty" role="status"><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو را کوتاه‌تر کن یا دستهٔ «همه» را انتخاب کن.</p></div>
+      </section>`;
+    const root = U.$('#pgBody'), search = U.$('#gameSearch', root), empty = U.$('#gameEmpty', root);
+    let active = 'all';
+    const apply = () => {
+      const q = U.norm(search?.value || '').trim(); let shown = 0;
+      U.$$('.pro-tile[data-game]', root).forEach(t => {
+        const inCat = active === 'all' || t.dataset.cat === active;
+        const inText = !q || U.norm(t.dataset.name || '').includes(q);
+        const on = inCat && inText;
+        t.hidden = !on; if(on) shown++;
+      });
+      if(empty) empty.classList.toggle('hide', shown !== 0);
+    };
+    U.$$('.pro-filters [data-filter]', root).forEach(b => b.onclick = () => {
+      active = b.dataset.filter;
+      U.$$('.pro-filters [data-filter]', root).forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-selected',String(on));});
+      apply(); Sound.tick();
+    });
+    if(search) search.oninput = apply;
+    U.$$('[data-game]', root).forEach(t => t.onclick = () => Games[t.dataset.game]?.());
+    U.$('#quickStart').onclick = () => Games[bestGame || featured[0] || ids[0]]?.();
+    U.$('#openDailyMini').onclick = () => DailyChallenge.open();
     U.$$('[data-shop]').forEach(b => b.onclick = () => Shop.open());
-    Streak.wire(U.$('#pgBody'));
+    Streak.wire(root);
     Autosave.bind(document);
   }
 };
@@ -13552,19 +13716,7 @@ const Gate = {
      باز می‌شود؛ اشتباه ← کلید پس زده می‌شود و قفل می‌لرزد. این‌ها
      تزئین نیستند: تنها نشانه‌ای‌اند که کاربرِ بی‌صدا هم می‌فهمد
      برنامه دارد چه می‌کند. */
-  LOCK: `<svg class="gt-lock" viewBox="0 0 80 80" aria-hidden="true">
-      <defs>
-        <linearGradient id="gtBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7cd6a"/><stop offset="1" stop-color="#dfa02b"/></linearGradient>
-        <linearGradient id="gtBodyOk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fe6bb"/><stop offset="1" stop-color="#2fd39b"/></linearGradient>
-        <linearGradient id="gtBodyNo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff97a1"/><stop offset="1" stop-color="#e0505f"/></linearGradient>
-      </defs>
-      <path class="g-shackle" d="M27 47 V36 a13 13 0 0 1 26 0 V47" fill="none" stroke-width="6" stroke-linecap="round"/>
-      <rect class="g-body" x="19" y="44" width="42" height="29" rx="9"/>
-      <circle class="g-hole" cx="40" cy="56" r="4.2"/>
-      <g class="g-key" fill="none" stroke-width="3.4" stroke-linecap="round">
-        <circle cx="33" cy="52" r="4.6"/><path d="M37.6 52h13M46.6 52v5.6M42.6 52v4.4"/>
-      </g>
-    </svg>`,
+  LOCK: `<img class="gt-lock gt-lock-img" src="assets/images/auth-unlock.svg" width="96" height="96" alt="">`,
   /* کجا هستیم و قدمِ بعدی چیست — پیش از آنکه کاربر بپرسد. */
   steps(){
     const at = this.step==='phone' ? 0 : 1;
@@ -13609,7 +13761,7 @@ const Gate = {
         : 'کدِ پنج‌رقمی را وارد کن تا وارد شوی.'}</p>`;
 
     if(this.step==='phone'){
-      box.innerHTML=`${this.MARK}${head}${this.steps()}
+      box.innerHTML=`${this.MARK}${head}${this.LOCK}${this.steps()}
       ${migration&&!migration.claimed?'<p class="gt-note">ورود مهمان برداشته شده؛ امتیاز، نشان‌ها و پیشرفت این دستگاه پاک نشده‌اند و پس از تأیید شماره به حسابت متصل می‌شوند. پیش از ورود می‌توانی نسخهٔ شخصی بگیری.</p><button class="btn gh w" id="gtExport">دریافت پیشرفت قبلی</button>':''}
       <div class="gt-card">
         <label class="gt-lbl" for="gtPhone">شمارهٔ موبایل</label>
@@ -13772,6 +13924,10 @@ const AdminLogin = {
     if(form) form.onsubmit = e => { e.preventDefault(); this.submit(); };
     const back=U.$('#adminBack');
     if(back) back.onclick = () => { try{Sound.click();}catch(e){} this.back(); };
+    const tog=U.$('#adminPassToggle'), inp=U.$('#adminPassword');
+    if(tog&&inp) tog.onclick=()=>{ const show=inp.type==='password'; inp.type=show?'text':'password'; tog.textContent=show?'پنهان':'نمایش'; tog.setAttribute('aria-pressed',String(show)); tog.setAttribute('aria-label',show?'پنهان کردن رمز':'نمایش رمز'); try{inp.focus({preventScroll:true});}catch(e){} };
+    const forgot=U.$('#adminForgot');
+    if(forgot) forgot.onclick=()=>{ const msg=U.$('#adminMessage'); if(msg){msg.classList.remove('error');msg.textContent='برای بازیابی، متغیر NOOR_ADMIN_PASS را روی سرور تنظیم کن و سرور را دوباره اجرا کن.';} };
     this.paintLock();
     Icon.hydrate(el);
     try{ U.$('#adminPassword').focus({preventScroll:true}); }catch(e){}

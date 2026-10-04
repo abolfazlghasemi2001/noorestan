@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="قفل و کلید نورستان">
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#fff2bd" stop-opacity=".95"/>
+      <stop offset=".45" stop-color="#f5c451" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff0a8"/>
+      <stop offset=".48" stop-color="#f5c451"/>
+      <stop offset="1" stop-color="#a96d05"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#273762"/>
+      <stop offset="1" stop-color="#10192f"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feColorMatrix in="b" values="1 0 0 0 0.96 0 1 0 0 0.78 0 0 1 0 0.27 0 0 0 .85 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      @media (prefers-reduced-motion:no-preference){
+        .key{animation:keyFly 3.2s cubic-bezier(.22,1,.36,1) infinite;transform-origin:215px 183px}
+        .ring{animation:ringPulse 2.2s ease-in-out infinite;transform-origin:160px 160px}
+        .shackle{animation:open 3.2s cubic-bezier(.22,1,.36,1) infinite;transform-origin:114px 132px}
+        .spark{animation:spark 1.8s ease-in-out infinite;transform-origin:center}.s2{animation-delay:.35s}.s3{animation-delay:.7s}.s4{animation-delay:1.05s}
+        .body{animation:clunk 3.2s ease-in-out infinite;transform-origin:160px 210px}
+      }
+      @keyframes keyFly{0%,100%{transform:translate(44px,-22px) rotate(-18deg);opacity:.75}38%{transform:translate(0,0) rotate(0);opacity:1}52%{transform:translate(0,0) rotate(34deg);opacity:1}70%{transform:translate(18px,-8px) rotate(20deg);opacity:.92}}
+      @keyframes open{0%,46%,100%{transform:translateY(0) rotate(0)}58%,76%{transform:translate(-10px,-18px) rotate(-12deg)}}
+      @keyframes ringPulse{0%,100%{transform:scale(.94);opacity:.45}50%{transform:scale(1.04);opacity:.95}}
+      @keyframes clunk{0%,48%,100%{transform:translateX(0)}54%{transform:translateX(-5px)}60%{transform:translateX(4px)}66%{transform:translateX(0)}}
+      @keyframes spark{0%,100%{opacity:.22;transform:scale(.65)}50%{opacity:1;transform:scale(1.2)}}
+    </style>
+  </defs>
+  <rect width="320" height="320" rx="70" fill="#07101f"/>
+  <circle class="ring" cx="160" cy="160" r="132" fill="url(#halo)"/>
+  <g fill="none" stroke="#f5c451" stroke-opacity=".34" stroke-width="2">
+    <circle cx="160" cy="160" r="108"/><path d="M160 52v216M52 160h216M83 83l154 154M237 83 83 237"/>
+  </g>
+  <g class="spark" fill="#fff2bd" filter="url(#glow)"><path d="M79 105l7 15 15 7-15 7-7 15-7-15-15-7 15-7z"/></g>
+  <g class="spark s2" fill="#f5c451"><path d="M240 80l5 10 10 5-10 5-5 10-5-10-10-5 10-5z"/></g>
+  <g class="spark s3" fill="#fff2bd"><path d="M250 221l6 12 12 6-12 6-6 12-6-12-12-6 12-6z"/></g>
+  <g class="spark s4" fill="#f5c451"><circle cx="68" cy="226" r="5"/></g>
+  <path class="shackle" d="M112 154v-38a48 48 0 0 1 96 0v38" fill="none" stroke="url(#gold)" stroke-width="20" stroke-linecap="round"/>
+  <rect class="body" x="86" y="146" width="148" height="104" rx="28" fill="url(#body)" stroke="url(#gold)" stroke-width="8"/>
+  <path d="M160 177a17 17 0 0 0-9 31l-5 25h28l-5-25a17 17 0 0 0-9-31z" fill="url(#gold)"/>
+  <g class="key" fill="none" stroke="url(#gold)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <circle cx="218" cy="184" r="21"/>
+    <path d="M197 184h-74M145 184v22M130 184v16M115 184v26"/>
+  </g>
+</svg>
