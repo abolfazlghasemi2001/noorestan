@@ -176,6 +176,19 @@
 .sc-citylist{ display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; max-height:52vh; overflow:auto; }
 .sc-citylist button{ min-height:44px; font-size:12.5px; }
 
+/* ── نسخهٔ ۱۹: ورد و تسبیح ── */
+.w-item{ border-bottom:1px solid var(--line); padding:4px 0; }
+.w-item:last-of-type{ border-bottom:0; }
+.w-item summary{ cursor:pointer; font-size:12.5px; color:var(--txt); min-height:44px;
+  display:flex; align-items:center; list-style:none; }
+.w-item summary::-webkit-details-marker{ display:none; }
+.w-item summary::before{ content:'›'; display:inline-block; margin-inline-end:6px;
+  color:var(--mut); transition:transform .18s var(--ease); }
+.w-item[open] summary::before{ transform:rotate(90deg); }
+.w-item[open] summary{ color:var(--gold); }
+#wirdCard .chip{ margin-inline-start:auto; }
+.sc-tasbih .tb-btn:disabled{ opacity:.6; }
+
 /* حرکت: فقط ورودِ آرام؛ با reduced-motion همه‌چیز خاموش */
 .sc-wrap > *{ animation:sc-in .38s var(--ease) both; }
 .sc-wrap > *:nth-child(2){ animation-delay:.05s }
@@ -188,6 +201,7 @@
 
 @media (prefers-reduced-motion: reduce){
   .sc-wrap > *{ animation:none !important; }
+  .w-item summary::before{ transition:none !important; }
   .sc-next-bar i{ transition:none !important; }
   .qb-dial{ transition:none !important; }   /* سوزن/صفحه بدونِ چرخشِ نرم */
   .sc-prayer:active, .sc-tasbih .tb-btn:active{ transform:none !important; }

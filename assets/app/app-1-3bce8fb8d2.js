@@ -704,6 +704,8 @@ const Store = {
                esmFamilBest: 0, perfectRuns: 0, playMs: 0,
                exams: 0, topics: {},
                hadith: 0, imams: 0, dua: 0, spectated: 0, shared: 0, missionsDone: 0,
+               /* نسخهٔ ۱۹: شمارِ باز شدنِ قبله (مأموریتِ «یک‌بار در عمر») */
+               qiblaOpens: 0,
                hifzVerses: 0, reviews: 0, bestStreak: 0, shopBuys: 0, coinsEarned: 0,
                /* شمارشِ بازی‌ها برای پنل مدیریت: کلِ عمر و امروز */
                byGame: {}, today: { date: '', n: 0, byGame: {} } },
@@ -770,6 +772,22 @@ const Store = {
          همان پنج نماز. سقفِ روزانه خودش در همین ساختار است: هر نماز
          در هر روز حداکثر یک بار ثبت (و جایزه) می‌شود. */
       salahLog: {},
+      /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم و اذانِ محلی ──
+         adhanEnabled: روشن/خاموشِ یادآور برای هر نماز (master کلیدِ کل).
+         adhanOffsets.before15: یادآورِ ۱۵ دقیقه قبل، اختیاری.
+         tasbihToday: { date, counts:[سبحان‌الله، الحمدلله، الله‌اکبر], done }
+                      — با تغییرِ روز (U.today) خودش ریست می‌شود.
+         wirdToday: { date, done:{ morning, evening, afterPrayer } }.
+         khatm: { page, month, stamp } — هدفِ ختم و مهرِ روزِ انجام.
+         notifGranted: نتیجهٔ آخرین درخواستِ اجازهٔ Notification —
+                      '' | 'granted' | 'denied' | 'default'.
+         همه فقط محلی‌اند: هیچ سرور، پوش یا Firebaseای در کار نیست. */
+      adhanEnabled: { master:true, fajr:true, dhuhr:true, asr:true, maghrib:true, isha:true },
+      adhanOffsets: { before15:false },
+      tasbihToday: { date:'', counts:[0, 0, 0], done:false },
+      wirdToday: { date:'', done:{} },
+      khatm: { page:1, month:'', stamp:'' },
+      notifGranted: '',
       /* ── نسخهٔ ۹: هویتِ کاربر ──
          `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
@@ -1032,6 +1050,35 @@ const Store = {
       const keys = Object.keys(d.salahLog).sort();
       while(keys.length > 400){ delete d.salahLog[keys.shift()]; }
     }
+    /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم، اذان ── */
+    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    if(!d.adhanEnabled || typeof d.adhanEnabled !== 'object' || Array.isArray(d.adhanEnabled))
+      d.adhanEnabled = {};
+    ADHAN_KEYS.forEach(k => { if(typeof d.adhanEnabled[k] !== 'boolean') d.adhanEnabled[k] = true; });
+    if(!d.adhanOffsets || typeof d.adhanOffsets !== 'object' || Array.isArray(d.adhanOffsets))
+      d.adhanOffsets = {};
+    d.adhanOffsets.before15 = !!d.adhanOffsets.before15;
+    if(!d.tasbihToday || typeof d.tasbihToday !== 'object' || Array.isArray(d.tasbihToday))
+      d.tasbihToday = { date:'', counts:[0, 0, 0], done:false };
+    if(typeof d.tasbihToday.date !== 'string') d.tasbihToday.date = '';
+    d.tasbihToday.counts = (Array.isArray(d.tasbihToday.counts) ? d.tasbihToday.counts : [0, 0, 0])
+      .map(n => U.clamp(Math.floor(+n) || 0, 0, 999)).slice(0, 3);
+    while(d.tasbihToday.counts.length < 3) d.tasbihToday.counts.push(0);
+    d.tasbihToday.done = !!d.tasbihToday.done;
+    if(!d.wirdToday || typeof d.wirdToday !== 'object' || Array.isArray(d.wirdToday))
+      d.wirdToday = { date:'', done:{} };
+    if(typeof d.wirdToday.date !== 'string') d.wirdToday.date = '';
+    if(!d.wirdToday.done || typeof d.wirdToday.done !== 'object' || Array.isArray(d.wirdToday.done))
+      d.wirdToday.done = {};
+    ['morning', 'evening', 'afterPrayer'].forEach(k => { d.wirdToday.done[k] = !!d.wirdToday.done[k]; });
+    if(!d.khatm || typeof d.khatm !== 'object' || Array.isArray(d.khatm))
+      d.khatm = { page:1, month:'', stamp:'' };
+    d.khatm.page = U.clamp(Math.floor(+d.khatm.page) || 1, 1, 604);
+    if(typeof d.khatm.month !== 'string') d.khatm.month = '';
+    d.khatm.month = d.khatm.month.slice(0, 7);
+    if(typeof d.khatm.stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.khatm.stamp))
+      d.khatm.stamp = '';
+    if(!['', 'granted', 'denied', 'default'].includes(d.notifGranted)) d.notifGranted = '';
 
     /* ── دور ریختنِ کلیدِ ناشناس ──
        پیش‌تر sanitize فقط کلیدهای *شناخته‌شده* را درست می‌کرد؛ هر کلیدِ

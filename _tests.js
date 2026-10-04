@@ -6093,7 +6093,12 @@ section('Store — کلیدهای عبادت و کلیدِ ناشناس (نسخ�
 section('صحنِ روزانه (نسخهٔ ۱۹ب)');
 {
   const data0 = Store.data;
-  const fresh = fn => { Store.data = Store.defaults(); Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت (نصفِ pts) هیچ‌وقت
+       اقتصادِ مستقیمِ سنجش‌ها را در هیچ بذرِ روزی به هم نریزد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
 
   ok('Courtyard بار شده', typeof Courtyard === 'object' && typeof Courtyard.render === 'function' &&
      typeof Courtyard.html === 'function' && typeof SalahLog === 'object');
@@ -6248,7 +6253,12 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
 section('قبله و تنظیماتِ عبادت (نسخهٔ ۱۹ب)');
 {
   const data0 = Store.data;
-  const fresh = fn => { Store.data = Store.defaults(); Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت (نصفِ pts) هیچ‌وقت
+       اقتصادِ مستقیمِ سنجش‌ها را در هیچ بذرِ روزی به هم نریزد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
 
   ok('Qibla بار شده', typeof Qibla === 'object' && typeof Qibla.open === 'function' && typeof Qibla.svgHtml === 'function');
   ok('قطب‌نما SVGِ درون‌خطی است، بدونِ کتابخانه و منبعِ بیرونی', (() => {
@@ -6323,6 +6333,352 @@ section('قبله و تنظیماتِ عبادت (نسخهٔ ۱۹ب)');
      SalahSettings.applyMethod('isna');
      const isna = Courtyard.times();
      return Store.get('salahMethod') === 'isna' && +jafari.maghrib > +isna.maghrib;
+  }));
+}
+
+/* ═══════════════ نسخهٔ ۱۹ — همراهِ روزانه ═══════════════ */
+section('ذکر و تسبیح و ورد (نسخهٔ ۱۹)');
+{
+  const data0 = Store.data;
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت (نصفِ pts) هیچ‌وقت
+       اقتصادِ مستقیمِ سنجش‌ها را در هیچ بذرِ روزی به هم نریزد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+  const WIRD_SRC = fs.readFileSync(__dirname + '/assets/app/wird-1.js', 'utf8');
+
+  ok('ماژول‌های همراهِ روزانه بار شده‌اند', typeof WirdUI === 'object' && typeof Tasbih === 'object' &&
+     typeof Khatm === 'object' && typeof RamadanUI === 'object' && typeof Adhan === 'object');
+  ok('wird-1.js در سند است', /assets\/app\/wird-1\.js/.test(DOC));
+
+  /* قاعدهٔ سخت: هیچ عربیِ تازه‌ای از حافظه — همه ارجاع به بانکِ دعا */
+  ok('بانک‌های ورد فقط «ارجاع» به DATA.duas‌اند (نه متنِ تازه)', (() => {
+     const all = ['morning','evening','afterPrayer'].flatMap(w => WirdUI.bankItems(w));
+     return all.length === 9 &&
+            WirdUI.bankItems('morning')[0] === (DATA.duas || []).find(d => d.title.includes('ذکر یونسیه')) &&
+            WirdUI.bankItems('afterPrayer')[0] === (DATA.duas || []).find(d => d.title.includes('لا حول')) &&
+            all.every(d => (DATA.duas || []).includes(d));
+  })());
+  ok('فایلِ ورد هیچ متنِ عربیِ تازه‌ای نمی‌سازد', !/["']ar["']?\s*:\s*["'][\u0600-\u06FF]/.test(WIRD_SRC));
+  ok('میان‌برِ دعاها فقط همان‌هایی است که بانک دارد', (() => {
+     const sc = WirdUI.shortcuts();
+     const t = sc.map(x => x.q).join('|');
+     return sc.length === 6 && sc.every(x => x.dua) &&
+            /کمیل/.test(t) && /عاشورا/.test(t) && /فرج/.test(t) && /یونسیه/.test(t) && /آیةالکرسی/.test(t) &&
+            !/توسل|ندبه|جامعه/.test(WIRD_SRC);
+  })());
+
+  /* صبح/شام بر پایهٔ ظهرِ شرعی */
+  ok('ذکرِ صبح پیش از ظهرِ شرعی و شام پس از آن', fresh(() => {
+     const t = Salah.times(new Date());
+     const m = new Date(+t.fajr + 36e5);          // یک ساعت پس از فجر
+     const e = new Date(+t.maghrib + 36e5);       // یک ساعت پس از مغرب
+     return WirdUI.whichAt(m) === 'morning' && WirdUI.whichAt(e) === 'evening';
+  }));
+  ok('کارتِ ذکرِ صحن بانکِ درستِ همان ساعت را نشان می‌دهد', fresh(() => {
+     const h = WirdUI.cardHtml(new Date(+Salah.times(new Date()).fajr + 36e5));
+     return h.includes('ذکرِ صبح') && h.includes('ذکر یونسیه') && h.includes('tasbihBox') &&
+            h.includes('khatmOpen') && h.includes('data-wird-finish="morning"');
+  }));
+  ok('کارتِ ذکر رویِ خودِ صحن می‌نشیند', fresh(() => Courtyard.html().includes('id="wirdCard"')));
+
+  /* ورد: یک بار در روز برای هر بانک */
+  ok('ورد: هر بانک روزی یک‌بار جایزهٔ خیلی کم می‌دهد', fresh(() => {
+     const c0 = Wallet.get();
+     const r1 = WirdUI.finish('morning');
+     const r2 = WirdUI.finish('morning');
+     WirdUI.finish('evening'); WirdUI.finish('afterPrayer');
+     return r1.ok === true && r2.dup === true && WirdUI.doneCount() === 3 &&
+            Wallet.get() - c0 === 3 && Wallet.earned() - Wallet.spent() === Wallet.get();
+  }));
+  ok('وردِ روزِ قبل، امروز را تمام‌شده نمی‌کند', fresh(() => {
+     Store.data.wirdToday = { date:'2020-01-01', done:{ morning:true, evening:true, afterPrayer:true } };
+     return WirdUI.doneCount() === 0 && WirdUI.done('morning') === false;
+  }));
+
+  /* تسبیح */
+  ok('تسبیح ۳۳/۳۳/۳۳: فازها به‌ترتیب و جایزهٔ پایانی یک‌بار', fresh(() => {
+     const c0 = Wallet.get();
+     let lastReward = 0;
+     for(let i = 0; i < 99; i++) lastReward = (Tasbih.tap().reward || 0);
+     const s = Tasbih.st();
+     const extra = Tasbih.tap();
+     return s.counts.join() === '33,33,33' && s.done === true && Tasbih.doneToday() === true &&
+            lastReward === 2 && Wallet.get() - c0 === 2 && extra.complete === true &&
+            Wallet.get() - c0 === 2;
+  }));
+  ok('ریستِ تسبیح با تغییرِ روز (U.today)', fresh(() => {
+     Store.data.tasbihToday = { date:'2020-01-01', counts:[33, 33, 33], done:true };
+     const s = Tasbih.st();
+     return s.date === U.today() && s.counts.join() === '0,0,0' && s.done === false &&
+            Tasbih.doneToday() === false;
+  }));
+  ok('ریستِ دستیِ تسبیح', fresh(() => {
+     Tasbih.tap(); Tasbih.tap();
+     Tasbih.reset();
+     return Tasbih.st().counts.join() === '0,0,0';
+  }));
+  ok('لرزشِ تسبیح فقط با تنظیمِ haptics و نگهبانِ try', fresh(() => {
+     const hadVib = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+     Store.update(d => { d.settings.haptics = false; });
+     const r = tryIt(() => Tasbih.tap());
+     Store.update(d => { d.settings.haptics = true; });
+     return r === 'OK' || hadVib === false;
+  }));
+}
+
+section('ختم و رمضان (نسخهٔ ۱۹)');
+{
+  const data0 = Store.data;
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت (نصفِ pts) هیچ‌وقت
+       اقتصادِ مستقیمِ سنجش‌ها را در هیچ بذرِ روزی به هم نریزد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+
+  /* ختمِ محلی */
+  ok('ختم: صفحه → سوره/آیه (تقریبِ مصحفِ ۶۰۴ صفحه‌ای)', (() => {
+     const a = Khatm.locate(1), b = Khatm.locate(604), m = Khatm.locate(300);
+     return a.s === 1 && a.a === 1 &&
+            /* صفحهٔ پایانی به سوره‌های آخرِ مصحف می‌رسد (تقریبِ یکنواخت) */
+            b.s >= 105 && b.s <= 114 && m.s >= 2 && m.s <= 113 &&
+            Khatm.locate(10).s <= Khatm.locate(100).s &&
+            Khatm.locate(100).s <= Khatm.locate(600).s;
+  })());
+  ok('ختم: مهرِ امروز + جایزهٔ یک‌بار در روز', fresh(() => {
+     const c0 = Wallet.get();
+     const first = Khatm.mark(false);
+     const again = Khatm.mark(false);
+     return first === true && again === false && Khatm.doneToday() === true &&
+            Wallet.get() - c0 === 1 && Store.get('khatm').stamp === U.today();
+  }));
+  ok('ختم: هدفِ صفحه در ۱–۶۰۴ می‌ماند', fresh(() => {
+     Khatm.setPage(0); const lo = Khatm.state().page;
+     Khatm.setPage(9999); const hi = Khatm.state().page;
+     Khatm.setPage(137); const mid = Khatm.state().page;
+     return lo === 1 && hi === 604 && mid === 137;
+  }));
+  ok('ختم سرور ندارد — فقط محلی', (() => {
+     const src = fs.readFileSync(__dirname + '/assets/app/wird-1.js', 'utf8');
+     return !/fetch\s*\(/.test(src) && !/WebSocket/.test(src);
+  })());
+
+  /* رمضان */
+  ok('رمضان فقط در ماهِ ۹ قمری', (() => {
+     return RamadanUI.isRamadan(Hijri.toGregorian(1447, 9, 1)) === true &&
+            RamadanUI.isRamadan(Hijri.toGregorian(1447, 9, 20)) === true &&
+            /* شعبانِ ۱۴۴۷ در الگوریتمِ مدنی ۲۹ روزه است — روزِ ۱۵ را
+               می‌سنجیم که سرریز به ماهِ بعد نکند */
+            RamadanUI.isRamadan(Hijri.toGregorian(1447, 8, 15)) === false &&
+            RamadanUI.isRamadan(Hijri.toGregorian(1447, 10, 1)) === false;
+  })());
+  ok('کارتِ سحر/افطار در رمضان می‌آید و زمان‌ها از موتور است', fresh(() => {
+     const ram = Hijri.toGregorian(1447, 9, 10);
+     const t = Salah.times(ram);
+     const h = RamadanUI.cardHtml(ram, t);
+     return h.includes('sc-ramadan') && h.includes('سحر') && h.includes('افطار') &&
+            h.includes(Courtyard.hhmm(t.fajr)) && h.includes(Courtyard.hhmm(t.maghrib)) &&
+            h.includes('ذکرِ سحر');
+  }));
+  ok('بیرونِ رمضان هیچ کارتی نیست', fresh(() => {
+     const h = RamadanUI.cardHtml(Hijri.toGregorian(1447, 10, 1));
+     return h === '' &&
+            /* صحنِ امروز هم فقط وقتی رمضان باشد کارت دارد */
+            Courtyard.html().includes('sc-ramadan') === RamadanUI.isRamadan(new Date());
+  }));
+  ok('مأموریت‌های رمضان فقط در ماهِ ۹ به استخر می‌آیند', fresh(() => {
+     const _is = RamadanUI.isRamadan;
+     Missions.POOL = Missions.POOL.filter(m => !/^ram/.test(m.id));
+     RamadanUI.isRamadan = () => true;
+     Missions._syncPool();
+     const inRam = Missions.POOL.filter(m => /^ram/.test(m.id)).length;
+     RamadanUI.isRamadan = () => false;
+     Missions._syncPool();
+     const outRam = Missions.POOL.filter(m => /^ram/.test(m.id)).length;
+     RamadanUI.isRamadan = _is;
+     Missions._syncPool();
+     return inRam === 3 && outRam === 0;
+  }));
+
+  /* اقتصادِ کلِ روزِ عبادت */
+  ok('اقتصادِ سکه پس از نماز+ورد+تسبیح+ختم: ۱۱ سکه در روز، تراز سالم', fresh(() => {
+     /* (مأموریت‌ها در fresh قفل شده‌اند — اقتصادِ مستقیمِ عبادت تنهاست) */
+     const c0 = Wallet.get(), e0 = Wallet.earned(), x0 = Store.get('xp');
+     SalahLog.NAMES.forEach(n => SalahLog.mark(n));     // ۵
+     ['morning','evening','afterPrayer'].forEach(w => WirdUI.finish(w));  // ۳
+     for(let i = 0; i < 99; i++) Tasbih.tap();          // ۲
+     Khatm.mark(false);                                 // ۱
+     const coins = Wallet.get() - c0, xp = Store.get('xp') - x0;
+     return coins === 11 && xp === (5 * 3) + (3 * 2) + 2 + 3 &&
+            Wallet.earned() - Wallet.spent() === Wallet.get() && Wallet.earned() - e0 === 11;
+  }));
+}
+
+section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
+{
+  const data0 = Store.data;
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت (نصفِ pts) هیچ‌وقت
+       اقتصادِ مستقیمِ سنجش‌ها را در هیچ بذرِ روزی به هم نریزد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+
+  /* هدف‌یابیِ اذان — تابعِ خالص */
+  ok('هدفِ اذان: نمازِ بعدیِ روشن است', fresh(() => {
+     const t = Salah.times(new Date());
+     const now = new Date(+t.fajr + 36e5);            // پس از فجر، پیش از ظهر
+     const tg = Adhan.nextTarget(now);
+     return tg && tg.name === 'dhuhr' && tg.kind === 'adhan' && +tg.at > +now &&
+            Math.abs(+tg.at - +t.dhuhr) < 1000;
+  }));
+  ok('۱۵ دقیقه قبل: اختیاری و فقط وقتی هنوز نگذشته', fresh(() => {
+     const t = Salah.times(new Date());
+     const now = new Date(+t.fajr + 36e5);
+     const off = Adhan.nextTarget(now).kind;
+     Store.update(d => { d.adhanOffsets.before15 = true; });
+     const tg = Adhan.nextTarget(now);
+     Store.update(d => { d.adhanOffsets.before15 = false; });
+     return off === 'adhan' && tg.kind === 'before' &&
+            +tg.at === +t.dhuhr - 15 * 6e4;
+  }));
+  ok('خاموشیِ هر نماز از هدف‌یابی کنار می‌رود؛ master همه را می‌بندد', fresh(() => {
+     const t = Salah.times(new Date());
+     const now = new Date(+t.fajr + 36e5);
+     Store.update(d => { d.adhanEnabled.dhuhr = false; });
+     const skipped = Adhan.nextTarget(now).name;
+     Store.update(d => { d.adhanEnabled.master = false; });
+     const none = Adhan.nextTarget(now);
+     Store.update(d => { d.adhanEnabled.master = true; d.adhanEnabled.dhuhr = true; });
+     return skipped === 'asr' && none === null;
+  }));
+  ok('در محفل/بازیِ تمام‌صفحه ساکت است', (() => {
+     const stack = Router.stack;
+     const saved = [...stack];
+     stack.push('play');
+     const q1 = Adhan.quietNow();
+     stack.pop(); stack.push('room');
+     const q2 = Adhan.quietNow();
+     Router.stack.length = 0; saved.forEach(s => Router.stack.push(s));
+     return q1 === true && q2 === true;
+  })());
+  ok('پخش در سکوت، هدف را «انجام‌شده» علامت نمی‌زند', fresh(() => {
+     Adhan._firedStamp = '';
+     const stack = Router.stack; const saved = [...stack];
+     stack.push('play');
+     Adhan.fire({ name:'fajr', at:new Date(Date.now() + 6e4), kind:'adhan' });
+     Router.stack.length = 0; saved.forEach(s => Router.stack.push(s));
+     clearTimeout(Adhan._timer); Adhan._timer = null; Adhan._retry = 0;
+     return Adhan._firedStamp === '';
+  }));
+  ok('بی‌اجازهٔ Notification: واپس‌روی به toast، بدونِ throw', fresh(() => {
+     Adhan._firedStamp = '';
+     const r = tryIt(() => Adhan.fire({ name:'dhuhr', at:new Date(Date.now() - 1000), kind:'adhan' }));
+     const got = Adhan.notify('اذانِ تست', 'بدونِ سرور');
+     clearTimeout(Adhan._timer); Adhan._timer = null;
+     return r === 'OK' && Adhan._firedStamp !== '' && got === 'toast' &&
+            Store.get('notifGranted') === '' && typeof Notification === 'undefined';
+  }));
+  ok('درخواستِ اجازه بدونِ Notification نمی‌شکند و اصرار نمی‌کند', fresh(() => {
+     const r = tryIt(() => Adhan.requestPermission());
+     const g1 = tryIt(() => Adhan.deniedGuide());
+     const g2 = tryIt(() => Adhan.deniedGuide());   // بارِ دوم: خاموش
+     try{ UI.closeModal(); }catch(e){}
+     return r === 'OK' && g1 === 'OK' && g2 === 'OK' && Adhan._guideShown === true;
+  }));
+  ok('زنگِ اذان از WebAudioِ داخلی است — بی فایل و بی CDN', (() => {
+     const src = fs.readFileSync(__dirname + '/assets/app/wird-1.js', 'utf8');
+     return /Sound\.tone\(/.test(src) && !/\.mp3|\.ogg|\.wav/.test(src) &&
+            Adhan.CHIME.length === 3 && tryIt(() => Adhan.chime()) === 'OK';
+  })());
+  ok('کارتِ تنظیماتِ اذان کامل است', fresh(() => {
+     const h = Adhan.cardHtml();
+     return h.includes('adhanSetCard') && h.includes('adhMaster') && h.includes('adhBefore') &&
+            ['fajr','dhuhr','asr','maghrib','isha'].every(n => h.includes(`data-adhan="${n}"`)) &&
+            h.includes('adhPerm') && h.includes('adhTest');
+  }));
+  ok('کارتِ اذان به «عبادتِ روزانه» تزریق می‌شود', fresh(() =>
+     SalahSettings.inject._adhanWrapped === true && tryIt(() => SalahSettings.inject()) === 'OK'));
+  ok('sw.js: پوش/سرورِ تازه‌ای برای اذان اضافه نشد، isMedia دست‌نخورده', (() => {
+     const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+     /* هندلرِ نمایشِ اعلان از قبل در sw.js بود و دست‌نخورده مانده؛
+        مهم این است که هیچ زیرساختِ پوشِ سروری (subscribe/Firebase)
+        اضافه نشده و استثناهای صوتیِ isMedia سرِ جایشان‌اند. */
+     return /function isMedia/.test(sw) &&
+            /if\s*\(\s*isMedia\(req,\s*url\)\s*\)\s*return;/.test(sw) &&
+            !/pushManager/.test(sw) && !/firebase/i.test(sw);
+  })());
+  ok('sw: نسخه ≥ ۳۶ و precacheٔ wird-1.js', (() => {
+     const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+     return +sw.match(/const CACHE = 'noorestan-(\d+)'/)[1] >= 36 &&
+            sw.includes("'./assets/app/wird-1.js'");
+  })());
+
+  /* مأموریت‌های تازه */
+  ok('مأموریت‌های عبادت در استخرند و key() شمارندهٔ درست دارد', fresh(() => {
+     Missions._syncPool();
+     const ids = Missions.POOL.map(m => m.id);
+     SalahLog.mark('fajr'); SalahLog.mark('dhuhr');
+     WirdUI.finish('morning');
+     Khatm.mark(false);
+     Store.update(d => { d.stats.qiblaOpens = 1; });
+     return ids.includes('pray5') && ids.includes('wird1') && ids.includes('khatm1') &&
+            Missions.key('pray5') === 2 && Missions.key('wird1') === 1 &&
+            Missions.key('khatm1') === 1 && Missions.key('qibla1') === 1 &&
+            Missions.key('play3') >= 0;   // قدیمی‌ها سالم
+  }));
+  ok('مأموریتِ قبله «یک‌بار در عمر» است: پس از انجام از استخر می‌رود', fresh(() => {
+     Store.update(d => { d.stats.qiblaOpens = 0; });
+     Missions._syncPool();
+     const before = Missions.POOL.some(m => m.id === 'qibla1');
+     Store.update(d => { d.stats.qiblaOpens = 2; });
+     Missions._syncPool();
+     const after = Missions.POOL.some(m => m.id === 'qibla1');
+     return before === true && after === false;
+  }));
+  ok('بازکردنِ قبله شمرده می‌شود (وصل به مأموریت)', fresh(() => {
+     const n0 = (Store.get('stats') || {}).qiblaOpens || 0;
+     tryIt(() => Qibla.open());
+     try{ UI.closeModal(); }catch(e){}
+     return Store.get('stats').qiblaOpens === n0 + 1 && Qibla.open._countWrapped === true;
+  }));
+  ok('مأموریت‌های رمضان شمارندهٔ واقعی دارند', fresh(() => {
+     SalahLog.mark('maghrib');
+     for(let i = 0; i < 99; i++) Tasbih.tap();
+     WirdUI.finish('evening');
+     return Missions.key('ramMaghrib') === 1 && Missions.key('ramTasbih') === 1 &&
+            Missions.key('ramWird') === 1;
+  }));
+  ok('ensure با استخرِ تازه نمی‌شکند و سه مأموریت می‌دهد', fresh(() => {
+     Store.data.missions = { date:'', list:[] };   // قفلِ fresh را بردار — خودِ ensure بسازد
+     const r = tryIt(() => Missions.ensure());
+     return r === 'OK' && Missions.ensure._worshipWrapped === true &&
+            (Store.get('missions').list || []).length === 3;
+  }));
+
+  /* sanitize کلیدهای تازه */
+  ok('sanitize نسخهٔ ۱۹: شکل‌های خراب ترمیم می‌شوند', fresh(() => {
+     Store.data.adhanEnabled = 'x';
+     Store.data.adhanOffsets = [1];
+     Store.data.tasbihToday = { date:5, counts:['a', 9999, -3], done:'yes' };
+     Store.data.wirdToday = { date:1, done:['morning'] };
+     Store.data.khatm = { page:99999, month:12345678, stamp:'بد' };
+     Store.data.notifGranted = 'maybe';
+     Store.sanitize();
+     const d = Store.data;
+     return d.adhanEnabled.master === true && d.adhanEnabled.isha === true &&
+            d.adhanOffsets.before15 === false &&
+            d.tasbihToday.date === '' && d.tasbihToday.counts.join() === '0,999,0' && d.tasbihToday.done === true &&
+            d.wirdToday.date === '' && d.wirdToday.done.morning === false &&
+            d.khatm.page === 604 && d.khatm.month.length <= 7 && d.khatm.stamp === '' &&
+            d.notifGranted === '' &&
+            Wallet.earned() - Wallet.spent() === Wallet.get();
+  }));
+  ok('کلیدهای تازه از پاکسازیِ دادهٔ شخصی سالم بیرون می‌آیند', fresh(() => {
+     const keep = typeof PersonalData !== 'undefined' ? PersonalData.clean(Store.defaults()) : null;
+     return keep === null || ('adhanEnabled' in keep && 'tasbihToday' in keep && 'khatm' in keep);
   }));
 }
 

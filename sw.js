@@ -51,13 +51,14 @@
    نسخهٔ ۳۴: موتور اوقاتِ نماز (salah-1.js) به پیش‌ذخیره آمد — اوقات
    آفلاین از روی locِ ذخیره‌شده محاسبه می‌شود، نه از شبکه.
    نسخهٔ ۳۵: صحنِ روزانه (courtyard-1.js و salah.css) به پیش‌ذخیره آمد.
+   نسخهٔ ۳۶: همراهِ روزانه (wird-1.js) به پیش‌ذخیره آمد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-35';
-const SHELL = 'noorestan-shell-35';
-const MEDIA = 'noorestan-media-35';
-const TEXT  = 'noorestan-text-35';
-const GAMES = 'noorestan-games-35';
+const CACHE = 'noorestan-36';
+const SHELL = 'noorestan-shell-36';
+const MEDIA = 'noorestan-media-36';
+const TEXT  = 'noorestan-text-36';
+const GAMES = 'noorestan-games-36';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -79,6 +80,10 @@ const PRECACHE = [
      محاسبه‌شده از locِ ذخیره‌شده، آفلاین هم کار می‌کند. */
   './assets/app/courtyard-1.js',
   './assets/styles/salah.css',
+  /* نسخهٔ ۳۶: همراهِ روزانه (نسخهٔ ۱۹) — ورد، تسبیح، ختم، رمضان و
+     اذانِ محلی. یادآورِ اذان آفلاین هم کار می‌کند چون اوقات از locِ
+     ذخیره‌شده محاسبه می‌شود. */
+  './assets/app/wird-1.js',
   './',
   SHELL_PAGE,
   './assets/styles/sanctuary.css',

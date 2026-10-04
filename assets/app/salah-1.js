@@ -220,7 +220,11 @@ const Salah = {
      مقدارِ ممکن» جایگزین می‌شوند تا تابع هرگز NaN برنگرداند. */
   _computeDay(date, loc, m){
     const A = NOOR_ASTRO;
-    const y = date.getFullYear(), mo = date.getMonth() + 1, dd = date.getDate();
+    /* date این‌جا «UTC-noonِ روزِ مدنیِ خودِ شهر» است (نگاه کن به
+       _dayDate) — پس روز از UTC خوانده می‌شود، نه از منطقهٔ زمانیِ
+       دستگاه. این‌طور گوشیِ مسافری در توکیو یا تستِ TZ=New_York هم
+       همان روزِ خورشیدیِ شهرِ مقصد را حساب می‌کند. */
+    const y = date.getUTCFullYear(), mo = date.getUTCMonth() + 1, dd = date.getUTCDate();
     const jDate = A.julian(y, mo, dd) - loc.lon / (15 * 24);
     const approx = t => jDate + (t || 0);
 
@@ -282,9 +286,18 @@ const Salah = {
      می‌دهد — پس اوقات هم روی گوشیِ مسافر و هم در تست‌های UTC سالم‌اند.
      minute-afzayi رویِ Dateِ UTC یعنی DST/تقویم خودش حل می‌شود. */
   _at(date, solarHours, lon){
-    const ms = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) +
+    const ms = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) +
                Math.round((solarHours - lon / 15) * 60) * 6e4;
     return new Date(ms);
+  },
+
+  /* روزِ مدنیِ خودِ شهر برای یک لحظهٔ مطلق: لحظه را به اندازهٔ
+     طولِ جغرافیاییِ شهر جابه‌جا می‌کنیم و روزِ UTC را می‌خوانیم.
+     نتیجه «امروز در آن شهر» است، فارغ از منطقهٔ زمانیِ دستگاه —
+     پایهٔ مستقل‌شدنِ next/current/times از TZ. */
+  _dayDate(date, lon){
+    const s = new Date(+date + (lon / 15) * 36e5);
+    return new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate(), 12));
   },
 
   /* ── API اصلی ──
@@ -296,12 +309,14 @@ const Salah = {
        { id, fajrAngle, maghribOffsetMin, ashaOffsetMin } که همان
        کلیدهای Store است. اگر هیچ ندهد، از Store خوانده می‌شود. */
   times(date, loc, method){
-    const d = (date instanceof Date && !isNaN(+date)) ? date : new Date();
+    const raw = (date instanceof Date && !isNaN(+date)) ? date : new Date();
     const L = this.resolveLoc(loc != null ? loc : this._storeLoc());
     const m = this.resolveMethod(
       method != null ? method : this._storeMethod(),
       method == null ? this._storeParams() : (typeof method === 'object' ? method : {})
     );
+    /* روزِ محاسبه = روزِ مدنیِ خودِ شهر، نه روزِ دستگاه */
+    const d = this._dayDate(raw, L.lon);
     const t = this._computeDay(d, L, m);
     const out = {
       fajr:    this._at(d, t.fajr, L.lon),
@@ -313,7 +328,7 @@ const Salah = {
       isha:    this._at(d, t.isha, L.lon)
     };
     /* نیمه‌شبِ شرعی = میانهٔ غروب تا فجرِ فردا */
-    const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12);
+    const nd = new Date(+d + 864e5);
     const t2 = this._computeDay(nd, L, m);
     const sunsetToday = this._at(d, t.sunset, L.lon);
     const fajrTmr = this._at(nd, t2.fajr, L.lon);
@@ -348,7 +363,7 @@ const Salah = {
     for(const name of SALAH_NAMES){
       if(+t[name] > +n) return { name, at:t[name], inMs:+t[name] - +n };
     }
-    const nd = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 12);
+    const nd = new Date(+n + 864e5);
     const t2 = this.times(nd, loc, method);
     return { name:'fajr', at:t2.fajr, inMs:+t2.fajr - +n };
   },
@@ -363,7 +378,7 @@ const Salah = {
       if(+t[name] <= +n) cur = { name, at:t[name] };
     }
     if(cur) return cur;
-    const pd = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1, 12);
+    const pd = new Date(+n - 864e5);
     const tp = this.times(pd, loc, method);
     return { name:'isha', at:tp.isha };
   },
