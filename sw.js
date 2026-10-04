@@ -48,13 +48,15 @@
    تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
    نسخهٔ ۳۱: رویهٔ ورود بازطراحی شد و برگهٔ سبکِ تازه‌ای (auth.css) آورد؛
    بی بالابردنِ شماره، نصب‌های پیشین همان ظاهرِ کهنه را از کش می‌دیدند.
+   نسخهٔ ۳۴: موتور اوقاتِ نماز (salah-1.js) به پیش‌ذخیره آمد — اوقات
+   آفلاین از روی locِ ذخیره‌شده محاسبه می‌شود، نه از شبکه.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-33';
-const SHELL = 'noorestan-shell-33';
-const MEDIA = 'noorestan-media-33';
-const TEXT  = 'noorestan-text-33';
-const GAMES = 'noorestan-games-33';
+const CACHE = 'noorestan-34';
+const SHELL = 'noorestan-shell-34';
+const MEDIA = 'noorestan-media-34';
+const TEXT  = 'noorestan-text-34';
+const GAMES = 'noorestan-games-34';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -68,6 +70,10 @@ const PRECACHE = [
   './assets/app/style-1-fd30642d4f.css',
   './assets/app/app-1-3bce8fb8d2.js',
   // split-index:end
+  /* نسخهٔ ۳۴: موتور اوقات نماز و قبله — بی آن، حالتِ آفلاین اوقات
+     نداشت. خارج از نشانگرهای split-index است چون آن ابزار فقط
+     باندلِ اصلی را بازتولید می‌کند. */
+  './assets/app/salah-1.js',
   './',
   SHELL_PAGE,
   './assets/styles/sanctuary.css',

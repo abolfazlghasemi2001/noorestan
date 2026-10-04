@@ -5762,6 +5762,330 @@ __smsChecks.push(async () => {
   }finally{Store.data=data;Store.save();Admin.remote=remote;U.now=now;Gate.stop();Gate.lockShown=false;}
 });
 
+/* ═══════════════ نسخهٔ ۱۹الف — موتور اوقات و قبله ═══════════════
+   سه بخشِ تازه: موتور اوقات/قبله، تبدیل قمری و مناسبت‌ها، و کلیدهای
+   تازهٔ Store. این بخش‌ها به DOM نیاز ندارند؛ موتور (salah-1.js) عمداً
+   خالص است تا همین‌جا بی‌استاب سنجیده شود. */
+section('موتور اوقات و قبله (نسخهٔ ۱۹الف)');
+{
+  const TEHRAN = { lat:35.6892, lon:51.3890 };
+  const min = d => d.getHours() * 60 + d.getMinutes();
+  const isDate = x => x instanceof Date && !isNaN(+x);
+
+  ok('Salah بار شده و API کامل دارد',
+     typeof Salah === 'object' && ['times','next','current','progress','qibla'].every(k => typeof Salah[k] === 'function'));
+  ok('چهار روشِ محاسبه تعریف شده‌اند',
+     ['jafari','mwl','ummqura','isna'].every(k => !!Salah.METHODS[k] && !!Salah.METHODS[k].name));
+  ok('روشِ پیش‌فرض «جعفریت — ایران» است', Salah.DEFAULT_METHOD === 'jafari');
+
+  /* سه روزِ آزمون: ۱ فروردین، ۱ مهر و ۱ دیِ ۱۴۰۵ = اعتدالین و انقلاب.
+     اگر Intlِ فارسی در دسترس بود، خودِ انطباقِ شمسی هم سنجیده می‌شود. */
+  const days = [
+    { d:new Date(2026, 2, 21, 12), fa:[1405,1,1]  },
+    { d:new Date(2026, 8, 23, 12), fa:[1405,7,1]  },
+    { d:new Date(2026, 11, 22, 12), fa:[1405,10,1] }
+  ];
+  let jalaliOk = true;
+  try{
+    const f = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year:'numeric', month:'numeric', day:'numeric' });
+    jalaliOk = days.every(({ d, fa }) => {
+      const p = f.formatToParts(d), g = k => +(p.find(x => x.type === k) || {}).value;
+      return g('year') === fa[0] && g('month') === fa[1] && g('day') === fa[2];
+    });
+  }catch(e){ jalaliOk = false; }
+  if(jalaliOk) ok('سه روزِ آزمون همان ۱ فروردین/۱ مهر/۱ دیِ ۱۴۰۵ هستند', true);
+
+  for(const { d } of days){
+    const tag = d.toISOString().slice(0, 10);
+    const t = Salah.times(d, TEHRAN);
+    ok(`${tag}: همهٔ اوقات Dateِ معتبرند`,
+       ['fajr','sunrise','dhuhr','asr','sunset','maghrib','isha','midnight'].every(k => isDate(t[k])));
+    ok(`${tag}: فجر پیش از طلوع است`, +t.fajr < +t.sunrise);
+    /* ظهرِ شرعی = زوالِ خورشید؛ باید نزدیکِ میانهٔ طلوع و غروب باشد
+       (معادلهٔ زمان حداکثر ±۱۶ دقیقه، پس ±۱۰ دقیقه حدِ سخت‌گیرانهٔ
+       امنی برای «نزدیکِ اوج» است). */
+    const solarNoon = (+t.sunrise + +t.sunset) / 2;
+    ok(`${tag}: ظهر نزدیکِ اوجِ خورشید است (±۱۰ دقیقه)`,
+       Math.abs(+t.dhuhr - solarNoon) <= 10 * 6e4,
+       `${((+t.dhuhr - solarNoon) / 6e4).toFixed(1)} دقیقه`);
+    ok(`${tag}: ترتیبِ روز درست است`,
+       +t.fajr < +t.sunrise && +t.sunrise < +t.dhuhr && +t.dhuhr < +t.asr &&
+       +t.asr < +t.sunset && +t.sunset <= +t.maghrib && +t.maghrib < +t.isha);
+    ok(`${tag}: مغربِ جعفری پس از غروب است (۱۲–۱۸ دقیقه)`, (() => {
+      const dm = (+t.maghrib - +t.sunset) / 6e4;
+      return dm >= 11.5 && dm <= 18.5;
+    })(), `${((+t.maghrib - +t.sunset) / 6e4).toFixed(1)} دقیقه`);
+    ok(`${tag}: عشا = مغرب + ۹۰ دقیقهٔ پیش‌فرض`,
+       Math.abs((+t.isha - +t.maghrib) / 6e4 - 90) <= 1.5);
+    /* نیمه‌شبِ شرعی: میانهٔ غروب تا فجرِ فردا */
+    const t2 = Salah.times(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 12), TEHRAN);
+    ok(`${tag}: نیمه‌شب بینِ مغرب و فجرِ فرداست`,
+       +t.midnight > +t.maghrib && +t.midnight < +t2.fajr);
+    ok(`${tag}: نیمه‌شب تقریباً میانهٔ غروب و فجر است`,
+       Math.abs(+t.midnight - (+t.sunset + +t2.fajr) / 2) <= 6e4);
+  }
+
+  /* بدونِ مختصات: تهران، بی هیچ خطا */
+  ok('بدونِ loc خطا نمی‌دهد و تهران حساب می‌شود', (() => {
+    let a = null, b = null;
+    try{ a = Salah.times(new Date(2026, 5, 15, 12)); }catch(e){ return false; }
+    b = Salah.times(new Date(2026, 5, 15, 12), 'tehran');
+    return ['fajr','dhuhr','maghrib','isha'].every(k => Math.abs(+a[k] - +b[k]) < 6e4);
+  })());
+  ok('locِ خراب (رشتهٔ ناشناس/عددِ بد) هم به تهران برمی‌گردد', (() => {
+    const ref = Salah.times(new Date(2026, 5, 15, 12), 'tehran');
+    return ['no-such-city', { lat:'x', lon:'y' }, { lat:999, lon:0 }, 42, []]
+      .every(bad => {
+        const t = Salah.times(new Date(2026, 5, 15, 12), bad);
+        return Math.abs(+t.dhuhr - +ref.dhuhr) < 6e4;
+      });
+  })());
+
+  /* تغییرِ روز، اوقات را عوض می‌کند */
+  ok('تغییرِ روز اوقات را عوض می‌کند', (() => {
+    const j = Salah.times(new Date(2026, 5, 21, 12), TEHRAN);
+    const d = Salah.times(new Date(2026, 11, 22, 12), TEHRAN);
+    return Math.abs(min(j.fajr) - min(d.fajr)) > 30 && Math.abs(min(j.sunset) - min(d.sunset)) > 30;
+  })());
+
+  /* قبله */
+  const qTehran = Salah.qibla(TEHRAN.lat, TEHRAN.lon);
+  ok('قبلهٔ تهران ۲۱۸–۲۲۰ (±۲) است', qTehran >= 216 && qTehran <= 222, qTehran.toFixed(2));
+  ok('قبله بدونِ ورودی هم کار می‌کند (تهران)', Math.abs(Salah.qibla() - qTehran) < 0.01);
+  ok('قبله همیشه ۰..۳۶۰ است',
+     NOOR_CITIES.every(c => { const q = Salah.qibla(c.lat, c.lon); return q >= 0 && q < 360; }));
+  ok('قبلهٔ نجف و کربلا با تهران فرق دارد',
+     Math.abs(Salah.qibla(32.0, 44.336) - qTehran) > 1);
+
+  /* next / current / progress */
+  const base = new Date(2026, 5, 15, 12);
+  const tb = Salah.times(base, TEHRAN);
+  ok('next: یک ساعت پس از طلوع → ظهر', (() => {
+    const n = Salah.next(new Date(+tb.sunrise + 36e5), TEHRAN);
+    return n.name === 'dhuhr' && n.inMs > 0 && +n.at === +tb.dhuhr;
+  })());
+  ok('next: پس از عشا → فجرِ فردا', (() => {
+    const n = Salah.next(new Date(+tb.isha + 36e5), TEHRAN);
+    return n.name === 'fajr' && +n.at > +tb.isha;
+  })());
+  ok('current: میانِ فجر و ظهر → فجر', (() => {
+    const c = Salah.current(new Date(+tb.fajr + 36e5), TEHRAN);
+    return c.name === 'fajr' && +c.at === +tb.fajr;
+  })());
+  ok('current: یک ساعت پیش از فجر → عشا',
+     Salah.current(new Date(+tb.fajr - 36e5), TEHRAN).name === 'isha');
+  ok('progress بینِ ۰ و ۱ است', (() => {
+    const p = Salah.progress(new Date(+tb.fajr + (+tb.dhuhr - +tb.fajr) / 2), TEHRAN);
+    return p > 0.4 && p < 0.6;
+  })());
+
+  /* تنظیم‌پذیریِ جعفریت: فجر ۱۵/۱۸، مغرب ۱۲–۱۸، عشا */
+  ok('فجرِ ۱۵° دیرتر از ۱۸° است (زاویهٔ کمتر = نزدیک‌تر به طلوع)', (() => {
+    const a = Salah.times(base, TEHRAN, { id:'jafari', fajrAngle:15 });
+    const b = Salah.times(base, TEHRAN, { id:'jafari', fajrAngle:18 });
+    return +a.fajr > +b.fajr;
+  })());
+  ok('مغرب با آفستِ ۱۲ و ۱۸ دقیقه جابه‌جا می‌شود', (() => {
+    const a = Salah.times(base, TEHRAN, { id:'jafari', maghribOffsetMin:12 });
+    const b = Salah.times(base, TEHRAN, { id:'jafari', maghribOffsetMin:18 });
+    return Math.abs((+b.maghrib - +a.maghrib) / 6e4 - 6) <= 1;
+  })());
+  ok('عشا با ashaOffsetMin جابه‌جا می‌شود', (() => {
+    const a = Salah.times(base, TEHRAN, { id:'jafari', ashaOffsetMin:60 });
+    const b = Salah.times(base, TEHRAN, { id:'jafari', ashaOffsetMin:120 });
+    return Math.abs((+b.isha - +a.isha) / 6e4 - 60) <= 1;
+  })());
+  ok('تنظیماتِ جعفری روی MWL اثر ندارد', (() => {
+    const a = Salah.times(base, TEHRAN, 'mwl');
+    const b = Salah.times(base, TEHRAN, { id:'mwl', fajrAngle:15, maghribOffsetMin:18 });
+    return +a.fajr === +b.fajr && +a.maghrib === +b.maghrib;
+  })());
+  ok('هر چهار روش ترتیبِ سالم می‌دهند', ['jafari','mwl','ummqura','isna'].every(id => {
+    const t = Salah.times(base, TEHRAN, id);
+    return +t.fajr < +t.sunrise && +t.sunrise < +t.dhuhr && +t.dhuhr < +t.asr &&
+           +t.asr < +t.sunset && +t.sunset <= +t.maghrib && +t.maghrib < +t.isha;
+  }));
+
+  /* شهرها */
+  ok('دستِ‌کم ۳۰ شهرِ ایران هست', NOOR_CITIES.filter(c => c.tz === 3.5).length >= 30,
+     NOOR_CITIES.filter(c => c.tz === 3.5).length);
+  ok('نجف، کربلا، قم و مشهد در فهرست‌اند',
+     ['najaf','karbala','qom','mashhad'].every(id => !!NOOR_CITIES.find(c => c.id === id)));
+  ok('تهران پیش‌فرض است', (NOOR_CITIES.find(c => c.def) || {}).id === 'tehran');
+  ok('مختصاتِ همهٔ شهرها معتبر است',
+     NOOR_CITIES.every(c => isFinite(c.lat) && Math.abs(c.lat) <= 90 && isFinite(c.lon) && Math.abs(c.lon) <= 180 && c.name));
+}
+
+section('تبدیل قمری و مناسبت‌ها (نسخهٔ ۱۹الف)');
+{
+  ok('Hijri بار شده', typeof Hijri === 'object' && ['fromGregorian','toGregorian','formatFa'].every(k => typeof Hijri[k] === 'function'));
+  ok('دوازده ماهِ قمری نامِ فارسی دارند', Hijri.MONTHS_FA.length === 12 && Hijri.MONTHS_FA.every(Boolean));
+
+  /* لنگرِ مستندِ الگوریتمِ کویت: ۱ ژانویهٔ ۲۰۰۰ = ۲۴ رمضان ۱۴۲۰ */
+  const anchor = Hijri.fromGregorian(new Date(2000, 0, 1, 12));
+  ok('لنگر: ۲۰۰۰/۱/۱ = ۲۴ رمضان ۱۴۲۰', anchor.hy === 1420 && anchor.hm === 9 && anchor.hd === 24,
+     JSON.stringify(anchor));
+
+  /* round-trip روی تاریخ‌های سالِ شمسیِ ۱۴۰۴ و ۱۴۰۵ (میلادیِ ۲۰۲۵–۲۰۲۶) */
+  const rtDays = [
+    new Date(2025, 3, 21, 12), new Date(2025, 6, 5, 12), new Date(2025, 6, 16, 12),
+    new Date(2025, 9, 4, 12), new Date(2026, 0, 20, 12), new Date(2026, 2, 21, 12),
+    new Date(2026, 5, 15, 12), new Date(2026, 8, 23, 12), new Date(2026, 11, 22, 12)
+  ];
+  let rtBad = 0;
+  for(const d of rtDays){
+    const h = Hijri.fromGregorian(d);
+    const b = Hijri.toGregorian(h.hy, h.hm, h.hd);
+    if(b.getFullYear() !== d.getFullYear() || b.getMonth() !== d.getMonth() || b.getDate() !== d.getDate()) rtBad++;
+  }
+  ok('round-trip میلادی→قمری→میلادی برای ۹ روزِ ۱۴۰۴/۱۴۰۵ سالم است', rtBad === 0, rtBad + ' خراب');
+
+  /* round-tripِ سویِ دیگر: همهٔ روزهای معتبرِ ۱۴۴۶ و ۱۴۴۷ قمری */
+  let hBad = 0, hN = 0;
+  for(const hy of [1446, 1447]){
+    for(let hm = 1; hm <= 12; hm++){
+      const len = Hijri.monthLength(hy, hm);
+      for(let hd = 1; hd <= len; hd++){
+        hN++;
+        const g = Hijri.toGregorian(hy, hm, hd);
+        const back = Hijri.fromGregorian(g);
+        if(back.hy !== hy || back.hm !== hm || back.hd !== hd) hBad++;
+      }
+    }
+  }
+  ok(`round-trip قمری→میلادی→قمری برای ${hN} روزِ ۱۴۴۶/۱۴۴۷ سالم است`, hBad === 0, hBad + ' خراب');
+
+  ok('طولِ سالِ قمری ۳۵۴ یا ۳۵۵ روز است', [1446,1447,1448].every(hy => [354,355].includes(Hijri.yearLength(hy))));
+  ok('طولِ ماه‌ها ۲۹ یا ۳۰ روز است', (() => {
+    for(let hm = 1; hm <= 12; hm++){
+      const l = Hijri.monthLength(1447, hm);
+      if(l !== 29 && l !== 30) return false;
+    }
+    return true;
+  })());
+  ok('روزهایِ پیوسته، قمریِ پیوسته می‌سازند', (() => {
+    for(let i = 0; i < 700; i++){
+      const d1 = new Date(2025, 0, 1 + i, 12), d2 = new Date(2025, 0, 2 + i, 12);
+      const a = Hijri.fromGregorian(d1), b = Hijri.fromGregorian(d2);
+      const same = a.hy === b.hy && a.hm === b.hm && b.hd === a.hd + 1;
+      const roll = b.hd === 1 && (a.hm === 12 ? b.hy === a.hy + 1 : (b.hm === a.hm + 1 || (a.hm === 12 && b.hm === 1)));
+      if(!same && !roll) return false;
+    }
+    return true;
+  })());
+
+  ok('formatFa رقمِ فارسی و نامِ ماه دارد', (() => {
+    const s = Hijri.formatFa(new Date(2000, 0, 1, 12));
+    return s === '۲۴ رمضان ۱۴۲۰';
+  })(), Hijri.formatFa(new Date(2000, 0, 1, 12)));
+  ok('isRamadan فقط در ماهِ نهم درست است',
+     Hijri.isRamadan(Hijri.toGregorian(1447, 9, 15)) === true &&
+     Hijri.isRamadan(Hijri.toGregorian(1447, 1, 10)) === false);
+
+  /* مناسبت‌ها — اسکلتِ فازِ ۱ */
+  ok('مناسبت‌های کم‌اختلاف پنج‌تا هستند', NOOR_OCCASIONS.filter(o => !o.range).length === 5);
+  ok('فاطمیه بازهٔ «مشهور» است، نه یک روزِ قطعی', (() => {
+    const f = NOOR_OCCASIONS.filter(o => /فاطمیه/.test(o.title));
+    return f.length === 1 && f[0].range === true && f[0].label === 'مشهور' &&
+           f[0].hijriMonth === 5 && f[0].hijriDay === 13 &&
+           f[0].hijriEndMonth === 6 && f[0].hijriEndDay === 3;
+  })());
+  ok('هر مناسبت شکلِ قرارداد دارد (hijriMonth/hijriDay/title/kind/src)',
+     NOOR_OCCASIONS.every(o => o.hijriMonth >= 1 && o.hijriMonth <= 12 && o.hijriDay >= 1 &&
+       o.title && ['celebration','mourning'].includes(o.kind) && !!o.src));
+  ok('topic هر مناسبت در TOPICS موجود است',
+     NOOR_OCCASIONS.every(o => !o.topic || TOPICS.some(t => t.id === o.topic)));
+  ok('DATA.occasions به همان فهرست وصل است', typeof DATA !== 'undefined' && DATA.occasions === NOOR_OCCASIONS);
+
+  /* مناسبت روی تاریخِ قمریِ ثابت — متفق‌ها */
+  const occOn = (hy, hm, hd) => noorOccasionFor(Hijri.toGregorian(hy, hm, hd));
+  ok('۱۸ ذی‌الحجه → غدیر', (occOn(1447, 12, 18) || {}).title === 'عید غدیر خم');
+  ok('۱۰ محرم → عاشورا', (occOn(1447, 1, 10) || {}).title === 'عاشورا');
+  ok('۲۰ صفر → اربعین', (occOn(1447, 2, 20) || {}).title === 'اربعین حسینی');
+  ok('۱۵ شعبان → نیمهٔ شعبان', (occOn(1447, 8, 15) || {}).title === 'نیمهٔ شعبان');
+  ok('۲۷ رجب → مبعث', /مبعث/.test((occOn(1447, 7, 27) || {}).title || ''));
+  ok('روزِ معمولی → هیچ مناسبتی', occOn(1447, 2, 5) === null);
+  ok('وسطِ بازهٔ فاطمیه → فاطمیه با برچسبِ مشهور', (() => {
+    const o = occOn(1447, 5, 20);
+    return !!o && o.range === true && o.label === 'مشهور';
+  })());
+}
+
+section('Store — کلیدهای عبادت و کلیدِ ناشناس (نسخهٔ ۱۹الف)');
+{
+  const data0 = Store.data;
+  const withStore = fn => {
+    Store.data = Store.defaults();
+    try{ return fn(Store.data); } finally { Store.data = data0; Store.save(); }
+  };
+
+  ok('پیش‌فرض‌های عبادت درست‌اند', withStore(d =>
+     d.loc === null && d.salahMethod === 'jafari' && d.fajrAngle === 18 &&
+     d.maghribOffsetMin === 14 && d.ashaOffsetMin === 90));
+
+  ok('sanitize کلیدِ تازهٔ سالم را نگه می‌دارد', withStore(d => {
+     d.loc = { cityId:'mashhad', lat:36.2972, lon:59.6067, source:'city' };
+     d.salahMethod = 'isna'; d.fajrAngle = 15; d.maghribOffsetMin = 16; d.ashaOffsetMin = 75;
+     Store.sanitize();
+     return d.loc && d.loc.cityId === 'mashhad' && d.loc.lat === 36.2972 &&
+            d.salahMethod === 'isna' && d.fajrAngle === 15 &&
+            d.maghribOffsetMin === 16 && d.ashaOffsetMin === 75;
+  }));
+
+  ok('sanitize مقدارِ بی‌شکل را به پیش‌فرضِ امن برمی‌گرداند', withStore(d => {
+     d.loc = { lat:999, lon:0 }; d.salahMethod = 'bogus'; d.fajrAngle = 20;
+     d.maghribOffsetMin = 40; d.ashaOffsetMin = 'x';
+     Store.sanitize();
+     return d.loc === null && d.salahMethod === 'jafari' && d.fajrAngle === 18 &&
+            d.maghribOffsetMin === 18 && d.ashaOffsetMin === 90;
+  }));
+
+  ok('locِ geo همان geo می‌ماند', withStore(d => {
+     d.loc = { cityId:'', lat:35.7, lon:51.4, source:'geo' };
+     Store.sanitize();
+     return d.loc.source === 'geo';
+  }));
+
+  ok('کلیدِ ناشناس دور ریخته می‌شود', withStore(d => {
+     d.junkKey19 = 'x'; d[' __proto__ '] = 1;
+     Store.sanitize();
+     return !('junkKey19' in d);
+  }));
+
+  ok('کلیدهای زمانِ اجرا و داخلی نگه داشته می‌شوند', withStore(d => {
+     d.adminAttempts = { fails:1, until:1 }; d.guestMigration = { at:1, claimed:false, progress:{} };
+     d.progressOwner = 'usr_1'; d.accountProgress = {}; d._migratedFrom = 12;
+     Store.sanitize();
+     return !!d.adminAttempts && !!d.guestMigration && d.progressOwner === 'usr_1' &&
+            !!d.accountProgress && d._migratedFrom === 12 && d._v === Store.VERSION;
+  }));
+
+  ok('اقتصادِ سکه دست‌نخورده می‌ماند', withStore(d => {
+     d.coins = 100; d.wallet = { earned:150, spent:50, items:{} };
+     d.junk = 1;
+     Store.sanitize();
+     return d.coins === 100 && d.wallet.earned === 150 && d.wallet.spent === 50 &&
+            d.wallet.earned - d.wallet.spent === d.coins && !('junk' in d);
+  }));
+
+  ok('save/load کلیدهای عبادت را نگه می‌دارد', withStore(d => {
+     d.loc = { cityId:'qom', lat:34.6416, lon:50.8746, source:'city' };
+     d.salahMethod = 'mwl';
+     Store.save(); Store.load();
+     const r = Store.get('loc') && Store.get('loc').cityId === 'qom' && Store.get('salahMethod') === 'mwl';
+     Store.data = d;   // بازنشانی تا finally دادهٔ آزمون را خراب نبیند
+     return r;
+  }));
+
+  ok('موتور از Storeِ کاربر می‌خواند (loc + method + پارامترها)', withStore(d => {
+     d.loc = { cityId:'mashhad', lat:36.2972, lon:59.6067, source:'city' };
+     d.salahMethod = 'jafari'; d.maghribOffsetMin = 12;
+     const a = Salah.times(new Date(2026, 5, 15, 12));
+     const b = Salah.times(new Date(2026, 5, 15, 12), { lat:36.2972, lon:59.6067 }, { id:'jafari', maghribOffsetMin:12 });
+     return ['fajr','dhuhr','maghrib','isha'].every(k => Math.abs(+a[k] - +b[k]) < 6e4);
+  }));
+}
+
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
   /* سنجش‌های وابسته به await، به ترتیب، همین‌جا اجرا می‌شوند */
   for(const fn of __smsChecks) await fn();

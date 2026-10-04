@@ -63,11 +63,18 @@ process.on('uncaughtException', reportLate);
 process.on('unhandledRejection', reportLate);
 
 // index.html اکنون اسکریپت خارجی منتشرشده را بار می‌کند؛ inline legacy هم پشتیبانی می‌شود.
+/* نسخهٔ ۱۹: برنامه بیش از یک اسکریپت محلی دارد (باندل اصلی + موتور
+   اوقاتِ صلاح + …). هارنس باید همه را به ترتیبِ سند بخواند و پشتِ هم
+   eval کند — دقیقاً همان کاری که مرورگر می‌کند و همان قراردادی که
+   _shipped.js برای سنجش‌های متنی دارد. پیش‌تر فقط *اولین* اسکریپت
+   خوانده می‌شد و هر فایلِ تازه برای تست‌ها نامرئی بود. */
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const external = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m => m[1]);
 const inline = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
-const appPath = external.find(src => !/^https?:\/\//i.test(src));
-const appSource = appPath ? fs.readFileSync(path.join(__dirname, appPath), 'utf8') : (inline && inline[1]);
+const localScripts = external.filter(src => !/^https?:\/\//i.test(src));
+const appSource = localScripts.length
+  ? localScripts.map(src => fs.readFileSync(path.join(__dirname, src), 'utf8')).join('\n;\n')
+  : (inline && inline[1]);
 if(!appSource) throw new Error('اسکریپت برنامه در index.html پیدا نشد');
 const test = fs.readFileSync(path.join(__dirname, process.env.LEGACY_TESTS === '1' ? '_tests.js' : '_phase2-regression-tests.js'), 'utf8');
 eval(appSource + '\n;\n' + test);

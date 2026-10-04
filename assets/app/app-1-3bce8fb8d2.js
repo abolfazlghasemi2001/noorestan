@@ -749,6 +749,20 @@ const Store = {
          phone: شماره‌ای که با OTP تأیید شده — رشتهٔ خالی یعنی هنوز نه.
          otp: تنها کدِ در جریان. هش و نمک نگه داشته می‌شود، نه خودِ کد. */
       sms: { apiKey: '', deviceId: '', testPhone: '' },
+      /* ── نسخهٔ ۱۹الف: عبادت — اوقات نماز و قبله ──
+         loc: شهر/مکان کاربر برای اوقات. { cityId, lat, lon, source }
+         source='geo' یعنی یک‌بار از Geolocation دستگاه گرفته شده و
+         source='city' یعنی از فهرستِ شهرها انتخاب شده. null یعنی هنوز
+         انتخابی نشده — موتور اوقات خودش به تهران برمی‌گردد و هیچ‌وقت
+         خطا نمی‌دهد.
+         روش‌ها: 'jafari' (جعفریت — ایران، پیش‌فرض) | 'mwl' | 'ummqura' | 'isna'.
+         سه عددِ بعدی فقط رویِ روشِ جعفری اثر دارند: زاویهٔ فجر (۱۵ یا ۱۸)،
+         دقیقهٔ احتیاطِ مغرب پس از غروب (۱۲–۱۸) و دقیقهٔ عشا پس از مغرب. */
+      loc: null,
+      salahMethod: 'jafari',
+      fajrAngle: 18,
+      maghribOffsetMin: 14,
+      ashaOffsetMin: 90,
       /* ── نسخهٔ ۹: هویتِ کاربر ──
          `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
@@ -978,6 +992,43 @@ const Store = {
     if(typeof d.settings.tips !== 'boolean') d.settings.tips = true;
     if(!d.missions.weekStart || typeof d.missions.weekStart !== 'string') d.missions.weekStart = '';
     if(!Array.isArray(d.missions.week)) d.missions.week = [];
+
+    /* ── نسخهٔ ۱۹الف: کلیدهای عبادت ──
+       شکلِ خراب → پیش‌فرضِ امن. locِ بی‌مختصاتِ معتبر دور می‌رود (null)،
+       یعنی «هنوز انتخاب نشده» و موتور اوقات به تهران برمی‌گردد. */
+    if(d.loc != null && (typeof d.loc !== 'object' || Array.isArray(d.loc))) d.loc = null;
+    if(d.loc){
+      const la = parseFloat(d.loc.lat), lo = parseFloat(d.loc.lon != null ? d.loc.lon : d.loc.lng);
+      if(!isFinite(la) || !isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) d.loc = null;
+      else {
+        d.loc.lat = la; d.loc.lon = lo;
+        if(typeof d.loc.cityId !== 'string') d.loc.cityId = '';
+        d.loc.cityId = d.loc.cityId.slice(0, 32);
+        d.loc.source = d.loc.source === 'geo' ? 'geo' : 'city';
+      }
+    }
+    if(!['jafari', 'mwl', 'ummqura', 'isna'].includes(d.salahMethod)) d.salahMethod = 'jafari';
+    d.fajrAngle = (+d.fajrAngle === 15) ? 15 : 18;
+    d.maghribOffsetMin = U.clamp(Math.round(+d.maghribOffsetMin) || 14, 12, 18);
+    d.ashaOffsetMin = U.clamp(Math.round(+d.ashaOffsetMin) || 90, 60, 120);
+
+    /* ── دور ریختنِ کلیدِ ناشناس ──
+       پیش‌تر sanitize فقط کلیدهای *شناخته‌شده* را درست می‌کرد؛ هر کلیدِ
+       ناشناس (از یک باگ، نسخهٔ خیلی قدیمی یا دست‌کاریِ دستیِ
+       localStorage) تا ابد در حافظه می‌ماند و با هر load دوباره merge
+       می‌شد. حالا کلیدی که در defaults() و در فهرستِ کلیدهای زمانِ اجرا
+       نیست (و با '_' شروع نمی‌شود — کلیدهای داخلی مثل _v و
+       _migratedFrom) دور ریخته می‌شود. اقتصادِ سکه دست‌نخورده می‌ماند:
+       coins/wallet در defaults هستند و هم‌ترازسازی‌شان *پیش از* این
+       بلوک اجرا شده است. */
+    {
+      const KEEP_RUNTIME = ['adminAttempts', 'guestMigration', 'progressOwner', 'accountProgress'];
+      const known = new Set(Object.keys(this.defaults()).concat(KEEP_RUNTIME));
+      for(const k of Object.keys(d)){
+        if(k.charCodeAt(0) === 95 /* '_' */ || known.has(k)) continue;
+        delete d[k];
+      }
+    }
   },
 
   save(){
