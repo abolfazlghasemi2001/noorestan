@@ -50,13 +50,14 @@
    بی بالابردنِ شماره، نصب‌های پیشین همان ظاهرِ کهنه را از کش می‌دیدند.
    نسخهٔ ۳۴: موتور اوقاتِ نماز (salah-1.js) به پیش‌ذخیره آمد — اوقات
    آفلاین از روی locِ ذخیره‌شده محاسبه می‌شود، نه از شبکه.
+   نسخهٔ ۳۵: صحنِ روزانه (courtyard-1.js و salah.css) به پیش‌ذخیره آمد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-34';
-const SHELL = 'noorestan-shell-34';
-const MEDIA = 'noorestan-media-34';
-const TEXT  = 'noorestan-text-34';
-const GAMES = 'noorestan-games-34';
+const CACHE = 'noorestan-35';
+const SHELL = 'noorestan-shell-35';
+const MEDIA = 'noorestan-media-35';
+const TEXT  = 'noorestan-text-35';
+const GAMES = 'noorestan-games-35';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -74,6 +75,10 @@ const PRECACHE = [
      نداشت. خارج از نشانگرهای split-index است چون آن ابزار فقط
      باندلِ اصلی را بازتولید می‌کند. */
   './assets/app/salah-1.js',
+  /* نسخهٔ ۳۵: صحنِ روزانه (نسخهٔ ۱۹ب) — پوستهٔ صحن و اوقاتِ
+     محاسبه‌شده از locِ ذخیره‌شده، آفلاین هم کار می‌کند. */
+  './assets/app/courtyard-1.js',
+  './assets/styles/salah.css',
   './',
   SHELL_PAGE,
   './assets/styles/sanctuary.css',

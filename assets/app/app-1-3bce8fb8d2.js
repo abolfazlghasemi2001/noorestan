@@ -711,7 +711,9 @@ const Store = {
       contentEdits: { del: {}, add: {} },
       dailyChallenge: { date: '', done: false, reward: 0, streak: 0, lastDate: '' },
       settings: { theme: 'dark', sound: true, haptics: true, notifications: true,
-                  ambient: false, onboarded: false, tips: true },
+                  ambient: false, onboarded: false, tips: true,
+                  /* نسخهٔ ۱۹ب: نمایش اوقات روی خانه (صحن) — پیش‌فرض روشن */
+                  salahOnHome: true },
       // ترجیحات تلاوت: قاری، منبع صدا، تکرار آیه، سرعت، بلندی، ترجمه، اندازهٔ متن
       quran: { reciter: 0, source: 0, repeat: 0, speed: 1, vol: .9, autoNext: true,
                surah: 1, ayah: 1, translation: 'fa.ansarian', readSize: 25, showFa: true,
@@ -763,6 +765,11 @@ const Store = {
       fajrAngle: 18,
       maghribOffsetMin: 14,
       ashaOffsetMin: 90,
+      /* ── نسخهٔ ۱۹ب: دفترچهٔ علامتِ نماز ──
+         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr',…] — فقط محلی، فقط
+         همان پنج نماز. سقفِ روزانه خودش در همین ساختار است: هر نماز
+         در هر روز حداکثر یک بار ثبت (و جایزه) می‌شود. */
+      salahLog: {},
       /* ── نسخهٔ ۹: هویتِ کاربر ──
          `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
@@ -1011,6 +1018,20 @@ const Store = {
     d.fajrAngle = (+d.fajrAngle === 15) ? 15 : 18;
     d.maghribOffsetMin = U.clamp(Math.round(+d.maghribOffsetMin) || 14, 12, 18);
     d.ashaOffsetMin = U.clamp(Math.round(+d.ashaOffsetMin) || 90, 60, 120);
+    if(typeof d.settings.salahOnHome !== 'boolean') d.settings.salahOnHome = true;
+    /* دفترچهٔ نماز: کلیدها فقط تاریخِ yyyy-mm-dd، مقدارها فقط آرایه‌ای از
+       نام‌های معتبرِ نماز، بی‌تکرار و حداکثر پنج‌تا (همان سقفِ روزانه).
+       روزهایِ خیلی قدیمی هم هرس می‌شوند تا دفترچه بی‌نهایت رشد نکند. */
+    if(!d.salahLog || typeof d.salahLog !== 'object' || Array.isArray(d.salahLog)) d.salahLog = {};
+    {
+      const NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+      for(const k of Object.keys(d.salahLog)){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(d.salahLog[k])){ delete d.salahLog[k]; continue; }
+        d.salahLog[k] = [...new Set(d.salahLog[k].filter(n => NAMES.includes(n)))].slice(0, 5);
+      }
+      const keys = Object.keys(d.salahLog).sort();
+      while(keys.length > 400){ delete d.salahLog[keys.shift()]; }
+    }
 
     /* ── دور ریختنِ کلیدِ ناشناس ──
        پیش‌تر sanitize فقط کلیدهای *شناخته‌شده* را درست می‌کرد؛ هر کلیدِ

@@ -8,11 +8,20 @@
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
-  "categories": ["education", "books", "games", "lifestyle"],
+  "categories": [
+    "education",
+    "books",
+    "games",
+    "lifestyle"
+  ],
   "prefer_related_applications": false,
   "icons": [
     {
@@ -42,30 +51,65 @@
   ],
   "shortcuts": [
     {
+      "name": "نماز امروز",
+      "short_name": "نماز",
+      "description": "اوقاتِ نماز، قبله و صحنِ روزانه",
+      "url": "./#salah",
+      "icons": [
+        {
+          "src": "assets/images/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "تلاوت قرآن",
       "short_name": "تلاوت",
       "description": "پخش آیه‌به‌آیه با قاری دلخواه",
       "url": "./#quran",
-      "icons": [{ "src": "assets/images/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "assets/images/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "مصحف‌نما",
       "short_name": "خواندن",
       "description": "خواندن آیه‌به‌آیه با ترجمهٔ فارسی",
       "url": "./#read",
-      "icons": [{ "src": "assets/images/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "assets/images/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
       "name": "مأموریت‌های امروز",
       "short_name": "مأموریت",
       "description": "سه کار تازهٔ هر روز",
       "url": "./#me",
-      "icons": [{ "src": "assets/images/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "icons": [
+        {
+          "src": "assets/images/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ],
   "share_target": {
     "action": "./",
     "method": "GET",
-    "params": { "title": "title", "text": "text", "url": "url" }
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
   }
 }
