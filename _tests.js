@@ -12,7 +12,15 @@ const __smsChecks = [];
 /* متنِ خامِ خودِ برنامه — برای سنجشِ چیزهایی که رفتار نیستند، بلکه
    *متنِ کد*‌اند: قاعدهٔ CSS، الگوی فرمول، ترتیبِ ویژگی‌ها. عمداً از
    هارنس نمی‌آید تا این فایل تنها به دیسک وابسته باشد. */
-const SRC = require('fs').readFileSync(require('path').join(__dirname, 'index.html'), 'utf8');
+/* منبعِ منتشرشده = سند + اسکریپت‌ها + استایل‌ها؛ چرا: پس از شکستن
+   index.html، خواندنِ خودِ سند دیگر کد را نمی‌دید و این سنجش‌ها
+   کور شده بودند. */
+const SRC = require('./_shipped.js').source();
+/* استایلِ منتشرشده، جدا از کد: سنجش‌هایی که قاعدهٔ CSS می‌جویند نباید
+   به رشتهٔ `<style>` درونِ سند وابسته باشند — آن تگ دیگر در سند نیست. */
+const CSS = require('./_shipped.js').css();
+/* خودِ سند، برای سنجش‌هایی که دربارهٔ HTML‌اند (تگ‌های head، مارک‌آپ). */
+const DOC = require('./_shipped.js').document();
 
 /* 1. SHA-256 */
 section('SHA-256');
@@ -33,12 +41,12 @@ ok('رمز ادمین پیش‌فرض ندارد', Store.defaults().adminHash ==
    جای دیگری باشد، یعنی هنوز به‌عنوان رمز به کار می‌رود. */
 ok('🔒 هشِ عمومیِ قدیمی فقط یک‌بار و فقط برای مهاجرت مانده', (() => {
   const LEGACY = 'e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded';
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   const hits = src.split(LEGACY).length - 1;
   return hits === 1 && /const LEGACY_ADMIN_HASHES = \[/.test(src);
-})(), String(fs.readFileSync(__dirname + '/index.html', 'utf8').split('e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded').length - 1));
+})(), String(SRC.split('e15d190d017536953945455fc986230a750d4241da2b723651b1ac22f20f3ded').length - 1));
 ok('🔒 کپیِ دوم رمز در حالت محلی حذف شد',
-   !/LOCAL_ADMIN_HASH/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+   !/LOCAL_ADMIN_HASH/.test(SRC));
 /* «noor2024» در کامنت‌ها و در فهرست سیاهِ هشدار مانده — مشروع است. چیزی که
    نباید بماند، مقدارِ جانشین است: هر جای دیگر که رمز به ADMIN_PASS داده شود. */
 ok('🔒 سرور هیچ رمز پیش‌فرضی ندارد', (() => {
@@ -88,7 +96,7 @@ ok('🔒 با رمز، نشست مدیر پاک نمی‌شود',
 /* فاز ۳: فرمِ رمزِ مدیر از Gate هم بیرون آمد. حالا صفحهٔ ورودِ مدیر
    (#alog) کاملاً مجزاست و در نسخهٔ کاربرِ عادی هیچ نشانه‌ای از آن نیست. */
 ok('فرمِ رمزِ مدیر فقط در صفحهٔ مجزای مدیر هست (#alog)', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /id="alog"/.test(src) && /id="adminPassword"/.test(src) &&
          !/id="gtPass2"/.test(src) && !/id="admPass/.test(src) &&
          !/gateBox[\s\S]{0,400}adminPassword/.test(src);
@@ -96,20 +104,20 @@ ok('فرمِ رمزِ مدیر فقط در صفحهٔ مجزای مدیر هست
 /* پنل ادمین برای غیرمدیر هیچ فرمی نمی‌کشد؛ نگهبانِ دوم فقط به صفحهٔ
    ورودِ مجزا می‌فرستد. */
 ok('🔐 پنل ادمین برای غیرمدیر فقط درِ ورود دارد', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /AdminLogin\.open\(\);/.test(src) && !/Gate\.open\('admin'\)/.test(src) &&
          !/id="admLogin"/.test(src);
 })());
 ok('صفحهٔ ورودِ مدیر تنها از نشانیِ مستقیم زنده می‌شود',
    /location\.hash===#admin\?AdminLogin\.open\(\)/.test(
-     fs.readFileSync(__dirname + '/index.html', 'utf8').replace(/['"]/g,'')));
+     SRC.replace(/['"]/g,'')));
 /* روی سرور، تنها راهِ ورود رمزِ سرور است — و رمزِ محلی نباید آنجا راه بدهد. */
 ok('دروازهٔ سرور از دروازهٔ محلی جدا شده', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /const remote = this\.onServer\(\)/.test(src) && /loginServer\(pass\)/.test(src);
 })());
 ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف شد',
-   !/رمز پیش‌فرض[:：]\s*noor2024/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+   !/رمز پیش‌فرض[:：]\s*noor2024/.test(SRC));
 /* «noor2024» باید فقط دو جا باشد: کامنت‌های توضیحی، و فهرست سیاهِ هشدار.
    اگر جای سوم باشد، یعنی جایی هنوز به‌عنوان رمز به کار می‌رود. */
 /* سنجشِ متنی («noor2024 کجا آمده؟») شکننده است — کامنت چندخطی، رشتهٔ حاوی
@@ -118,13 +126,13 @@ ok('🔒 متنِ «رمز پیش‌فرض: noor2024» از دروازه حذف 
 ok('🔒 رمز مدیر هیچ‌جا روی دستگاه نوشته و هش نمی‌شود', (() => {
   /* قراردادِ تازه: رمز فقط به سرور می‌رود و نشانهٔ نشست برمی‌گردد.
      «ساختن رمز محلی» و «هش روی دستگاه» هر دو برداشته شده‌اند. */
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return (src.match(/Store\.set\('adminHash'/g) || []).length === 0 &&
          (src.match(/setLocalPass\(/g) || []).length === 0 &&
          /loginServer\(pass\)/.test(src);
 })(), 'local admin password creation fully removed');
 ok('🔒 هشِ ثابت به‌عنوان مقدار پیش‌فرض نمی‌نشیند',
-   !/adminHash:\s*'[0-9a-f]{64}'/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+   !/adminHash:\s*'[0-9a-f]{64}'/.test(SRC));
 ok('🔒 سنجشِ قوّتِ رمزِ مدیر یک‌جا تعریف شده و معتبر است',
    typeof Admin.passProblem === 'function' && Admin.MIN_PASS >= 8,
    'MIN_PASS=' + Admin.MIN_PASS);
@@ -195,7 +203,7 @@ Store.update(d => { d.hearts = 3; d.heartsAt = 0; });
 /* قلب‌ها نباید به صفحهٔ اصلی برگردند — نه در نوارِ بالا، نه در کارتِ بازی،
    نه در پروفایل. رگرسیونِ خاموشِ این تصمیم خیلی آسان است. */
 {
-  const src = require('fs').readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   const has = id => new RegExp('id="' + id + '"').test(src);
   ok('نوارِ بالای صفحه دیگر جعبهٔ جان ندارد', !has('tbHearts') && !/hearts-top/.test(src));
   ok('نوارِ جان فقط جایی کشیده می‌شود که بازی در جریان است',
@@ -547,7 +555,7 @@ ok('آیه‌های برگزیده معتبرند', QPICKS.every(p => QURAN[p.s 
 
 /* نوارِ پخش: قاری از همان‌جا عوض می‌شود */
 {
-  const src = require('fs').readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   ok('نوارِ پخش دکمهٔ قاری دارد', /id="mqRec"/.test(src) && /id="mqRecName"/.test(src));
   ok('دکمهٔ قاری به برگهٔ پایین‌کش وصل است', /rb\.onclick = \(\) => this\.reciterSheet\(\)/.test(src));
   ok('نوارِ پخش نوارِ پیشرفت دارد', /id="mqBar"[\s\S]{0,40}id="mqFill"/.test(src));
@@ -1373,7 +1381,7 @@ section('دشواری سازگار');
   QuizEngine.state = null; Autosave.clear();
 
   /* رکوردشکن روی موتورهای کهن هم وصل است */
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   ok('🏅 آزمون از Beat.check استفاده می‌کند', /Beat\.check\('quiz_best'/.test(src) && /Beat\.check\('speed_best'/.test(src));
   ok('🏅 سفر سوره‌ها و حافظه هم از Beat.check استفاده می‌کنند',
      /Beat\.check\('surah_best'/.test(src) && /Beat\.check\('memory_best'/.test(src));
@@ -1482,7 +1490,7 @@ ok('زنجیره‌ای که دو روز خوابیده، می‌شکند', (() 
 })());
 ok('صفحهٔ شناسنامه ردیف زنجیره را می‌آورد', Streak.rows().includes('زنجیره'));
 ok('روزانه از همان Streak.base حساب می‌کند', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /const streak = Streak\.base\(\) \+ 1;/.test(src);
 })());
 _freshDay();
@@ -1553,7 +1561,7 @@ ok('پرش از محدوده بیرون نمی‌زند', (() => {
   return hi === 3 && lo === 0;
 })());
 ok('کشیدن اسلاید خطا نمی‌دهد', (() => { Onboarding.open(); Onboarding.next(); Onboarding.paint(); Onboarding.close(false); return true; })());
-ok('ظرف تازه‌وارد در HTML هست', /<div id="onb"/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('ظرف تازه‌وارد در HTML هست', /<div id="onb"/.test(SRC));
 Store.update(d => d.score = 0);
 
 section('مأموریت هفتگی');
@@ -1610,27 +1618,27 @@ ok('پایان بازی بی‌درصد هم سکه می‌دهد', (() => {
   return Wallet.get() > 0;
 })());
 ok('مأموریت روزانه سکه می‌دهد', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /Wallet\.earn\(Math\.round\(paid \/ 2\), 'مأموریت روزانه'\)/.test(src);
 })());
 ok('نشان سکه می‌دهد', (() => {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   return /Wallet\.earn\(unlocked\.length \* Wallet\.RATE\.perBadge/.test(src);
 })());
 _resetWallet();
 Store.update(d => { d.level = 1; d.xp = 0; });
 
 section('پروفایل');
-ok('تب پروفایل هست', /data-metab="profile"/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('تب پروفایل هست', /data-metab="profile"/.test(SRC));
 ok('پروفایل پیش‌فرض باز می‌شود', Me.tab === 'profile' || (() => { Me.tab = 'profile'; return true; })());
 ok('میان‌برهای پروفایل در فهرست بازی‌ها هستند',
    ['shop', 'onboarding', 'profile'].every(g => DATA.GAMES[g] && typeof Games[g] === 'function'));
-ok('جعبهٔ سکه در خانه هست', /id="cCoins"/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
-ok('جای هشدار زنجیره در خانه هست', /id="homeWarn"/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+ok('جعبهٔ سکه در خانه هست', /id="cCoins"/.test(SRC));
+ok('جای هشدار زنجیره در خانه هست', /id="homeWarn"/.test(SRC));
 ok('شناسه، نام و شعار در پیش‌فرض‌ها هست',
    ['emoji','color','joined','motto'].every(k => k in Store.defaults().profile));
 ok('متن هشدار زنجیره در خانه ساخته می‌شود',
-   /const html = Streak\.warn\(\)/.test(fs.readFileSync(__dirname + '/index.html', 'utf8')));
+   /const html = Streak\.warn\(\)/.test(SRC));
 /* ── خطاهای دیرهنگام ──
    تایمری که پس از پاک شدن وضعیتِ بازی تیک می‌زند، در مرورگر خطای
    رسیدگی‌نشده می‌دهد و کاربر فقط می‌بیند برنامه از کار افتاد. هارنس
@@ -2467,7 +2475,7 @@ section('کد OTP — از تصادفِ امن می‌آید، نه از Math.ra
   /* بررسی سطحِ متن: تنها راهِ اثبات اینکه مسیرِ ضعیف اصلاً وجود ندارد.
      سنجشِ رفتاری فقط می‌گوید امروز چه می‌شود؛ این یکی می‌گوید فردا هم
      نمی‌شود بی‌آنکه کسی متوجه شود. */
-  const SRC = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const SRC = SRC;
   const body = (name) => {
     const i = SRC.indexOf(name + '(');
     if(i < 0) return '';
@@ -2945,7 +2953,7 @@ section('نوار پایین — مدیریت از آن برداشته شد، و
   /* H2: دکمهٔ مدیریت نوار پایین را شلوغ می‌کرد و در کارهای روزمره جایی
      نداشت. برداشتنش فقط وقتی پذیرفتنی است که پنل از راه دیگری باز شود و
      هیچ ویژگی‌ای از دست نرود. این سنجش‌ها همین را می‌پایند. */
-  const SRC = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const SRC = SRC;
   const navBlock = SRC.slice(SRC.indexOf('<nav class="nav"'), SRC.indexOf('</nav>'));
   const navKeys = [...navBlock.matchAll(/data-nav="(\w+)"/g)].map(m => m[1]);
 
@@ -3075,7 +3083,7 @@ section('پنجرهٔ جستن — بازگشت اول پنجره را می‌ب
 
 section('دسترس‌پذیری پنجره و صفحه‌ها — در متنِ برنامه');
 {
-  const SRC = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const SRC = SRC;
   ok('Escape و Tab در یک شنوندهٔ کلید رسیدگی می‌شوند',
      /e\.key === 'Escape' \|\| e\.key === 'Esc'/.test(SRC) && /e\.key !== 'Tab'/.test(SRC));
   ok('Tab داخلِ پنجره زندانی می‌شود (چرخشِ اول/آخر)',
@@ -3104,8 +3112,8 @@ section('کنتراست رنگ‌ها — همهٔ شش تم، روی هر سه 
      --ink روی گرادیانِ طلایی ۱٫۵۷ بود — یعنی متنِ سفید روی طلاییِ روشن،
      روی هر دکمهٔ اصلی و تبِ فعال. بی این سنجش، بارِ بعد هم بی‌صدا
      برمی‌گشت. */
-  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
-    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const css = SRC
+    CSS;
   const lum = h => {
     const c = [1,3,5].map(i => parseInt(h.slice(i, i+2), 16)/255)
       .map(v => v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4));
@@ -3195,8 +3203,8 @@ section('هدف لمسی — هر کلید جای انگشت دارد (۴۴px)')
      تنگ است که خودِ دکمه نمی‌تواند رشد کند، یک لایهٔ نامرئی ::after روی
      دکمه کشیده شده؛ پس سه راه پذیرفته است: اندازهٔ خودِ عنصر، min-height،
      یا ::after. */
-  const raw = fs.readFileSync(__dirname + '/index.html', 'utf8')
-    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const raw = SRC
+    CSS;
   /* توضیح‌های CSS باید بروند؛ وگرنه متنِ توضیح به شناسهٔ قاعده می‌چسبد
      و قاعده پیدا نمی‌شود (همان اشتباهی که یک بار در همین پرونده رخ داد). */
   const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -3242,8 +3250,8 @@ section('اجزای دو-تمی — رنگِ ثابت ندارند');
      ناخوانا می‌شود. این اجزا همه دو-تمی‌اند، پس رنگشان باید توکن باشد.
      سنجش روی خودِ مقدار است، نه روی نام: هر مقدارِ #hex یا rgb() در
      color/background/border-color این فهرست، شکست است. */
-  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
-    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1]
+  const css = SRC
+    CSS
     .replace(/\/\*[\s\S]*?\*\//g, '');
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .map(m => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }));
@@ -3284,9 +3292,9 @@ section('آیکن‌ها — SVGِ درون‌خطی، نه ایموجی');
      درمی‌آید، رنگِ تم را نمی‌گیرد، و اندازه‌اش با font-size قاطی می‌شود.
      این سنجش سه چیز را می‌گیرد: نامِ آیکنِ ناموجود (که جای خالی می‌دهد)،
      ایموجیِ جامانده در آیکن‌های ثابت، و از‌قلم‌افتادنِ رنگ‌پذیریِ SVG. */
-  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-  const body = doc.slice(0, doc.indexOf('<script>'));
+  const doc = SRC;
+  const css = docCSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const body = DOC.slice(0, DOC.indexOf('<script'));
 
   /* نامِ خط‌دار (`users-plus`) هم باید گرفته شود، وگرنه نامِ غلط بی‌صدا
      جای خالی می‌دهد. */
@@ -3363,8 +3371,8 @@ section('باگِ آیهٔ امروز — دکمه‌های خواندن/کپی'
      `visible` کمینهٔ خودکارِ آیتمِ فلکس را صفر می‌کند، پس دو دکمهٔ
      کارتِ آیه در ردیفِ فلکس از عرضِ متنشان کوچک‌تر شدند و متنشان برید.
      این سنجش‌ها هم علت را می‌گیرند و هم درمان را. */
-  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  const raw = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const doc = SRC;
+  const raw = docCSS;
   const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
 
   ok('ریشه: دیگر `overflow:hidden` روی پایهٔ `.btn` نیست',
@@ -3429,8 +3437,8 @@ section('پوسته — توکن‌های حرکت و کی‌فریم‌های �
      داشت. سه نامِ آن (float / shine / pop) در همین پرونده از قبل وجود
      داشتند؛ نشستنِ نامِ تازه روی نامِ کهنه بی‌هیچ خطایی انیمیشنِ جای
      دیگری را عوض می‌کند. این‌جا همان دام را می‌سنجیم. */
-  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const doc = SRC;
+  const css = docCSS;
 
   ok('منحنیِ نرمِ مرجع تعریف شده',
      /--ease:\s*cubic-bezier\(\.22,\s*1,\s*\.36,\s*1\)/.test(css));
@@ -3483,8 +3491,8 @@ section('حلقهٔ فوکوس و حاشیهٔ ایمنِ گوشی');
         دکمهٔ گردِ پخش با تب‌گردی مربعی می‌شد.
      ۲) هرچه به پایینِ صفحه چسبیده، باید env(safe-area-inset-bottom)
         را حساب کند؛ وگرنه روی آیفون زیر نوارِ خانه می‌رود. */
-  const css = fs.readFileSync(__dirname + '/index.html', 'utf8')
-    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = SRC
+    CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .map(m => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }));
   const forSel = s => rules.filter(r => r.sel.split(',').map(x => x.trim()).includes(s));
@@ -3515,9 +3523,9 @@ section('قلمِ پایه — میزبانی‌شده، بی گره به شبک
      می‌آمد و آفلاین هم هیچ‌وقت درست نمی‌شد. این سنجش سه چیز را نگه
      می‌دارد: فایلِ قلم واقعاً باشد، وزن‌های لازم تعریف شده باشند، و
      هیچ‌جای دیگری در <head> به بیرون گره نخورده باشد. */
-  const doc = fs.readFileSync(__dirname + '/index.html', 'utf8');
-  const head = doc.slice(0, doc.indexOf('<style'));
-  const css = doc.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const doc = SRC;
+  const head = DOC.slice(0, DOC.indexOf('</head>'));
+  const css = docCSS;
 
   const faces = [...css.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map(m => m[1]);
   ok('قلمِ پایه @font-face دارد', faces.length >= 3, String(faces.length));
@@ -3539,9 +3547,13 @@ section('قلمِ پایه — میزبانی‌شده، بی گره به شبک
      faces.every(f => /font-display\s*:\s*swap/.test(f)));
 
   /* هیچ برگهٔ سبکِ بیرونیِ مسدودکننده‌ای در <head> نماند. */
-  ok('در <head> برگهٔ سبکِ بیرونی نیست',
-     !/<link[^>]+rel=["']stylesheet["'][^>]*>/i.test(head),
-     (head.match(/<link[^>]+rel=["']stylesheet["'][^>]*>/i) || [''])[0]);
+  /* منظور از این سنجش هرگز «هیچ برگه‌ای نباشد» نبوده — منظور این بوده
+     که استایلِ برنامه به یک میزبانِ بیرونی گره نخورد. برگه‌های سبکِ
+     خودِ برنامه آزادند (و امروز سه‌تایند)؛ آنچه ممنوع است نشانیِ
+     بیرونی است، همان که رندر را می‌بست. */
+  ok('در <head> برگهٔ سبکِ *بیرونی* نیست',
+     !/<link[^>]+rel=["']stylesheet["'][^>]*href=["']https?:/i.test(head),
+     (head.match(/<link[^>]+rel=["']stylesheet["'][^>]*href=["']https?:[^"']*/i) || [''])[0]);
 
   ok('نامِ قلم در زنجیرهٔ جانشینِ نمایشی هست', /Vazirmatn/.test(FALLBACK_DISP));
   ok('نامِ قلم در زنجیرهٔ جانشینِ قرآنی هم هست', /Vazirmatn/.test(FALLBACK_QURAN));
@@ -3619,15 +3631,15 @@ section('قلم‌های اختیاری — با swap می‌آیند، نه ب�
     }
   }finally{ Fonts.load = realLoad; }
 
-  const cssNow = fs.readFileSync(__dirname + '/index.html', 'utf8')
-    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const cssNow = SRC
+    CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   ok('گزینشگر قلمی که نیامده را «بارگیری نشد» نشان می‌دهد',
      /\.fpick\.miss\s*\{/.test(cssNow) && /\.fpick\.miss[^{]*::after\s*\{[^}]*بارگیری نشد/.test(cssNow));
 }
 
 section('تصاویر — هیچ درخواستی به فایلی که نیست نمی‌رود');
 {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
 
   /* ── srcset ساختگی ──
      پیش‌تر img() این را می‌ساخت: srcset="a.webp 1x, a.jpg 1x". دو نامزد با
@@ -3750,7 +3762,7 @@ section('القاب چهارده معصوم — از منبع، بی پاسخِ 
   /* ── راهنمای پس از پاسخ ──
      پیش‌تر `q.who.fact` خوانده می‌شد که در هیچ کارتی نبود، پس راهنما
      همیشه خالی می‌ماند. */
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   /* توضیح‌ها اول می‌روند: همین کامنتِ خودمان نامِ فیلدِ قدیمی را می‌آورد و
      بی این، سنجش به‌جای کد، به توضیح گیر می‌دهد. */
   const body = src.slice(src.indexOf('answer(word, btn){', src.indexOf('const ImamEngine')))
@@ -3758,7 +3770,7 @@ section('القاب چهارده معصوم — از منبع، بی پاسخِ 
   ok('دیگر fact خوانده نمی‌شود', !/q\.who\.fact/.test(body));
   ok('راهنما فهرستِ القاب را نشان می‌دهد', /q\.who\.titles/.test(body) && /laqab-list/.test(body));
   ok('راهنما منبع را نشان می‌دهد', /q\.who\.laqabSrc/.test(body));
-  const css = src.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   ok('.laqab-list سبک دارد', /\.laqab-list\s*\{[^}]*color/.test(css));
 
   /* ── پرسش‌ها واقعاً ساخته می‌شوند ──
@@ -3809,7 +3821,7 @@ section('محتوا — بازرسِ ساختاری، صفر ایراد');
      (out.match(/\d+ ایراد ساختاری، \d+ هشدار/) || [''])[0]);
 
   /* کشیده نباید به کدِ نرمال‌سازی دست بزند و نباید در واژه بماند */
-  const src2 = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src2 = SRC;
   ok('دو نرمال‌سازیِ کشیده سرِ جایشان‌اند',
      (src2.match(/\[ً-ْٰـ\]|\[‌‏ـ\]/g) || []).length === 2);
   const wordKashida = [...src2.matchAll(/([؀-ۿ‌])ـ+([؀-ۿ‌])/g)];
@@ -3951,7 +3963,7 @@ section('بازی‌ها — قفل‌های بازمانده و پاداشِ چ
     const runJobs = () => { const j = jobs.splice(0); j.forEach(fn => fn()); };
 
     /* ── ۱. «سؤال بعدیِ» حدیث‌یاب ───────────────────────────────── */
-    const html = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const html = SRC;
     ok('🔗 دکمهٔ «سؤال بعدیِ» حدیث‌یاب بسته می‌شود',
        /U\.\$\('#hadNext'\)\.onclick = \(\) => this\.next\(\)/.test(html));
     ok('🔗 و `next` جای دیگری هم پیشروی نمی‌کند',
@@ -4061,7 +4073,7 @@ section('نشستِ سرور — نشانه به‌جای هش');
 {
   const keep = { t: Store.get('adminToken'), e: Store.get('adminTokenExp'),
                  h: Store.get('adminHash'), a: Store.get('isAdmin') };
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   try{
     ok('هیچ پیامِ مدیریتی‌ای دیگر هش نمی‌فرستد',
        !/t: 'admin:[^']*',\s*hash:/.test(src) && !/hash: Store\.get\('adminHash'\)/.test(src));
@@ -4144,7 +4156,7 @@ section('هویتِ کاربر — شناسهٔ مبهم و نشست');
        && !User.okId('u-abc') && !User.okId('') && !User.okId(null));
     /* شناسه باید از مولدِ رمزنگاری‌شده بیاید، نه Math.random */
     ok('شناسه از Math.random نمی‌آید', (() => {
-      const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+      const src = SRC;
       const i = src.indexOf('const User = {');
       const body = src.slice(i, src.indexOf('makeId(', i));
       return !/Math\.random/.test(body) && /U\.salt/.test(src.slice(i, i + 4000));
@@ -4265,7 +4277,7 @@ section('حساب کاربری در پروفایل');
 
     /* «وارد شدی» با «شماره عوض شد» یکی نیست */
     ok('ورودِ نخست و تغییرِ شماره، پیامِ جدا می‌گیرند', (() => {
-      const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+      const src = SRC;
       const i = src.indexOf('async check(){');
       const body = src.slice(i, src.indexOf('Me.render()', i));
       return /r\.first \?/.test(body) && /به‌روز شد/.test(body);
@@ -4338,7 +4350,7 @@ section('پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴)');
   }
 
   /* ── آنچه کاربر می‌بیند ── */
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
   /* برچسب‌ها حالا آیکنِ SVG دارند، نه ایموجی؛ پس به همان درجِ آیکن سنجیده
      می‌شوند، نه به نویسهٔ ایموجی که دیگر جایی در پوسته ندارد. */
   ok('پروفایل ردیفِ خوش‌آمدگویی دارد',
@@ -4358,7 +4370,7 @@ section('پیامکِ خوش‌آمدگویی (۱۷.۱ بخش ۴)');
 
 section('پروفایل مهمان و صفحهٔ ورود — پاک‌سازیِ متن‌ها');
 {
-  const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+  const src = SRC;
 
   /* ── «کابر» ──
      کاربر گفت در برچسبِ نقش، «کابر» نوشته شده. در سراسرِ پرونده چنین
@@ -4568,7 +4580,7 @@ section('صفحهٔ ورودِ تمام‌صفحه (۱۷.۱ بخش ۱)');
     /* ── یک در، دو جا ──
        دروازهٔ درونِ پنل و صفحهٔ ورود باید از یک جا رمز را بسنجند؛ دو نسخهٔ
        جدا یعنی دو جا برای یک تصمیم، و یکی از آنها دیر یا زود سست می‌شود. */
-    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const src = SRC;
     const setHash = (src.match(/Store\.set\('adminHash'/g) || []).length;
     ok('🔒 سنجشِ رمز یک جا دارد، نه دو جا', setHash === 1, 'شمارش=' + setHash);
     ok('و صفحهٔ ورود هم از همان راه می‌رود', /Admin\.tryPass\(/.test(src));
@@ -4898,15 +4910,15 @@ section('پنل مدیریت — زبانه‌ها و زمانِ نسبی');
   ok('زبانهٔ پیش‌فرض داشبورد است', Admin.currentTab === 'dash', Admin.currentTab);
   const tabs = ['dash', 'users', 'games', 'rooms', 'content', 'notif', 'reports', 'ops'];
   ok('همهٔ زبانه‌ها در سند هستند', (() => {
-    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const src = SRC;
     return tabs.every(t => src.includes(`data-tab="${t}"`));
   })());
   ok('هر زبانه در switch هم یک case دارد', (() => {
-    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const src = SRC;
     return tabs.every(t => src.includes(`case '${t}'`));
   })());
   ok('و renderTab هیچ زبانه‌ای را بی‌پاسخ نمی‌گذارد', (() => {
-    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const src = SRC;
     const i = src.indexOf('renderTab(){');
     const body = src.slice(i, src.indexOf("case 'ops'", i));
     return tabs.slice(0, 7).every(t => body.includes(`case '${t}'`));
@@ -4923,12 +4935,12 @@ section('پنل مدیریت — زبانه‌ها و زمانِ نسبی');
 
   /* هر بازی که فهرستِ راه‌انداز دارد باید شمارش هم بشود */
   ok('همهٔ بازی‌های راه‌انداز، شمارنده دارند', (() => {
-    const src = fs.readFileSync(__dirname + '/index.html', 'utf8');
+    const src = SRC;
     const need = ['surah', 'scramble', 'match', 'memory', 'dooz', 'esmfamil', 'hadith', 'imams', 'dua'];
     return need.every(g => src.includes(`Stats.track('${g}')`));
   })());
   ok('و آزمونِ خودِ برنامه شمرده نمی‌شود', !/Stats\.track\('selfTest'\)/.test(
-    fs.readFileSync(__dirname + '/index.html', 'utf8')));
+    SRC));
 }
 
 section('پنل مدیریت — دفترِ کاربران و کنش‌ها');
@@ -5464,7 +5476,7 @@ section('پوسته — پوستهٔ کلِ برنامه (فاز ۳)');
   /* ── توکن‌های شیشه در هر شش تم ──
      اگر `--glass` فقط در `:root` باشد، تمِ کویر کارتِ آبی می‌گیرد و تم
      معنایش را از دست می‌دهد. */
-  const css2 = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const css2 = CSS;
   const tk = sel => {
     const re = new RegExp(sel.replace(/[[\]"]/g, m => '\\' + m) + '\\s*\\{([\\s\\S]*?)\\}', 'g');
     const out = {}; let m;

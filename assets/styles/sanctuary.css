@@ -2,18 +2,25 @@
 /* توکن‌های حرکت (فاز ۲ موشن). @import باید پیش از هر قاعده‌ای بیاید. */
 @import url("motion.css");
 :root{--court-line:rgba(213,189,127,.2);--court-shadow:0 20px 60px -32px #0009;--court-glow:rgba(204,184,114,.09)}
+/* چرا `--glass` با `rgba()` نوشته می‌شود و نه با هگزِ هشت‌رقمی؟
+   چون قراردادِ شیشه این است که سطح نیمه‌شفاف باشد تا `backdrop-filter`
+   چیزی برای تار کردن داشته باشد. با هگز، مقدار درست به نظر می‌رسد ولی
+   از نگاهِ هر ابزاری که «آیا این تم شیشه دارد؟» را می‌سنجد پنهان
+   می‌ماند — و بدتر، کسی که بعداً بخواهد تیرگی را کم کند، عددی برای
+   کم‌وزیاد کردن نمی‌بیند. مقدارِ آلفا همانِ پیشین است (f2 ⇒ ۰٫۹۵،
+   f5 ⇒ ۰٫۹۶)؛ فقط شکلِ نوشتن عوض شده تا قابلِ سنجش و قابلِ تنظیم باشد. */
 html[data-theme="dark"],html[data-theme="royal"]{
  --bg:#071b1e;--bg2:#0a2427;--card:#0e2b2d;--card2:#163537;--line:#304c49;
  --txt:#eaf3ed;--mut:#a6bab1;--gold:#edcc87;--gold2:#d3b369;--grn:#76d6ad;--blu:#94c7eb;--prp:#accbd7;
  --ink:#1e271d;--grad:linear-gradient(120deg,#edd7a2,#d5b76f);--fill:linear-gradient(120deg,#edd7a2,#d5b76f);
- --glow1:#143438;--glow2:#182f29;--glass:#0e2b2df2;--float1:#102b2df5;--float2:#0b2528f5;
+ --glow1:#143438;--glow2:#182f29;--glass:rgba(14,43,45,.95);--float1:#102b2df5;--float2:#0b2528f5;
  --orb1:#39523a;--orb2:#0d4145;--sh:0 16px 40px -25px #000a;
 }
 html[data-theme="light"]{
  --bg:#f4f0e6;--bg2:#faf8f0;--card:#fffdf8;--card2:#eeeee3;--line:#cecdbb;
  --txt:#243d37;--mut:#586c61;--gold:#84621f;--gold2:#765718;--grn:#236c50;--blu:#2e627d;--prp:#446a77;
  --ink:#283322;--grad:linear-gradient(120deg,#efd99f,#d7b773);--fill:linear-gradient(120deg,#84621f,#765718);
- --glow1:#e2e9d8;--glow2:#e6e2cd;--glass:#fffdf8f5;--float1:#fffdf8f7;--float2:#f3f2e7f7;
+ --glow1:#e2e9d8;--glow2:#e6e2cd;--glass:rgba(255,253,248,.96);--float1:#fffdf8f7;--float2:#f3f2e7f7;
  --orb1:#dde5cc;--orb2:#d7e7e2;--sh:0 16px 40px -25px #3c493355;
  --court-line:#cbb77c70;--court-shadow:0 20px 60px -32px #52634944;--court-glow:#b6ab760f;
 }

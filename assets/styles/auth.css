@@ -1,0 +1,178 @@
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان — رویهٔ ورود (auth.css)
+
+   چرا یک فایلِ جدا؟
+     ورود یک «سطح» است، نه چند استثنا در لایهٔ عمومی: کاربر اینجا هیچ
+     ناوبری، هیچ نوار و هیچ تاریخچه‌ای ندارد. هرچه لازم است باید در
+     یک قاب دیده شود و هرچه نیست باید غایب باشد. گذاشتنِ این قاعده‌ها
+     درونِ استایلِ عمومی یعنی هر تغییرِ کوچک در کارت‌ها، صفحهٔ ورود را
+     هم جابه‌جا می‌کند — و برعکس.
+
+   این فایل فقط «پوستهٔ تازه» می‌سازد؛ نشان، قفل، جعبه‌های کد، مدار و
+   جرقه‌ها از پیش در استایلِ پایه طراحی شده بودند و اینجا فقط به DOM
+   وصل می‌شوند (و رنگ‌هایشان تکمیل).
+
+   وابسته به: متغیرهای طرح در style-1 (--gold، --card2، --line، --ease،
+   --bounce) و کی‌فریم‌های sk-* همان‌جا.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── نام و شعار ──
+   فاصله‌ها با مقیاسِ ۴px تا اگر روزی کلِ سیستم جابه‌جا شد، این صفحه
+   با همان یک متغیر همراه شود نه با ده عددِ پراکنده. */
+#gate{ --gt-gap:14px }
+#gate .gt-word{
+  font-family:var(--f-disp); font-size:26px; line-height:1.35;
+  margin:0 0 6px; letter-spacing:.2px;
+}
+#gate .gt-sub{
+  font-size:12.5px; color:var(--mut); line-height:2; margin:0 auto var(--gt-gap);
+  max-width:30ch; text-wrap:balance;
+}
+
+/* ── قفل: رنگِ پایه ──
+   استایلِ پایه فقط «حرکت» قفل را می‌داند (sk-key-unlock و همراهانش)؛
+   رنگِ حالتِ عادی اینجا می‌آید تا هر سه حالت — عادی، موفق، مسدود —
+   در یک فایل کنارِ هم خوانده شوند. */
+#gate .gt-lock{ display:block; margin:0 auto var(--gt-gap); animation:sk-entrance .5s var(--ease) both }
+#gate .gt-lock .g-shackle{ stroke:var(--gold2) }
+#gate .gt-lock .g-body{ fill:url(#gtBody) }
+#gate .gt-lock .g-hole{ fill:var(--ink); opacity:.85 }
+#gate .gt-lock .g-key{ color:var(--ink); stroke:currentColor }
+
+/* ── راهنمای گام‌ها ──
+   کاربر باید بداند کجاست و بعدش چه می‌شود. سه گام، نه بیشتر: هر گامِ
+   تازه در این صفحه، تصمیمی است که از کاربر می‌خواهیم. */
+.gt-steps{
+  display:flex; align-items:center; justify-content:center;
+  list-style:none; margin:0 auto var(--gt-gap); padding:0;
+}
+.gt-steps li{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--mut) }
+.gt-steps li b{
+  width:22px; height:22px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; font-size:11px; font-weight:700;
+  background:var(--card2); border:1px solid var(--line); color:var(--mut);
+  transition:background var(--pl-med,240ms) var(--ease), color var(--pl-med,240ms) var(--ease),
+             border-color var(--pl-med,240ms) var(--ease);
+}
+.gt-steps li.on{ color:var(--gold) }
+.gt-steps li.on b{ background:var(--grad); color:var(--ink); border-color:transparent }
+.gt-steps li.done b{ background:var(--grn); color:var(--ink); border-color:transparent }
+.gt-steps li + li::before{
+  content:''; width:20px; height:1px; flex:0 0 auto; background:var(--line); margin:0 8px;
+}
+
+/* ── برچسب و فیلد ── */
+#gate .gt-lbl{ display:block; font-size:12px; color:var(--mut); margin:0 0 7px; text-align:right }
+#gate .gt-card{ text-align:right }
+.gt-field{ position:relative }
+.gt-field .inp{ padding-inline-end:42px; font-size:15px; letter-spacing:.06em }
+.gt-field-ic{
+  position:absolute; inset-inline-end:12px; top:50%; transform:translateY(-50%);
+  width:20px; height:20px; display:grid; place-items:center;
+  opacity:0; transition:opacity .2s var(--ease), color .2s var(--ease);
+}
+.gt-field-ic svg{ width:18px; height:18px; display:block }
+.gt-field.ok  .inp{ border-color:var(--grn) }
+.gt-field.ok  .gt-field-ic{ opacity:1; color:var(--grn) }
+.gt-field.bad .inp{ border-color:var(--red) }
+.gt-field.bad .gt-field-ic{ opacity:1; color:var(--red) }
+.gt-hint{
+  font-size:11px; line-height:1.9; color:var(--mut);
+  margin:8px 2px 14px; text-align:right; min-height:1.9em;
+}
+
+/* ── کد برای کدام شماره می‌رود ── */
+#gate .gt-to{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font-size:13px; color:var(--txt); margin:0 0 4px; direction:ltr;
+}
+.gt-link{
+  border:0; background:none; padding:2px 4px; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--gold);
+  border-bottom:1px dashed color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius:4px; min-height:32px;
+}
+.gt-link:hover{ color:var(--txt) }
+.gt-link:focus-visible{ outline:2px solid var(--gold); outline-offset:2px }
+
+/* جعبه‌های کد: لمسِ هر خانه باید فوکوس بدهد، پس input سراسرِ نوار است */
+#gate .gt-pins{ margin-top:2px }
+#gate .gt-pin{ height:60px; min-width:0 }
+#gate .gt-code-in::placeholder{ color:transparent }
+
+/* ── زمان‌سنج ── */
+#gate .gt-timer{
+  font-size:11px; color:var(--mut); margin:6px 0 10px; text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+#gate .gt-timer.over{ color:var(--gold) }
+
+/* ── پانویس: اطمینان، نه تزئین ── */
+#gate .gt-foot{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  font-size:10.5px; line-height:1.9; color:var(--mut);
+  margin:12px auto 0; max-width:34ch; text-align:center;
+}
+#gate .gt-foot svg{ width:13px; height:13px; flex:0 0 auto; opacity:.8 }
+
+/* ── دکمهٔ در حالِ کار ──
+   غیرفعال‌کردن به‌تنهایی کافی نیست: کاربر باید ببیند برنامه دارد کار
+   می‌کند و فقط او را نادیده نگرفته. */
+.btn.is-busy{ position:relative; color:transparent !important }
+.btn.is-busy::before{
+  content:''; position:absolute; inset-inline-start:50%; top:50%;
+  width:18px; height:18px; margin:-9px 0 0 -9px;
+  border-radius:50%; border:2px solid currentColor; border-top-color:transparent;
+  animation:gt-spin .7s linear infinite;
+}
+.btn.is-busy .gt-go-t{ visibility:hidden }
+@keyframes gt-spin{ to{ transform:rotate(360deg) } }
+
+/* ── لغزشِ خطا: کوتاه و یک‌باره، نه لرزشِ نمایشی ── */
+#gate.is-failing .gt-card{ animation:gt-nudge .34s var(--ease) }
+@keyframes gt-nudge{
+  0%,100%{ transform:translateX(0) } 25%{ transform:translateX(-5px) } 75%{ transform:translateX(5px) }
+}
+
+/* ── فقط برای صفحه‌خوان ── */
+.gt-sr{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
+/* ── نمایشگرِ کوتاه (گوشیِ در دست) ──
+   صفحهٔ ورود بیش از هر جای برنامه روی ارتفاع حساس است: نشان بالا،
+   فیلد وسط، دکمه پایین. اگر نشان بزرگ بماند، دکمه از صفحه می‌رود. */
+@media (max-height:680px){
+  #gate{ --gt-gap:10px }
+  #gate .gt-emblem{ width:96px; height:96px; margin-bottom:6px }
+  #gate .gt-tile{ width:74px; height:74px; border-radius:24px }
+  #gate .gt-lock{ width:52px; height:52px }
+  #gate .gt-word{ font-size:22px }
+  #gate .gt-sub{ font-size:11.5px; line-height:1.8 }
+  #gate .gt-pin{ height:52px }
+  #gate .gt-foot{ display:none }
+}
+@media (max-width:360px){
+  #gate .gt-pin{ height:52px; font-size:22px; border-radius:14px }
+  .gt-steps li span{ display:none }
+  .gt-steps li + li::before{ width:14px; margin:0 6px }
+}
+
+/* ── کم‌حرکتی: سیستم یا تنظیمِ خودِ برنامه ──
+   همهٔ حرکت‌های این رویه باید همین‌جا خاموش شوند؛ وگرنه کاربری که
+   حرکت را بسته، همچنان مدارِ چرخان و جرقه می‌بیند. */
+@media (prefers-reduced-motion:reduce){
+  #gate .gt-emblem, #gate .gt-lock, #gate .gt-card{ animation:none }
+  #gate .gt-tile, #gate .gt-orbit, #gate .gt-sparkle,
+  #gate .gt-lock .g-hole, #gate .gt-flash, #gate .gt-spark{ animation:none !important }
+  #gate.is-failing .gt-card{ animation:none }
+  .btn.is-busy::before{ animation-duration:1.6s }
+  .gt-steps li b{ transition:none }
+}
+html[data-motion="off"] #gate .gt-emblem,
+html[data-motion="off"] #gate .gt-lock{ animation:none }
+html[data-motion="off"] #gate .gt-tile,
+html[data-motion="off"] #gate .gt-orbit,
+html[data-motion="off"] #gate .gt-sparkle,
+html[data-motion="off"] #gate .gt-lock .g-hole{ animation:none !important }

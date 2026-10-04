@@ -14,7 +14,9 @@
    ═══════════════════════════════════════════════════════════════════ */
 const fs = require('fs');
 const path = require('path');
-const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+/* منبعِ منتشرشده، نه فقط سند: از وقتی `tools/split-index.js` کد را به
+   `assets/app/` برد، `const DATA` دیگر در index.html نیست. */
+const html = require('./_shipped.js').source();
 
 const at = html.indexOf('\nconst DATA = {');
 const end = html.indexOf('\n};', at);

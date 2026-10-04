@@ -46,13 +46,15 @@
 
    نسخهٔ ۲۸: بازی سوم «جفت نور» و نمایهٔ بازیکن به games/ آمد؛ دو فایل
    تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
+   نسخهٔ ۳۱: رویهٔ ورود بازطراحی شد و برگهٔ سبکِ تازه‌ای (auth.css) آورد؛
+   بی بالابردنِ شماره، نصب‌های پیشین همان ظاهرِ کهنه را از کش می‌دیدند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-30';
-const SHELL = 'noorestan-shell-30';
-const MEDIA = 'noorestan-media-30';
-const TEXT  = 'noorestan-text-30';
-const GAMES = 'noorestan-games-30';
+const CACHE = 'noorestan-31';
+const SHELL = 'noorestan-shell-31';
+const MEDIA = 'noorestan-media-31';
+const TEXT  = 'noorestan-text-31';
+const GAMES = 'noorestan-games-31';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -70,6 +72,7 @@ const PRECACHE = [
   SHELL_PAGE,
   './assets/styles/sanctuary.css',
   './assets/styles/motion.css',
+  './assets/styles/auth.css',
   './assets/images/sanctuary-court.svg',
   './manifest.json',
   OFFLINE,

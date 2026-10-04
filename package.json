@@ -1,0 +1,27 @@
+{
+  "name": "noorestan",
+  "version": "17.0.0",
+  "private": true,
+  "description": "نورستان — آموزش قرآن کریم، بازی‌های فکری و محفل چندنفرهٔ واقعی",
+  "keywords": ["quran", "pwa", "persian", "rtl", "no-dependency"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "preview": "node _dev-preview.js",
+    "check": "node _check-scripts.js",
+    "test": "npm run check && npm run test:unit && npm run test:games && npm run test:server",
+    "test:unit": "node _harness.js",
+    "test:unit:legacy": "LEGACY_TESTS=1 node _harness.js",
+    "test:games": "node tests/games-v2.test.js && node tests/games-v3.test.js && node tests/games-art.test.js",
+    "test:server": "node _servertest.js",
+    "test:content": "node _content-audit.js"
+  },
+  "comments": {
+    "dependencies": "برنامه برای اجرا به هیچ بسته‌ای نیاز ندارد: سرور و کلاینت فقط از ماژول‌های داخلی Node و APIهای مرورگر استفاده می‌کنند. هر وابستگی‌ای که در مخزن می‌بینید (مثل Puppeteer در _shots_env/) ابزارِ توسعه است و برنامه آن را بار نمی‌کند."
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
