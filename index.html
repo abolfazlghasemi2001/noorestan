@@ -127,26 +127,32 @@
     <!-- بنر چرخشی Swiper: پیشنهادهای مهم و دسترسی مستقیم -->
     <section class="home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان" aria-roledescription="اسلایدر">
       <div class="promo-panels">
-        <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="1 از ۳" >
+        <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="1 از ۴" >
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p>
             <button class="btn promo-go" data-slide-action="ayahlight">شروع بازی <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/courtyard.svg" alt="" width="640" height="420" draggable="false">
         </article>
-        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="2 از ۳" inert aria-hidden="true">
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="2 از ۴" inert aria-hidden="true">
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="headphones"></i> آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی و تکرار آیات، لحظه‌ای آرام بگیر.</p>
             <button class="btn promo-go" data-slide-action="quran">رفتن به تلاوت <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/recitation.svg" alt="" width="640" height="420" draggable="false">
         </article>
-        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="3 از ۳" inert aria-hidden="true">
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="3 از ۴" inert aria-hidden="true">
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="moon"></i> هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و به روشنایی روزهای پیوسته‌ات اضافه کن.</p>
             <button class="btn promo-go" data-slide-action="daily">چالش امروز <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/night.svg" alt="" width="640" height="420" draggable="false">
+        </article>
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="4 از ۴" inert aria-hidden="true">
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> سه بازی مستقل تازه</span><h2>آیه‌ساز، باران حکمت، جفت نور</h2><p>بازی‌های شاخهٔ /games/ حالا با قاب حرفه‌ای، تمام‌صفحه و ذخیرهٔ رکورد در خودِ نورستان اجرا می‌شوند.</p>
+            <button class="btn promo-go" data-slide-action="games">دیدن بازی‌های تازه <i data-ic="back"></i></button></div>
+          <img class="promo-scene" src="assets/images/promo/games-gateway.svg" alt="" width="640" height="420" draggable="false">
         </article>
       </div>
       <div class="slider-controls"><div class="slider-dots" aria-label="انتخاب بنر">
         <button data-dot="0" aria-label="نورِ آیه‌ها" aria-current="true"></button>
         <button data-dot="1" aria-label="تلاوت آیه‌به‌آیه"></button>
         <button data-dot="2" aria-label="چالش روزانه"></button>
+        <button data-dot="3" aria-label="بازی‌های تازه"></button>
       </div><button id="slidePause" class="slider-pause" aria-label="توقف حرکت خودکار"><i data-ic="pause"></i></button></div>
     </section>
 
@@ -516,9 +522,14 @@
     <p class="al-sub">این مسیر تنها برای مدیر سامانه است و از نشانیِ مستقیم باز می‌شود.</p>
     <form class="al-card" id="alogForm" autocomplete="off">
       <label for="adminPassword">رمز مدیریت</label>
-      <input class="inp" id="adminPassword" type="password" autocomplete="current-password" dir="ltr" placeholder="••••••••">
+      <div class="al-pass-field">
+        <input class="inp" id="adminPassword" type="password" autocomplete="current-password" dir="ltr" placeholder="••••••••" aria-describedby="adminMessage adminHelp">
+        <button class="al-pass-toggle" id="adminPassToggle" type="button" aria-pressed="false" aria-label="نمایش رمز">نمایش</button>
+      </div>
+      <p class="al-help" id="adminHelp">رمز فقط از متغیر امن سرور خوانده می‌شود؛ در برنامه ذخیره یا نمایش داده نمی‌شود.</p>
       <button class="btn w" id="adminSignIn" type="submit">گشودن پنل مدیریت</button>
       <p id="adminMessage" class="al-msg" role="status"></p>
+      <button class="btn gh w" id="adminForgot" type="button">رمز را فراموش کرده‌ام</button>
       <button class="btn gh w" id="adminBack" type="button">بازگشت به نورستان</button>
     </form>
     <p class="al-foot">نورستان · ورود مدیریت با تأخیرِ تدریجی محافظت می‌شود</p>

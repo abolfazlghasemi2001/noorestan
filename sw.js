@@ -50,11 +50,11 @@
    بی بالابردنِ شماره، نصب‌های پیشین همان ظاهرِ کهنه را از کش می‌دیدند.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-31';
-const SHELL = 'noorestan-shell-31';
-const MEDIA = 'noorestan-media-31';
-const TEXT  = 'noorestan-text-31';
-const GAMES = 'noorestan-games-31';
+const CACHE = 'noorestan-33';
+const SHELL = 'noorestan-shell-33';
+const MEDIA = 'noorestan-media-33';
+const TEXT  = 'noorestan-text-33';
+const GAMES = 'noorestan-games-33';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -73,6 +73,7 @@ const PRECACHE = [
   './assets/styles/sanctuary.css',
   './assets/styles/motion.css',
   './assets/styles/auth.css',
+  './assets/styles/polish.css',
   './assets/images/sanctuary-court.svg',
   './manifest.json',
   OFFLINE,
@@ -90,6 +91,8 @@ const OPTIONAL = [
   './assets/images/promo/courtyard.svg',
   './assets/images/promo/recitation.svg',
   './assets/images/promo/night.svg',
+  './assets/images/promo/games-gateway.svg',
+  './assets/images/auth-unlock.svg',
   './assets/fonts/vazirmatn-regular.woff2',
   './assets/fonts/vazirmatn-bold.woff2',
   './assets/fonts/vazirmatn-extrabold.woff2',
