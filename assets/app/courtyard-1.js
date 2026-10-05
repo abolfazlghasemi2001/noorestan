@@ -48,6 +48,7 @@ const SalahLog = {
     list.push(name);
     log[k] = list;
     Store.set('salahLog', log);
+    try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
     /* جایزهٔ خیلی کم + سقفِ روزانه (۵ نماز ⇒ حداکثر ۵ سکه) */
     Wallet.earn(this.COIN, `نمازِ ${label}`);
     Store.update(d => { d.xp += this.XP; });
@@ -63,6 +64,7 @@ const SalahLog = {
     const list = Array.isArray(log[k]) ? log[k].filter(n => n !== name) : [];
     if(list.length) log[k] = list; else delete log[k];
     Store.set('salahLog', log);
+    try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
     return true;
   }
 };
@@ -84,6 +86,27 @@ const Courtyard = {
     ms = Math.max(0, +ms || 0);
     const m = Math.floor(ms / 6e4), s = Math.floor((ms % 6e4) / 1e3);
     return U.fa(m + ':' + String(s).padStart(2, '0'));
+  },
+
+  _buildSig(){
+    const day = U.today();
+    const loc = Store.get('loc') || {};
+    const city = loc.cityId || (loc.lat ? (loc.lat + ',' + loc.lon) : 'default');
+    const method = Store.get('salahMethod') || 'jafari';
+    const fajr = Store.get('fajrAngle') || 18;
+    const maghrib = Store.get('maghribOffsetMin') || 14;
+    const isha = Store.get('ashaOffsetMin') || 90;
+    const marks = SalahLog.count();
+    let occKey = '';
+    try{ const o = noorOccasionFor(new Date()); occKey = o ? (o.title || '') : ''; }catch(e){}
+    let ramadanKey = '';
+    try{ ramadanKey = (typeof RamadanUI !== 'undefined' && RamadanUI.isRamadan(new Date())) ? '1' : '0'; }catch(e){}
+    return `${day}|${city}|${method}|${fajr}|${maghrib}|${isha}|${marks}|${occKey}|${ramadanKey}`;
+  },
+
+  invalidateSig(){
+    const box = U.$('#salahCourt');
+    if(box) delete box.dataset.scSig;
   },
 
   /* نامِ شهرِ فعال — اگر loc نبود، تهران (بدونِ throw) */
@@ -184,33 +207,95 @@ const Courtyard = {
       </div>`;
   },
 
-  /* کلِ صحن — رمضان و ذکر (فازِ ۳) اگر ماژولشان بار شده باشد،
-     کارتشان را همین‌جا بینِ سربرگ و نوارِ نماز می‌گذارند. */
+  /* کلِ صحن — اسلایدهای کاروسلی */
   html(){
     const now = new Date();
     const t = this.times();
     const nx = Salah.next(now);
     const cur = Salah.current(now);
     this._curName = cur.name;
+
     const ramadan = (typeof RamadanUI !== 'undefined' && RamadanUI.cardHtml) ? RamadanUI.cardHtml(now, t) : '';
     const wird = (typeof WirdUI !== 'undefined' && WirdUI.cardHtml) ? WirdUI.cardHtml(now) : '';
+    const occ = this.occasionHtml(now);
+
+    const slides = [
+      `<article class="slide sc-slide sc-head-slide" role="group" aria-label="سربرگ و اذان بعدی">
+        ${this.headerHtml(now, t, nx)}
+      </article>`,
+      `<article class="slide sc-slide sc-prayer-slide" role="group" aria-label="اوقات نماز">
+        <div class="sc-slide-head-row">
+          <span class="sc-slide-title">${Icon.of('clock')} <b>اوقاتِ شرعیِ امروز</b></span>
+          <small class="sc-slide-sub">${U.esc(this.cityLabel())}</small>
+        </div>
+        ${this.prayersHtml(t, cur.name)}
+      </article>`
+    ];
+
+    if(ramadan){
+      slides.push(`
+        <article class="slide sc-slide sc-ramadan-slide" role="group" aria-label="رمضان — سحر و افطار">
+          ${ramadan}
+        </article>`);
+    }
+
+    if(wird){
+      slides.push(`
+        <article class="slide sc-slide sc-wird-slide" role="group" aria-label="ذکر و تعقیبات روز">
+          ${wird}
+        </article>`);
+    }
+
+    if(occ){
+      slides.push(`
+        <article class="slide sc-slide sc-occ-slide" role="group" aria-label="مناسبت امروز">
+          ${occ}
+        </article>`);
+    }
+
+    slides.push(`
+      <article class="slide sc-slide sc-short-slide" role="group" aria-label="میان‌برهای سریع">
+        <div class="sc-slide-head-row">
+          <span class="sc-slide-title">${Icon.of('star')} <b>میان‌برهای نورستان</b></span>
+          <small class="sc-slide-sub">دسترسی سریع</small>
+        </div>
+        ${this.shortcutsHtml()}
+      </article>`);
+
     return `
       <div class="sc-wrap">
-        ${this.headerHtml(now, t, nx)}
-        ${ramadan}
-        ${this.prayersHtml(t, cur.name)}
-        ${wird}
-        ${this.occasionHtml(now)}
-        ${this.shortcutsHtml()}
+        <div class="category-carousel" id="scCarousel" role="group" aria-roledescription="کاروسل" aria-label="صحن روزانه — اوقات نماز و برنامه‌های امروز">
+          <div class="carousel-viewport">
+            <div class="carousel-track">
+              ${slides.join('')}
+            </div>
+          </div>
+          <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
+          <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
+          <div class="carousel-controls">
+            <button type="button" class="carousel-toggle" aria-label="توقف چرخش خودکار" aria-pressed="false">${Icon.of('pause')}</button>
+            <div class="carousel-dots" role="group" aria-label="انتخاب اسلاید"></div>
+          </div>
+          <p class="carousel-status" role="status" aria-live="polite"></p>
+        </div>
       </div>`;
   },
 
   render(){
     const box = U.$('#salahCourt');
     if(!box) return;
-    if(!this.enabled()){ box.innerHTML = ''; return; }
+    if(!this.enabled()){ box.innerHTML = ''; delete box.dataset.scSig; return; }
+
+    const sig = this._buildSig();
+    if(box.dataset.scSig === sig && U.$('#scCarousel', box)){
+      this.tick();
+      return;
+    }
+
+    box.dataset.scSig = sig;
     box.innerHTML = this.html();
     this.wire(box);
+    try{ initAllCarousels(); }catch(e){}
     this.startClock();
     this.tick();
   },
@@ -237,7 +322,7 @@ const Courtyard = {
   },
 
   /* ساعتِ صحن: هر ثانیه فقط متنِ شمارش و نوار تازه می‌شود (نه کلِ DOM)؛
-     وقتی نمازِ جاری عوض شود، نوارِ نماز یک بار از نو رسم می‌شود. */
+     وقتی نمازِ جاری عوض شود، فقط نشانگرِ is-current عوض می‌شود. */
   startClock(){
     if(this._clockId != null) return;
     try{
@@ -258,10 +343,22 @@ const Courtyard = {
     const p = Math.round(Salah.progress(now) * 100);
     const bar = U.$('#scNextBar'); if(bar) bar.style.width = p + '%';
     const bw = U.$('#scNextBarWrap'); if(bw && bw.setAttribute) bw.setAttribute('aria-valuenow', String(p));
+    const chip = U.$('#scMarks'); if(chip) chip.textContent = this.marksChip();
+
     if(cur.name !== this._curName){
       this._curName = cur.name;
       const box = U.$('#salahCourt');
-      if(box && box.innerHTML) this.render();
+      if(box){
+        U.$$('[data-sp]', box).forEach(btn => {
+          const isCur = btn.dataset.sp === cur.name;
+          btn.classList.toggle('is-current', isCur);
+          if(isCur){
+            btn.setAttribute('aria-current', 'time');
+          } else {
+            btn.removeAttribute('aria-current');
+          }
+        });
+      }
     }
   },
 
@@ -295,6 +392,7 @@ const Courtyard = {
         if(SalahLog.marked(name)){ SalahLog.unmark(name); UI.toast('علامت برداشته شد', '', 1600); }
         else SalahLog.mark(name);
         UI.closeModal();
+        this.invalidateSig();
         this.render();
       };
       const qb = U.$('#spQibla', box);
@@ -334,6 +432,7 @@ const Courtyard = {
     const c = Salah.city(id);
     if(!c) return false;
     Store.update(d => { d.loc = { cityId:c.id, lat:c.lat, lon:c.lon, source:'city' }; });
+    this.invalidateSig();
     this.render();
     try{ SalahSettings.refresh(); }catch(e){}
     UI.toast(`🕌 اوقات بر اساسِ ${c.name}`, 'ok', 2000);
@@ -352,6 +451,7 @@ const Courtyard = {
       const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
       if(!isFinite(lat) || !isFinite(lon)){ UI.toast('موقعیت خوانده نشد', 'err'); return; }
       Store.update(d => { d.loc = { cityId:'', lat:+lat.toFixed(4), lon:+lon.toFixed(4), source:'geo' }; });
+      this.invalidateSig();
       this.render();
       try{ SalahSettings.refresh(); }catch(e){}
       UI.toast('📍 موقعیتت ذخیره شد — اوقات دقیق‌تر شد', 'ok', 2400);
@@ -587,11 +687,13 @@ const SalahSettings = {
     if(!Salah.METHODS[id]) return;
     Store.update(d => { d.salahMethod = id; });
     this.refresh(true);
+    try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
     Courtyard.render();
   },
   setFajrAngle(a){
     Store.update(d => { d.fajrAngle = (a === 15 ? 15 : 18); });
     this.refresh(true);
+    try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
     Courtyard.render();
   },
   step(key, delta, lo, hi){
@@ -599,6 +701,7 @@ const SalahSettings = {
     const v = U.clamp(cur + delta, lo, hi);
     Store.update(d => { d[key] = v; });
     this.refresh(true);
+    try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
     Courtyard.render();
   },
 
