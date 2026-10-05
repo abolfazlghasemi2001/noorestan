@@ -52,13 +52,14 @@
    آفلاین از روی locِ ذخیره‌شده محاسبه می‌شود، نه از شبکه.
    نسخهٔ ۳۵: صحنِ روزانه (courtyard-1.js و salah.css) به پیش‌ذخیره آمد.
    نسخهٔ ۳۶: همراهِ روزانه (wird-1.js) به پیش‌ذخیره آمد.
+   نسخهٔ ۳۷: کاروسل و پوستهٔ شیشه‌ایِ تازهٔ صحن به نصب‌های پیشین می‌رسد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-36';
-const SHELL = 'noorestan-shell-36';
-const MEDIA = 'noorestan-media-36';
-const TEXT  = 'noorestan-text-36';
-const GAMES = 'noorestan-games-36';
+const CACHE = 'noorestan-37';
+const SHELL = 'noorestan-shell-37';
+const MEDIA = 'noorestan-media-37';
+const TEXT  = 'noorestan-text-37';
+const GAMES = 'noorestan-games-37';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
