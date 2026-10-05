@@ -29,8 +29,7 @@
       href="assets/fonts/vazirmatn-regular.woff2">
 <link rel="preload" as="font" type="font/woff2" crossorigin
       href="assets/fonts/vazirmatn-bold.woff2">
-<!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
-<!-- اسلایدر اکنون بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
+<!-- اسلایدر صفحهٔ اصلی بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
 <link rel="stylesheet" href="assets/app/style-1-fd30642d4f.css">
 <link rel="stylesheet" href="assets/styles/sanctuary.css">
 <link rel="stylesheet" href="assets/styles/polish.css">
@@ -39,6 +38,9 @@
 <!-- نسخهٔ ۱۹ب: برگهٔ سبکِ صحنِ روزانه (نماز، قبله، تنظیماتِ عبادت) —
      همهٔ قاعده‌هایش یک‌جاست و از توکن‌های پوسته رنگ می‌گیرد. -->
 <link rel="stylesheet" href="assets/styles/salah.css">
+<!-- پاک‌سازی تکرارها: هر بخش فقط در تبِ خودش در نوار پایین. باید آخرین
+     برگهٔ سبک باشد. برای برگرداندنِ همه‌چیز، همین یک خط را بردار. -->
+<link rel="stylesheet" href="assets/styles/declutter.css">
 </head>
 
 <body>
@@ -69,7 +71,6 @@
     <div class="sp-note" id="spNote"></div>
   </div>
   <button class="sp-skip" id="spSkip">ورود به نورستان ←</button>
-  </div>
 </div>
 
 <div id="bgArt" aria-hidden="true"></div>
@@ -79,11 +80,11 @@
      `aria-hidden` است چون تزئینی است؛ در «کم‌حرکتی» می‌ایستد. -->
 <div id="amb" aria-hidden="true"><i></i><i></i></div>
 
-<div id="toasts"></div>
+<div id="toasts" role="status" aria-live="polite"></div>
 <!-- بنر نصب خودکار. خالی شروع می‌کند و Install.show() پرش می‌کند؛
      hidden تا وقتی تصمیم گرفته نشده، تا یک لحظه هم بی‌جا دیده نشود. -->
 <div id="ib" class="ib" hidden role="region" aria-label="نصب اپلیکیشن نورستان"></div>
-<div id="modal"><div class="box" id="modalBox"></div></div>
+<div id="modal" role="dialog" aria-modal="true"><div class="box" id="modalBox"></div></div>
 <!-- تازه‌وارد: چهار اسلاید. بیرون از #app است تا صفحهٔ زیرش بی‌حرکت بماند -->
 <div id="onb" class="onb" role="dialog" aria-modal="true" aria-label="راهنمای آغاز"></div>
 
@@ -95,7 +96,7 @@
     </div>
     <div class="sp"></div>
     <button class="iconbtn" id="btnQuran" title="تلاوت قرآن"><i data-ic="listen"></i></button>
-    <button class="iconbtn" id="btnNotif" title="اعلان‌ها"><i data-ic="bell"></i><span class="dot hide" id="notifDot"></span></button>
+    <button class="iconbtn" id="btnNotif" title="اعلان‌ها" aria-label="اعلان‌ها"><i data-ic="bell"></i><span class="dot hide" id="notifDot"></span></button>
     <button class="iconbtn" id="btnNet" title="وضعیت شبکه"><i data-ic="signal"></i></button>
   </div>
 
@@ -135,26 +136,28 @@
       </div>
     </div>
 
-    <!-- بنر چرخشی Swiper: پیشنهادهای مهم و دسترسی مستقیم -->
+    <!-- بنر چرخشی (بومی): پیشنهادهای مهم و دسترسی مستقیم.
+         در گذرِ پاک‌سازی با declutter.css پنهان است، چون هر چهار اسلاید
+         تکرارِ تب‌های پایین‌اند؛ مارک‌آپ می‌ماند تا باندل نشکند. -->
     <section class="home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان" aria-roledescription="اسلایدر">
       <div class="promo-panels">
-        <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="1 از ۴" >
+        <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="۱ از ۴" >
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p>
             <button class="btn promo-go" data-slide-action="ayahlight">شروع بازی <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/courtyard.svg" alt="" width="640" height="420" draggable="false">
         </article>
-        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="2 از ۴" inert aria-hidden="true">
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="۲ از ۴" inert aria-hidden="true">
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="headphones"></i> آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی و تکرار آیات، لحظه‌ای آرام بگیر.</p>
             <button class="btn promo-go" data-slide-action="quran">رفتن به تلاوت <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/recitation.svg" alt="" width="640" height="420" draggable="false">
         </article>
-        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="3 از ۴" inert aria-hidden="true">
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="۳ از ۴" inert aria-hidden="true">
           <div class="promo-copy"><span class="promo-kicker"><i data-ic="moon"></i> هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و به روشنایی روزهای پیوسته‌ات اضافه کن.</p>
             <button class="btn promo-go" data-slide-action="daily">چالش امروز <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/night.svg" alt="" width="640" height="420" draggable="false">
         </article>
-        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="4 از ۴" inert aria-hidden="true">
-          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> سه بازی مستقل تازه</span><h2>آیه‌ساز، باران حکمت، جفت نور</h2><p>بازی‌های شاخهٔ /games/ حالا با قاب حرفه‌ای، تمام‌صفحه و ذخیرهٔ رکورد در خودِ نورستان اجرا می‌شوند.</p>
+        <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="۴ از ۴" inert aria-hidden="true">
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> سه بازی تازه</span><h2>آیه‌ساز، باران حکمت، جفت نور</h2><p>تمام‌صفحه بازی کن؛ رکوردت در خودِ نورستان ذخیره می‌شود.</p>
             <button class="btn promo-go" data-slide-action="games">دیدن بازی‌های تازه <i data-ic="back"></i></button></div>
           <img class="promo-scene" src="assets/images/promo/games-gateway.svg" alt="" width="640" height="420" draggable="false">
         </article>
@@ -215,7 +218,7 @@
 
   <section class="screen" id="s-online">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2><i data-ic="globe"></i> محفل نور</h2><p><b id="onCount">۰</b> نفر آنلاین</p></div>
     </div>
 
@@ -246,7 +249,7 @@
     </div>
 
     <div class="cat">
-      <div class="cat-head"><div class="cat-ico"><i data-ic="home"></i></div>
+      <div class="cat-head"><div class="cat-ico"><i data-ic="gamepad"></i></div>
         <div><h2>روم‌های فعال</h2><p>برای ورود، روی روم بزن</p></div>
         <span class="cat-cnt" id="rmCnt">۰</span></div>
       <div class="list" id="rooms"><div class="empty">هنوز رومی ساخته نشده</div></div>
@@ -262,7 +265,7 @@
 
   <section class="screen" id="s-room">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2 id="rmTitle">روم بازی</h2><p id="rmCode">—</p></div>
       <div class="sp" style="flex:1"></div>
       <span class="chip" id="rmGameChip">—</span>
@@ -311,7 +314,7 @@
 
   <section class="screen" id="s-play">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2 id="pgTitle">بازی</h2><p id="pgSub">—</p></div>
     </div>
     <button class="btn gh sm" id="pgRestart" hidden>شروع دوباره</button>
@@ -329,7 +332,7 @@
 
   <section class="screen" id="s-notif">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2><i data-ic="bell"></i> اعلان‌ها</h2><p id="notifSub">۰ پیام</p></div>
     </div>
     <button class="btn gh w" id="clearNotif" style="margin-bottom:14px"><i data-ic="trash"></i><span>پاک کردن همه</span></button>
@@ -338,13 +341,13 @@
 
   <section class="screen" id="s-me">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2><i data-ic="user"></i> حساب من</h2><p id="meSub">—</p></div>
     </div>
     <div class="tabs" id="meTabs">
       <button class="tab" data-metab="profile"><i data-ic="smile"></i> پروفایل</button>
       <button class="tab on" data-metab="stats"><i data-ic="chart"></i> آمار</button>
-      <button class="tab" data-metab="records"><i data-ic="medal"></i> رکوردها</button>
+      <button class="tab" data-metab="records"><i data-ic="trophy"></i> رکوردها</button>
       <button class="tab" data-metab="badges"><i data-ic="medal"></i> نشان‌ها</button>
       <button class="tab" data-metab="settings"><i data-ic="gear"></i> تنظیمات</button>
     </div>
@@ -353,7 +356,7 @@
 
   <section class="screen" id="s-admin">
     <div class="phead">
-      <button class="back" data-back>›</button>
+      <button class="back" data-back aria-label="بازگشت">›</button>
       <div><h2><i data-ic="crown"></i> پنل مدیریت</h2><p>کنترل محتوا، کاربران و سرور</p></div>
     </div>
     <div id="adminGate"></div>
@@ -377,8 +380,8 @@
     <div class="phead">
       <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2><i data-ic="headphones"></i> تلاوت قرآن</h2><p>صوت قاریان نامدار جهان — آیه‌به‌آیه</p></div>
-      <button class="iconbtn" id="qOpenReader" title="مصحف‌نما"><i data-ic="book"></i></button>
-      <button class="iconbtn" id="qBookmarks" title="نشانه‌های من"><i data-ic="mark"></i></button>
+      <button class="iconbtn" id="qOpenReader" title="مصحف‌نما" aria-label="خواندن در مصحف‌نما"><i data-ic="book"></i></button>
+      <button class="iconbtn" id="qBookmarks" title="نشانه‌های من" aria-label="نشانه‌های من"><i data-ic="mark"></i></button>
     </div>
 
     <div id="qHero" class="art-hero"></div>
@@ -444,19 +447,19 @@
     <div class="phead">
       <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2 id="readTitle"><i data-ic="book-open"></i> مصحف‌نما</h2><p id="readSub">خواندن، شنیدن و اندیشیدن</p></div>
-      <button class="iconbtn" id="readMarks" title="نشانه‌گذاری"><i data-ic="mark"></i></button>
+      <button class="iconbtn" id="readMarks" title="نشانه‌گذاری" aria-label="نشانه‌گذاری"><i data-ic="mark"></i></button>
     </div>
 
     <div class="card read-tools">
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn gh sm" id="readPrevS">⏮ سورهٔ قبل</button>
+        <button class="btn gh sm" id="readPrevS"><i data-ic="prev"></i><span>سورهٔ قبل</span></button>
         <button class="btn gh sm" id="readPickS"><i data-ic="book-open"></i><span>گزینش سوره</span></button>
-        <button class="btn gh sm" id="readNextS">سورهٔ بعد ⏭</button>
+        <button class="btn gh sm" id="readNextS"><span>سورهٔ بعد</span><i data-ic="next"></i></button>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
-        <button class="btn gh sm" id="readSizeDown">ا−</button>
+        <button class="btn gh sm" id="readSizeDown" aria-label="کوچک کردن متن">ا−</button>
         <span id="readSizeLbl" style="font-size:12px;color:var(--mut)">۲۵px</span>
-        <button class="btn gh sm" id="readSizeUp">ا+</button>
+        <button class="btn gh sm" id="readSizeUp" aria-label="بزرگ کردن متن">ا+</button>
         <button class="btn gh sm" id="readToggleFa">🇮🇷 ترجمه: روشن</button>
         <button class="btn gh sm" id="readPlay">▶️ پخش سوره</button>
         <button class="btn gh sm" id="readFont"><i data-ic="pen"></i><span>فونت قرآن</span></button>
@@ -495,10 +498,10 @@
     <button id="mqRec" title="عوض کردن قاری" aria-label="عوض کردن قاری"><i data-ic="mic"></i> <b id="mqRecName">—</b><span class="car" aria-hidden="true">▾</span></button>
     <b id="mqTitle">—</b><small id="mqSub">—</small>
   </div>
-  <button id="mqPrev" title="آیهٔ قبل"><i data-ic="prev"></i></button>
-  <button id="mqPlay" title="پخش/توقف"><i data-ic="play"></i></button>
-  <button id="mqNext" title="آیهٔ بعد"><i data-ic="next"></i></button>
-  <button id="mqStop" title="بستن"><i data-ic="close"></i></button>
+  <button id="mqPrev" title="آیهٔ قبل" aria-label="آیهٔ قبل"><i data-ic="prev"></i></button>
+  <button id="mqPlay" title="پخش/توقف" aria-label="پخش یا توقف"><i data-ic="play"></i></button>
+  <button id="mqNext" title="آیهٔ بعد" aria-label="آیهٔ بعد"><i data-ic="next"></i></button>
+  <button id="mqStop" title="بستن" aria-label="بستن نوار پخش"><i data-ic="close"></i></button>
   <span id="mqBar" aria-hidden="true"><i id="mqFill"></i></span>
 </div>
 
