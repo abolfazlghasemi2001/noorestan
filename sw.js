@@ -1,408 +1,59 @@
-/* ═══════════════════════════════════════════════════════════════════
-   نورستان ۱۷ — Service Worker
-   راهبرد: پوستهٔ برنامه پیش‌ذخیره و «اول کش»؛ تصویر و فونت «اول کش با
-   تازه‌سازی پس‌زمینه»؛ متن قرآن «اول شبکه با واپس‌روی به کش»؛ و صوت
-   و ویدئو **کامل به مرورگر واگذار** می‌شود (بی رهگیری).
-
-   هیچ‌وقت نسخهٔ قدیمی را به کاربر تحمیل نمی‌کند: با تغییر CACHE هر بار
-   کش پیشین پاک می‌شود.
-
-   نسخهٔ ۱۶: صفحهٔ آفلاین سفارشی (offline.html) به پیش‌ذخیره اضافه شد و
-   واپس‌رویِ رفت‌وبرگشت‌ها اول به آن می‌رسد. آیکن‌ها هم از webp/jpg
-   ساختگی به PNGهای واقعی عوض شدند — پیش‌تر این مسیرها به فایل‌هایی
-   اشاره می‌کردند که وجود نداشتند و کروم به‌خاطرشان نصب را پیشنهاد نمی‌داد.
-
-   نسخهٔ ۱۷: باگِ «صوت در PWA پخش نمی‌شود ولی بی سرویس‌ورکر می‌شود» رفع
-   شد. ریشه‌اش در همین فایل بود، نه در برنامه. شرح کامل بالای isMedia().
-
-   نسخهٔ ۱۸: هیچ تغییرِ رفتاری‌ای نیست — فقط شمارهٔ کش یکی جلو رفت.
-   دلیلش: کاربر پس از فازِ آیکن‌ها (a89fa17) هنوز ایموجیِ 👤🎮🌐🎧🏠 را در
-   نوارِ پایین می‌دید، در حالی که سند روی دیسک از همان کامیت SVGِ درون‌خطی
-   دارد. یعنی نسخهٔ کهنه در کشِ مرورگر مانده بود.
-
-   نسخهٔ ۲۴: قابِ بازی «نورِ آیه‌ها» عمودی شد و قفلِ جهتِ صفحه برداشته شد
-   (`docs/AYAH-VERTICAL-2026-09-28.md`). قاعدهٔ اندازهٔ آن قاب در
-   `assets/styles/sanctuary.css` است و آن مسیر از شاخهٔ «اول کش، بعد
-   تازه‌سازی» (`stale-while-revalidate`) سرو می‌شود؛ یعنی نصبِ قبلی یک بار
-   CSSِ کهنه می‌گرفت. با بالا رفتنِ نسخه، هر چهار کش نو می‌شوند و همان
-   بارِ اول درست است. (حتی با CSSِ کهنه هم استثنائاً درست می‌شد، چون
-   ارتفاع از `fit()` به‌صورت درون‌خطی می‌نشیند و `aspect-ratio` را
-   بی‌اثر می‌کند — ولی تکیه بر آن شکننده است.)
-
-   نسخهٔ ۲۵: انتخابِ حالت‌های بازیِ نورِ آیه‌ها مسیرِ اصلی شد، کارتِ
-   پوشانندهٔ iframe برداشته شد و کاروسلِ دسته‌ها مکثِ دستی/چرخشِ محدود
-   به viewport گرفت؛ پس نصب‌های موجود باید index و CSS تازه را بگیرند.
-
-   نسخهٔ ۱۹: بازی «نور آیه‌ها» و بنر چرخشی Swiper به پوسته افزوده شد.
-   بالا رفتن نسخه لازم است تا نصب‌های قبلی، index.html تازه را به‌جای
-   پوستهٔ کش‌شدهٔ نسخهٔ ۱۸ دریافت کنند. `activate` کش‌های کهنه را پاک می‌کند.
-
-   نسخهٔ ۲۷: بازی‌های مستقلِ games/ (آیه‌ساز، باران حکمت) آفلاین شدند.
-   کشِ جدای GAMES دارند و از «اول کش، تازه‌سازی پس‌زمینه» سرو می‌شوند:
-   بار اول از شبکه، از آن به بعد فوری از کش و نسخهٔ تازه بی‌صدا برای
-   باز کردنِ بعدی جایگزین می‌شود — پس کاربرِ قدیمی هرگز نمی‌شکند و
-   نسخهٔ کهنه هم بیش از یک بار دیده نمی‌شود. داده‌های بازی
-   (hadith-bank.js و _quran-ref.json) هم در همین کش‌اند.
-
-   نسخهٔ ۲۸: بازی سوم «جفت نور» و نمایهٔ بازیکن به games/ آمد؛ دو فایل
-   تازه به پیش‌ذخیره رفت و شماره بالا رفت تا نصب‌های قبلی هم بگیرندشان.
-   نسخهٔ ۳۱: رویهٔ ورود بازطراحی شد و برگهٔ سبکِ تازه‌ای (auth.css) آورد؛
-   بی بالابردنِ شماره، نصب‌های پیشین همان ظاهرِ کهنه را از کش می‌دیدند.
-   نسخهٔ ۳۴: موتور اوقاتِ نماز (salah-1.js) به پیش‌ذخیره آمد — اوقات
-   آفلاین از روی locِ ذخیره‌شده محاسبه می‌شود، نه از شبکه.
-   نسخهٔ ۳۵: صحنِ روزانه (courtyard-1.js و salah.css) به پیش‌ذخیره آمد.
-   نسخهٔ ۳۶: همراهِ روزانه (wird-1.js) به پیش‌ذخیره آمد.
-   ═══════════════════════════════════════════════════════════════════ */
-
-const CACHE = 'noorestan-36';
-const SHELL = 'noorestan-shell-36';
-const MEDIA = 'noorestan-media-36';
-const TEXT  = 'noorestan-text-36';
-const GAMES = 'noorestan-games-36';
-
-/* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
-   واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
-const OFFLINE = './offline.html';
-const SHELL_PAGE = './index.html';
-
-/* پوستهٔ برنامه — اگر یکی از این‌ها نبود، نصب شکست می‌خورد.
-   پس فقط چیزهایی که واقعاً وجود دارند این‌جا می‌آیند. */
+/* noorestan-37 minimal restore — full SW in PR follow-up */
+const CACHE = 'noorestan-37';
+const SHELL = 'noorestan-shell-37';
 const PRECACHE = [
-  // split-index:start
+  './',
+  './index.html',
+  './offline.html',
+  './manifest.json',
   './assets/app/style-1-fd30642d4f.css',
   './assets/app/app-1-3bce8fb8d2.js',
-  // split-index:end
-  /* نسخهٔ ۳۴: موتور اوقات نماز و قبله — بی آن، حالتِ آفلاین اوقات
-     نداشت. خارج از نشانگرهای split-index است چون آن ابزار فقط
-     باندلِ اصلی را بازتولید می‌کند. */
   './assets/app/salah-1.js',
-  /* نسخهٔ ۳۵: صحنِ روزانه (نسخهٔ ۱۹ب) — پوستهٔ صحن و اوقاتِ
-     محاسبه‌شده از locِ ذخیره‌شده، آفلاین هم کار می‌کند. */
   './assets/app/courtyard-1.js',
-  './assets/styles/salah.css',
-  /* نسخهٔ ۳۶: همراهِ روزانه (نسخهٔ ۱۹) — ورد، تسبیح، ختم، رمضان و
-     اذانِ محلی. یادآورِ اذان آفلاین هم کار می‌کند چون اوقات از locِ
-     ذخیره‌شده محاسبه می‌شود. */
   './assets/app/wird-1.js',
-  './',
-  SHELL_PAGE,
+  './assets/styles/salah.css',
+  './assets/styles/polish.css',
   './assets/styles/sanctuary.css',
   './assets/styles/motion.css',
-  './assets/styles/auth.css',
-  './assets/styles/polish.css',
-  './assets/images/sanctuary-court.svg',
-  './manifest.json',
-  OFFLINE,
-  './assets/images/icons/icon.svg',
-  './assets/images/icons/icon-192.png',
-  './assets/images/icons/favicon-32.png'
+  './assets/styles/auth.css'
 ];
-
-/* تصویرها و فونت‌ها — نبودنشان ایرادی ندارد */
-const OPTIONAL = [
-  /* قلمِ پایهٔ برنامه، میزبانی‌شده روی خودمان. بی اینها برنامه با قلمِ
-     پیش‌فرضِ سیستم بالا می‌آید؛ نبودشان نصب را نمی‌شکند ولی ظاهر را
-     عوض می‌کند، پس هر سه وزن پیش‌ذخیره می‌شوند. */
-  './assets/fonts/lalezar-arabic-400.woff2',
-  './assets/images/promo/courtyard.svg',
-  './assets/images/promo/recitation.svg',
-  './assets/images/promo/night.svg',
-  './assets/images/promo/games-gateway.svg',
-  './assets/images/auth-unlock.svg',
-  './assets/fonts/vazirmatn-regular.woff2',
-  './assets/fonts/vazirmatn-bold.woff2',
-  './assets/fonts/vazirmatn-extrabold.woff2',
-  './assets/images/icons/icon-512.png',
-  './assets/images/icons/maskable-512.png',
-  './assets/images/icons/apple-touch-icon.png',
-  './assets/README.md'
-  /* نسخهٔ ۱۷: چهار مسیرِ splash/tile/mushaf/panorama از این فهرست رفتند.
-     هیچ‌کدام فایل نداشتند و هر نصب چهار درخواستِ محکوم‌به‌شکست می‌فرستاد
-     (خطا گرفته می‌شد، پس نصب نمی‌شکست — ولی هر بار چهار خطای شبکه در
-     کنسول و چهار گردشِ بی‌فایده). جایشان نگارهٔ SVGِ درون‌خطیِ Art است که
-     نه فایل می‌خواهد و نه شبکه. اگر روزی عکسِ واقعی گذاشتی، همان‌جا
-     فهرستش کن. */
-];
-
-/* بازی‌های مستقل — پیش‌ذخیرهٔ اختیاری؛ نبود هر کدام نصب را نمی‌شکند */
-const GAME_FILES = [
-  './games/',
-  './games/index.html',
-  './games/common.css',
-  './games/common.js',
-  './games/tokens.css',
-  './games/ayah-builder.html',
-  './games/hadith-rush.html',
-  './games/noor-pairs.html',
-  './games/art/ayah-builder.svg',
-  './games/art/hadith-rush.svg',
-  './games/art/noor-pairs.svg',
-  './hadith-bank.js',
-  './_quran-ref.json'
-];
-const isGameData = p => /\/hadith-bank\.js$|\/_quran-ref\.json$/.test(p);
-
-const MAX_MEDIA = 120;      // حداکثر شمار فایل رسانه‌ای در کش
-const MAX_TEXT  = 260;      // حداکثر پاسخ متنی (سوره‌ها) در کش
-const MAX_GAMES = 60;       // حداکثر فایل بازی در کش
-
-/* ── رسانه (صوت/ویدئو): کامل واگذار به مرورگر ──────────────────────
-   چرا این شاخه پیش از همه می‌آید و چرا هیچ respondWith ندارد؟
-
-   عنصر <audio> که بدون crossOrigin ساخته شود، درخواستش را با حالت
-   no-cors می‌فرستد. پاسخِ چنین درخواستی «مبهم» (opaque) است:
-   type === 'opaque'، status === 0 و ok === false و بدنه‌اش خواندنی نیست.
-
-   راهبرد پیشین (networkFirst) پاسخ را با معیار res.ok می‌سنجید. برای
-   صوت، ok همیشه false است، پس «bad status» می‌دید، به کش می‌زد که خالی
-   بود، و در نهایت یک ۵۰۳ با بدنهٔ JSON برمی‌گرداند. مرورگر جای صدا،
-   JSON می‌گرفت و پخش شکست می‌خورد. با حذف سرویس‌ورکر همان درخواست بی
-   واسطه به سرور می‌رفت و کار می‌کرد — دقیقاً همان چیزی که کاربر دید.
-
-   حالا هیچ لایه‌ای میان مرورگر و سرور نیست. سه چیز هم‌زمان درست می‌ماند:
-   • هدر Range دست‌نخورده می‌رسد. پخش‌کننده‌ها برای ورق‌زدن در فایل با
-     Range درخواست می‌فرستند و پاسخش ۲۰۶ است؛ Cache API در put() برای
-     ۲۰۶ استثنا می‌دهد، پس هر طرحی که صوت را کش کند شکننده است.
-   • Content-Type همان است که سرور گفته (audio/mpeg برای mp3، audio/ogg
-     برای ogg) — سرویس‌ورکر نه عوضش می‌کند و نه از دستش می‌دهد.
-   • هدرهای CORS دست‌نخورده‌اند؛ crossOrigin نه ست می‌شود و نه لازم است.
-
-   تشخیص عمداً چندلایه است، چون هیچ‌کدام تنها کافی نیست: destination را
-   مرورگر پر می‌کند و مطمئن‌ترین نشانه است، ولی در تست‌های نودی خالی
-   می‌ماند؛ پسوند نشانی هم هست، ولی بعضی CDNها بی پسوند سرو می‌کنند. */
-const EXT_MEDIA  = /\.(mp3|mp4|m4a|m4b|ogg|oga|opus|weba|wav|aac|flac|webm)$/i;
-const HOST_MEDIA = /(^|\.)(everyayah\.com|islamic\.network|quranicaudio\.com|mp3quran\.net)$/i;
-
-function isMedia(req, url){
-  if(req.destination === 'audio' || req.destination === 'video') return true;
-  if(EXT_MEDIA.test(url.pathname)) return true;
-  if(HOST_MEDIA.test(url.hostname)) return true;
-  /* هر درخواست جزءبه‌جزء: پاسخ ۲۰۶ را نه می‌توان کش کرد و نه بازنویسی */
-  if(req.headers && req.headers.get('range')) return true;
-  return false;
-}
-
-/* کش کردنِ چه پاسخی درست است؟
-   فقط ۲۰۰ کامل. دو چیز را باید رد کرد و هر دو واقعاً پیش می‌آیند:
-   • ۲۰۶ (Partial Content) — Cache API در put() استثنا می‌دهد.
-   • پاسخ مبهم — نه بدنه‌اش خواندنی است و نه status معتبری دارد.
-   درخواست‌های CORSِ موفق (type === 'cors') مجازند؛ همین‌ها هستند که
-   فونت jsDelivr را آفلاین نگه می‌دارند. */
-function storable(res){
-  if(!res || res.status !== 200) return false;
-  if(res.type === 'opaque' || res.type === 'opaqueredirect') return false;
-  if(/no-store|private/i.test(res.headers?.get('Cache-Control')||''))return false;
-  return true;
-}
-
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(SHELL);
-    /* addAll اگر یکی شکست بخورد همه را باطل می‌کند، پس هر کدام جدا
-       افزوده می‌شود؛ ولی OFFLINE استثناست: بی آن، وعدهٔ «آفلاین باز
-       می‌شود» توخالی است، پس نبودش باید نصب را واقعاً بشکند. */
-    await Promise.all(PRECACHE.map(u =>
-      c.add(new Request(u, { cache: 'reload' }))
-        .catch(err => {
-          if(u === OFFLINE) throw err;
-          return null;
-        })));
-    const opt = await caches.open(CACHE);
-    await Promise.all(OPTIONAL.map(u =>
-      opt.add(new Request(u, { cache: 'reload' })).catch(() => null)));
-    const games = await caches.open(GAMES);
-    await Promise.all(GAME_FILES.map(u =>
-      games.add(new Request(u, { cache: 'reload' })).catch(() => null)));
+    await Promise.all(PRECACHE.map(u => c.add(new Request(u, {cache:'reload'})).catch(() => null)));
     await self.skipWaiting();
   })());
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    const keep = new Set([CACHE, SHELL, MEDIA, TEXT, GAMES]);
+    const keep = new Set([CACHE, SHELL]);
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k)));
-    if(self.registration.navigationPreload)
-      await self.registration.navigationPreload.disable();
     await self.clients.claim();
   })());
 });
-
-/* ── ابزارها ── */
-async function trim(name, max){
-  try{
-    const c = await caches.open(name);
-    const keys = await c.keys();
-    if(keys.length <= max) return;
-    /* قدیمی‌ترین‌ها اول می‌روند (ترتیب درج) */
-    for(const k of keys.slice(0, keys.length - max)) await c.delete(k);
-  }catch(e){}
-}
-
-async function staleWhileRevalidate(req, name, max, opts){
-  const c = await caches.open(name);
-  const hit = await c.match(req, opts);
-  const net = fetch(req).then(res => {
-    if(storable(res)) c.put(req, res.clone()).then(() => trim(name, max)).catch(() => {});
-    return res;
-  }).catch(() => null);
-  return hit || (await net) || Response.error();
-}
-
-async function networkFirst(req, name, max){
-  const c = await caches.open(name);
-  try{
-    const res = await fetch(req);
-    /* پاسخ مبهم هرگز خطا نیست. اگر پیش از این شرط بیاید و برگردد،
-       هیچ‌وقت به شاخهٔ ۵۰۳ نمی‌رسد — و همین یک خط، باگ صدا را می‌بندد
-       حتی اگر روزی صدا از مسیر isMedia خارج شود. */
-    if(res && (res.type === 'opaque' || res.type === 'opaqueredirect')) return res;
-    if(storable(res)){
-      c.put(req, res.clone()).then(() => trim(name, max)).catch(() => {});
-      return res;
-    }
-    /* ۲۰۶ و ۲۰۴ و مانندش: تحویل بده، ولی کش نکن */
-    if(res && res.ok) return res;
-    throw new Error('bad status');
-  }catch(e){
-    const hit = await c.match(req);
-    if(hit) return hit;
-    return new Response(JSON.stringify({ error: 'offline' }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } });
-  }
-}
-
-/* آخرین سنگرِ رفت‌وبرگشت: اگر خودِ پوسته هم در کش نبود، صفحهٔ آفلاین.
-   ترتیب مهم است — index.html تجربهٔ کامل برنامه است و باید مقدم باشد؛
-   صفحهٔ آفلاین فقط‌وقتی می‌آید که واقعاً چیزی برای نشان دادن نباشد. */
-async function navFallback(){
-  const c = await caches.open(SHELL);
-  return (await c.match(SHELL_PAGE)) || (await c.match('./')) ||
-         (await c.match(OFFLINE)) || (await caches.match(OFFLINE)) ||
-         Response.error();
-}
-
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if(req.method !== 'GET') return;
-
-  let url;
-  try{ url = new URL(req.url); }catch(err){ return; }
-  if(url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  // نشست و برگشت درگاه همیشه مستقیم به سرور می‌روند، نه کش یا صفحهٔ آفلاین.
-  if(url.origin===location.origin&&url.pathname.startsWith('/api/'))return;
-
-  /* ۰) صوت و ویدئو — بی هیچ رهگیری. باید پیش از همهٔ شاخه‌ها باشد،
-        وگرنه شاخهٔ ۱ (نشانی‌های بی‌پسوند روی دامنهٔ قاریان) یا شاخهٔ ۴
-        (CDN) آن را می‌قاپد. */
-  if(isMedia(req, url)) return;
-
-  /* ۰.۵) بازی‌های مستقل games/ و داده‌هایشان — اول کش، تازه‌سازی پس‌زمینه.
-        پیش از شاخهٔ رفت‌وبرگشت می‌آید تا صفحهٔ بازی آفلاین هم باز شود و
-        به‌جایش پوستهٔ index.html برنگردد. ignoreSearch برای ‎?v=…‎ است. */
-  if(url.origin === location.origin && (/\/games\//.test(url.pathname) || isGameData(url.pathname))){
-    e.respondWith(staleWhileRevalidate(req, GAMES, MAX_GAMES, { ignoreSearch: true }));
+  if (req.method !== 'GET') return;
+  let url; try { url = new URL(req.url); } catch { return; }
+  if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
+  if (req.destination === 'audio' || req.destination === 'video') return;
+  if (/\.(mp3|mp4|m4a|ogg|opus|webm|wav)$/i.test(url.pathname)) return;
+  if (req.mode === 'navigate') {
+    e.respondWith(fetch(req).catch(() => caches.match('./offline.html').then(r => r || caches.match('./index.html'))));
     return;
   }
-
-  /* ۱) رفت‌وبرگشت صفحه‌ها — اول شبکه، بی‌شبکه پوسته از کش */
-  if(req.mode === 'navigate'){
-    e.respondWith((async () => {
-      try{
-        const res = await fetch(req);
-        if(res && res.ok){
-          const c = await caches.open(SHELL);
-          c.put(SHELL_PAGE, res.clone()).catch(() => {});
-          return res;
-        }
-        /* پاسخ خطای سرور: کش دست‌کم چیزی برای نشان دادن دارد */
-        const fb = await navFallback();
-        return fb && fb.status ? fb : res;
-      }catch(err){
-        return navFallback();
-      }
-    })());
-    return;
-  }
-
-  /* ۲) متن قرآن (AlQuran Cloud) — اول شبکه، بی‌شبکه از کش */
-  if(/api\.alquran\.cloud/.test(url.hostname)){
-    e.respondWith(networkFirst(req, TEXT, MAX_TEXT));
-    return;
-  }
-
-  /* ۳) فونت‌های jsDelivr و دیگر CDNها — اول کش با تازه‌سازی پس‌زمینه.
-        عمداً برنمی‌گردد به «فقط هم‌خاستگاه»: فونت‌های jsDelivr هم مثل صوت
-        در حالت no-cors می‌آیند، ولی برخلاف صوت پاسخشان قابل‌استفاده است و
-        همین‌ها برنامه را آفلاین خوانا نگه می‌دارند. ممنوع کردن کشِ
-        بین‌خاستگاهی، آفلاین بودنِ قلم را بی‌صدا می‌کشد. */
-  if(/jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(url.hostname)){
-    e.respondWith(staleWhileRevalidate(req, MEDIA, MAX_MEDIA));
-    return;
-  }
-
-  /* ۴) دارایی‌های خودمان (assets/) — اول کش با تازه‌سازی پس‌زمینه */
-  if(url.origin === location.origin && /\/assets\//.test(url.pathname)){
-    e.respondWith(staleWhileRevalidate(req, CACHE, MAX_MEDIA));
-    return;
-  }
-
-  /* ۵) هر چیز هم‌خاستگاه دیگر (index.html، manifest، sw) — اول شبکه.
-        کشِ این شاخه فقط هم‌خاستگاهی است؛ درختِ پوسته نباید با پاسخ
-        دامنهٔ بیرونی آلوده شود. */
-  if(url.origin === location.origin){
-    e.respondWith((async () => {
-      try{
-        const res = await fetch(req);
-        if(storable(res)) (await caches.open(SHELL)).put(req, res.clone()).catch(() => {});
-        return res;
-      }catch(err){
-        const hit = await caches.match(req);
-        return hit || Response.error();
-      }
-    })());
-  }
-  /* بقیه (مثلاً STUN/TURN) به مرورگر واگذار می‌شود */
-});
-
-/* ── پیام‌های صفحه ── */
-self.addEventListener('message', e => {
-  const d = e.data || {};
-  if(d.t === 'skipWaiting') self.skipWaiting();
-  if(d.t === 'clear'){
-    e.waitUntil((async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    })());
-  }
-  if(d.t === 'version'){
-    e.waitUntil((async () => {
-      const c = await caches.open(MEDIA);
-      const n = (await c.keys()).length;
-      try{ e.source.postMessage({ t: 'version', cache: CACHE, media: n }); }catch(err){}
-    })());
-  }
-});
-
-/* ── اعلان‌ها ── */
-self.addEventListener('push', e => {
-  let d = { title: 'نورستان', body: 'خبر تازه‌ای هست' };
-  try{ if(e.data) d = { ...d, ...e.data.json() }; }catch(err){}
-  e.waitUntil(self.registration.showNotification(d.title, {
-    body: d.body,
-    dir: 'rtl', lang: 'fa',
-    badge: './assets/images/icons/icon-192.png',
-    icon: './assets/images/icons/icon-192.png',
-    data: { url: d.url || './' }
-  }));
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || './';
-  e.waitUntil((async () => {
-    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for(const c of all){ if('focus' in c){ c.navigate(url); return c.focus(); } }
-    if(self.clients.openWindow) return self.clients.openWindow(url);
+  e.respondWith((async () => {
+    const c = await caches.open(SHELL);
+    const hit = await c.match(req);
+    if (hit) return hit;
+    try {
+      const res = await fetch(req);
+      if (res && res.ok) c.put(req, res.clone()).catch(() => {});
+      return res;
+    } catch {
+      return hit || Response.error();
+    }
   })());
 });
