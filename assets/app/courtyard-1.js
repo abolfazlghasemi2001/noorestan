@@ -2,10 +2,9 @@
    نورستان — نسخهٔ ۱۹ب: صحنِ روزانه + تنظیماتِ عبادت + قبله
    ═══════════════════════════════════════════════════════════════════
    تزِ UI: خانه «صحن» است، نه لانچرِ شلوغِ بازی و نه داشبوردِ اذان.
-   یک اسکرولِ موبایل‌اول: سربرگ (نام، شمسی+قمری، شهر، نوارِ تا اذانِ
-   بعدی)، نوارِ پنج نماز، کارتِ مناسبت (اگر امروز باشد) و میان‌برِ
-   سه‌تایی. آیهٔ روز و مأموریت‌ها همان قهرمان‌های قبلیِ خانه‌اند و
-   دست‌نخورده زیرِ صحن می‌مانند.
+   یک کاروسلِ موبایل‌اول: سربرگِ امروز، نوارِ پنج نماز، رمضان و ذکر
+   (اگر باشند)، مناسبت و میان‌برهای سه‌تایی. آیهٔ روز و مأموریت‌ها
+   همان قهرمان‌های قبلیِ خانه‌اند و دست‌نخورده زیرِ صحن می‌مانند.
 
    این فایل *پس از* باندلِ اصلی و موتورِ اوقات بار می‌شود و به همان
    سبکِ بقیهٔ برنامه، خودش را به نقاطِ موجود وصل می‌کند:
@@ -48,6 +47,7 @@ const SalahLog = {
     list.push(name);
     log[k] = list;
     Store.set('salahLog', log);
+    try{ Courtyard.invalidateSig(); }catch(e){}
     /* جایزهٔ خیلی کم + سقفِ روزانه (۵ نماز ⇒ حداکثر ۵ سکه) */
     Wallet.earn(this.COIN, `نمازِ ${label}`);
     Store.update(d => { d.xp += this.XP; });
@@ -63,6 +63,7 @@ const SalahLog = {
     const list = Array.isArray(log[k]) ? log[k].filter(n => n !== name) : [];
     if(list.length) log[k] = list; else delete log[k];
     Store.set('salahLog', log);
+    try{ Courtyard.invalidateSig(); }catch(e){}
     return true;
   }
 };
@@ -103,6 +104,38 @@ const Courtyard = {
 
   times(){ return Salah.times(new Date()); },
 
+  /* محتوای صحن فقط با تغییرِ یکی از ورودی‌های واقعیِ آن ساخته می‌شود. */
+  _buildSig(){
+    const now = new Date();
+    const loc = Store.get('loc') || {};
+    let occ = null, ramadan = false, wird = null;
+    try{ occ = noorOccasionFor(now); }catch(e){}
+    try{ ramadan = typeof RamadanUI !== 'undefined' && !!RamadanUI.isRamadan(now); }catch(e){}
+    try{
+      if(typeof WirdUI !== 'undefined' && WirdUI.cardHtml){
+        wird = [WirdUI.whichAt(now), WirdUI.doneCount()];
+      }
+    }catch(e){}
+    return JSON.stringify({
+      day: U.today(),
+      city: this.cityLabel(),
+      location: [loc.cityId || '', loc.source || '', loc.lat == null ? '' : loc.lat, loc.lon == null ? '' : loc.lon],
+      method: Store.get('salahMethod') || 'jafari',
+      adjustments: [Store.get('fajrAngle') || 18, Store.get('maghribOffsetMin') || 14, Store.get('ashaOffsetMin') || 90],
+      occasion: occ ? [occ.title, occ.kind, occ.topic, !!occ.range, occ.label, occ.src] : null,
+      ramadan,
+      marks: SalahLog.count(),
+      player: Store.get('playerName') || 'بازیکن',
+      hasLoc: this.hasLoc(),
+      wird
+    });
+  },
+
+  invalidateSig(){
+    const box = U.$('#salahCourt');
+    if(box && box.dataset) delete box.dataset.scSig;
+  },
+
   headerHtml(now, t, nx){
     const name = Store.get('playerName') || 'بازیکن';
     const jal = U.jalali(+now);
@@ -115,7 +148,7 @@ const Courtyard = {
             <div class="sc-name">${U.esc(name)}</div>
             <div class="sc-dates"><span>${U.esc(jal)}</span> • <span>${U.esc(hij)}</span></div>
           </div>
-          <button class="sc-citybtn" data-sc="city" aria-label="انتخابِ شهر برای اوقاتِ نماز">
+          <button type="button" class="sc-citybtn" data-sc="city" aria-label="انتخابِ شهر برای اوقاتِ نماز">
             ${Icon.of('city')} <span>${U.esc(this.cityLabel())}</span>
           </button>
         </div>
@@ -147,7 +180,7 @@ const Courtyard = {
           const isCur = name === curName;
           const done = SalahLog.marked(name);
           return `
-          <button class="sc-prayer${isCur ? ' is-current' : ''}${done ? ' is-marked' : ''}"
+          <button type="button" class="sc-prayer${isCur ? ' is-current' : ''}${done ? ' is-marked' : ''}"
                   data-sp="${name}" ${isCur ? 'aria-current="time"' : ''}
                   aria-label="نمازِ ${label} — ${this.hhmm(t[name])}${done ? ' — علامت خورده' : ''}">
             ${done ? '<span class="sp-mark" aria-hidden="true">✓</span>' : ''}
@@ -162,7 +195,7 @@ const Courtyard = {
     let occ = null;
     try{ occ = noorOccasionFor(date || new Date()); }catch(e){}
     if(!occ) return '';                       /* اگر مناسبت نیست، هیچ کارتی نیست */
-    const go = occ.topic ? `<button class="btn gh sm sc-occ-go" data-sc="occ-quiz" data-topic="${U.esc(occ.topic)}">
+    const go = occ.topic ? `<button type="button" class="btn gh sm sc-occ-go" data-sc="occ-quiz" data-topic="${U.esc(occ.topic)}">
         ${Icon.of('medal')}<span>آزمونِ ${U.esc(occ.topic)}</span></button>` : '';
     return `
       <div class="sc-occ ${occ.kind === 'mourning' ? 'mourning' : ''}" role="note" aria-label="مناسبتِ امروز">
@@ -178,14 +211,13 @@ const Courtyard = {
   shortcutsHtml(){
     return `
       <div class="sc-short">
-        <button data-sc-short="quran" aria-label="رفتن به تلاوت">${Icon.of('listen')}<span>تلاوت</span></button>
-        <button data-sc-short="play" aria-label="رفتن به بازیِ امروز">${Icon.of('gamepad')}<span>بازیِ امروز</span></button>
-        <button data-sc-short="online" aria-label="رفتن به محفل">${Icon.of('globe')}<span>محفل</span></button>
+        <button type="button" data-sc-short="quran" aria-label="رفتن به تلاوت">${Icon.of('listen')}<span>تلاوت</span></button>
+        <button type="button" data-sc-short="play" aria-label="رفتن به بازیِ امروز">${Icon.of('gamepad')}<span>بازیِ امروز</span></button>
+        <button type="button" data-sc-short="online" aria-label="رفتن به محفل">${Icon.of('globe')}<span>محفل</span></button>
       </div>`;
   },
 
-  /* کلِ صحن — رمضان و ذکر (فازِ ۳) اگر ماژولشان بار شده باشد،
-     کارتشان را همین‌جا بینِ سربرگ و نوارِ نماز می‌گذارند. */
+  /* کلِ صحن — هر بخشِ روزانه یک اسلایدِ مستقل در همان موتورِ کاروسلِ خانه است. */
   html(){
     const now = new Date();
     const t = this.times();
@@ -194,22 +226,68 @@ const Courtyard = {
     this._curName = cur.name;
     const ramadan = (typeof RamadanUI !== 'undefined' && RamadanUI.cardHtml) ? RamadanUI.cardHtml(now, t) : '';
     const wird = (typeof WirdUI !== 'undefined' && WirdUI.cardHtml) ? WirdUI.cardHtml(now) : '';
+    const occasion = this.occasionHtml(now);
+    const slides = [
+      `<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="سربرگِ امروز">
+        ${this.headerHtml(now, t, nx)}
+      </article>`,
+      `<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="اوقاتِ نماز">
+        <div class="sc-prayer-slide">
+          <div class="sc-slide-heading"><b>اوقاتِ نماز</b><small>امروز</small></div>
+          ${this.prayersHtml(t, cur.name)}
+        </div>
+      </article>`
+    ];
+    if(ramadan) slides.push(`<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="رمضان — سحر و افطار">${ramadan}</article>`);
+    if(wird) slides.push(`<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="ذکرِ امروز">${wird}</article>`);
+    if(occasion) slides.push(`<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="مناسبتِ امروز">${occasion}</article>`);
+    slides.push(`<article class="slide" role="group" aria-roledescription="اسلاید" aria-label="میان‌برها">
+      <div class="sc-short-slide">
+        <div class="sc-slide-heading"><b>دسترسیِ سریع</b><small>میان‌برها</small></div>
+        ${this.shortcutsHtml()}
+      </div>
+    </article>`);
+
+    const count = slides.length;
+    const dots = slides.map((_, i) => `
+      <button type="button" class="dot${i === 0 ? ' active' : ''}" data-i="${i}"
+              aria-label="رفتن به اسلایدِ ${U.fa(i + 1)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('');
     return `
       <div class="sc-wrap">
-        ${this.headerHtml(now, t, nx)}
-        ${ramadan}
-        ${this.prayersHtml(t, cur.name)}
-        ${wird}
-        ${this.occasionHtml(now)}
-        ${this.shortcutsHtml()}
+        <div id="scCarousel" class="category-carousel" role="group" aria-roledescription="کاروسل" aria-label="صحنِ روزانه">
+          <div class="carousel-viewport">
+            <div class="carousel-track">${slides.join('')}</div>
+          </div>
+          <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
+          <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
+          <div class="carousel-controls">
+            <button type="button" class="carousel-toggle" aria-label="توقف چرخش خودکار" aria-pressed="false" title="توقف چرخش خودکار">${Icon.of('pause')}</button>
+            <div class="carousel-dots" role="group" aria-label="انتخاب اسلاید">${dots}</div>
+          </div>
+          <p class="carousel-status" role="status" aria-live="polite">اسلایدِ ۱ از ${U.fa(count)}</p>
+        </div>
       </div>`;
   },
 
   render(){
     const box = U.$('#salahCourt');
     if(!box) return;
-    if(!this.enabled()){ box.innerHTML = ''; return; }
+    if(!this.enabled()){
+      box.innerHTML = '';
+      if(box.dataset) delete box.dataset.scSig;
+      try{ initAllCarousels(); }catch(e){}
+      return;
+    }
+    const sig = this._buildSig();
+    const carousel = U.$('#scCarousel', box);
+    if(box.dataset && box.dataset.scSig === sig && carousel && carousel.isConnected !== false){
+      this.startClock();
+      this.tick();
+      return;
+    }
     box.innerHTML = this.html();
+    if(box.dataset) box.dataset.scSig = sig;
+    try{ initAllCarousels(); }catch(e){}
     this.wire(box);
     this.startClock();
     this.tick();
@@ -236,8 +314,8 @@ const Courtyard = {
     try{ if(typeof Adhan !== 'undefined' && Adhan.reschedule) Adhan.reschedule(); }catch(e){}
   },
 
-  /* ساعتِ صحن: هر ثانیه فقط متنِ شمارش و نوار تازه می‌شود (نه کلِ DOM)؛
-     وقتی نمازِ جاری عوض شود، نوارِ نماز یک بار از نو رسم می‌شود. */
+  /* ساعتِ صحن: تیک‌های کوچک فقط متن‌ها، نوارِ پیشرفت و chip را patch می‌کنند؛
+     تغییرِ نمازِ جاری فقط کلاس و aria-current را روی همان دکمه‌ها عوض می‌کند. */
   startClock(){
     if(this._clockId != null) return;
     try{
@@ -249,19 +327,29 @@ const Courtyard = {
 
   tick(){
     if(!this.enabled()) return;
+    const box = U.$('#salahCourt');
+    if(!box || !U.$('#scCarousel', box)) return;
     const now = new Date();
     const nx = Salah.next(now);
     const cur = Salah.current(now);
-    const inn = U.$('#scNextIn'); if(inn) inn.textContent = this.mmss(nx.inMs);
-    const nm = U.$('#scNextName'); if(nm) nm.textContent = (Salah.LABEL[nx.name] || nx.name) + ' —';
-    const at = U.$('#scNextAt'); if(at) at.textContent = this.hhmm(nx.at);
+    const setText = (el, value) => { if(el && el.textContent !== value) el.textContent = value; };
+    setText(U.$('#scNextIn', box), this.mmss(nx.inMs));
+    setText(U.$('#scNextName', box), (Salah.LABEL[nx.name] || nx.name) + ' —');
+    setText(U.$('#scNextAt', box), this.hhmm(nx.at));
+    setText(U.$('#scMarks', box), this.marksChip());
     const p = Math.round(Salah.progress(now) * 100);
-    const bar = U.$('#scNextBar'); if(bar) bar.style.width = p + '%';
-    const bw = U.$('#scNextBarWrap'); if(bw && bw.setAttribute) bw.setAttribute('aria-valuenow', String(p));
+    const bar = U.$('#scNextBar', box);
+    if(bar && bar.style.width !== p + '%') bar.style.width = p + '%';
+    const bw = U.$('#scNextBarWrap', box);
+    if(bw && bw.getAttribute && bw.getAttribute('aria-valuenow') !== String(p)) bw.setAttribute('aria-valuenow', String(p));
     if(cur.name !== this._curName){
       this._curName = cur.name;
-      const box = U.$('#salahCourt');
-      if(box && box.innerHTML) this.render();
+      U.$$('[data-sp]', box).forEach(b => {
+        const isCurrent = b.dataset.sp === cur.name;
+        b.classList.toggle('is-current', isCurrent);
+        if(isCurrent) b.setAttribute('aria-current', 'time');
+        else b.removeAttribute('aria-current');
+      });
     }
   },
 

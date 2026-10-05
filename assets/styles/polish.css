@@ -33,7 +33,20 @@ html body .top{
 }
 
 /* ── سطح‌های اصلی: لبهٔ زرّین ظریف + سایهٔ لایه‌ای ── */
-html body .card,html body .hero,html body .today-card,html body .continue-card{
+html body .card,html body .hero,html body .today-card,html body .continue-card,
+html body .sc-head,html body .sc-occ,html body .sc-wird,html body .sc-ramadan,
+html body .sc-prayer-slide,html body .sc-short-slide{
+  border-radius:var(--pl-r-lg);
+  border-color:var(--pl-hair);
+  box-shadow:var(--pl-elev-1);
+}
+html body .sc-prayer{
+  min-height:78px;
+  border-color:var(--pl-hair);
+  box-shadow:var(--pl-elev-1);
+}
+html body .sc-short button{
+  min-height:48px;
   border-radius:var(--pl-r-lg);
   border-color:var(--pl-hair);
   box-shadow:var(--pl-elev-1);
@@ -44,15 +57,19 @@ html body .card::before{ opacity:.38; inset-inline:22px; }
 html[data-theme="light"] body .card::before{ opacity:.5; }
 
 /* ── کاشی‌ها و ردیف‌ها: پاسخِ لمسی ── */
-html body .tile,html body .item,html body .shop-item,html body .miss,html body .stat{
+html body .tile,html body .item,html body .shop-item,html body .miss,html body .stat,
+html body .sc-head,html body .sc-occ,html body .sc-wird,html body .sc-ramadan,
+html body .sc-prayer-slide,html body .sc-short-slide,html body .sc-prayer,html body .sc-short button{
   transition:transform var(--pl-med) var(--ease), box-shadow var(--pl-med) ease, border-color var(--pl-med) ease;
 }
 @media (hover:hover){
-  html body .tile:hover,html body .item.click:hover,html body .shop-item:hover{
+  html body .tile:hover,html body .item.click:hover,html body .shop-item:hover,
+  html body .sc-prayer:hover:not(:disabled),html body .sc-short button:hover:not(:disabled){
     transform:translateY(-2px); box-shadow:var(--pl-elev-1); border-color:var(--gold);
   }
 }
-html body .tile:active,html body .item.click:active,html body .shop-item:active{ transform:scale(.985); }
+html body .tile:active,html body .item.click:active,html body .shop-item:active,
+html body .sc-prayer:active,html body .sc-short button:active{ transform:scale(.985); }
 
 /* ── دکمه‌ها: هدفِ لمسیِ ۴۴px، فشردگیِ نرم ── */
 html body .btn:not(.sm),html body .iconbtn{ min-height:44px; }
@@ -120,10 +137,20 @@ html body #nav .navi:active{ transform:scale(.94); }
 @media (prefers-reduced-motion:reduce){
   .screen.active,#toasts .toast{ animation:none; }
   .skeleton::after,.shimmer::after{ display:none; }
-  html body .tile,html body .item,html body .btn{ transition:none; }
+  html body .tile,html body .item,html body .btn,
+  html body .sc-head,html body .sc-occ,html body .sc-wird,html body .sc-ramadan,
+  html body .sc-prayer-slide,html body .sc-short-slide,html body .sc-prayer,html body .sc-short button{
+    transition:none;
+  }
 }
 html[data-motion="off"] .screen.active,html[data-motion="off"] #toasts .toast{ animation:none; }
 html[data-motion="off"] .skeleton::after,html[data-motion="off"] .shimmer::after{ display:none; }
+html[data-motion="off"] body .sc-head,html[data-motion="off"] body .sc-occ,
+html[data-motion="off"] body .sc-wird,html[data-motion="off"] body .sc-ramadan,
+html[data-motion="off"] body .sc-prayer-slide,html[data-motion="off"] body .sc-short-slide,
+html[data-motion="off"] body .sc-prayer,html[data-motion="off"] body .sc-short button{
+  transition:none;
+}
 
 /* Arena upgrade: motion-rich splash, professional auth art, and embedded /games/ host */
 .sp-motion{width:min(78vw,520px);height:auto;display:block;filter:drop-shadow(0 26px 54px rgba(0,0,0,.5))}
