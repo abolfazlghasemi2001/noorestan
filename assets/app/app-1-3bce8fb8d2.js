@@ -704,6 +704,8 @@ const Store = {
                esmFamilBest: 0, perfectRuns: 0, playMs: 0,
                exams: 0, topics: {},
                hadith: 0, imams: 0, dua: 0, spectated: 0, shared: 0, missionsDone: 0,
+               /* نسخهٔ ۱۹: شمارِ باز شدنِ قبله (مأموریتِ «یک‌بار در عمر») */
+               qiblaOpens: 0,
                hifzVerses: 0, reviews: 0, bestStreak: 0, shopBuys: 0, coinsEarned: 0,
                /* شمارشِ بازی‌ها برای پنل مدیریت: کلِ عمر و امروز */
                byGame: {}, today: { date: '', n: 0, byGame: {} } },
@@ -711,7 +713,9 @@ const Store = {
       contentEdits: { del: {}, add: {} },
       dailyChallenge: { date: '', done: false, reward: 0, streak: 0, lastDate: '' },
       settings: { theme: 'dark', sound: true, haptics: true, notifications: true,
-                  ambient: false, onboarded: false, tips: true },
+                  ambient: false, onboarded: false, tips: true,
+                  /* نسخهٔ ۱۹ب: نمایش اوقات روی خانه (صحن) — پیش‌فرض روشن */
+                  salahOnHome: true },
       // ترجیحات تلاوت: قاری، منبع صدا، تکرار آیه، سرعت، بلندی، ترجمه، اندازهٔ متن
       quran: { reciter: 0, source: 0, repeat: 0, speed: 1, vol: .9, autoNext: true,
                surah: 1, ayah: 1, translation: 'fa.ansarian', readSize: 25, showFa: true,
@@ -749,6 +753,41 @@ const Store = {
          phone: شماره‌ای که با OTP تأیید شده — رشتهٔ خالی یعنی هنوز نه.
          otp: تنها کدِ در جریان. هش و نمک نگه داشته می‌شود، نه خودِ کد. */
       sms: { apiKey: '', deviceId: '', testPhone: '' },
+      /* ── نسخهٔ ۱۹الف: عبادت — اوقات نماز و قبله ──
+         loc: شهر/مکان کاربر برای اوقات. { cityId, lat, lon, source }
+         source='geo' یعنی یک‌بار از Geolocation دستگاه گرفته شده و
+         source='city' یعنی از فهرستِ شهرها انتخاب شده. null یعنی هنوز
+         انتخابی نشده — موتور اوقات خودش به تهران برمی‌گردد و هیچ‌وقت
+         خطا نمی‌دهد.
+         روش‌ها: 'jafari' (جعفریت — ایران، پیش‌فرض) | 'mwl' | 'ummqura' | 'isna'.
+         سه عددِ بعدی فقط رویِ روشِ جعفری اثر دارند: زاویهٔ فجر (۱۵ یا ۱۸)،
+         دقیقهٔ احتیاطِ مغرب پس از غروب (۱۲–۱۸) و دقیقهٔ عشا پس از مغرب. */
+      loc: null,
+      salahMethod: 'jafari',
+      fajrAngle: 18,
+      maghribOffsetMin: 14,
+      ashaOffsetMin: 90,
+      /* ── نسخهٔ ۱۹ب: دفترچهٔ علامتِ نماز ──
+         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr',…] — فقط محلی، فقط
+         همان پنج نماز. سقفِ روزانه خودش در همین ساختار است: هر نماز
+         در هر روز حداکثر یک بار ثبت (و جایزه) می‌شود. */
+      salahLog: {},
+      /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم و اذانِ محلی ──
+         adhanEnabled: روشن/خاموشِ یادآور برای هر نماز (master کلیدِ کل).
+         adhanOffsets.before15: یادآورِ ۱۵ دقیقه قبل، اختیاری.
+         tasbihToday: { date, counts:[سبحان‌الله، الحمدلله، الله‌اکبر], done }
+                      — با تغییرِ روز (U.today) خودش ریست می‌شود.
+         wirdToday: { date, done:{ morning, evening, afterPrayer } }.
+         khatm: { page, month, stamp } — هدفِ ختم و مهرِ روزِ انجام.
+         notifGranted: نتیجهٔ آخرین درخواستِ اجازهٔ Notification —
+                      '' | 'granted' | 'denied' | 'default'.
+         همه فقط محلی‌اند: هیچ سرور، پوش یا Firebaseای در کار نیست. */
+      adhanEnabled: { master:true, fajr:true, dhuhr:true, asr:true, maghrib:true, isha:true },
+      adhanOffsets: { before15:false },
+      tasbihToday: { date:'', counts:[0, 0, 0], done:false },
+      wirdToday: { date:'', done:{} },
+      khatm: { page:1, month:'', stamp:'' },
+      notifGranted: '',
       /* ── نسخهٔ ۹: هویتِ کاربر ──
          `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
@@ -978,6 +1017,86 @@ const Store = {
     if(typeof d.settings.tips !== 'boolean') d.settings.tips = true;
     if(!d.missions.weekStart || typeof d.missions.weekStart !== 'string') d.missions.weekStart = '';
     if(!Array.isArray(d.missions.week)) d.missions.week = [];
+
+    /* ── نسخهٔ ۱۹الف: کلیدهای عبادت ──
+       شکلِ خراب → پیش‌فرضِ امن. locِ بی‌مختصاتِ معتبر دور می‌رود (null)،
+       یعنی «هنوز انتخاب نشده» و موتور اوقات به تهران برمی‌گردد. */
+    if(d.loc != null && (typeof d.loc !== 'object' || Array.isArray(d.loc))) d.loc = null;
+    if(d.loc){
+      const la = parseFloat(d.loc.lat), lo = parseFloat(d.loc.lon != null ? d.loc.lon : d.loc.lng);
+      if(!isFinite(la) || !isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) d.loc = null;
+      else {
+        d.loc.lat = la; d.loc.lon = lo;
+        if(typeof d.loc.cityId !== 'string') d.loc.cityId = '';
+        d.loc.cityId = d.loc.cityId.slice(0, 32);
+        d.loc.source = d.loc.source === 'geo' ? 'geo' : 'city';
+      }
+    }
+    if(!['jafari', 'mwl', 'ummqura', 'isna'].includes(d.salahMethod)) d.salahMethod = 'jafari';
+    d.fajrAngle = (+d.fajrAngle === 15) ? 15 : 18;
+    d.maghribOffsetMin = U.clamp(Math.round(+d.maghribOffsetMin) || 14, 12, 18);
+    d.ashaOffsetMin = U.clamp(Math.round(+d.ashaOffsetMin) || 90, 60, 120);
+    if(typeof d.settings.salahOnHome !== 'boolean') d.settings.salahOnHome = true;
+    /* دفترچهٔ نماز: کلیدها فقط تاریخِ yyyy-mm-dd، مقدارها فقط آرایه‌ای از
+       نام‌های معتبرِ نماز، بی‌تکرار و حداکثر پنج‌تا (همان سقفِ روزانه).
+       روزهایِ خیلی قدیمی هم هرس می‌شوند تا دفترچه بی‌نهایت رشد نکند. */
+    if(!d.salahLog || typeof d.salahLog !== 'object' || Array.isArray(d.salahLog)) d.salahLog = {};
+    {
+      const NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+      for(const k of Object.keys(d.salahLog)){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(d.salahLog[k])){ delete d.salahLog[k]; continue; }
+        d.salahLog[k] = [...new Set(d.salahLog[k].filter(n => NAMES.includes(n)))].slice(0, 5);
+      }
+      const keys = Object.keys(d.salahLog).sort();
+      while(keys.length > 400){ delete d.salahLog[keys.shift()]; }
+    }
+    /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم، اذان ── */
+    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    if(!d.adhanEnabled || typeof d.adhanEnabled !== 'object' || Array.isArray(d.adhanEnabled))
+      d.adhanEnabled = {};
+    ADHAN_KEYS.forEach(k => { if(typeof d.adhanEnabled[k] !== 'boolean') d.adhanEnabled[k] = true; });
+    if(!d.adhanOffsets || typeof d.adhanOffsets !== 'object' || Array.isArray(d.adhanOffsets))
+      d.adhanOffsets = {};
+    d.adhanOffsets.before15 = !!d.adhanOffsets.before15;
+    if(!d.tasbihToday || typeof d.tasbihToday !== 'object' || Array.isArray(d.tasbihToday))
+      d.tasbihToday = { date:'', counts:[0, 0, 0], done:false };
+    if(typeof d.tasbihToday.date !== 'string') d.tasbihToday.date = '';
+    d.tasbihToday.counts = (Array.isArray(d.tasbihToday.counts) ? d.tasbihToday.counts : [0, 0, 0])
+      .map(n => U.clamp(Math.floor(+n) || 0, 0, 999)).slice(0, 3);
+    while(d.tasbihToday.counts.length < 3) d.tasbihToday.counts.push(0);
+    d.tasbihToday.done = !!d.tasbihToday.done;
+    if(!d.wirdToday || typeof d.wirdToday !== 'object' || Array.isArray(d.wirdToday))
+      d.wirdToday = { date:'', done:{} };
+    if(typeof d.wirdToday.date !== 'string') d.wirdToday.date = '';
+    if(!d.wirdToday.done || typeof d.wirdToday.done !== 'object' || Array.isArray(d.wirdToday.done))
+      d.wirdToday.done = {};
+    ['morning', 'evening', 'afterPrayer'].forEach(k => { d.wirdToday.done[k] = !!d.wirdToday.done[k]; });
+    if(!d.khatm || typeof d.khatm !== 'object' || Array.isArray(d.khatm))
+      d.khatm = { page:1, month:'', stamp:'' };
+    d.khatm.page = U.clamp(Math.floor(+d.khatm.page) || 1, 1, 604);
+    if(typeof d.khatm.month !== 'string') d.khatm.month = '';
+    d.khatm.month = d.khatm.month.slice(0, 7);
+    if(typeof d.khatm.stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.khatm.stamp))
+      d.khatm.stamp = '';
+    if(!['', 'granted', 'denied', 'default'].includes(d.notifGranted)) d.notifGranted = '';
+
+    /* ── دور ریختنِ کلیدِ ناشناس ──
+       پیش‌تر sanitize فقط کلیدهای *شناخته‌شده* را درست می‌کرد؛ هر کلیدِ
+       ناشناس (از یک باگ، نسخهٔ خیلی قدیمی یا دست‌کاریِ دستیِ
+       localStorage) تا ابد در حافظه می‌ماند و با هر load دوباره merge
+       می‌شد. حالا کلیدی که در defaults() و در فهرستِ کلیدهای زمانِ اجرا
+       نیست (و با '_' شروع نمی‌شود — کلیدهای داخلی مثل _v و
+       _migratedFrom) دور ریخته می‌شود. اقتصادِ سکه دست‌نخورده می‌ماند:
+       coins/wallet در defaults هستند و هم‌ترازسازی‌شان *پیش از* این
+       بلوک اجرا شده است. */
+    {
+      const KEEP_RUNTIME = ['adminAttempts', 'guestMigration', 'progressOwner', 'accountProgress'];
+      const known = new Set(Object.keys(this.defaults()).concat(KEEP_RUNTIME));
+      for(const k of Object.keys(d)){
+        if(k.charCodeAt(0) === 95 /* '_' */ || known.has(k)) continue;
+        delete d[k];
+      }
+    }
   },
 
   save(){
