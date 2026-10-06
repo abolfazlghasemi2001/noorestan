@@ -1434,15 +1434,54 @@ const FX = {
     this._canvases.push({ cv, get live(){ return live; }, stop(){ live = false; }, fit });
     return { stop(){ live = false; }, fit };
   },
-  /* غبار طلایی پس‌زمینه (اختیاری، از تنظیمات) */
+  /* کُشتنِ حلقهٔ یک بوم.
+     چرا جدا از `cv.remove()` است؟ برداشتنِ گره از DOM حلقهٔ
+     requestAnimationFrame را نمی‌بندد: پرچمِ `live` در همان بستهٔ
+     `canvas()` می‌ماند و پیمایشِ بعدی خودش را دوباره صف می‌کند. نتیجه
+     یک حلقهٔ بی‌پایان روی بومی است که دیگر دیده نمی‌شود و هر بار
+     clearRect/arc می‌زند. این تابع آن حلقه را می‌بندد و ردیفش را از
+     فهرستِ نگهبان برمی‌دارد تا فهرست هم بی‌جهت رشد نکند. */
+  stopCanvas(cv){
+    if(!cv) return;
+    const keep = [];
+    (this._canvases || []).forEach(c => {
+      if(c.cv !== cv){ keep.push(c); return; }
+      try{ c.stop(); }catch(e){}
+    });
+    this._canvases = keep;
+  },
+  /* ایستِ کامل — پردهٔ آغازین هنگام کنار رفتن. عمداً «همه» است نه
+     «بومِ پرده»: کدِ بیرونی لازم نیست بداند کدام بوم مالِ کیست.
+     نکتهٔ پیشین: این‌جا بوم‌ها را می‌کشت و بومِ روشنِ کاربر (غبار
+     طلایی) از قبل با `dust(true)` زنده شده بود؛ ولی `dust(false)` هرگز
+     نمی‌کشتش. حالا هر دو سرِ داستان صریح‌اند. */
+  stopAllCanvases(){
+    (this._canvases || []).forEach(c => { try{ c.stop(); }catch(e){} });
+    this._canvases = [];
+  },
+  /* آیا حلقهٔ این بوم زنده است؟ */
+  canvasLive(cv){
+    return !!cv && (this._canvases || []).some(c => c.cv === cv && c.live);
+  },
+  /* غبار طلایی پس‌زمینه (اختیاری، از تنظیمات).
+     سه حالت دارد و هر سه لازم است:
+       ۱) خاموش‌کردن: حلقه می‌میرد و گره می‌رود.
+       ۲) روشن‌کردنِ نخست: گره ساخته می‌شود و حلقه راه می‌افتد.
+       ۳) روشن‌کردنِ دوباره روی گرهی که حلقه‌اش مرده: دوباره راه می‌افتد.
+     حالت سوم پیش‌تر بی‌پاسخ بود و نشانه‌اش این بود که اگر پردهٔ آغازین
+     همهٔ بوم‌ها را ایست می‌داد، غبارِ کاربر تا اولین خاموش/روشن‌کردن
+     یخ می‌زد و ذره‌ای تکان نمی‌خورد. */
   dust(on){
     let cv = U.$('#dustBg');
-    if(!on){ if(cv) cv.remove(); return; }
-    if(cv) return;
-    cv = document.createElement('canvas');
-    cv.id = 'dustBg'; cv.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(cv);
-    cv.style.width = '100%'; cv.style.height = '100%';
+    if(!on){ if(cv){ this.stopCanvas(cv); try{ cv.remove(); }catch(e){} } return; }
+    if(this.canvasLive(cv)) return;
+    const fresh = !cv;
+    if(fresh){
+      cv = document.createElement('canvas');
+      cv.id = 'dustBg'; cv.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(cv);
+      cv.style.width = '100%'; cv.style.height = '100%';
+    }
     this.canvas(cv, { count: 26, speed: .18, link: 66 });
   },
   /* واکنش شناور در محفل */
@@ -3469,8 +3508,11 @@ const Splash = {
     el.classList.add(mode);
     setTimeout(() => { el.classList.add('out'); }, 520);
     setTimeout(() => {
-      try{ (FX._canvases || []).forEach(c => { try{ c.stop(); }catch(e){} }); }catch(e){}
+      /* فقط بومِ خودِ پرده. پیش‌تر این‌جا همهٔ بوم‌ها کشته می‌شدند و
+         غبارِ طلاییِ روشنِ کاربر هم با پرده یخ می‌زد. */
+      try{ FX.stopCanvas(U.$('#spDust')); }catch(e){}
       try{ el.remove(); }catch(e){ el.style.display = 'none'; }
+      try{ Theme.paintAmbient(); }catch(e){}
     }, 1400);
     if(byUser) UI.toast('🌙 به نورستان خوش آمدی', 'ok', 2200);
     /* تازه‌وارد باید *پس از* کنار رفتن پرده بیاید، نه پشتش. پرده z-index

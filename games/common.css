@@ -1,6 +1,15 @@
 /* نورستان — پوستهٔ مشترک بازی‌های مستقل (games/) — توکن‌ها در tokens.css */
 @import url('tokens.css');
-@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+/* قلمِ رابطِ بازی‌ها: پیش‌تر از jsDelivr می‌آمد (Vazirmatn-font-face.css).
+   حالا همان فایل‌هایی که خودِ برنامه در assets/fonts/ میزبانی می‌کند
+   بار می‌شود؛ یعنی بازی‌های مستقل هم مثل پوستهٔ اصلی آفلاین خوانا
+   می‌مانند و یک درخواستِ مسدودکنندهٔ بیرونی کمتر می‌شود. */
+@font-face{font-family:'Vazirmatn';font-style:normal;font-weight:400;font-display:swap;src:url('../assets/fonts/vazirmatn-regular.woff2') format('woff2')}
+@font-face{font-family:'Vazirmatn';font-style:normal;font-weight:700;font-display:swap;src:url('../assets/fonts/vazirmatn-bold.woff2') format('woff2')}
+/* قلمِ قرآنیِ بازی‌ها: تنها نشانیِ بیرونیِ باقی‌مانده در برگه‌های سبک.
+   فاز ۴ (سیستم طراحی و تایپوگرافی) باید یا خودش میزبانی کند یا جانشینِ
+   محلی بگذارد. تا آن روز، `_check-scripts.js` این یک مورد را استثنای
+   نام‌دار می‌داند و در هر اجرا یادآوری می‌کند — استثنا بی‌صدا نیست. */
 @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
 /* گذار نرم میان صفحه‌های بازی (View Transitions، هم‌خاستگاه). مرورگرِ بی‌پشتیبانی نادیده‌اش می‌گیرد. */
 @view-transition{navigation:auto}

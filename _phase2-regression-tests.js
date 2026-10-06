@@ -51,13 +51,93 @@ for(const fn of __smsChecks)await fn();
 const crypto=require('node:crypto');const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const dataStart=SRC.indexOf('const DATA = '), topicsStart=SRC.indexOf('const TOPICS = ');
 const dataSource=dataStart>=0&&topicsStart>dataStart?SRC.slice(dataStart,topicsStart):'';
-/* پایهٔ مقایسه: ابتدا bundle همان کامیت، سپس index تاریخی همان کامیت. */
+/* پایهٔ مقایسه: باندلِ همان کامیتی که این فایل را ساخت.
+   `0aac0df` کامیتِ «Split inline CSS and JavaScript from index.html» است —
+   همان کامیتی که `assets/app/app-1-3bce8fb8d2.js` را با همین نامِ
+   محتوا-هش‌دار پدید آورد. بلوکِ DATA از آن روز تا امروز بایت‌به‌بایت
+   یکی است (پیش از این سنجش، با دست بررسی شد)، پس این مرجع واقعاً
+   «محتوا دست‌نخورده مانده» را می‌سنجد.
+   کامیتِ پیشین (456811bf…) وجود دارد ولی در آن روزها هنوز سندی به نام
+   `assets/app/app-1-3bce8fb8d2.js` نبود؛ `git show` شکست می‌خورد و
+   پشتیبانش هم رشتهٔ نامعتبرِ `456811bfe590d7b4dd4...` بود. نتیجه: سنجش
+   بی‌صدا SKIP می‌شد و دروازه، سبزِ دروغ می‌داد. */
 let before='';
-try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd62ba2231a2b435bdba0952:assets/app/app-1-3bce8fb8d2.js'],{maxBuffer:8*1024*1024}).toString();}
-catch(e){try{before=require('node:child_process').execFileSync('git',['show','456811bfe590d7b4dd4...'],{maxBuffer:8*1024*1024}).toString();}catch(_){}}
+try{before=require('node:child_process').execFileSync('git',['show','0aac0df:assets/app/app-1-3bce8fb8d2.js'],{maxBuffer:8*1024*1024}).toString();}
+catch(e){ before=''; }
 const baseStart=before.indexOf('const DATA = '),baseTopics=before.indexOf('const TOPICS = ');
+/* کامیتِ مرجع باید حل شود. پیش‌تر اگر `git show` شکست می‌خورد، سنجش
+   بی‌صدا به SKIP می‌رفت و سبزِ دروغ می‌داد. حالا همان شکست، خودش یک
+   سنجشِ قرمز است: سکوت در دروازه، جای خطا را نمی‌گیرد. */
+ok('baseline commit resolves (DATA reference)', !!before,
+  'git show 0aac0df:assets/app/app-1-3bce8fb8d2.js — اگر clone تُنُک است: git fetch --unshallow (CI: fetch-depth: 0)');
 if(dataSource&&baseStart>=0&&baseTopics>baseStart) ok('DATA source unchanged from original repository',hash(dataSource)===hash(before.slice(baseStart,baseTopics)));
-else console.log('SKIP baseline DATA: historical reference unavailable');
+else ok('DATA source unchanged from original repository', false, 'baseline block missing');
+
+/* ── رگرسیونِ نشتِ بوم (فاز ۱) ──
+   پیش از رفع، `FX.dust(false)` فقط گره را از DOM برمی‌داشت و حلقهٔ
+   requestAnimationFrame روی همان بوم تا ابد می‌چرخید؛ `Splash.hide` هم
+   برای مردنِ بوم‌ها در آرایهٔ درونیِ FX دست می‌برد و هر بومِ زندهٔ دیگری
+   (غبارِ روشنِ کاربر) را با پرده می‌کشت. این سنجش هر دو را می‌گیرد. */
+const fakeCanvas = (id) => ({
+  id, clientWidth:320, clientHeight:480, width:0, height:0, isConnected:true,
+  getContext: () => ({ clearRect(){}, beginPath(){}, arc(){}, fill(){}, moveTo(){}, lineTo(){}, stroke(){}, set fillStyle(v){}, set strokeStyle(v){}, set lineWidth(v){} }),
+  remove(){ this.isConnected = false; }
+});
+const liveCanvases = () => (FX._canvases || []).filter(c => c.live).map(c => (c.cv && c.cv.id) || '?');
+{
+  const cv = fakeCanvas('dustBg');
+  FX.canvas(cv, { count:5, link:0 });
+  ok('بومِ تازه در فهرستِ FX زنده است', liveCanvases().includes('dustBg'));
+  const saved$ = U.$;
+  try{
+    U.$ = (sel, root) => (sel === '#dustBg' ? cv : saved$(sel, root));
+    FX.dust(false);
+  }finally{ U.$ = saved$; }
+  ok('FX.dust(false) حلقهٔ rAF را می‌کُشد', !liveCanvases().includes('dustBg'), 'زنده‌ها: ' + liveCanvases().join(','));
+  ok('FX.dust(false) گره را از DOM برمی‌دارد', cv.isConnected === false);
+  ok('فهرستِ بوم‌ها پس از خاموش‌کردن پاک می‌شود', !(FX._canvases || []).some(c => c.cv === cv));
+}
+{
+  const a = fakeCanvas('aDust'), b = fakeCanvas('bDust');
+  FX.canvas(a, { count:3, link:0 }); FX.canvas(b, { count:3, link:0 });
+  const hasStop = typeof FX.stopCanvas === 'function';
+  ok('stopCanvas فقط بومِ خواسته‌شده را می‌کُشد', (() => {
+    if(!hasStop) return false;
+    FX.stopCanvas(a);
+    return !liveCanvases().includes('aDust') && liveCanvases().includes('bDust');
+  })(), 'زنده‌ها: ' + liveCanvases().join(','));
+  ok('stopAllCanvases همهٔ بوم‌ها را می‌کُشد',
+    typeof FX.stopAllCanvases === 'function' && (FX.stopAllCanvases(), liveCanvases().length === 0),
+    'زنده‌ها: ' + liveCanvases().join(','));
+}
+/* هیچ‌جا بیرون از خودِ FX نباید در آرایهٔ درونیِ بوم‌ها دست ببرد؛ وگرنه
+   دوباره همان باگِ «پرده همه را می‌کُشد» یا «گزنده نه» برمی‌گردد.
+   مرزِ FX با نخستین `const ` پس از آن پیدا می‌شود. */
+ok('همهٔ ارجاع‌های _canvases داخلِ خودِ FX مانده‌اند', (() => {
+  const start = SRC.indexOf('const FX = {');
+  if(start < 0) return false;
+  const end = SRC.indexOf('\nconst ', start + 10);
+  const fxBlock = SRC.slice(start, end < 0 ? undefined : end);
+  return (SRC.match(/_canvases/g) || []).length === (fxBlock.match(/_canvases/g) || []).length;
+})());
+ok('پرده فقط بومِ خودش را می‌کُشد (نه بومِ کاربر)',
+  /FX\.stopCanvas\(U\.\$\('#spDust'\)\)/.test(SRC) && !/FX\.stopAllCanvases\(\)/.test(SRC.slice(SRC.indexOf('hide(byUser)'), SRC.indexOf('hide(byUser)') + 2500)));
+/* پرده پشت سرِ خودش غبارِ کاربر را دوباره سرِ کار می‌آورد؛ وگرنه بومِ
+   زنده‌ی «غبار طلایی» پس از کنار رفتنِ پرده یخ می‌زد. */
+ok('پس از پرده، غبارِ کاربر دوباره سرِ کار می‌آید',
+  /FX\.stopCanvas\(U\.\$\('#spDust'\)\)[\s\S]{0,200}Theme\.paintAmbient\(\)/.test(SRC));
+{
+  const cv = fakeCanvas('dustBg');
+  FX.canvas(cv, { count:4, link:0 });
+  const saved$ = U.$;
+  try{
+    U.$ = (sel, root) => (sel === '#dustBg' ? cv : saved$(sel, root));
+    FX.stopCanvas(cv);                       // مثلِ کاری که پرده می‌کند روی بومِ خودش
+    FX.dust(true);                           // کاربر غبار را روشن نگه داشته
+  }finally{ U.$ = saved$; }
+  ok('dust(true) روی گرهِ مرده حلقه را دوباره راه می‌اندازد', liveCanvases().includes('dustBg'), 'زنده‌ها: ' + liveCanvases().join(','));
+  FX.stopAllCanvases();
+}
 ok('Sudoku metadata registered without modifying original DATA source',typeof Games.sudoku==='function'&&DATA.categories.find(c=>c.id==='brain').games.includes('sudoku'));
 const sw=fs.readFileSync(__dirname+'/sw.js','utf8');/* شمارهٔ کش در متنِ سنجش نوشته نمی‌شود: با هر نسخه بالا می‌رود و نوشتنِ
    عدد یعنی سنجش با هر بالابردنِ درست هم قرمز می‌شود. چیزی که باید
