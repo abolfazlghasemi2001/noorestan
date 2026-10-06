@@ -478,7 +478,13 @@ ok('همهٔ سوره‌ها شمارهٔ پشت‌سرهم دارند', QURAN.e
 ok('هیچ سوره‌ای بدون آیه نیست', QURAN.every(s => s.count > 0 && s.name.length > 0));
 
 section('قاریان و منبع صدا');
-ok('دست‌کم ۸ قاری هست', RECITERS.length >= 8, String(RECITERS.length));
+/* «۱۰ قاری» وعده‌ای است که در سند و کارتِ بازی هم نوشته شده؛ پس سنجش
+   نباید «حداقل ۸» باشد — با «≥۸» اگر پنج قاری گم می‌شدند، دروازه سبز
+   می‌ماند و کاربر متنِ «۱۰ قاری» را روی فهرستِ ۵ نفره می‌دید. */
+ok('دقیقاً ۱۰ قاری هست', RECITERS.length === 10, String(RECITERS.length));
+ok('وعدهٔ «۱۰ قاری» در سند و باندل با فهرست می‌خواند',
+  DOC.includes(U.fa(RECITERS.length) + ' قاری') && SRC.includes(U.fa(RECITERS.length) + ' قاری'),
+  U.fa(RECITERS.length) + ' قاری');
 ok('شناسهٔ قاریان یکتاست', new Set(RECITERS.map(r => r.id)).size === RECITERS.length);
 ok('هر قاری نام، کوتاه‌نوشت و رنگ دارد', RECITERS.every(r => r.name && r.short && Number.isFinite(r.hue)));
 ok('دو منبع صدا تعریف شده', QSOURCES.length === 2);
