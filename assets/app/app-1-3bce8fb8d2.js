@@ -1506,12 +1506,30 @@ const FX = {
 };
 
 /* ─────────────────── 4. ROUTER ─────────────────── */
+/* ── نگاشتِ صریحِ روت‌های قدیمی (فاز ۲، گامِ ۶) ──
+   تبِ پایین پنج روتِ اصلی را می‌شناسد و `#read` هم صفحهٔ مستقلِ خودش را
+   دارد. ولی `#salah` (میان‌برِ کارتِ نصب) و `#wird` پیش‌تر فقط با
+   واپس‌رویِ «هر نشانیِ ناشناس → خانه» می‌رسیدند: کار می‌کرد، ولی هیچ
+   جایی نوشته نشده بود و همان واپس‌روی می‌توانست بی‌صدا بشکندش. حالا
+   هر نشانیِ قدیمی یک نگاشتِ صریح دارد و سنجشِ زنده دارد. */
+const ROUTE_ALIASES = {
+  /* پنج تبِ پایین و صفحهٔ مستقلِ مصحف‌نما (`read`) نشانیِ کانونی دارند و
+     در `Router.screens` فهرست شده‌اند؛ این جدول فقط نام‌های *قدیمی* را
+     نگاشت می‌کند. میان‌برِ کارتِ نصب (`./#salah`) همان تک‌موردی است که
+     کاربر از بیرونِ برنامه هم می‌بیند. */
+  salah: 'home'         // «صحن» امروز همان خانه است
+};
+
 const Router = {
   stack: ['home'],
   screens: { home:'s-home', quran:'s-quran', read:'s-read', online:'s-online', room:'s-room',
              play:'s-play', notif:'s-notif', me:'s-me', admin:'s-admin' },
   hooks: {},
+  /* یک جا برای همهٔ راه‌ها (go، init و popstate): نامِ قدیمی → نامِ
+     شناخته‌شده. ناشناس دست‌نخورده برمی‌گردد تا واپس‌رویِ خانه بگیرد. */
+  resolve(name){ return ROUTE_ALIASES[name] || name; },
   go(name, replace = false){
+    name = this.resolve(name);
     if(!this.screens[name] || !Session.allow(name)) return;
     /* تایمرِ بازی هنگام خروج پاک می‌شود. حالتِ دوم هم لازم است: رفتن از
        یک بازی به بازیِ دیگر همان صفحه است (`play` → `play`)، پس شرطِ اول
@@ -1590,7 +1608,7 @@ const Router = {
          حالا فقط وقتی عقب می‌کشیم که ورودیِ رسیده همان یکی‌زیرِ سرِ پشته
          باشد — یعنی واقعاً یک قدم عقب رفته‌ایم. هر چیز دیگر (پرشِ نشانی،
          دکمهٔ جلوی مرورگر) پشته را از نو می‌سازد. */
-      const name = (e.state && e.state.screen) || 'home';
+      const name = this.resolve((e.state && e.state.screen) || 'home');
       if(this.stack.length > 1 && this.stack[this.stack.length - 2] === name) this.stack.pop();
       else this.stack = [name];
       if(name !== 'play') Timers.clearPage();
@@ -1604,9 +1622,14 @@ const Router = {
       try{ history.replaceState({ screen: cur }, '', '#' + cur); }catch(e){}
     }
     const hash = location.hash.slice(1);
-    if(this.screens[hash]){
-      this.stack = [hash];
-      this._render(hash);
+    /* نشانیِ قدیمی اول به نامِ شناخته‌شده نگاشت می‌شود و بعد در تاریخچه
+       به شکلِ کانونی بازنویسی می‌شود — تا پشته و نشانی هیچ‌وقت دو چیزِ
+       متفاوت نگویند. */
+    const route = this.resolve(hash);
+    if(this.screens[route]){
+      this.stack = [route];
+      if(hash !== route){ try{ history.replaceState({ screen: route }, '', '#' + route); }catch(e){} }
+      this._render(route);
     } else {
       history.replaceState({ screen: 'home' }, '', '#home');
     }

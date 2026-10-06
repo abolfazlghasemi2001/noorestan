@@ -158,6 +158,33 @@ ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.cs
    به مسیرِ زندهٔ CI می‌آیند، نه به بخش‌های مرده.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── گامِ ۶: روت‌های قدیمی، نگاشتِ صریح ──
+   روت‌های تبِ پایین همیشه کار می‌کردند، ولی `#salah` و `#wird` فقط با
+   واپس‌رویِ «ناشناس → خانه» می‌رسیدند: اگر روزی کسی همان واپس‌روی را
+   دست می‌زد، لینکِ قدیمیِ کارتِ نصب بی‌صدا می‌شکست. حالا نگاشتِ صریح
+   است و هر شش روتِ قدیمی سنجشِ زنده دارند. */
+section('روت‌های قدیمی — نگاشتِ صریح (فاز ۲، گامِ ۶)');
+{
+  const olds = ['home', 'quran', 'play', 'online', 'me', 'read', 'salah'];
+  ok('نگاشتِ صریحِ روت‌ها هست', typeof ROUTE_ALIASES === 'object' && ROUTE_ALIASES !== null);
+  ok('هر شش روتِ قدیمی به یک صفحهٔ واقعی می‌رسند',
+     olds.every(r => !!Router.screens[Router.resolve(r)]),
+     olds.filter(r => !Router.screens[Router.resolve(r)]).join());
+  ok('#salah صریحاً به صحن نگاشت شده (نه با واپس‌رویِ ناشناس)',
+     ROUTE_ALIASES.salah === 'home' && Router.resolve('salah') === 'home');
+  ok('#read صفحهٔ مستقلِ خودش را نگه داشته', ROUTE_ALIASES.read === undefined && Router.screens.read === 's-read');
+  ok('روتِ ناشناس دست‌نخورده می‌ماند تا واپس‌رویِ خانه بگیرد',
+     Router.resolve('چنین‌روتی‌نیست') === 'چنین‌روتی‌نیست');
+  ok('Router.go با نامِ قدیمی، پشته و نشانی را روی صفحهٔ درست می‌نشاند', (() => {
+     const n = Router.stack.length;
+     Router.go('salah');
+     const cur = Router.stack[Router.stack.length - 1];
+     const url = history.__list()[history.__list().length - 1].url;
+     Router.go('home');
+     return cur === 'home' && url === '#home' && Router.stack.length >= n;
+  })());
+}
+
 /* ── گامِ ۱: نوارِ بالا فقط نشان و زنگِ اعلان ──
    پیش از رفع: `#btnQuran` و `#btnNet` دو دروازهٔ دوم به تلاوت و محفل
    بودند و نوارِ بالا سه دکمه داشت. حالا تنها دروازهٔ هر بخش، تبِ

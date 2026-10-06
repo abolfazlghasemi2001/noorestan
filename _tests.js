@@ -6202,10 +6202,10 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   /* روت‌های قدیم + نشانیِ تازه */
   ok('روت‌های قدیم هنوز می‌رسند: #play #quran #me #read #online',
      ['play','quran','me','read','online','home'].every(r => !!Router.screens[r]));
-  ok('#salah از راهِ واپس‌رویِ Router به خانه (صحن) می‌رسد', (() => {
-     /* همان منطقی که Router.init برای هر hashِ ناشناس دارد */
-     const h = 'salah';
-     const target = Router.screens[h] ? Router.screens[h] : Router.screens['home'];
+  ok('#salah نگاشتِ صریح دارد و به خانه (صحن) می‌رسد', (() => {
+     /* پیش از فاز ۲ این روت فقط با «واپس‌رویِ ناشناس → خانه» کار می‌کرد؛
+        حالا نگاشتِ صریح است و همین‌جا سنجیده می‌شود. */
+     const target = Router.screens[Router.resolve('salah')];
      const man = JSON.parse(require('./_shipped.js').file('manifest.json'));
      return target === 's-home' && man.shortcuts.some(s => s.url === './#salah' && /نماز/.test(s.name));
   })());
