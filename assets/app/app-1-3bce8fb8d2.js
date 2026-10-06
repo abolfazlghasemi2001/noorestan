@@ -8878,17 +8878,9 @@ const HomeCarousel = {
     this.slides = U.$$('.promo-panel', root);
     this.dots = U.$$('[data-dot]', root);
     this.track = U.$('.promo-panels', root);
-    const open = action => {
-      Sound.click();
-      if(action === 'ayahlight') AyahLight.open();
-      else if(action === 'quran') Router.go('quran');
-      else if(action === 'games') ExternalGameHost.open('ayah-builder');
-      else DailyChallenge.open();
-    };
-    U.$$('[data-slide-action]', root).forEach(b => b.onclick = () => {
-      if(Date.now() < (this.suppressClickUntil || 0)) return;
-      open(b.dataset.slideAction);
-    });
+    /* فاز ۲: دکمه‌های بنر برداشته شدند. اسلایدها محتوای پیشنهادی‌اند و
+       ناوبریِ هر بخش تنها از تبِ پایین می‌آید؛ پس هندلرِ مسیر هم این‌جا
+       نمی‌ماند (قاعدهٔ ۷: شناسهٔ حذف‌شده بی‌صاحب نماند). */
     this.dots.forEach(d => d.onclick = () => { this.show(+d.dataset.dot); this.schedule(); });
     U.$('#slidePause').onclick = () => {
       this.pause('user', !this.pauses.has('user'));
@@ -10356,7 +10348,6 @@ function catCarouselHtml(cat, d){
         <div class="cat-ico">${Glyph.of(cat.icon)}</div>
         <div><h2>${U.esc(cat.title)}</h2><p>${U.esc(cat.desc)}</p></div>
         <span class="cat-cnt">${U.fa(games.length)} مورد</span>
-        ${games.length > picks.length ? `<button type="button" class="btn gh sm" data-cat-all="${cat.id}" data-tip="فهرست کاملِ بازی‌ها">همه</button>` : ''}
       </div>
       <div class="category-carousel" data-cat="${cat.id}" role="group" aria-roledescription="کاروسل" aria-label="${U.esc(cat.title)}">
         <div class="carousel-viewport">
@@ -10470,8 +10461,8 @@ function renderHome(){
     art.dataset.done = '1';
     art.innerHTML = Art.panorama() +
       '<div class="art-cap">🌙 نورستان — آموزش قرآن کریم، بازی‌های فکری و محفل چندنفره</div>';
-    art.onclick = () => { Sound.page(); Router.go('quran'); };
-    art.style.cursor = 'pointer';
+    /* فاز ۲: سربرگِ صحن تصویرِ تزئینی است، نه دکمه؛ دروازهٔ تلاوت تبِ
+       پایین است. */
   }
   /* هشدار زنجیره، بالای دسته‌ها — ولی نه هر بار که تازه می‌شود، چون
      انیمیشن ورودش تکرار می‌شود و چشم را می‌زند. */
@@ -10491,7 +10482,6 @@ function renderHome(){
   if(catsEl && changed){
     renderHome._catsHtml = html;
     catsEl.innerHTML = html;
-    U.$$('[data-cat-all]', catsEl).forEach(b => b.onclick = () => { Sound.click(); Launcher.open(); });
   }
   /* کاروسل‌ها پس از آن‌که صفحه `.active` شد راه می‌افتند (Router._render
      پیش از این قلاب اجرا شده)، وگرنه همهٔ اندازه‌ها صفر خوانده می‌شوند. */
@@ -14498,7 +14488,8 @@ function init(){
     }
   });
 
-  U.$$('[data-foyer-route]').forEach(button => button.onclick = () => Router.go(button.dataset.foyerRoute));
+  /* فاز ۲: دو دکمهٔ «فویه» برداشته شدند؛ صحن ناوبریِ خودش را به تبِ
+     پایین سپرده است. */
   UI.observeShell();
   Host.ready().then(()=>Session.restore());
   if(document.fonts?.ready){

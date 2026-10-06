@@ -158,6 +158,29 @@ ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.cs
    به مسیرِ زندهٔ CI می‌آیند، نه به بخش‌های مرده.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── گامِ ۳: صحن، بی دروازهٔ دوم ──
+   صحن پیش‌تر دو دکمهٔ فویه، چهار دکمهٔ بنر، کلیکِ سربرگ و سه میان‌بر داشت
+   که همه به بخش‌هایی می‌بردند که تبِ پایین هم دارد. حالا محتوای صحن
+   می‌ماند و ناوبری‌اش فقط تبِ پایین است. */
+section('صحن — بی دروازهٔ دوم (فاز ۲، گامِ ۳)');
+{
+  const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-online"'));
+  const promo = DOC.slice(DOC.indexOf('class="promo-panels"'), DOC.indexOf('class="slider-controls"'));
+  ok('ویژگیِ مسیرِ دو دکمهٔ فویه رفته', !/data-foyer-route/.test(SRC));
+  ok('چهار دکمهٔ بنرِ چرخشی رفته‌اند', !/data-slide-action/.test(SRC));
+  ok('بنرها به محتوای بی‌عمل تبدیل شده‌اند، نه حذف',
+     (DOC.match(/class="promo-panel[" ]/g) || []).length === 4 &&
+     DOC.includes('نورِ آیه‌ها') && DOC.includes('تلاوت آیه‌به‌آیه') && !/<button/.test(promo));
+  ok('کلیکِ سربرگِ صحن دیگر به تلاوت نمی‌برد', !/art\.onclick/.test(SRC));
+  ok('میان‌برهای سه‌گانهٔ صحن (تلاوت/بازی/محفل) رفته‌اند',
+     !/data-sc-short/.test(SRC) && !/sc-short/.test(SRC + CSS));
+  ok('«همه»ی دسته‌ها دیگر دروازه نیست، ولی کاروسلِ دسته‌ها مانده',
+     !/data-cat-all/.test(SRC) && /DATA\.categories\.map\(cat => catCarouselHtml/.test(SRC) && /#cats/.test(SRC));
+  ok('در صحن هیچ ویژگیِ ناوبریِ تازه‌ای نمانده',
+     !/data-(foyer-route|slide-action|sc-short|cat-all)=/.test(home) && !/data-nav=/.test(home));
+  ok('تبِ پایین تنها دروازهٔ پنج بخش است', (DOC.match(/class="navi/g) || []).length === 5);
+}
+
 /* ── گامِ ۲: تلاوتِ یکپارچه — یک گزینشگرِ قاری ──
    پیش از رفع، سه راه برای عوض‌کردنِ قاری بود: شبکهٔ همیشه‌بازِ صفحه
    (`#qReciters`)، پنجرهٔ گزینشگرِ دومی (`#qRecPick` → ReciterUI) و برگهٔ

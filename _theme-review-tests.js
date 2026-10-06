@@ -62,10 +62,13 @@ const baseline = process.env.THEME_BASELINE;
     }
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(() => Theme.set('dark',true));
+    /* فاز ۲: دکمه‌های فویهٔ صحن برداشته شدند؛ تنها دروازهٔ هر بخش تبِ
+       پایین است. همان قصدِ قبلی (رسیدنِ کاربر به صفحه) از نوارِ پایین
+       سنجیده می‌شود — با همان مسیری که کاربر واقعاً می‌رود. */
     for(const route of ['play','quran']) {
       await page.evaluate(() => Router.go('home'));
-      await page.click(`[data-foyer-route="${route}"]`);
-      assert(await page.locator(`#s-${route}`).evaluate(e => e.classList.contains('active')), `foyer CTA: ${route}`);
+      await page.click(`#nav .navi[data-nav="${route}"]`);
+      assert(await page.locator(`#s-${route}`).evaluate(e => e.classList.contains('active')), `bottom nav: ${route}`);
     }
     for(const route of ['play','quran','settings','shop']) {
       await page.evaluate(route => {

@@ -198,15 +198,6 @@ const Courtyard = {
       </div>`;
   },
 
-  shortcutsHtml(){
-    return `
-      <div class="sc-short">
-        <button data-sc-short="quran" aria-label="رفتن به تلاوت">${Icon.of('listen')}<span>تلاوت</span></button>
-        <button data-sc-short="play" aria-label="رفتن به بازیِ امروز">${Icon.of('gamepad')}<span>بازیِ امروز</span></button>
-        <button data-sc-short="online" aria-label="رفتن به محفل">${Icon.of('globe')}<span>محفل</span></button>
-      </div>`;
-  },
-
   /* کلِ صحن — اسلایدهای کاروسلی */
   html(){
     const now = new Date();
@@ -253,14 +244,9 @@ const Courtyard = {
         </article>`);
     }
 
-    slides.push(`
-      <article class="slide sc-slide sc-short-slide" role="group" aria-label="میان‌برهای سریع">
-        <div class="sc-slide-head-row">
-          <span class="sc-slide-title">${Icon.of('star')} <b>میان‌برهای نورستان</b></span>
-          <small class="sc-slide-sub">دسترسی سریع</small>
-        </div>
-        ${this.shortcutsHtml()}
-      </article>`);
+    /* فاز ۲: اسلایدِ «میان‌برهای نورستان» برداشته شد. سه دکمهٔ آن به
+       تلاوت/بازی/محفل می‌بردند — همان سه بخشی که تبِ پایین دارد. صحن
+       محتواست (اوقات، قبله، ورد، مناسبت)، نه دروازهٔ دوم. */
 
     return `
       <div class="sc-wrap">
@@ -303,15 +289,6 @@ const Courtyard = {
   wire(box){
     U.$$('[data-sp]', box).forEach(b => b.onclick = () => { Sound.click(); this.prayerModal(b.dataset.sp); });
     U.$$('[data-sc="city"]', box).forEach(b => b.onclick = () => this.cityPicker());
-    U.$$('[data-sc-short]', box).forEach(b => b.onclick = () => {
-      const to = b.dataset.scShort;
-      Sound.page && Sound.page();
-      if(to === 'play'){
-        const pg = U.$('#pgBody'); if(pg) pg.innerHTML = '';
-        Router.go('play');
-        try{ Launcher.open(); }catch(e){}
-      } else Router.go(to);
-    });
     U.$$('[data-sc="occ-quiz"]', box).forEach(b => b.onclick = () => {
       const topic = b.dataset.topic;
       UI.closeModal && UI.closeModal();

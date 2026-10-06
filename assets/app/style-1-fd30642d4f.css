@@ -2099,8 +2099,6 @@ html[data-theme="light"] .step{ background:rgba(0,0,0,.03) }
 .promo-kicker{display:inline-flex;align-items:center;gap:7px;color:#eed79d;font-size:12px;letter-spacing:.1px;margin-bottom:12px}
 .promo-copy h2{font-family:var(--f-disp);font-weight:var(--f-disp-w);font-size:clamp(26px,4vw,38px);line-height:1.5;color:#fff;margin-bottom:6px}
 .promo-copy p{max-width:480px;font-size:13px;line-height:2;color:#c6d2e4}
-.promo-go.btn{margin-top:18px;background:linear-gradient(135deg,#f2d596,#d9af53);color:#171e2d;gap:14px}
-.promo-go .ic{width:17px;height:17px;transform:rotate(180deg)}
 .promo-scene{width:42%;max-width:380px;flex:none;align-self:stretch;object-fit:cover;object-position:center;border-radius:120px 120px 14px 14px;border:1px solid #edcd8233;opacity:.95}
 .slider-controls{position:absolute;bottom:12px;inset-inline:24px;display:flex;align-items:center;justify-content:center;gap:12px}
 .slider-dots{display:flex;align-items:center;direction:rtl}
@@ -2207,7 +2205,7 @@ html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSl
 .carousel-dots .dot{position:relative}
 .carousel-dots .dot::before{content:"";position:absolute;inset:-11px -5px}
 .carousel-toggle{
-  flex:none;width:36px;height:36px;display:grid;place-items:center;
+  flex:none;width:44px;height:44px;display:grid;place-items:center;
   border:1px solid var(--line);border-radius:50%;background:var(--card2);color:var(--gold);
   cursor:pointer;transition:background 200ms ease,color 200ms ease,border-color 200ms ease
 }
@@ -2218,7 +2216,7 @@ html[data-motion="off"] #homeSlider .promo-panel,html[data-motion="off"] #homeSl
 
 /* فلش‌ها در لمس هم دیده می‌شوند تا راهِ دیدنِ کارت‌های دیگر روشن باشد. */
 .carousel-nav{
-  position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
+  position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
   border-radius:50%;background:var(--card2);border:1px solid var(--line);color:var(--gold);
   cursor:pointer;display:grid;place-items:center;z-index:3;font-size:19px;line-height:1;opacity:.82;
   transition:background 200ms ease,color 200ms ease,border-color 200ms ease,opacity 200ms ease
@@ -2388,7 +2386,7 @@ html[data-theme="light"] #modal .box{background:#fffdf8;border-color:var(--line)
 html[data-theme="light"] .hero{background:radial-gradient(ellipse at 10% 0%,#ece2c9,transparent 70%),#fffdf8}
 html[data-theme="light"] .ayah-stage{--txt:#edf3fd;--mut:#bbcada;--gold:#f5d27d;--grn:#66dfba;color:var(--txt)}
 html[data-theme="light"] .promo-kicker{color:#eed79d}
-html[data-theme="light"] .slider-pause:focus-visible,html[data-theme="light"] .promo-go:focus-visible{outline-color:#fff}
+html[data-theme="light"] .slider-pause:focus-visible{outline-color:#fff}
 @media(prefers-reduced-motion:reduce){.promo-panel{transform:none;transition:opacity .3s linear,visibility .3s linear}.home-slider[data-dir] .promo-panel.is-active{animation:none}.promo-panels{transition:none}.slider-dots button::after{transition:none}.streak-warn .swe,.shimmer,.skeleton{animation:none!important}.lvlbar i,.prog i,.mp i,.lbbar .fill,.tb i{transition:none}}
 
 /* ═══════════════ بازی «نور آیه‌ها» ═══════════════ */

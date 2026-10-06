@@ -5634,15 +5634,16 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
      [45,30,18].every(n => SRC.includes(`data-sec="${n}"`)));
   ok('بازخورد بازی برای صفحه‌خوان زنده است',
      /id="ayahFeedback" role="status" aria-live="polite"/.test(SRC));
-  ok('بنر خانه سه اسلاید و سه مقصد واقعی دارد',
+  ok('بنر خانه چهار اسلاید محتوایی دارد و هیچ دروازهٔ دکمه‌ای نمی‌سازد',
      (SRC.match(/class="promo-panel(?: is-active)?"/g) || []).length >= 3 &&
-     ['ayahlight','quran','daily'].every(a => SRC.includes(`data-slide-action="${a}"`)));
+     !/data-slide-action/.test(SRC));
   ok('اسلایدر هیچ وابستگی Swiper/CDN ندارد', !/swiper-bundle/.test(SRC));
   ok('اسلایدر بومی هر ۵۰۰۰ میلی‌ثانیه پیش می‌رود', /5000, 'sys'/.test(SRC));
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
   ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
   ok('ورودِ اصلیِ نور آیه‌ها مستقیم گزینه‌های درون‌برنامه‌ای را نشان می‌دهد',
-     /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) && /data-slide-action="ayahlight"/.test(SRC));
+     /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) &&
+     /class="tile pro-tile" data-game="\$\{id\}"/.test(SRC));
   ok('هر سه حالت و هر سه زمان پیش از شروع در صفحهٔ انتخاب هستند',
      ['data-am="order"','data-am="missing"','data-am="surah"','data-sec="45"','data-sec="30"','data-sec="18"'].every(x => SRC.includes(x)) && SRC.includes('id="ayahStart"'));
   ok('بازیِ برخط اختیاری و از صفحهٔ گزینه‌ها قابل دسترسی است',
@@ -6188,10 +6189,9 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   }));
 
   /* میان‌برِ سه‌تایی */
-  ok('میان‌برِ سه‌تایی: تلاوت | بازیِ امروز | محفل', fresh(() => {
+  ok('میان‌برِ سه‌تاییِ صحن برداشته شد (فاز ۲: تبِ پایین تنها دروازه است)', fresh(() => {
      const h = Courtyard.html();
-     return h.includes('data-sc-short="quran"') && h.includes('data-sc-short="play"') &&
-            h.includes('data-sc-short="online"');
+     return !/data-sc-short/.test(h) && !/میان‌برهای نورستان/.test(h);
   }));
 
   /* خاموش/روشنِ نمایش رویِ خانه */
@@ -6239,11 +6239,18 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   })());
   ok('دسکتاپ: ستونِ صحن حداکثر ۴۸۰ و وسط', /@media\s*\(min-width:760px\)\s*\{[^@]*\.sc-wrap\{[^}]*max-width:480px[^}]*margin-inline:auto/.test(CSS.replace(/\n/g, ' ')) ||
      (() => { const m = CSS.match(/@media\s*\(min-width:760px\)\s*\{([\s\S]*?)\n\}/); return !!m && m[1].includes('max-width:480px') && m[1].includes('margin-inline:auto'); })());
-  ok('هدفِ لمسیِ دکمه‌های صحن ≥ ۴۴px است', (() => {
-     const city = CSS.match(/\.sc-citybtn\s*\{[^}]*\}/)[0];
-     const prayer = CSS.match(/\.sc-prayer\s*\{[^}]*\}/)[0];
-     const short = CSS.match(/\.sc-short button\s*\{[^}]*\}/)[0];
-     return /min-height:44px/.test(city) && /min-height:78px/.test(prayer) && /min-height:48px/.test(short);
+  ok('هدفِ لمسیِ دکمه‌های صحن و کاروسل ≥ ۴۴px است', (() => {
+     /* قاعده‌ها در چند برگهٔ سبک تکرار می‌شوند و ترتیبِ الحاق مهم است؛ پس
+        «قاعدهٔ دارندهٔ اندازه» جسته می‌شود، نه نخستین قاعدهٔ هم‌نام.
+        فاز ۲ میان‌برهای سه‌گانه را برداشت؛ به‌جایش کنترل‌های کاروسلِ صحن
+        که کاربر با آن‌ها اسلایدها را می‌گرداند سنجیده می‌شوند. */
+     const pick = (sel, need) => (CSS.match(new RegExp(sel + '\\{[^}]*\\}', 'g')) || [])
+       .find(r => need.test(r)) || '';
+     const city = pick('\\.sc-citybtn', /min-height:44px/);
+     const prayer = pick('\\.sc-prayer', /min-height:78px/);
+     const nav = pick('\\.carousel-nav', /width:44px/);
+     const toggle = pick('\\.carousel-toggle', /width:44px/);
+     return !!(city && prayer && nav && toggle && /height:44px/.test(nav) && /height:44px/.test(toggle));
   })());
   ok('reduced-motion حرکتِ صحن و چرخشِ نرمِ قبله را خاموش می‌کند', (() => {
      /* چند بلوکِ reduced-motion در منبع هست (برگه‌های سبکِ قدیمی هم
