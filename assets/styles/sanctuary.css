@@ -135,7 +135,9 @@ html .daily-ayah,html .daily-card{background:var(--card);border-color:var(--cour
  html #nav .navi{padding:6px 10px;font-size:9px}html #nav{inset-inline:10px;width:calc(100% - 20px);bottom:10px;border-radius:18px}
  html .stats{gap:7px}html .stat{padding:12px 7px}html .stat b{font-size:21px}html .stat span{font-size:9px}
 }
-@media(max-width:360px){html .brand small{display:none}.foyer-copy{max-width:100%}html .hero.foyer h1{font-size:32px}html .hero.foyer{padding-inline:20px}html .promo-scene{width:100%;height:100%;max-height:none;opacity:.12}}
+@media(max-width:360px){html .brand small{display:none}.foyer-copy{max-width:100%}html .hero.foyer h1{font-size:32px}html .hero.foyer{padding-inline:20px}html .promo-scene{width:100%;height:100%;max-height:none;opacity:.12}
+ /* نسخهٔ ۱۹د: شش تب روی صفحه‌های ۳۲۰–۳۶۰ باید بی‌سرریز جا شوند. */
+ html #nav .navi{padding:6px 5px;font-size:9px}html #nav{padding-inline:6px}}
 @media(prefers-reduced-motion:reduce){html .tile,html .btn,html .top .iconbtn{transition:none}}
 /* مرز بصری نشست: پنل مدیریت ناوبری عمومی ندارد. */
 [hidden]{display:none!important}

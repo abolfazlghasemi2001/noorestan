@@ -41,6 +41,9 @@ const titles=[
  /* نسخهٔ ۱۹ب: صحنِ روزانه رویِ خانه، دفترچهٔ نماز با سقفِ روزانه،
     قبله و بخشِ «عبادتِ روزانه» در تنظیمات. */
  'صحنِ روزانه (نسخهٔ ۱۹ب)','قبله و تنظیماتِ عبادت (نسخهٔ ۱۹ب)',
+ /* نسخهٔ ۱۹د: صفحهٔ مستقلِ «عبادت»، تبِ ششم، حذفِ «عصر» از اوقات و
+    یادآورها و اندازهٔ کاروسلِ هم‌آهنگ با اسلایدِ فعال. */
+ 'صفحهٔ عبادت و اندازهٔ کاروسل (نسخهٔ ۱۹د)',
  /* نسخهٔ ۱۹: ورد و تسبیح و ختم، کارتِ رمضان، اذانِ محلی و
     مأموریت‌های عبادت. */
  'ذکر و تسبیح و ورد (نسخهٔ ۱۹)','ختم و رمضان (نسخهٔ ۱۹)','اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)'
@@ -227,7 +230,16 @@ section('صحن — بی دروازهٔ دوم (فاز ۲، گامِ ۳)');
      !/data-cat-all/.test(SRC) && /DATA\.categories\.map\(cat => catCarouselHtml/.test(SRC) && /#cats/.test(SRC));
   ok('در صحن هیچ ویژگیِ ناوبریِ تازه‌ای نمانده',
      !/data-(foyer-route|slide-action|sc-short|cat-all)=/.test(home) && !/data-nav=/.test(home));
-  ok('تبِ پایین تنها دروازهٔ پنج بخش است', (DOC.match(/class="navi/g) || []).length === 5);
+  /* نسخهٔ ۱۹د: تبِ ششمِ «عبادت» اضافه شد — سه بخشِ بالاییِ صحن به آن
+     صفحه منتقل شدند، پس نوارِ پایین حالا شش دروازه دارد و همان‌جا هم
+     تنها دروازه می‌ماند. */
+  ok('تبِ پایین تنها دروازهٔ شش بخش است', (DOC.match(/class="navi/g) || []).length === 6);
+  ok('هیچ دروازهٔ دومی در صحن و عبادت نیست',
+     (() => {
+       const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-ebadat"'));
+       const eb = DOC.slice(DOC.indexOf('id="s-ebadat"'), DOC.indexOf('id="s-online"'));
+       return !/data-nav=/.test(home + eb) && !/Router\.go\(/.test(home + eb);
+     })());
 }
 
 /* ── گامِ ۲: تلاوتِ یکپارچه — یک گزینشگرِ قاری ──
@@ -280,13 +292,16 @@ section('تلاوتِ یکپارچه — یک گزینشگرِ قاری (فاز 
    است و هر شش روتِ قدیمی سنجشِ زنده دارند. */
 section('روت‌های قدیمی — نگاشتِ صریح (فاز ۲، گامِ ۶)');
 {
-  const olds = ['home', 'quran', 'play', 'online', 'me', 'read', 'salah'];
+  const olds = ['home', 'quran', 'play', 'online', 'me', 'read', 'salah', 'wird', 'ebadat'];
   ok('نگاشتِ صریحِ روت‌ها هست', typeof ROUTE_ALIASES === 'object' && ROUTE_ALIASES !== null);
   ok('هر شش روتِ قدیمی به یک صفحهٔ واقعی می‌رسند',
      olds.every(r => !!Router.screens[Router.resolve(r)]),
      olds.filter(r => !Router.screens[Router.resolve(r)]).join());
-  ok('#salah صریحاً به صحن نگاشت شده (نه با واپس‌رویِ ناشناس)',
-     ROUTE_ALIASES.salah === 'home' && Router.resolve('salah') === 'home');
+  /* نسخهٔ ۱۹د: اوقات و ذکر از صحن به صفحهٔ عبادت رفتند، پس همان نگاشتِ
+     صریح حالا به آن صفحه می‌رسد. */
+  ok('#salah و #wird صریحاً به صفحهٔ عبادت نگاشت شده‌اند (نه واپس‌رویِ ناشناس)',
+     ROUTE_ALIASES.salah === 'ebadat' && Router.resolve('salah') === 'ebadat' &&
+     Router.resolve('wird') === 'ebadat' && Router.screens.ebadat === 's-ebadat');
   ok('#read صفحهٔ مستقلِ خودش را نگه داشته', ROUTE_ALIASES.read === undefined && Router.screens.read === 's-read');
   ok('روتِ ناشناس دست‌نخورده می‌ماند تا واپس‌رویِ خانه بگیرد',
      Router.resolve('چنین‌روتی‌نیست') === 'چنین‌روتی‌نیست');
@@ -296,7 +311,7 @@ section('روت‌های قدیمی — نگاشتِ صریح (فاز ۲، گا�
      const cur = Router.stack[Router.stack.length - 1];
      const url = history.__list()[history.__list().length - 1].url;
      Router.go('home');
-     return cur === 'home' && url === '#home' && Router.stack.length >= n;
+     return cur === 'ebadat' && url === '#ebadat' && Router.stack.length >= n;
   })());
 }
 

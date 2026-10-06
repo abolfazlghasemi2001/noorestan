@@ -532,7 +532,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 /* دکمه‌هایی که تنها فرزندشان آیکن است، باید وسط‌چین باشند؛ SVG بلوکی
    است و وگرنه می‌چسبد به کنارِ جعبهٔ دکمه. */
 #miniQ button,.qbig,.wbx,.bm-row .bx,.ib-x{ display:grid; place-items:center }
-/* پنج دکمه در نوار پایین — روی گوشی‌های باریک جا شود.
+/* دکمه‌های نوار پایین — روی گوشی‌های باریک جا شوند.
+   نسخهٔ ۱۹د ششمی را هم آورد («عبادت»)؛ برچسب‌ها کوتاه‌اند و فاصله‌ها
+   جمع می‌شوند، پس همان قاعده‌های ۴۳۰px هم شش‌تا را جا می‌کنند.
    «مدیریت» عمداً این‌جا نیست؛ از «حساب ← تنظیمات» باز می‌شود. */
 @media(max-width:430px){
   .nav{padding:8px 2px calc(8px + env(safe-area-inset-bottom))}

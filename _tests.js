@@ -6098,7 +6098,11 @@ section('Store — کلیدهای عبادت و کلیدِ ناشناس (نسخ�
   }));
 }
 
-/* ═══════════════ نسخهٔ ۱۹ب — صحنِ روزانه ═══════════════ */
+/* ═══════════════ نسخهٔ ۱۹ب/۱۹د — صحن و صفحهٔ عبادت ═══════════════
+   نسخهٔ ۱۹د سه بخشِ بالاییِ صحن (سربرگِ امروز و اذانِ بعدی، اوقاتِ شرعی،
+   ذکر و تعقیبات) را از خانه برداشت و در صفحهٔ مستقلِ «عبادت» گذاشت؛
+   «عصر» هم از نوارِ نماز و از یادآورهای اذان رفت. سنجش‌های همین بخش
+   همان دو چیز را می‌پایند. */
 section('صحنِ روزانه (نسخهٔ ۱۹ب)');
 {
   const data0 = Store.data;
@@ -6111,8 +6115,27 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
 
   ok('Courtyard بار شده', typeof Courtyard === 'object' && typeof Courtyard.render === 'function' &&
      typeof Courtyard.html === 'function' && typeof SalahLog === 'object');
-  ok('renderHome برای صحن پوشانده شده (بدونِ شکستنِ خانهٔ قدیم)',
-     typeof renderHome === 'function' && renderHome._salahWrapped === true);
+  /* نسخهٔ ۱۹د: کارت‌های عبادت دیگر روی خانه نمی‌نشینند؛ قلابِ روتِ
+     `ebadat` آن‌ها را می‌کشد. پس نه renderHome پوشانده شده و نه خانه
+     چیزی از عبادت نشان می‌دهد. */
+  ok('صفحهٔ عبادت در Router ثبت است و قلابِ رندر دارد',
+     Router.screens.ebadat === 's-ebadat' && typeof Router.hooks.ebadat === 'function');
+  ok('ظرفِ کارت‌های عبادت داخلِ صفحهٔ عبادت است، نه در صحن', (() => {
+     /* مرزِ صحن حالا خودِ صفحهٔ عبادت است؛ تا `#s-online` را بریدن یعنی
+        بخشِ تازه هم داخلِ «صحن» دیده شود. */
+     const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-ebadat"'));
+     const eb = DOC.slice(DOC.indexOf('id="s-ebadat"'), DOC.indexOf('id="s-online"'));
+     return /id="salahCourt"/.test(eb) && !/id="salahCourt"/.test(home) &&
+            /id="ebQibla"/.test(eb);
+  })(), 'ظرفِ عبادت هنوز در صحن است یا دکمهٔ قبله نیست'),
+  ok('سه بخشِ برداشته‌شده دیگر در صحن نیستند: سربرگ/کاروسل/ذکر', (() => {
+     const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-ebadat"'));
+     return !/scCarousel|salahCourt|wirdCard|sc-prayers/.test(home) &&
+            /class="art-hero" id="homeArt"/.test(home) && /class="hero foyer"/.test(home) &&
+            /id="homeSlider"/.test(home) && /id="daily"/.test(home);
+  })());
+  ok('renderHome دست‌نخورده مانده (خانه با همان تابع رسم می‌شود)',
+     typeof renderHome === 'function' && !renderHome._salahWrapped);
 
   /* رندرِ صحن بدونِ loc: تهران، بدونِ throw */
   ok('رندرِ صحن بدونِ loc نمی‌شکند و تهران است', fresh(() => {
@@ -6134,13 +6157,30 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
      return Math.abs(+a - +b) > 20 * 6e4 && Courtyard.html().includes('زاهدان');
   }));
 
-  /* نوارِ پنج نماز */
-  ok('نوارِ نماز پنج دکمه با زمان دارد', fresh(() => {
+  /* نوارِ نماز — نسخهٔ ۱۹د: «عصر» برداشته شد، پس چهار نماز می‌ماند */
+  ok('نوارِ نماز چهار دکمه با زمان دارد و «عصر» در آن نیست', fresh(() => {
      const h = Courtyard.html();
-     return (h.match(/data-sp="/g) || []).length === 5 &&
-            ['fajr','dhuhr','asr','maghrib','isha'].every(n => h.includes(`data-sp="${n}"`)) &&
-            ['صبح','ظهر','عصر','مغرب','عشا'].every(l => h.includes(l));
+     return (h.match(/data-sp="/g) || []).length === 4 &&
+            ['fajr','dhuhr','maghrib','isha'].every(n => h.includes(`data-sp="${n}"`)) &&
+            ['صبح','ظهر','مغرب','عشا'].every(l => h.includes(l)) &&
+            !h.includes('data-sp="asr"') && !/aria-label="نمازِ عصر/.test(h) &&
+            Salah.NAMES.join() === 'fajr,dhuhr,maghrib,isha';
   }));
+  ok('موتورِ اوقات هنوز زمانِ عصر را حساب می‌کند (فقط نمایش و اذانش رفت)',
+     fresh(() => {
+       const t = Courtyard.times();
+       return t.asr instanceof Date && +t.asr > +t.dhuhr && +t.asr < +t.maghrib;
+     }));
+  ok('کارتِ جزئیاتِ نماز هم «عصر» را فهرست نمی‌کند', (() => {
+     /* پنجره با UI.modal کشیده می‌شود؛ این‌جا خودِ فهرستِ ردیف‌ها سنجیده
+        می‌شود: همان چیزی که در HTML پنجره می‌نشیند. */
+     let html = '';
+     const orig = UI.modal;
+     UI.modal = h => { html = h; };
+     try{ Courtyard.prayerModal('dhuhr'); }finally{ UI.modal = orig; }
+     return html.includes('نمازِ ظهر') && html.includes('نیمه‌شبِ شرعی') &&
+            !html.includes('عصر') && !/\[.<b dir="ltr">/.test('');
+  })());
   ok('نمازِ جاری حلقهٔ طلایی می‌گیرد (is-current)', fresh(() => {
      const h = Courtyard.html();
      const cur = Salah.current(new Date()).name;
@@ -6157,22 +6197,32 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
      const r1 = SalahLog.mark('fajr');
      const r2 = SalahLog.mark('fajr');           // تکراری — جایزه ندارد
      const c1 = Wallet.get();
-     ['dhuhr','asr','maghrib','isha'].forEach(n => SalahLog.mark(n));
+     const rest = SalahLog.NAMES.filter(n => n !== 'fajr');
+     rest.forEach(n => SalahLog.mark(n));
      const c2 = Wallet.get();
      const consistent = Wallet.earned() - Wallet.spent() === Wallet.get();
+     /* نسخهٔ ۱۹د: چهار نمازِ ستون ⇒ سقفِ روزانه چهار سکه */
      return r1.ok === true && r2.dup === true && c1 - c0 === SalahLog.COIN &&
-            c2 - c0 === 5 * SalahLog.COIN && Store.get('xp') - x0 === 5 * SalahLog.XP &&
-            SalahLog.count() === 5 && consistent && Wallet.earned() - e0 === 5;
+            c2 - c0 === SalahLog.NAMES.length * SalahLog.COIN &&
+            Store.get('xp') - x0 === SalahLog.NAMES.length * SalahLog.XP &&
+            SalahLog.count() === SalahLog.NAMES.length && SalahLog.DAILY_CAP === 4 &&
+            SalahLog.markedAll() === true && consistent &&
+            Wallet.earned() - e0 === SalahLog.NAMES.length;
+  }));
+  ok('«عصر» دیگر در دفترچهٔ نماز ثبت نمی‌شود', fresh(() => {
+     const r = SalahLog.mark('asr');
+     return r.ok === false && r.why === 'bad' && SalahLog.count() === 0;
   }));
   ok('علامتِ روزِ قبل، امروز را پُر نمی‌کند', fresh(() => {
-     const log = {}; log['2020-01-01'] = ['fajr','dhuhr','asr','maghrib','isha'];
+     const log = {}; log['2020-01-01'] = ['fajr','dhuhr','maghrib','isha'];
      Store.data.salahLog = log;
      return SalahLog.count() === 0 && SalahLog.mark('fajr').ok === true;
   }));
   ok('sanitize دفترچهٔ نماز: کلیدِ بد و نامِ بد دور می‌ریزند', fresh(() => {
-     Store.data.salahLog = { '2026-01-01':['fajr','fajr','bogus'], 'bad-key':['isha'], '2026-01-02':'x' };
+     Store.data.salahLog = { '2026-01-01':['fajr','fajr','bogus','asr'], 'bad-key':['isha'], '2026-01-02':'x' };
      Store.sanitize();
      const l = Store.get('salahLog');
+     /* «عصر» هم حالا نامِ ناشناس است و همان‌جا می‌ماند */
      return l['2026-01-01'].join() === 'fajr' && !('bad-key' in l) && !('2026-01-02' in l);
   }));
 
@@ -6204,12 +6254,14 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   /* روت‌های قدیم + نشانیِ تازه */
   ok('روت‌های قدیم هنوز می‌رسند: #play #quran #me #read #online',
      ['play','quran','me','read','online','home'].every(r => !!Router.screens[r]));
-  ok('#salah نگاشتِ صریح دارد و به خانه (صحن) می‌رسد', (() => {
-     /* پیش از فاز ۲ این روت فقط با «واپس‌رویِ ناشناس → خانه» کار می‌کرد؛
-        حالا نگاشتِ صریح است و همین‌جا سنجیده می‌شود. */
+  ok('#salah و #wird هر دو به صفحهٔ عبادت می‌رسند', (() => {
+     /* پیش از فاز ۲ این روت‌ها فقط با «واپس‌رویِ ناشناس → خانه» کار
+        می‌کردند؛ فاز ۲ نگاشتشان صریح کرد و در نسخهٔ ۱۹د همان نگاشت به
+        صفحهٔ تازهٔ عبادت چرخید (اوقات از خانه به آن‌جا منتقل شد). */
      const target = Router.screens[Router.resolve('salah')];
      const man = JSON.parse(require('./_shipped.js').file('manifest.json'));
-     return target === 's-home' && man.shortcuts.some(s => s.url === './#salah' && /نماز/.test(s.name));
+     return target === 's-ebadat' && Router.resolve('wird') === 'ebadat' &&
+            man.shortcuts.some(s => s.url === './#salah' && /نماز/.test(s.name));
   })());
   ok('رفتن به play/quran/me با صحنِ فعال نمی‌شکند', fresh(() => {
      Courtyard.render();
@@ -6219,10 +6271,12 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   /* مارک‌آپ و برگهٔ سبک */
   ok('ظرفِ صحن و برگهٔ سبکِ جدا در سند هستند',
      /id="salahCourt"/.test(DOC) && /assets\/styles\/salah\.css/.test(DOC));
-  ok('نوارِ پایین مهاجرت کرد: صحن | تلاوت | بازی | محفل | من', (() => {
+  ok('نوارِ پایین شش تب دارد: صحن | عبادت | تلاوت | بازی | محفل | من', (() => {
      const navBlock = DOC.slice(DOC.indexOf('<nav class="nav"'), DOC.indexOf('</nav>'));
      const labels = [...navBlock.matchAll(/<\/i>([^<]+)<\/button>/g)].map(m => m[1].trim());
-     return labels.join('|') === 'صحن|تلاوت|بازی|محفل|من';
+     const keys = [...navBlock.matchAll(/data-nav="(\w+)"/g)].map(m => m[1]);
+     return labels.join('|') === 'صحن|عبادت|تلاوت|بازی|محفل|من' &&
+            keys.join(',') === 'home,ebadat,quran,play,online,me';
   })(), (() => {
      const navBlock = DOC.slice(DOC.indexOf('<nav class="nav"'), DOC.indexOf('</nav>'));
      return [...navBlock.matchAll(/<\/i>([^<]+)<\/button>/g)].map(m => m[1].trim()).join('|');
@@ -6265,6 +6319,150 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   })());
 }
 
+/* ═══════════════ نسخهٔ ۱۹د — صفحهٔ عبادت و اندازهٔ کاروسل ═══════════════ */
+section('صفحهٔ عبادت و اندازهٔ کاروسل (نسخهٔ ۱۹د)');
+{
+  const data0 = Store.data;
+  const fresh = fn => { Store.data = Store.defaults();
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save(); try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+
+  /* ── صفحه: ثبت، سربرگ، ظرف ── */
+  ok('#s-ebadat در سند است، سربرگ فارسی دارد و دکمهٔ قبله دارد', (() => {
+     const eb = DOC.slice(DOC.indexOf('id="s-ebadat"'), DOC.indexOf('id="s-online"'));
+     return /class="phead"/.test(eb) && /عبادت/.test(eb) && /id="ebQibla"/.test(eb) &&
+            /id="salahCourt"/.test(eb) && !/class="screen active" id="s-ebadat"/.test(DOC);
+  })());
+  ok('خانه دیگر کاروسلِ عبادت و نوارِ اذان را ندارد', (() => {
+     const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-ebadat"'));
+     return !/scCarousel|sc-next|salahCourt/.test(home) && /id="homeArt"/.test(home);
+  })());
+  ok('قلابِ روتِ عبادت در باندل ثبت شده است',
+     typeof Router.hooks.ebadat === 'function' &&
+     Router.screens.ebadat === 's-ebadat');
+  ok('صدا زدنِ قلاب بی‌خطا کار می‌کند', (() => {
+     const r = tryIt(() => Router.hooks.ebadat());
+     return r === 'OK';
+  })());
+
+  /* ── رسم در ظرفِ خودش + حالتِ خاموش ──
+     `U.$` را یک‌بار برای `#salahCourt` به یک گرهِ پایدار می‌بندیم تا خروجیِ
+     رسم دیده شود (گره‌های ساختگیِ هارنس هر بار تازه‌اند و نمی‌مانند). */
+  const withBox = fn => {
+    const box = { innerHTML:'', dataset:{}, classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+                  style:{}, setAttribute(){}, getAttribute(){ return null; }, appendChild(){},
+                  querySelector(){ return null; }, querySelectorAll(){ return []; }, isConnected:true };
+    const orig = U.$;
+    U.$ = (sel, root) => (sel === '#salahCourt' ? box : orig(sel, root));
+    try{ return fn(box); }finally{ U.$ = orig; }
+  };
+  ok('با اوقاتِ روشن، کاروسلِ عبادت در ظرفِ خودش کشیده می‌شود', fresh(() =>
+     withBox(box => { Courtyard.render(); return box.innerHTML.includes('id="scCarousel"') &&
+       box.innerHTML.includes('کارت‌های عبادت') === false; })));
+  ok('با اوقاتِ خاموش، حالتِ خالیِ راهنما با دکمهٔ روشن‌کردن می‌آید', fresh(() => {
+     Store.update(x => { x.settings.salahOnHome = false; });
+     return withBox(box => {
+       Courtyard.render();
+       const first = box.innerHTML;
+       /* بار دوم نباید بازترسیم کند (امضای «off») */
+       Courtyard.render();
+       return first.includes('scTurnOn') && first.includes('sc-off') &&
+              box.innerHTML === first && box.dataset.scSig === 'off';
+     });
+  }));
+  ok('دکمهٔ روشن‌کردن در حالتِ خاموش واقعاً روشن می‌کند', fresh(() => {
+     Store.update(x => { x.settings.salahOnHome = false; });
+     /* دکمه را از مارک‌آپِ خودِ کد می‌شناسیم (شناسه)، بعد همان مسیرِ
+        فشردن را می‌سنجیم: مقدارِ تنظیم و امضای تازه. */
+     const has = Courtyard.offHtml().includes('id="scTurnOn"');
+     Courtyard.invalidateSig();
+     Store.update(x => { x.settings.salahOnHome = true; });
+     return has && Courtyard.enabled() === true;
+  }));
+
+  /* ── اندازهٔ کاروسل: هم‌اندازه با اسلایدِ فعال ── */
+  const fit = (activeH, opts = {}) => {
+    const vp = { style:{ height:'' } };
+    const act = { offsetHeight: activeH };
+    const cls = new Set();
+    const car = { classList:{ add(c){ cls.add(c); }, remove(c){ cls.delete(c); },
+                              toggle(c,on){ on ? cls.add(c) : cls.delete(c); }, contains(c){ return cls.has(c); } } };
+    const box = {};
+    const orig = U.$;
+    U.$ = (sel, root) => {
+      if(sel === '#salahCourt') return box;
+      if(sel === '#scCarousel') return car;
+      if(sel === '.carousel-viewport') return vp;
+      if(sel === '.slide.is-active') return opts.inactive ? null : act;
+      if(sel === '.slide') return opts.inactive ? null : act;
+      return orig(sel, root);
+    };
+    try{ Courtyard.fitCarousel(); }finally{ U.$ = orig; }
+    return { vp, car, cls };
+  };
+  ok('ارتفاعِ قاب با اسلایدِ فعال یکی می‌شود (نه بلندترین اسلاید)', (() => {
+     const r = fit(214);
+     return r.vp.style.height === '214px' && r.car.classList.contains('sc-sized');
+  })());
+  ok('صفحهٔ پنهان قیدِ ارتفاع را برمی‌دارد تا CSS خودش اندازه بدهد', (() => {
+     const r = fit(0, { inactive:true });
+     return r.vp.style.height === '' && !r.car.classList.contains('sc-sized');
+  })());
+  ok('fitCarousel بی‌ظرف بی‌خطا برمی‌گردد (سنجشِ مقاوم)', (() => {
+     const orig = U.$;
+     U.$ = () => null;
+     let r;
+     try{ r = tryIt(() => Courtyard.fitCarousel()); }finally{ U.$ = orig; }
+     return r === 'OK';
+  })());
+  ok('CSS: گذارِ ارتفاعِ قاب و سقفِ کوتاه‌ترِ اسلایدِ ذکر هست', (() => {
+     return /#salahCourt\s+\.carousel-viewport\{[^}]*transition:height/.test(CSS.replace(/\n/g, ' ')) &&
+            /#salahCourt\s+\.sc-wird-slide,\s*#salahCourt\s+\.sc-wird\{[^}]*max-height:258px/.test(CSS.replace(/\n/g, ' ')) &&
+            /#salahCourt\s+\.slide\{[^}]*flex:0 0 96%/.test(CSS.replace(/\n/g, ' '));
+  })());
+  ok('CSS: کم‌حرکتی گذارِ ارتفاعِ قاب را خاموش می‌کند', (() => {
+     const blocks = [...CSS.matchAll(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/g)].map(m => m[1]);
+     return blocks.some(b => /#salahCourt \.carousel-viewport\{ transition:none/.test(b.replace(/\s+/g, ' '))) ||
+            blocks.some(b => b.includes('#salahCourt .carousel-viewport') && b.includes('transition:none'));
+  })());
+  ok('ناظرِ جابه‌جاییِ اسلاید هست و با بازترسیمِ تازه جایگزین می‌شود',
+     typeof Courtyard.observeCarousel === 'function' &&
+     /MutationObserver/.test(String(Courtyard.observeCarousel)) &&
+     /attributeFilter:\['class'\]/.test(String(Courtyard.observeCarousel)));
+
+  /* ── تبِ ششم و مأموریت هم‌گام ── */
+  ok('نوارِ پایین شش تب دارد و ترتیبش «صحن | عبادت | … | من» است', (() => {
+     const navBlock = DOC.slice(DOC.indexOf('<nav class="nav"'), DOC.indexOf('</nav>'));
+     const keys = [...navBlock.matchAll(/data-nav="(\w+)"/g)].map(m => m[1]);
+     return keys.length === 6 && keys[0] === 'home' && keys[1] === 'ebadat' && keys[5] === 'me' &&
+            /data-ic="mosque"/.test(navBlock) && /aria-label="عبادت"/.test(navBlock);
+  })());
+  ok('آیکنِ تبِ عبادت هم جفتِ فعال دارد (مثلِ بقیهٔ تب‌ها)', (() => {
+     const bundle = fs.readFileSync(__dirname + '/assets/app/app-1-3bce8fb8d2.js', 'utf8');
+     return Icon.of('mosque') !== '' && Icon.of('mosque-active') !== '' &&
+            /'mosque-active'/.test(bundle) && /'home-active'/.test(bundle);
+  })());
+  ok('مأموریتِ نمازِ امروز با ستونِ تازه هم‌گام است (۴ نماز، بی عصر)', fresh(() => {
+     const m = (Missions.POOL || []).find(x => x.id === 'pray5');
+     const inWorship = (Missions.WORSHIP_POOL || []).find(x => x.id === 'pray5');
+     return !!m && m.goal === 4 && /چهار نماز/.test(m.t) && m.id === 'pray5' &&
+            !!inWorship && inWorship.goal === 4 &&
+            Missions.key('pray5') === SalahLog.count();
+  }));
+  ok('سرویس‌ورکر برای نسخهٔ ۱۹د بالا رفته و همان فهرست را پیش‌ذخیره می‌کند', (() => {
+     const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+     const n = +sw.match(/const CACHE = 'noorestan-(\d+)'/)[1];
+     return n >= 42 && /'\.\/assets\/app\/courtyard-1.js'/.test(sw) &&
+            /'\.\/assets\/styles\/salah\.css'/.test(sw) && /نسخهٔ ۴۲/.test(sw);
+  })());
+  ok('پیش‌ذخیرهٔ SW دقیقاً پنج نسخهٔ هم‌شماره دارد', (() => {
+     const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+     const vers = [...sw.matchAll(/const (?:CACHE|SHELL|MEDIA|TEXT|GAMES)\s*=\s*'noorestan(?:-shell|-media|-text|-games)?-(\d+)'/g)].map(m => m[1]);
+     return vers.length === 5 && vers.every(v => v === '42');
+  })());
+}
+
 section('قبله و تنظیماتِ عبادت (نسخهٔ ۱۹ب)');
 {
   const data0 = Store.data;
@@ -6299,10 +6497,10 @@ section('قبله و تنظیماتِ عبادت (نسخهٔ ۱۹ب)');
             ['jafari','mwl','ummqura','isna'].every(id => h.includes(`data-salah-method="${id}"`)) &&
             h.includes('setSalahPreview') && h.includes('setSalahHome') && h.includes('setSalahQibla');
   }));
-  ok('پیش‌نمایشِ اوقاتِ امروز در همان صفحه هست', fresh(() => {
+  ok('پیش‌نمایشِ اوقاتِ امروز در همان صفحه هست (بی «عصر»)', fresh(() => {
      const pv = SalahSettings.previewHtml();
-     return ['فجر','طلوع','ظهر','عصر','غروب','مغرب','عشا','نیمه‌شب'].every(x => pv.includes(x)) &&
-            /[۰-۹]{2}:[۰-۹]{2}/.test(pv);
+     return ['فجر','طلوع','ظهر','غروب','مغرب','عشا','نیمه‌شب'].every(x => pv.includes(x)) &&
+            !pv.includes('عصر') && /[۰-۹]{2}:[۰-۹]{2}/.test(pv);
   }));
   ok('مذهبِ جعفری (پیش‌فرض) و اهلِ سنت روش را جابه‌جا می‌کند', fresh(() => {
      const def = Store.get('salahMethod');
@@ -6396,7 +6594,7 @@ section('ذکر و تسبیح و ورد (نسخهٔ ۱۹)');
      return h.includes('ذکرِ صبح') && h.includes('ذکر یونسیه') && h.includes('tasbihBox') &&
             h.includes('khatmOpen') && h.includes('data-wird-finish="morning"');
   }));
-  ok('کارتِ ذکر رویِ خودِ صحن می‌نشیند', fresh(() => Courtyard.html().includes('id="wirdCard"')));
+  ok('کارتِ ذکر در صفحهٔ عبادت می‌نشیند', fresh(() => Courtyard.html().includes('id="wirdCard"')));
 
   /* ورد: یک بار در روز برای هر بانک */
   ok('ورد: هر بانک روزی یک‌بار جایزهٔ خیلی کم می‌دهد', fresh(() => {
@@ -6518,16 +6716,19 @@ section('ختم و رمضان (نسخهٔ ۱۹)');
   }));
 
   /* اقتصادِ کلِ روزِ عبادت */
-  ok('اقتصادِ سکه پس از نماز+ورد+تسبیح+ختم: ۱۱ سکه در روز، تراز سالم', fresh(() => {
-     /* (مأموریت‌ها در fresh قفل شده‌اند — اقتصادِ مستقیمِ عبادت تنهاست) */
+  ok('اقتصادِ سکه پس از نماز+ورد+تسبیح+ختم: ۱۰ سکه در روز، تراز سالم', fresh(() => {
+     /* (مأموریت‌ها در fresh قفل شده‌اند — اقتصادِ مستقیمِ عبادت تنهاست)
+        نسخهٔ ۱۹د: چهار نمازِ ستون ⇒ ۴ سکه از نماز، پس سقفِ روز ۱۰ شد. */
      const c0 = Wallet.get(), e0 = Wallet.earned(), x0 = Store.get('xp');
-     SalahLog.NAMES.forEach(n => SalahLog.mark(n));     // ۵
+     const prayers = SalahLog.NAMES.length;             // ۴
+     SalahLog.NAMES.forEach(n => SalahLog.mark(n));
      ['morning','evening','afterPrayer'].forEach(w => WirdUI.finish(w));  // ۳
      for(let i = 0; i < 99; i++) Tasbih.tap();          // ۲
      Khatm.mark(false);                                 // ۱
      const coins = Wallet.get() - c0, xp = Store.get('xp') - x0;
-     return coins === 11 && xp === (5 * 3) + (3 * 2) + 2 + 3 &&
-            Wallet.earned() - Wallet.spent() === Wallet.get() && Wallet.earned() - e0 === 11;
+     const expect = prayers + 3 + 2 + 1;
+     return coins === 10 && coins === expect && xp === (prayers * 3) + (3 * 2) + 2 + 3 &&
+            Wallet.earned() - Wallet.spent() === Wallet.get() && Wallet.earned() - e0 === expect;
   }));
 }
 
@@ -6560,6 +6761,8 @@ section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
             +tg.at === +t.dhuhr - 15 * 6e4;
   }));
   ok('خاموشیِ هر نماز از هدف‌یابی کنار می‌رود؛ master همه را می‌بندد', fresh(() => {
+     /* نسخهٔ ۱۹د: «عصر» در فهرستِ یادآورها نیست، پس خاموش‌کردنِ ظهر
+        هدف را مستقیم به مغرب می‌برد. */
      const t = Salah.times(new Date());
      const now = new Date(+t.fajr + 36e5);
      Store.update(d => { d.adhanEnabled.dhuhr = false; });
@@ -6567,7 +6770,21 @@ section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
      Store.update(d => { d.adhanEnabled.master = false; });
      const none = Adhan.nextTarget(now);
      Store.update(d => { d.adhanEnabled.master = true; d.adhanEnabled.dhuhr = true; });
-     return skipped === 'asr' && none === null;
+     return skipped === 'maghrib' && none === null;
+  }));
+  ok('«عصر» هرگز هدفِ اذان نمی‌شود و کلیدِ کهنه‌اش هم پاک می‌شود', fresh(() => {
+     const t = Salah.times(new Date());
+     const names = [];
+     /* از نیمه‌شب تا نیمه‌شبِ بعد، هر ساعت: هیچ هدفی نامش «عصر» نیست */
+     for(let i = 0; i < 24; i++){
+       const at = new Date(+t.fajr + i * 36e5);
+       const tg = Adhan.nextTarget(at);
+       if(tg) names.push(tg.name);
+     }
+     Store.data.adhanEnabled = { master:true, fajr:true, dhuhr:true, asr:true, maghrib:true, isha:true };
+     Store.sanitize();
+     return !names.includes('asr') && !('asr' in Store.get('adhanEnabled')) &&
+            Adhan.on('asr') === true && Salah.NAMES.includes('asr') === false;
   }));
   ok('در محفل/بازیِ تمام‌صفحه ساکت است', (() => {
      const stack = Router.stack;
@@ -6608,10 +6825,11 @@ section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
      return /Sound\.tone\(/.test(src) && !/\.mp3|\.ogg|\.wav/.test(src) &&
             Adhan.CHIME.length === 3 && tryIt(() => Adhan.chime()) === 'OK';
   })());
-  ok('کارتِ تنظیماتِ اذان کامل است', fresh(() => {
+  ok('کارتِ تنظیماتِ اذان کامل است (بی «عصر»)', fresh(() => {
      const h = Adhan.cardHtml();
      return h.includes('adhanSetCard') && h.includes('adhMaster') && h.includes('adhBefore') &&
-            ['fajr','dhuhr','asr','maghrib','isha'].every(n => h.includes(`data-adhan="${n}"`)) &&
+            ['fajr','dhuhr','maghrib','isha'].every(n => h.includes(`data-adhan="${n}"`)) &&
+            !h.includes('data-adhan="asr"') &&
             h.includes('adhPerm') && h.includes('adhTest');
   }));
   ok('کارتِ اذان به «عبادتِ روزانه» تزریق می‌شود', fresh(() =>

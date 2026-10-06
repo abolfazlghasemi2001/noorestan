@@ -1,30 +1,36 @@
 /* ═══════════════════════════════════════════════════════════════════
-   نورستان — نسخهٔ ۱۹ب: صحنِ روزانه + تنظیماتِ عبادت + قبله
+   نورستان — نسخهٔ ۱۹د: صفحهٔ «عبادت» + تنظیماتِ عبادت + قبله
    ═══════════════════════════════════════════════════════════════════
-   تزِ UI: خانه «صحن» است، نه لانچرِ شلوغِ بازی و نه داشبوردِ اذان.
-   یک اسکرولِ موبایل‌اول: سربرگ (نام، شمسی+قمری، شهر، نوارِ تا اذانِ
-   بعدی)، نوارِ پنج نماز، کارتِ مناسبت (اگر امروز باشد) و میان‌برِ
-   سه‌تایی. آیهٔ روز و مأموریت‌ها همان قهرمان‌های قبلیِ خانه‌اند و
-   دست‌نخورده زیرِ صحن می‌مانند.
+   تزِ UI (نسخهٔ ۱۹د): سه بخشِ بالاییِ صحنِ نسخهٔ ۱۹ب — سربرگِ امروز (نام،
+   شمسی+قمری، شهر و نوارِ تا اذانِ بعدی)، اوقاتِ شرعیِ امروز و کارتِ ذکر و
+   تعقیبات — از خانه برداشته شدند و یک صفحهٔ مستقلِ خودشان را دارند:
+   «عبادت» (`#s-ebadat`، تبِ تازهٔ نوارِ پایین). خانه (صحن) با تصویر و
+   خوش‌آمد و آیهٔ روز و دسته‌ها سرِ جایش است؛ نوارِ نماز هم چهار نماز
+   دارد، چون «عصر» به درخواستِ صاحبِ برنامه برداشته شد.
 
    این فایل *پس از* باندلِ اصلی و موتورِ اوقات بار می‌شود و به همان
    سبکِ بقیهٔ برنامه، خودش را به نقاطِ موجود وصل می‌کند:
-   • renderHome() را می‌پوشاند تا صحن با هر بارِ خانه تازه شود؛
+   • `Router.hooks.ebadat` را می‌نشاند تا هر بارِ ورود به صفحه، اوقات و
+     ذکر و مناسبتِ امروز را تازه کند (بی پوشاندنِ هیچ تابعِ دیگری)؛
    • Me.render() را می‌پوشاند تا بخشِ «عبادتِ روزانه» در تنظیمات بنشیند؛
-   • هیچ روتِ قدیمی را عوض نمی‌کند — #salah هم از راهِ همان
-     واپس‌رویِ Router.init به خانه (صحن) می‌رسد، پس لینکِ قدیم کار می‌کند.
+   • نشانی‌های قدیمیِ #salah و #wird در `ROUTE_ALIASES` باندلِ اصلی به
+     همین صفحه نگاشت شده‌اند، پس میان‌برِ کارتِ نصب هم کار می‌کند.
 
    همهٔ رنگ‌ها از توکن‌های پوسته‌اند (assets/styles/salah.css)؛ پس
-   شب/اقیانوس/جنگل/سلطنتی/کویر/روشن، نماز را هم‌رنگِ خودشان می‌کنند.
+   شب/اقیانوس/جنگل/سلطنتی/کویر/روشن، عبادت را هم‌رنگِ خودشان می‌کنند.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── دفترچهٔ علامتِ نماز ──
    محلی، ساده و با سقف: هر نماز در هر روز یک بار ثبت می‌شود و جایزهٔ
-   هر ثبت «خیلی کم» است (۱ سکه + ۳ تجربه) — یعنی حداکثر ۵ سکه در روز.
-   علامتِ نماز قرار است عادت بسازد، نه اینکه اقتصادِ سکه را پُر کند. */
+   هر ثبت «خیلی کم» است (۱ سکه + ۳ تجربه) — یعنی حداکثر یک سکه به ازای
+   هر نمازِ ستونِ عبادت در روز. علامتِ نماز قرار است عادت بسازد، نه
+   اینکه اقتصادِ سکه را پُر کند.
+   فهرستِ نام‌ها از خودِ موتور می‌آید (`Salah.NAMES`): نسخهٔ ۱۹د «عصر»
+   را از آن ستون برداشته، پس این‌جا هم چهار نماز است و سقفِ روزانه هم
+   همان چهار می‌شود — بی آنکه عددی دستی تکرار شده باشد. */
 const SalahLog = {
-  NAMES: ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'],
-  COIN: 1, XP: 3, DAILY_CAP: 5,
+  NAMES: Salah.NAMES,
+  COIN: 1, XP: 3, DAILY_CAP: Salah.NAMES.length,
   today(){ return U.today(); },
   _log(){ const l = Store.get('salahLog'); return (l && typeof l === 'object' && !Array.isArray(l)) ? l : {}; },
   day(){ const v = this._log()[this.today()]; return Array.isArray(v) ? v : []; },
@@ -49,7 +55,7 @@ const SalahLog = {
     log[k] = list;
     Store.set('salahLog', log);
     try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
-    /* جایزهٔ خیلی کم + سقفِ روزانه (۵ نماز ⇒ حداکثر ۵ سکه) */
+    /* جایزهٔ خیلی کم + سقفِ روزانه (به ازای هر نمازِ ستونِ عبادت یک سکه) */
     Wallet.earn(this.COIN, `نمازِ ${label}`);
     Store.update(d => { d.xp += this.XP; });
     try{ checkLevelUp(); }catch(e){}
@@ -124,6 +130,43 @@ const Courtyard = {
 
   hasLoc(){ try{ return !!Store.get('loc'); }catch(e){ return false; } },
 
+  /* ── صفحهٔ عبادت: هست یا نه؟ ──
+     کارت‌های اوقات حالا در صفحهٔ جداگانه‌ای زندگی می‌کنند، پس رسم و
+     تیکِ هرثانیه‌ای فقط وقتی معنا دارد که همان صفحه باز باشد. در
+     هارنسِ Node (DOMِ ساختگی) یا پیش از افزودنِ بخش به سند، «باز نیست»
+     نتیجه می‌شود و کد بی‌خطا سرِ جایش می‌ماند. */
+  open(){
+    try{
+      const el = U.$('#s-ebadat');
+      return !!(el && el.classList && el.classList.contains('active'));
+    }catch(e){ return false; }
+  },
+
+  /* ── اندازهٔ کاروسل: به اندازهٔ اسلایدِ فعال ──
+     قابِ کاروسل به بلندترین اسلاید قفل می‌شد؛ یعنی سربرگ (کارتِ کوتاه)
+     صدها پیکسل جای خالی زیرش داشت. حالا پیمانهٔ ارتفاع همان اسلایدی است
+     که دیده می‌شود و با هر جابه‌جایی نرم عوض می‌شود (CSS گذارِ ارتفاع
+     را دارد). کم‌حرکتی هم گذار را خاموش می‌کند، ولی اندازه درست
+     می‌ماند. */
+  fitCarousel(){
+    try{
+      const box = U.$('#salahCourt');
+      if(!box) return;
+      const car = U.$('#scCarousel', box);
+      const vp = car && U.$('.carousel-viewport', car);
+      if(!car || !vp || !vp.style) return;
+      const act = U.$('.slide.is-active', car) || U.$('.slide', car);
+      const h = act && (act.offsetHeight || act.getBoundingClientRect && Math.round(act.getBoundingClientRect().height));
+      /* نوشتنِ فقط-در-تغییر: اگر مقدار همان باشد دست نمی‌زنیم. همین
+         بی‌اثر‌بودنِ نوشتن است که حلقهٔ ناظر→اندازه→کلاس→ناظر را
+         می‌بندد (اندازه‌گیریِ پشت‌سرهم با تغییرهای بی‌مورد). */
+      const want = h > 0 ? Math.round(h) + 'px' : '';
+      if(vp.style.height !== want) vp.style.height = want;
+      const sized = car.classList.contains('sc-sized');
+      if(sized !== (h > 0)) car.classList.toggle('sc-sized', h > 0);
+    }catch(e){}
+  },
+
   times(){ return Salah.times(new Date()); },
 
   headerHtml(now, t, nx){
@@ -159,12 +202,12 @@ const Courtyard = {
 
   marksChip(){
     const n = SalahLog.count();
-    return `${U.fa(n)} از ${U.fa(5)} نمازِ امروز علامت خورده`;
+    return `${U.fa(n)} از ${U.fa(SalahLog.NAMES.length)} نمازِ امروز علامت خورده`;
   },
 
   prayersHtml(t, curName){
     return `
-      <div class="sc-prayers" role="group" aria-label="نوارِ پنج نماز">
+      <div class="sc-prayers" role="group" aria-label="نوارِ نمازهای امروز">
         ${Salah.NAMES.map(name => {
           const label = Salah.LABEL[name] || name;
           const isCur = name === curName;
@@ -198,7 +241,7 @@ const Courtyard = {
       </div>`;
   },
 
-  /* کلِ صحن — اسلایدهای کاروسلی */
+  /* کلِ عبادت — اسلایدهای کاروسلی */
   html(){
     const now = new Date();
     const t = this.times();
@@ -245,12 +288,16 @@ const Courtyard = {
     }
 
     /* فاز ۲: اسلایدِ «میان‌برهای نورستان» برداشته شد. سه دکمهٔ آن به
-       تلاوت/بازی/محفل می‌بردند — همان سه بخشی که تبِ پایین دارد. صحن
-       محتواست (اوقات، قبله، ورد، مناسبت)، نه دروازهٔ دوم. */
+       تلاوت/بازی/محفل می‌بردند — همان سه بخشی که تبِ پایین دارد. عبادت
+       محتواست (اوقات، قبله، ذکر، مناسبت)، نه دروازهٔ دوم. */
+
+    /* نسخهٔ ۱۹د: همین چند اسلاید از بالای صحن به این صفحه منتقل شدند.
+       کاروسل دست‌نخورده مانده — فقط اندازه‌اش را `fitCarousel` به اندازهٔ
+       اسلایدِ فعال می‌بندد تا زیرِ کارتِ کوتاه جای خالی نماند. */
 
     return `
       <div class="sc-wrap">
-        <div class="category-carousel" id="scCarousel" role="group" aria-roledescription="کاروسل" aria-label="صحن روزانه — اوقات نماز و برنامه‌های امروز">
+        <div class="category-carousel" id="scCarousel" role="group" aria-roledescription="کاروسل" aria-label="عبادت — اوقات نماز، ذکر و برنامه‌های امروز">
           <div class="carousel-viewport">
             <div class="carousel-track">
               ${slides.join('')}
@@ -267,14 +314,37 @@ const Courtyard = {
       </div>`;
   },
 
+  /* حالتِ خاموش: به‌جای جای خالی، یک کارتِ راهنما با دکمهٔ روشن‌کردن —
+     کاربرِ تازه نباید پشتِ یک صفحهٔ خالی بماند. */
+  offHtml(){
+    return `
+      <div class="card sc-off" role="note" aria-label="اوقاتِ نماز خاموش است">
+        <b style="font-size:13px">${Icon.of('mosque')} اوقاتِ نماز خاموش است</b>
+        <p style="font-size:12px;color:var(--mut);margin:8px 0 12px">
+          اوقاتِ شرعی، اذانِ بعدی، قبله و ذکرهای روز در همین صفحه‌اند؛
+          کافی است نمایششان را روشن کنی. هر وقت خواستی از
+          «من → تنظیمات → عبادتِ روزانه» هم می‌شود خاموشش کرد.</p>
+        <button class="btn w" id="scTurnOn">${Icon.of('check')}<span>روشنش کن</span></button>
+      </div>`;
+  },
+
   render(){
     const box = U.$('#salahCourt');
     if(!box) return;
-    if(!this.enabled()){ box.innerHTML = ''; delete box.dataset.scSig; return; }
+
+    if(!this.enabled()){
+      if(box.dataset.scSig !== 'off'){
+        box.dataset.scSig = 'off';
+        box.innerHTML = this.offHtml();
+        this.wire(box);
+      }
+      return;
+    }
 
     const sig = this._buildSig();
     if(box.dataset.scSig === sig && U.$('#scCarousel', box)){
       this.tick();
+      this.fitCarousel();
       return;
     }
 
@@ -283,7 +353,41 @@ const Courtyard = {
     this.wire(box);
     try{ initAllCarousels(); }catch(e){}
     this.startClock();
+    this.observeCarousel(box);
     this.tick();
+    this.fitCarousel();
+  },
+
+  /* ── دیدنِ جابه‌جاییِ اسلاید و هم‌اندازه‌کردنِ قاب ──
+     کنترل‌کنندهٔ کاروسل کلاسِ `is-active` را روی اسلاید می‌گرداند؛ همان
+     یک تغییر برای ما نشانه است. یک ناظرِ کوچک روی زیردرختِ کاروسل
+     می‌نشیند و ارتفاعِ قاب را با اسلایدِ تازه یکی می‌کند. ناظرِ پیشین
+     (اگر بود) جدا می‌شود تا با هر بازترسیم، شنوندهٔ کهنه نماند.
+     دو نگهبانِ حلقه: کلاسِ ریشه نادیده گرفته می‌شود (آن نشانِ خودِ
+     `fitCarousel` است) و اندازه‌گیری به فریمِ بعد موکول می‌شود و فقط
+     یک‌بار در هر فریم می‌افتد. */
+  observeCarousel(box){
+    try{
+      if(this._fitObs){ try{ this._fitObs.disconnect(); }catch(e){} }
+      this._fitObs = null;
+      if(typeof MutationObserver !== 'function') return;
+      const car = U.$('#scCarousel', box);
+      if(!car) return;
+      this._fitObs = new MutationObserver(recs => {
+        /* کلاسِ ریشهٔ کاروسل نشانِ خودِ ماست؛ گوش‌دادن به آن حلقهٔ
+           ناظر→اندازه→کلاس→ناظر می‌سازد. فقط جابه‌جاییِ اسلایدها (زیردرخت)
+           ارزشِ اندازه‌گیری دارد. */
+        if(recs.every(r => r.target === car)) return;
+        /* هر نشانه فقط یک اندازه‌گیری در همان فریم می‌ارزد، نه یک
+           آبشارِ ریزکارتی که صفحه را قفل کند. */
+        if(this._fitPending) return;
+        this._fitPending = true;
+        const run = () => { this._fitPending = false; this.fitCarousel(); };
+        if(typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+        else setTimeout(run, 16);
+      });
+      this._fitObs.observe(car, { attributes:true, attributeFilter:['class'], subtree:true });
+    }catch(e){ this._fitObs = null; }
   },
 
   wire(box){
@@ -294,12 +398,23 @@ const Courtyard = {
       UI.closeModal && UI.closeModal();
       QuizPick.open([topic]);
     });
+    const on = U.$('#scTurnOn', box);
+    if(on) on.onclick = () => {
+      Store.update(x => { x.settings.salahOnHome = true; });
+      this.invalidateSig();
+      this.render();
+      try{ SalahSettings.refresh(true); }catch(e){}
+      UI.toast('🕌 عبادت روشن شد', 'ok', 2000);
+    };
     try{ if(typeof WirdUI !== 'undefined' && WirdUI.wire) WirdUI.wire(box); }catch(e){}
     try{ if(typeof Adhan !== 'undefined' && Adhan.reschedule) Adhan.reschedule(); }catch(e){}
+    this.fitCarousel();
   },
 
-  /* ساعتِ صحن: هر ثانیه فقط متنِ شمارش و نوار تازه می‌شود (نه کلِ DOM)؛
-     وقتی نمازِ جاری عوض شود، فقط نشانگرِ is-current عوض می‌شود. */
+  /* ساعتِ عبادت: هر ثانیه فقط متنِ شمارش و نوار تازه می‌شود (نه کلِ DOM)؛
+     وقتی نمازِ جاری عوض شود، فقط نشانگرِ is-current عوض می‌شود.
+     تیک فقط وقتی می‌زند که صفحهٔ عبادت باز باشد — محاسبهٔ نجومیِ هر
+     ثانیه در صفحه‌های دیگر بی‌فایده است. */
   startClock(){
     if(this._clockId != null) return;
     try{
@@ -311,6 +426,7 @@ const Courtyard = {
 
   tick(){
     if(!this.enabled()) return;
+    if(!this.open()) return;
     const now = new Date();
     const nx = Salah.next(now);
     const cur = Salah.current(now);
@@ -324,6 +440,7 @@ const Courtyard = {
 
     if(cur.name !== this._curName){
       this._curName = cur.name;
+      this.fitCarousel();
       const box = U.$('#salahCourt');
       if(box){
         U.$$('[data-sp]', box).forEach(btn => {
@@ -344,7 +461,9 @@ const Courtyard = {
     const t = this.times();
     const label = Salah.LABEL[name] || name;
     const done = SalahLog.marked(name);
-    const rows = [['فجر','fajr'],['طلوع','sunrise'],['ظهر','dhuhr'],['عصر','asr'],
+    /* نسخهٔ ۱۹د: «عصر» از اوقاتِ نمایش‌داده‌شده برداشته شد — همان‌طور که
+       از ستونِ نمازها و یادآورهای اذان رفت. باقیِ اوقات دست‌نخورده‌اند. */
+    const rows = [['فجر','fajr'],['طلوع','sunrise'],['ظهر','dhuhr'],
                   ['غروب','sunset'],['مغرب','maghrib'],['عشا','isha'],['نیمه‌شبِ شرعی','midnight']];
     UI.modal(`
       <h3 style="margin-bottom:4px">${Icon.of('clock')} نمازِ ${label}</h3>
@@ -560,7 +679,8 @@ const SalahSettings = {
 
   previewHtml(){
     const t = Salah.times(new Date());
-    const cells = [['fajr','فجر'],['sunrise','طلوع'],['dhuhr','ظهر'],['asr','عصر'],
+    /* همان فهرستِ اوقاتِ کارتِ هر نماز — بی «عصر» (نسخهٔ ۱۹د). */
+    const cells = [['fajr','فجر'],['sunrise','طلوع'],['dhuhr','ظهر'],
                    ['sunset','غروب'],['maghrib','مغرب'],['isha','عشا'],['midnight','نیمه‌شب']];
     return cells.map(([k, fa]) => `
       <div class="pv"><b>${Courtyard.hhmm(t[k])}</b>${fa}</div>`).join('');
@@ -616,15 +736,17 @@ const SalahSettings = {
         <label class="lbl">پیش‌نمایشِ اوقاتِ امروز — ${U.esc(Courtyard.cityLabel())}</label>
         <div class="sc-set-preview" id="setSalahPreview">${this.previewHtml()}</div>
 
-        <label class="lbl">نمایش</label>
+        <label class="lbl">نمایش در صفحهٔ عبادت</label>
         <div class="sc-set-row">
           <button class="btn ${onHome ? '' : 'gh'}" id="setSalahHome" style="flex:1">
-            ${onHome ? '🕌 اوقات رویِ خانه: روشن' : '🕌 اوقات رویِ خانه: خاموش'}</button>
+            ${onHome ? '🕌 کارت‌های عبادت: روشن' : '🕌 کارت‌های عبادت: خاموش'}</button>
           <button class="btn gh" id="setSalahQibla" style="flex:1">${Icon.of('target')}<span>قبله</span></button>
         </div>
         <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
           اوقات با الگوریتمِ نجومیِ مستند (PrayTimes) روی خودِ دستگاه حساب می‌شود —
-          بی اینترنت هم درست است. برای دقتِ بیشتر، شهرت را انتخاب کن.</p>
+          بی اینترنت هم درست است. برای دقتِ بیشتر، شهرت را انتخاب کن.
+          «عصر» در این نسخه از اوقاتِ نمایش‌داده‌شده و از یادآورهای اذان
+          برداشته شده است.</p>
       </div>`;
   },
 
@@ -653,7 +775,7 @@ const SalahSettings = {
     const sh = U.$('#setSalahHome'); if(sh) sh.onclick = () => {
       const v = !((Store.get('settings') || {}).salahOnHome !== false);
       Store.update(x => { x.settings.salahOnHome = v; });
-      U.label(sh, v ? '🕌 اوقات رویِ خانه: روشن' : '🕌 اوقات رویِ خانه: خاموش');
+      U.label(sh, v ? '🕌 کارت‌های عبادت: روشن' : '🕌 کارت‌های عبادت: خاموش');
       sh.classList.toggle('gh', !v);
       Courtyard.render();
     };
@@ -700,21 +822,32 @@ const SalahSettings = {
 };
 
 /* ═══════════════ اتصال به برنامهٔ موجود ═══════════════
-   نه روتِ تازه، نه حذفِ چیزی: renderHome و Me.render پوشانده می‌شوند
-   تا صحن و تنظیمات سرِ جایِ خودشان بنشینند. */
+   نسخهٔ ۱۹د: کارت‌های عبادت از خانه به صفحهٔ خودشان (`#s-ebadat`) رفته‌اند،
+   پس دیگر `renderHome` پوشانده نمی‌شود؛ به‌جایش یک قلابِ روتِ صریح
+   (`Router.hooks.ebadat`) می‌نشیند که با هر بارِ ورود، اوقات و ذکر و
+   مناسبتِ همان لحظه را می‌کشد. Me.render هم مثل پیش سرِ جایش می‌ماند تا
+   بخشِ «عبادتِ روزانه» در تنظیمات بنشیند. */
 (function attachSalahUI(){
   try{
-    if(typeof renderHome === 'function' && !renderHome._salahWrapped){
-      const _rh = renderHome;
-      const wrapped = function(){
-        const r = _rh.apply(this, arguments);
-        try{ Courtyard.render(); }catch(e){ console.warn('courtyard', e); }
-        return r;
-      };
-      wrapped._salahWrapped = true;
-      renderHome = wrapped;
-      try{ window.renderHome = wrapped; }catch(e){}
+    if(typeof Router === 'object' && Router.screens && Router.screens.ebadat === 's-ebadat'){
+      /* باندلِ اصلی همین قلاب را می‌نشاند و این‌جا فقط پشتیبان است: اگر
+         روزی ترتیبِ بارگذاری عوض شود یا `init()` دوباره صدا زده شود،
+         قلاب باید سرِ جایش بماند. */
+      if(typeof Router.hooks.ebadat !== 'function'){
+        Router.hooks.ebadat = function(){
+          try{ Courtyard.render(); }catch(e){ console.warn('courtyard', e); }
+        };
+      }
+      /* اگر برنامه با همین نشانی باز شده باشد، Router.init پیش از بارشدنِ
+         این فایل اجرا شده و قلاب را صدا نزده است؛ پس یک بار دستی می‌کشیم. */
+      const cur = (Router.stack || [])[(Router.stack || []).length - 1];
+      if(cur === 'ebadat'){ try{ Courtyard.render(); }catch(e){} }
     }
+  }catch(e){}
+  /* دکمهٔ قبله در سربرگِ همان صفحه (بیرونِ ظرفِ کارت‌ها) */
+  try{
+    const qb = U.$('#ebQibla');
+    if(qb) qb.onclick = () => { try{ Sound.click(); }catch(e){} Qibla.open(); };
   }catch(e){}
   try{
     if(typeof Me === 'object' && typeof Me.render === 'function' && !Me.render._salahWrapped){
