@@ -151,6 +151,40 @@ ok('all five SW caches share one version', (() => {
 /* برگهٔ سبکِ تازه باید پیش‌ذخیره شود، وگرنه نصبِ آفلاین صفحهٔ ورودِ
    کهنه را نشان می‌دهد. */
 ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.css'"));
+
+/* ═══════════════════════════════════════════════════════════════════
+   فاز ۲ — معماری اطلاعات: یک دروازه برای هر بخش.
+   سنجش‌های این بخش تازه‌اند (در `_tests.js` جای زنده‌ای نداشتند) و
+   به مسیرِ زندهٔ CI می‌آیند، نه به بخش‌های مرده.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── گامِ ۱: نوارِ بالا فقط نشان و زنگِ اعلان ──
+   پیش از رفع: `#btnQuran` و `#btnNet` دو دروازهٔ دوم به تلاوت و محفل
+   بودند و نوارِ بالا سه دکمه داشت. حالا تنها دروازهٔ هر بخش، تبِ
+   پایین است و نوارِ بالا فقط اعلان را باز می‌کند. */
+section('نوارِ بالا — تنها یک دروازه (فاز ۲، گامِ ۱)');
+{
+  const topStart = DOC.indexOf('<div class="top">');
+  const topEnd = DOC.indexOf('id="s-home"');
+  const top = (topStart >= 0 && topEnd > topStart) ? DOC.slice(topStart, topEnd) : '';
+  const iconBtns = (top.match(/class="iconbtn"/g) || []).length;
+  ok('نوارِ بالا فقط یک دکمهٔ آیکنی دارد', iconBtns === 1, `${iconBtns} دکمه`);
+  ok('دکمهٔ تلاوتِ نوارِ بالا رفته', !DOC.includes('id="btnQuran"'));
+  ok('دکمهٔ شبکهٔ نوارِ بالا رفته', !DOC.includes('id="btnNet"'));
+  /* قاعدهٔ ۷ (بی‌صاحب نماندنِ شناسه): هیچ هندلری در باندل به شناسه‌های
+     حذف‌شده اشاره نمی‌کند. `Router.go('quran')` و `Router.go('online')`
+     سرِ جایشان هستند — آن‌ها دروازهٔ تبِ پایین‌اند و این سنجش فقط
+     دنبالِ دکمه‌های مردهٔ نوارِ بالاست. */
+  ok('هیچ هندلرِ بی‌صاحبی برای شناسه‌های حذف‌شده نمانده',
+     !/#btnQuran|#btnNet/.test(SRC), (SRC.match(/#btnQ(uran)?|#btnNet/g) || []).slice(0, 3).join());
+  ok('زنگِ اعلان تنها دروازهٔ نوارِ بالا و وصل است',
+     /U\.\$\('#btnNotif'\)\.onclick = \(\) => Router\.go\('notif'\)/.test(SRC));
+  /* وضعیتِ شبکه گم نشده؛ فقط ناوبری‌اش رفته: چیپِ صحن و چیپِ محفل. */
+  ok('وضعیتِ شبکه در صحن و محفل می‌ماند، بی دروازه',
+     DOC.includes('id="cNet"') && DOC.includes('id="netState"') &&
+     !/U\.\$\('#cNet'\)\.onclick|U\.\$\('#netState'\)\.onclick/.test(SRC));
+  ok('نشانِ نورستان در نوارِ بالا مانده', /class="brand"/.test(top));
+}
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);
