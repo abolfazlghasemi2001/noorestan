@@ -93,7 +93,7 @@
       "name": "مأموریت‌های امروز",
       "short_name": "مأموریت",
       "description": "سه کار تازهٔ هر روز",
-      "url": "./#me",
+      "url": "./#play",
       "icons": [
         {
           "src": "assets/images/icons/icon-192.png",

@@ -213,3 +213,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;bac
 @media (max-width:420px){.pro-hero-panel{grid-template-columns:1fr 1fr}.pro-score{grid-column:span 2}.pro-featured{grid-template-columns:1fr}.pro-command{margin-inline:-2px}.pro-filters button{font-size:11.5px;padding-inline:11px}.pro-grid{grid-template-columns:1fr 1fr;gap:10px}.pro-tile{min-height:168px}.pro-tile-copy b{font-size:13.5px}.pro-tile-copy small{font-size:11px}.pro-tags i:nth-child(n+3){display:none}}
 @media (prefers-reduced-motion:no-preference){.pro-launch-hero,.pro-command,.pro-featured,.pro-grid{animation:fadeUp .42s var(--ease) both}.pro-command{animation-delay:.05s}.pro-featured{animation-delay:.1s}.pro-grid{animation-delay:.14s}.pro-tile{transition:transform .24s var(--ease),border-color .24s,box-shadow .24s}.pro-tile:hover{transform:translateY(-4px);box-shadow:0 24px 58px -30px rgba(0,0,0,.72)}}
 html[data-motion="off"] .pro-launch-hero,html[data-motion="off"] .pro-command,html[data-motion="off"] .pro-featured,html[data-motion="off"] .pro-grid{animation:none!important}
+html .pro-missions,html .pro-records{margin-top:12px}
+.pro-record-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pro-record-chips .chip{font-size:11.5px}

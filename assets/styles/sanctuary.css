@@ -118,7 +118,7 @@ html .miss{padding:14px 10px;border-bottom:1px solid var(--line)}
 html .miss:last-child{border-bottom:0}
 html .miss .mi{color:var(--gold)}
 html .daily-ayah,html .daily-card{background:var(--card);border-color:var(--court-line)}
-@media(min-width:1000px){html #homeMissCard{padding:18px 24px}html #homeMiss{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}html #homeMiss .miss{border:0;min-width:0;align-items:start}html .shop-item{padding:18px}html #s-home .stats{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1000px){html #pgMissions{padding:18px 24px}html #pgMissList{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}html #pgMissList .miss{border:0;min-width:0;align-items:start}html .shop-item{padding:18px}html #s-home .stats{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:640px){
  html #app{padding-inline:16px}html .top,html[data-theme="light"] .top{margin:0 -16px 18px;padding:14px 18px;gap:9px}
  html .brand{font-size:23px;gap:9px}html .brand small{font-size:9px}html .top .iconbtn{width:36px;height:36px}

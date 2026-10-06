@@ -327,6 +327,90 @@ section('نوارِ بالا — تنها یک دروازه (فاز ۲، گام�
      !/U\.\$\('#cNet'\)\.onclick|U\.\$\('#netState'\)\.onclick/.test(SRC));
   ok('نشانِ نورستان در نوارِ بالا مانده', /class="brand"/.test(top));
 }
+/* ── گامِ ۴: بازی — کاتالوگِ خالص، فیلترِ مهارت، مأموریت و رکورد ──
+   پیش از رفع، «کاتالوگِ بازی» عملاً منوی دومی برای کلِ برنامه بود: از ۲۸
+   کاشیِ دیدنی، ۱۱ تای‌شان دروازهٔ بخشِ دیگر (پروفایل، فروشگاه، محفل،
+   قاریان…). مأموریت‌های امروز هم در صحن بود و در «من» میان‌بر داشت — دو
+   خانه برای یک محتوا. حالا کاتالوگ فقط بازیِ واقعی دارد، دو نوارِ فیلتر
+   (دسته + مهارت) گرفته و مأموریت/رکورد یک خانه دارند: همین برگه. */
+section('بازی — کاتالوگِ خالص، فیلترِ مهارت، مأموریت و رکورد (فاز ۲، گامِ ۴)');
+{
+  const GATES = ['recite','online-lobby','friends','daily','missions','profile','stats',
+    'badges','leaderboard','settings','collection','shop','bookmarks','reciters','onboarding'];
+  const REAL = ['ayahlight','surah','scramble','quiz','exam','nahj','hadith','imams','dua',
+    'meaning','speed','iran','match','memory','dooz','esmfamil','sudoku',
+    'ayah-builder','hadith-rush','noor-pairs','tree'];
+  const SKILL_IDS = ['memory','speed','accuracy','word','knowledge','maaref'];
+  /* برگهٔ بازی را همان‌طور که کاربر می‌بیند می‌گیریم: خروجیِ paint را در
+     یک جعبهٔ ساختگی می‌ریزیم — همان روشی که سنجش‌های بوم به کار می‌برند. */
+  const box = { innerHTML:'', onclick:null, textContent:'', value:'', hidden:false, dataset:{},
+    classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+    style:{}, setAttribute(){}, getAttribute(){ return null; }, addEventListener(){},
+    querySelector(){ return null; }, querySelectorAll(){ return []; } };
+  const s$ = U.$;
+  let html = '';
+  try{ U.$ = (sel, root) => (sel === '#pgBody' ? box : s$(sel, root)); Launcher.paint(); html = box.innerHTML; }
+  finally{ U.$ = s$; }
+  /* فقط کاشی‌های کاتالوگ (`#gameGrid`) — نوارِ پیشنهادهای سریع هم
+     `data-game` دارد ولی کاتالوگ نیست. */
+  const grid = html.slice(Math.max(html.indexOf('id="gameGrid"'), 0), html.indexOf('id="gameEmpty"'));
+  const tiles = [...grid.matchAll(/data-game="([^"]+)"/g)].map(m => m[1]);
+  const tags  = [...grid.matchAll(/<button[^>]*data-game="[^"]+"[^>]*>/g)].map(m => m[0]);
+  const bar   = html.slice(Math.max(html.indexOf('id="skillFilter"'), 0), html.indexOf('id="gameGrid"'));
+  const skillBtns = [...bar.matchAll(/data-skill="([a-z]+)"/g)].map(m => m[1]);
+  const home = DOC.slice(DOC.indexOf('id="s-home"'), DOC.indexOf('id="s-online"'));
+  ok('کاتالوگ فقط بازیِ واقعی دارد، بی هیچ دروازهٔ بخشِ دیگر',
+     tiles.length >= REAL.length - 1 && tiles.every(id => !GATES.includes(id)),
+     `${tiles.length} کاشی؛ دروازه‌ها: ` + tiles.filter(id => GATES.includes(id)).join());
+  ok('فهرستِ خالصِ کاتالوگ یک منبع دارد',
+     typeof catalogIds === 'function' && typeof HIDDEN_FROM_CATALOG === 'object' &&
+     GATES.every(g => HIDDEN_FROM_CATALOG.has(g)) &&
+     catalogIds().slice().sort().join() === tiles.slice().sort().join(),
+     typeof catalogIds === 'function' ? catalogIds().length + ' شناسه' : 'catalogIds نیست');
+  ok('سه بازیِ مستقل، سودوکو و درختِ دانش در کاتالوگ مانده‌اند',
+     ['ayah-builder','hadith-rush','noor-pairs','sudoku','tree'].every(id => tiles.includes(id)),
+     ['ayah-builder','hadith-rush','noor-pairs','sudoku','tree'].filter(id => !tiles.includes(id)).join());
+  /* قاعدهٔ «هر بخش یک دروازه»: خودِ برگهٔ بازی هیچ ناوبریِ میان‌بخشی ندارد. */
+  const lz = SRC.indexOf('const Launcher = {');
+  const paintAt = SRC.indexOf('paint(){', lz);
+  ok('برگهٔ بازی هیچ `Router.go` به بخشِ دیگر ندارد',
+     paintAt > lz && !/Router\.go\(/.test(SRC.slice(paintAt, SRC.indexOf('12. LEVEL', paintAt))));
+  ok('هر کاشیِ کاتالوگ یک مهارت دارد و مهارتش با نقشه یکی است',
+     typeof SKILLS === 'object' && tags.length === tiles.length && tiles.length > 0 &&
+     tiles.every(id => !!SKILLS[id]) &&
+     tags.every(t => new RegExp(`data-skill="${SKILLS[t.match(/data-game="([^"]+)"/)[1]]}"`).test(t)),
+     tags.filter(t => !/data-skill="/.test(t)).length + ' کاشیِ بی‌مهارت');
+  ok('نقشهٔ مهارت‌ها و دستهٔ نمایشی بیرونِ DATA و کامل‌اند',
+     typeof CATALOG_CATS === 'object' && typeof CATALOG_CAT === 'object' &&
+     SKILL_IDS.every(s => Object.values(SKILLS).includes(s)) &&
+     tiles.every(id => !!CATALOG_CAT[id]) &&
+     Object.keys(CATALOG_CAT).every(id => !GATES.includes(id)));
+  ok('دو نوارِ فیلتر: دسته (بی «حساب من») و مهارت',
+     /data-filter="all"/.test(html) && skillBtns.includes('all') &&
+     SKILL_IDS.every(s => skillBtns.includes(s)) &&
+     !/data-filter="account"/.test(html) &&
+     typeof SKILL_LABELS === 'object' && SKILL_IDS.every(s => {
+       const l = (SKILL_LABELS || []).find(x => x.id === s);
+       return !!l && bar.includes(l.title);
+     }),
+     skillBtns.join());
+  ok('مأموریت‌های امروز یک خانه دارند: برگهٔ بازی، نه صحن',
+     !DOC.includes('id="homeMissCard"') && !/#homeMiss|#missCnt|#missOpen/.test(SRC) &&
+     !/id="homeMissCard"|#homeMiss/.test(DOC + CSS) &&
+     html.includes('id="pgMissions"') && /class="miss[ "]/ .test(html));
+  ok('میان‌برِ نصبِ «مأموریت‌های امروز» به همان خانهٔ تازه می‌رسد',
+     /"url": "\.\/#play"/.test(require('fs').readFileSync(__dirname + '/manifest.json', 'utf8')));
+  ok('میان‌برِ دومِ مأموریت در «من» هم برداشته شد',
+     !/#setMissions|#pfMissions/.test(SRC) && /id="pgMissAll"/.test(html));
+  ok('مأموریت‌ها بی‌نشان نشده‌اند: شمارش و راهِ برگهٔ کامل هست',
+     /id="pgMissCnt"/.test(html) && /id="pgMissAll"/.test(html));
+  ok('نوارِ «رکوردهای من» بالای کاتالوگ است',
+     html.includes('id="pgRecords"') && html.indexOf('id="pgRecords"') < html.indexOf('id="gameGrid"') &&
+     /رکوردهای من/.test(html));
+  ok('«آیهٔ روز» به تصمیمِ تو در صحن ماند', home.includes('id="daily"') && DOC.includes('id="daily"'));
+  ok('صفحهٔ بازی هنوز با روتِ #play بالا می‌آید', Router.screens.play === 's-play' && tryIt(() => Router.go('play')) === 'OK');
+}
+
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);

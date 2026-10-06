@@ -9943,43 +9943,102 @@ const RoundControl={
 };
 
 /* صفحه «همه بازی‌ها» — دکمه 🎮 در نوار پایین */
+/* ── کاتالوگِ خالصِ بازی ──
+   پیش از این، «مرکز بازی‌ها» هر چیزی بود که در `DATA.GAMES` نشسته بود —
+   از جمله پانزده دروازهٔ بخش‌های دیگر (پروفایل، فروشگاه، محفل، قاریان…).
+   حالا فهرستِ کاتالوگ یک منبع دارد: `catalogIds()`. دستهٔ نمایشی و مهارت
+   هم از نقشه‌های همین‌جا می‌آید، نه از `DATA` — نگهبانِ محتوا کلِ بلوکِ
+   `DATA` را هش می‌کند و نباید دست بخورد. */
+const HIDDEN_FROM_CATALOG = new Set(['recite','online-lobby','friends','daily','missions',
+  'profile','stats','badges','leaderboard','settings','collection','shop',
+  'bookmarks','reciters','onboarding']);
+const SKILL_LABELS = [
+  { id:'memory',    title:'حافظه',  icon:'🧠' },
+  { id:'speed',     title:'سرعت',   icon:'⚡' },
+  { id:'accuracy',  title:'دقت',    icon:'🎯' },
+  { id:'word',      title:'واژه',   icon:'🔤' },
+  { id:'knowledge', title:'دانش',   icon:'📚' },
+  { id:'maaref',    title:'معارف',  icon:'📜' }
+];
+const SKILLS = {
+  memory:'memory', match:'memory', 'noor-pairs':'memory',
+  speed:'speed', 'hadith-rush':'speed',
+  ayahlight:'accuracy', iran:'accuracy', dooz:'accuracy',
+  scramble:'word', esmfamil:'word', meaning:'word', 'ayah-builder':'word',
+  surah:'knowledge', tree:'knowledge', sudoku:'knowledge',
+  quiz:'maaref', exam:'maaref', nahj:'maaref', hadith:'maaref', imams:'maaref', dua:'maaref'
+};
+const CATALOG_CATS = [
+  { id:'quran',  title:'آموزش قرآن',   icon:'📖' },
+  { id:'brain',  title:'فکری و حافظه', icon:'🧠' },
+  { id:'online', title:'چندنفره',      icon:'🌐' },
+  { id:'maaref', title:'دانش و معارف', icon:'📜' }
+];
+const CATALOG_CAT = {
+  ayahlight:'quran', surah:'quran', scramble:'quran', meaning:'quran',
+  'ayah-builder':'quran', 'noor-pairs':'quran',
+  memory:'brain', match:'brain', speed:'brain', iran:'brain', sudoku:'brain', tree:'brain',
+  dooz:'online', esmfamil:'online',
+  quiz:'maaref', exam:'maaref', nahj:'maaref', hadith:'maaref', imams:'maaref', dua:'maaref',
+  'hadith-rush':'maaref'
+};
+function catalogIds(){
+  return Object.keys(DATA.GAMES).filter(id => !HIDDEN_FROM_CATALOG.has(id));
+}
+
+/* رکوردها یک فهرست دارند: تبِ «دستاوردها» و نوارِ رکوردهای بازی هر دو از
+   همین می‌خوانند تا برچسب‌ها از هم دور نشوند. */
+const RECORDS = [
+  { k:'surah_best',    label:'📖 بهترین سفر سوره‌ها', unit:'%' },
+  { k:'quiz_best',     label:'📚 بهترین آزمون',        unit:'%' },
+  { k:'speed_best',    label:'⚡ بهترین امتیاز سرعت',  unit:' امتیاز' },
+  { k:'memory_best',   label:'🧠 کمترین حرکت حافظه',   unit:' حرکت' },
+  { k:'esmfamil_best', label:'📝 بهترین اسم فامیل',    unit:' امتیاز' }
+];
+const recordText = (r, d) => {
+  const v = (d.best || {})[r.k];
+  return v == null ? '—' : U.fa(v) + r.unit;
+};
+
 const Launcher = {
   open(){
     Router.go('play');
     this.paint();
   },
-  meta(id){
-    const cat = (DATA.categories || []).find(c => (c.games || []).includes(id));
+  card(id){
     const gm = DATA.GAMES[id] || {};
-    return { id, gm, cat: cat || { id:'other', title:'دیگر', icon:'✨' } };
+    const catId = CATALOG_CAT[id] || 'quran';
+    const cat = CATALOG_CATS.find(c => c.id === catId) || { id:'other', title:'دیگر', icon:'✨' };
+    const skill = SKILLS[id] || 'knowledge';
+    const skillTitle = (SKILL_LABELS.find(x => x.id === skill) || {}).title || 'دانش';
+    const rec = Progress.recordLabel(id);
+    const stars = Store.get('stars')?.[id] || 0;
+    const done = Store.get('completed')?.[id];
+    const ext = ExternalGameHost?.catalog?.[id];
+    return `<button type="button" class="tile pro-tile" data-game="${id}" data-cat="${cat.id}" data-skill="${skill}" data-name="${U.esc(gm.name)} ${U.esc(gm.desc)} ${U.esc(cat.title)} ${U.esc(skillTitle)}" aria-label="شروع ${U.esc(gm.name)}">
+      <span class="pro-tile-glow" aria-hidden="true"></span>
+      <span class="ti">${ext?`<img src="${ext.art}" alt="" width="42" height="42">`:Glyph.of(gm.icon)}</span>
+      <span class="pro-tile-copy"><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
+      <span class="pro-tags"><i>${U.esc(cat.title)}</i><i>${U.esc(skillTitle)}</i>${gm.tag?`<i class="hot">${gm.tag==='new'?'تازه':gm.tag==='hot'?'محبوب':U.esc(gm.tag)}</i>`:''}${done?'<i class="ok">کامل</i>':''}</span>
+      <span class="pro-meta">${stars?`<em>${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</em>`:''}${rec !== '' && rec != null ? `<em>رکورد ${U.fa(rec)}</em>` : '<em>شروع سریع</em>'}</span>
+    </button>`;
   },
   paint(){
     RoundControl.clear();
     U.$('#pgTitle').innerHTML = Glyph.inline('🎮 مرکز بازی‌های نورستان');
-    U.$('#pgSub').textContent = 'جست‌وجو کن، دسته را انتخاب کن و مستقیم وارد بازی شو';
+    U.$('#pgSub').textContent = 'جست‌وجو کن، دسته و مهارت را انتخاب کن و مستقیم وارد بازی شو';
     U.$('#pgBar').innerHTML = '';
     U.prog(0, { cap: 'بازی' });
-    const blocked = new Set(['stats','badges','leaderboard','settings']);
-    const ids = Object.keys(DATA.GAMES).filter(g => !blocked.has(g));
-    const cats = (DATA.categories || []).filter(c => (c.games || []).some(g => ids.includes(g)));
+    const ids = catalogIds();
+    const d = Store.data;
+    const cats = CATALOG_CATS.filter(c => ids.some(id => CATALOG_CAT[id] === c.id));
+    const skillTabs = SKILL_LABELS.filter(s => ids.some(id => SKILLS[id] === s.id));
     const played = Store.get('gamesPlayed') || {};
     const totalPlayed = Object.values(played).reduce((a,b)=>a+(+b||0),0);
     const bestGame = Object.entries(played).sort((a,b)=>(b[1]||0)-(a[1]||0))[0]?.[0];
     const featured = ['ayah-builder','hadith-rush','noor-pairs','sudoku','ayahlight'].filter(g => DATA.GAMES[g]);
-    const card = id => {
-      const {gm,cat} = this.meta(id);
-      const rec = Progress.recordLabel(id);
-      const stars = Store.get('stars')?.[id] || 0;
-      const done = Store.get('completed')?.[id];
-      const ext = ExternalGameHost?.catalog?.[id];
-      return `<button type="button" class="tile pro-tile" data-game="${id}" data-cat="${cat.id}" data-name="${U.esc(gm.name)} ${U.esc(gm.desc)} ${U.esc(cat.title)}" aria-label="شروع ${U.esc(gm.name)}">
-        <span class="pro-tile-glow" aria-hidden="true"></span>
-        <span class="ti">${ext?`<img src="${ext.art}" alt="" width="42" height="42">`:Glyph.of(gm.icon)}</span>
-        <span class="pro-tile-copy"><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
-        <span class="pro-tags"><i>${U.esc(cat.title)}</i>${gm.tag?`<i class="hot">${gm.tag==='new'?'تازه':gm.tag==='hot'?'محبوب':U.esc(gm.tag)}</i>`:''}${done?'<i class="ok">کامل</i>':''}</span>
-        <span class="pro-meta">${stars?`<em>${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</em>`:''}${rec !== '' && rec != null ? `<em>رکورد ${U.fa(rec)}</em>` : '<em>شروع سریع</em>'}</span>
-      </button>`;
-    };
+    /* مأموریت‌های امروز تنها همین‌جا خانه دارند (صحن و «من» پاک شده‌اند). */
+    const ms = Missions.refresh(true);
     U.$('#pgBody').innerHTML = `
       ${Autosave.bar()}
       ${Streak.warn()}
@@ -10003,39 +10062,62 @@ const Launcher = {
         </div>
         <div class="pro-command card" role="search">
           <label class="gt-sr" for="gameSearch">جست‌وجوی بازی</label>
-          <div class="pro-search"><span aria-hidden="true">⌕</span><input id="gameSearch" class="inp" type="search" autocomplete="off" placeholder="نام بازی، دسته یا موضوع را بنویس…"></div>
+          <div class="pro-search"><span aria-hidden="true">⌕</span><input id="gameSearch" class="inp" type="search" autocomplete="off" placeholder="نام بازی، دسته یا مهارت را بنویس…"></div>
           <div class="pro-filters" role="tablist" aria-label="فیلتر دسته بازی">
             <button class="on" data-filter="all" role="tab" aria-selected="true">همه</button>
             ${cats.map(c=>`<button data-filter="${c.id}" role="tab" aria-selected="false"><span>${Glyph.of(c.icon)}</span>${U.esc(c.title)}</button>`).join('')}
           </div>
+          <div class="pro-filters" id="skillFilter" role="tablist" aria-label="فیلتر مهارت بازی">
+            <button class="on" data-skill="all" role="tab" aria-selected="true">هر مهارت</button>
+            ${skillTabs.map(s=>`<button data-skill="${s.id}" role="tab" aria-selected="false"><span>${Glyph.of(s.icon)}</span>${U.esc(s.title)}</button>`).join('')}
+          </div>
         </div>
+        <section class="card pro-missions" id="pgMissions" aria-label="مأموریت‌های امروز">
+          <div class="row" style="margin-bottom:10px">
+            <b style="font-size:13px">${Icon.of('target')} مأموریت‌های امروز</b>
+            <span class="sp" style="flex:1"></span>
+            <span class="chip wr" id="pgMissCnt">${U.fa(ms.doneCount)}/۳</span>
+            <button class="btn gh sm" id="pgMissAll">همه</button>
+          </div>
+          <div class="miss-list" id="pgMissList">${Missions.rows()}</div>
+        </section>
+        <section class="card pro-records" id="pgRecords" aria-label="رکوردهای من">
+          <b style="font-size:13px">${Icon.of('trophy')} رکوردهای من</b>
+          <div class="pro-record-chips">
+            ${RECORDS.map(r => `<span class="chip">${r.label}: <b>${recordText(r, d)}</b></span>`).join('')}
+          </div>
+        </section>
         <div class="pro-featured" aria-label="پیشنهادهای سریع">
           ${featured.map(id=>`<button type="button" data-game="${id}" class="pro-chip-game"><span>${ExternalGameHost?.catalog?.[id]?`<img src="${ExternalGameHost.catalog[id].art}" alt="">`:Glyph.of(DATA.GAMES[id].icon)}</span><b>${U.esc(DATA.GAMES[id].name)}</b></button>`).join('')}
         </div>
-        <div class="grid pro-grid" id="gameGrid">${ids.map(card).join('')}</div>
-        <div class="pro-empty card hide" id="gameEmpty" role="status"><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو را کوتاه‌تر کن یا دستهٔ «همه» را انتخاب کن.</p></div>
+        <div class="grid pro-grid" id="gameGrid">${ids.map(id => this.card(id)).join('')}</div>
+        <div class="pro-empty card hide" id="gameEmpty" role="status"><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو را کوتاه‌تر کن یا فیلترها را روی «همه» بگذار.</p></div>
       </section>`;
     const root = U.$('#pgBody'), search = U.$('#gameSearch', root), empty = U.$('#gameEmpty', root);
-    let active = 'all';
+    let active = 'all', activeSkill = 'all';
     const apply = () => {
       const q = U.norm(search?.value || '').trim(); let shown = 0;
       U.$$('.pro-tile[data-game]', root).forEach(t => {
         const inCat = active === 'all' || t.dataset.cat === active;
+        const inSkill = activeSkill === 'all' || t.dataset.skill === activeSkill;
         const inText = !q || U.norm(t.dataset.name || '').includes(q);
-        const on = inCat && inText;
+        const on = inCat && inSkill && inText;
         t.hidden = !on; if(on) shown++;
       });
       if(empty) empty.classList.toggle('hide', shown !== 0);
     };
-    U.$$('.pro-filters [data-filter]', root).forEach(b => b.onclick = () => {
-      active = b.dataset.filter;
-      U.$$('.pro-filters [data-filter]', root).forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-selected',String(on));});
+    const bar = (sel, read) => U.$$(sel, root).forEach(b => b.onclick = () => {
+      read(b);
+      U.$$(sel, root).forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); });
       apply(); Sound.tick();
     });
+    bar('.pro-filters [data-filter]', b => { active = b.dataset.filter; });
+    bar('#skillFilter [data-skill]',  b => { activeSkill = b.dataset.skill; });
     if(search) search.oninput = apply;
     U.$$('[data-game]', root).forEach(t => t.onclick = () => Games[t.dataset.game]?.());
     U.$('#quickStart').onclick = () => Games[bestGame || featured[0] || ids[0]]?.();
     U.$('#openDailyMini').onclick = () => DailyChallenge.open();
+    U.$('#pgMissAll').onclick = () => Missions.open();
     U.$$('[data-shop]').forEach(b => b.onclick = () => Shop.open());
     Streak.wire(root);
     Autosave.bind(document);
@@ -10250,16 +10332,9 @@ function updateHomeStats(){
     cd.className = 'chip ' + (st.done ? 'on' : 'wr');
     cd.textContent = st.done ? `✅ چالش امروز • زنجیره ${U.fa(st.streak)}` : `🌙 چالش امروز انجام نشده`;
   }
-  /* مأموریت‌های امروز روی خانه */
-  const mm = U.$('#homeMiss');
-  if(mm){
-    const ms = Missions.refresh(true);
-    mm.innerHTML = Missions.rows();
-    const mc = U.$('#missCnt');
-    if(mc) mc.textContent = `${U.fa(ms.doneCount)}/۳`;
-    const mo = U.$('#missOpen');
-    if(mo && !mo.onclick) mo.onclick = () => Missions.open();
-  }
+  /* فاز ۲: کارتِ «مأموریت‌های امروز» از صحن برداشته شد و تنها خانه‌اش
+     برگهٔ بازی است (`Launcher.paint`)؛ پس این‌جا نه کارتی می‌کشد و نه
+     شناسه‌ای برای شمارش می‌مانَد. */
   /* کارتِ «ادامهٔ یادگیری» و «پیشنهادِ امروز».
      هر دو کلیدِ مقایسه دارند، پس اگر داده عوض نشده DOM دست‌نخورده می‌ماند
      و گذارِ نوارِ پیشرفت هر بارِ تازه‌سازی از سر پخش نمی‌شود.
@@ -10487,8 +10562,7 @@ function renderHome(){
      پیش از این قلاب اجرا شده)، وگرنه همهٔ اندازه‌ها صفر خوانده می‌شوند. */
   try{ initAllCarousels(); }catch(e){ console.warn('carousels', e); }
 
-  U.$('#cGames').textContent = U.fa(Object.keys(DATA.GAMES)
-    .filter(g => !['stats','badges','leaderboard','settings','daily','online-lobby'].includes(g)).length);
+  U.$('#cGames').textContent = U.fa(catalogIds().length);
 
   /* ── پویانمایی خانه: ورود پله‌ای و کِن‌بارنز ──
      روی اسلایدهای کاروسل تیلت سه‌بعدی *نمی‌گذاریم*: FX.tilt مقدارِ
@@ -10927,9 +11001,6 @@ const Me = {
        محتوا یکی‌به‌یکی مانده؛ فقط دو تبِ نیمه، یک بخش شده‌اند. */
     else if(this.tab === 'achievements'){
       const localBoard = [...d.leaderboard].sort((a, b) => b.score - a.score);
-      const recLabels = { surah_best: '📖 بهترین سفر سوره‌ها', quiz_best: '📚 بهترین آزمون',
-        speed_best: '⚡ بهترین امتیاز سرعت', memory_best: '🧠 کمترین حرکت حافظه',
-        esmfamil_best: '📝 بهترین اسم فامیل' };
       const gotBadges = DATA.badges.filter(b => d.badges[b.id]).length;
       /* دو تبِ نیمه یک بخش شد: اول رکوردها، بعد نشان‌ها — همان محتوای
          پیشین، بدونِ حذفِ چیزی. یک رشته، نه دو بار نوشتن در DOM. */
@@ -10938,11 +11009,7 @@ const Me = {
           <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
           <div class="sep"></div>
           ${Object.keys(d.best).length ? '' : UI.empty('chart', 'داستان بازی‌هایت از اینجا شروع می‌شود', 'نتیجهٔ نخستین بازی‌ات را اینجا خواهی دید.')}
-          ${Object.entries(recLabels).map(([k, label]) => {
-            const v = d.best[k];
-            const unit = k === 'memory_best' ? ' حرکت' : k.includes('best') && k !== 'esmfamil_best' ? '%' : ' امتیاز';
-            return `<div class="kv"><span>${label}</span><b>${v == null ? '—' : U.fa(v) + unit}</b></div>`;
-          }).join('')}
+          ${RECORDS.map(r => `<div class="kv"><span>${r.label}</span><b>${recordText(r, d)}</b></div>`).join('')}
         </div>
         <div class="card" style="margin-top:12px">
           <b style="font-size:13px">${Icon.of('trophy')} لیدربورد ${Net.board.length ? 'سرور' : 'محلی'}</b>
@@ -11002,7 +11069,7 @@ const Me = {
 
           <label class="lbl">${Icon.of('target')} رفتن به</label>
           <div class="row" style="flex-wrap:wrap;gap:8px">
-            <button class="btn gh sm" id="setMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <!-- مأموریت‌ها این‌جا نیستند: تنها خانه‌شان برگهٔ بازی است. -->
             <button class="btn gh sm" id="setCollection">${Icon.of('medal')} کلکسیون</button>
             <button class="btn gh sm" id="setTree">${Icon.of('tree')} درخت دانش</button>
             <button class="btn gh sm" id="setBookmarks">${Icon.of('mark')} نشانه‌ها</button>
@@ -11092,7 +11159,6 @@ const Me = {
         this.classList.toggle('gh', !off);
         UI.toast(off ? '🎬 پویانمایی کامل روشن شد' : '🎬 پویانمایی کم شد', '', 1800);
       };
-      U.$('#setMissions').onclick = () => Missions.open();
       U.$('#setCollection').onclick = () => Collection.open();
       U.$('#setTree').onclick = () => Tree.open();
       U.$('#setBookmarks').onclick = () => Bookmarks.open();
