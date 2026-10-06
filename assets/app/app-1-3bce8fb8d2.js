@@ -358,6 +358,9 @@ const Icon = {
     'globe-active': { f:1, d:'<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM5 10h14v2H5Zm0 5h14v2H5Zm6-11h2v16h-2Z"/>' },
     'gamepad-active': { f:1, d:'<path fill-rule="evenodd" d="M8 6h8a7 7 0 0 1 6 10l-1 3a3 3 0 0 1-5 1l-2-2h-4l-2 2a3 3 0 0 1-5-1l-1-3A7 7 0 0 1 8 6Zm-1 4v2H5v2h2v2h2v-2h2v-2H9v-2Zm9 1h2v2h-2Zm2 3h2v2h-2Z"/>' },
     'user-active': { f:1, d:'<circle cx="12" cy="7" r="5"/><path d="M3 22v-2a9 7 0 0 1 18 0v2Z"/>' },
+    /* نسخهٔ ۱۹د: تبِ «عبادت». آیکنِ گنبدِ توپُر — جفتِ همان `mosque`
+       قلمی؛ در حالتِ فعال توپُر می‌شود، مثلِ بقیهٔ تب‌ها. */
+    'mosque-active': { f:1, d:'<path fill-rule="evenodd" d="M12 2.3c2.9 2.5 5 4.3 5 7.2 0 2-1.3 3.5-3 4.2v6.7h-4.4v-6.7c-1.6-.7-2.7-2.2-2.7-4.2 0-2.9 2.2-4.7 5.1-7.2ZM3.3 8.6c1.1 0 1.9.9 1.9 2v9.8H1.5v-9.8c0-1.1.8-2 1.8-2Zm17.4 0c1 0 1.8.9 1.8 2v9.8h-3.7v-9.8c0-1.1.8-2 1.9-2ZM2.2 19.7h19.6v2.3H2.3Zm7.9 2.3v-2.9a1.7 1.7 0 0 1 3.4 0V22Z"/>' },
     stop: { f:1, d:'<rect x="5" y="5" width="14" height="14" rx="2"/>' },
     search: { d:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>' },
     hourglass: { d:'<path d="M6 3h12M6 21h12M7 3v4l10 10v4M17 3v4L7 17v4"/>' },
@@ -768,9 +771,10 @@ const Store = {
       maghribOffsetMin: 14,
       ashaOffsetMin: 90,
       /* ── نسخهٔ ۱۹ب: دفترچهٔ علامتِ نماز ──
-         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr',…] — فقط محلی، فقط
-         همان پنج نماز. سقفِ روزانه خودش در همین ساختار است: هر نماز
-         در هر روز حداکثر یک بار ثبت (و جایزه) می‌شود. */
+         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr','maghrib','isha'] — فقط
+         محلی، فقط همان نمازهای ستونِ عبادت (نسخهٔ ۱۹د: «عصر» برداشته
+         شد). سقفِ روزانه خودش در همین ساختار است: هر نماز در هر روز
+         حداکثر یک بار ثبت (و جایزه) می‌شود. */
       salahLog: {},
       /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم و اذانِ محلی ──
          adhanEnabled: روشن/خاموشِ یادآور برای هر نماز (master کلیدِ کل).
@@ -782,7 +786,8 @@ const Store = {
          notifGranted: نتیجهٔ آخرین درخواستِ اجازهٔ Notification —
                       '' | 'granted' | 'denied' | 'default'.
          همه فقط محلی‌اند: هیچ سرور، پوش یا Firebaseای در کار نیست. */
-      adhanEnabled: { master:true, fajr:true, dhuhr:true, asr:true, maghrib:true, isha:true },
+      /* نسخهٔ ۱۹د: «عصر» از یادآورها برداشته شد — کلیدِ کل + چهار نماز. */
+      adhanEnabled: { master:true, fajr:true, dhuhr:true, maghrib:true, isha:true },
       adhanOffsets: { before15:false },
       tasbihToday: { date:'', counts:[0, 0, 0], done:false },
       wirdToday: { date:'', done:{} },
@@ -1042,7 +1047,10 @@ const Store = {
        روزهایِ خیلی قدیمی هم هرس می‌شوند تا دفترچه بی‌نهایت رشد نکند. */
     if(!d.salahLog || typeof d.salahLog !== 'object' || Array.isArray(d.salahLog)) d.salahLog = {};
     {
-      const NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+      /* نسخهٔ ۱۹د: «عصر» از ستونِ نمازها برداشته شد (درخواستِ صاحبِ
+         برنامه)؛ پس نامِ معتبرِ دفترچه هم همان چهار نماز است و هر روزِ
+         ذخیره‌شده‌ای که «عصر» داشته باشد، همان‌جا دور ریخته می‌شود. */
+      const NAMES = ['fajr', 'dhuhr', 'maghrib', 'isha'];
       for(const k of Object.keys(d.salahLog)){
         if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(d.salahLog[k])){ delete d.salahLog[k]; continue; }
         d.salahLog[k] = [...new Set(d.salahLog[k].filter(n => NAMES.includes(n)))].slice(0, 5);
@@ -1051,10 +1059,13 @@ const Store = {
       while(keys.length > 400){ delete d.salahLog[keys.shift()]; }
     }
     /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم، اذان ── */
-    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'maghrib', 'isha'];
     if(!d.adhanEnabled || typeof d.adhanEnabled !== 'object' || Array.isArray(d.adhanEnabled))
       d.adhanEnabled = {};
     ADHAN_KEYS.forEach(k => { if(typeof d.adhanEnabled[k] !== 'boolean') d.adhanEnabled[k] = true; });
+    /* یادآورِ اذانِ عصر دیگر نیست؛ کلیدِ کهنه‌اش هم پاک می‌شود تا هیچ
+       جای دیگری به آن استناد نکند. */
+    delete d.adhanEnabled.asr;
     if(!d.adhanOffsets || typeof d.adhanOffsets !== 'object' || Array.isArray(d.adhanOffsets))
       d.adhanOffsets = {};
     d.adhanOffsets.before15 = !!d.adhanOffsets.before15;
@@ -1507,22 +1518,27 @@ const FX = {
 
 /* ─────────────────── 4. ROUTER ─────────────────── */
 /* ── نگاشتِ صریحِ روت‌های قدیمی (فاز ۲، گامِ ۶) ──
-   تبِ پایین پنج روتِ اصلی را می‌شناسد و `#read` هم صفحهٔ مستقلِ خودش را
+   تبِ پایین روت‌های اصلی را می‌شناسد و `#read` هم صفحهٔ مستقلِ خودش را
    دارد. ولی `#salah` (میان‌برِ کارتِ نصب) و `#wird` پیش‌تر فقط با
    واپس‌رویِ «هر نشانیِ ناشناس → خانه» می‌رسیدند: کار می‌کرد، ولی هیچ
    جایی نوشته نشده بود و همان واپس‌روی می‌توانست بی‌صدا بشکندش. حالا
    هر نشانیِ قدیمی یک نگاشتِ صریح دارد و سنجشِ زنده دارد. */
 const ROUTE_ALIASES = {
-  /* پنج تبِ پایین و صفحهٔ مستقلِ مصحف‌نما (`read`) نشانیِ کانونی دارند و
+  /* تب‌های پایین و صفحهٔ مستقلِ مصحف‌نما (`read`) نشانیِ کانونی دارند و
      در `Router.screens` فهرست شده‌اند؛ این جدول فقط نام‌های *قدیمی* را
      نگاشت می‌کند. میان‌برِ کارتِ نصب (`./#salah`) همان تک‌موردی است که
      کاربر از بیرونِ برنامه هم می‌بیند. */
-  salah: 'home'         // «صحن» امروز همان خانه است
+  /* نسخهٔ ۱۹د: اوقاتِ شرعی از خانه به صفحهٔ «عبادت» منتقل شد؛ پس هر دو
+     نشانیِ قدیمی — `#salah` (میان‌برِ کارتِ نصب) و `#wird` (کارتِ ذکر) —
+     حالا به همان صفحهٔ عبادت می‌رسند، نه به صحن. */
+  salah: 'ebadat',
+  wird:  'ebadat'
 };
 
 const Router = {
   stack: ['home'],
-  screens: { home:'s-home', quran:'s-quran', read:'s-read', online:'s-online', room:'s-room',
+  screens: { home:'s-home', ebadat:'s-ebadat', quran:'s-quran', read:'s-read',
+             online:'s-online', room:'s-room',
              play:'s-play', notif:'s-notif', me:'s-me', admin:'s-admin' },
   hooks: {},
   /* یک جا برای همهٔ راه‌ها (go، init و popstate): نامِ قدیمی → نامِ
@@ -14271,6 +14287,11 @@ function init(){
 
   Router.hooks = {
     home:    () => { renderHome(); updateHomeStats(); Daily.render(); },
+    /* نسخهٔ ۱۹د: صفحهٔ «عبادت» (اوقات، قبله، ذکر). کارت‌ها را
+       `courtyard-1.js` می‌کشد و آن فایل *پس از* این باندل بار می‌شود؛ پس
+       این‌جا فقط صدا زده می‌شود و نبودنش هم بی‌خطا رد می‌شود. */
+    ebadat:  () => { try{ if(typeof Courtyard !== 'undefined' && Courtyard.render) Courtyard.render(); }
+                     catch(e){ console.warn('courtyard', e); } },
     quran:   () => QuranUI.render(),
     read:    () => ReaderUI.render(),
     online:  () => { renderOnline(); Net.requestRooms(); Net.requestBoard(); },

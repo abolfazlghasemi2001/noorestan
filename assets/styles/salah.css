@@ -48,14 +48,26 @@
   backdrop-filter:blur(20px) saturate(140%);
 }
 
-/* ── ۲. کاروسل صحن (CategoryCarousel Scoped) ── */
+/* ── ۲. کاروسلِ عبادت (CategoryCarousel Scoped) ──
+   نسخهٔ ۱۹د — اندازهٔ متناسب: قابِ کاروسل پیش‌تر به بلندترین اسلاید قفل
+   می‌شد و زیرِ کارتِ کوتاه (سربرگ) صدها پیکسل جای خالی می‌ماند. حالا
+   `Courtyard.fitCarousel()` ارتفاعِ قاب را با اسلایدِ فعال یکی می‌کند و
+   گذارِ همین قاعده، جابه‌جایی را نرم نگه می‌دارد. اسلایدها هم کمی پهن‌تر
+   شده‌اند (۹۶٪ جای ۹۲٪) تا محتوا نفس بکشد و با این حال لبهٔ اسلایدِ بعدی
+   دیده شود که یعنی «کاروسل ادامه دارد». */
 #salahCourt .category-carousel{
   position:relative; margin:0 0 4px; width:100%; box-sizing:border-box;
 }
 #salahCourt .carousel-viewport{
-  position:relative; overflow:hidden; padding:4px 0 14px;
+  position:relative; overflow:hidden; padding:4px 0 12px;
   touch-action:pan-y pinch-zoom; width:100%; box-sizing:border-box;
+  transition:height 420ms var(--ease);
 }
+/* فلش‌های ناوبری (۴۴px، همان هدفِ لمسی) روی اسلایدِ ۹۶٪ می‌افتادند و
+   گوشهٔ متن را می‌پوشاندند؛ کمی به شکافِ کاروسل می‌لغزند تا کارت آزاد
+   بماند. اندازه و جای عمودی دست‌نخورده است. */
+#salahCourt .carousel-nav.prev{ right:-16px; }
+#salahCourt .carousel-nav.next{ left:-16px; }
 #salahCourt .carousel-track{
   display:flex; gap:12px; padding:0 4px; perspective:1200px;
   transition:transform 800ms var(--ease); cursor:grab; align-items:flex-start;
@@ -68,7 +80,7 @@
 }
 
 #salahCourt .slide{
-  flex:0 0 92%; max-width:92%; min-width:0; box-sizing:border-box;
+  flex:0 0 96%; max-width:96%; min-width:0; box-sizing:border-box;
   position:relative; overflow:hidden; text-align:right;
   border-radius:var(--pl-r-lg, 22px); padding:16px;
   border:1px solid var(--glass-edge, var(--line));
@@ -79,7 +91,7 @@
   transition:transform 600ms var(--ease), opacity 600ms ease, filter 600ms ease, border-color 300ms ease, visibility 600ms, box-shadow 300ms ease;
 }
 @media (min-width:760px){
-  #salahCourt .slide{ flex:0 0 94%; max-width:94%; }
+  #salahCourt .slide{ flex:0 0 96%; max-width:96%; }
 }
 
 #salahCourt .slide.is-far{ opacity:.35; visibility:visible; transform:scale(.88) translateZ(-60px); filter:blur(2px); }
@@ -110,13 +122,24 @@
   display:none;
 }
 
-/* ── ۳. کنترلِ ارتفاعِ بخش‌های بلند (به‌ویژه ورد) ── */
+/* ── ۳. کنترلِ ارتفاعِ بخش‌های بلند (به‌ویژه ذکر) ──
+   بلندترین اسلاید تعیینِ‌کنندهٔ ارتفاعِ قاب است؛ پس سقفش را کمی کوتاه‌تر
+   گرفتیم تا کاروسلِ عبادت روی گوشی یک صفحه را نبلعد. درونِ خودش
+   اسکرولِ نرم دارد. */
 #salahCourt .sc-wird-slide,
 #salahCourt .sc-wird{
-  max-height:285px; overflow-y:auto; overflow-x:hidden;
+  max-height:258px; overflow-y:auto; overflow-x:hidden;
   scrollbar-width:thin; overscroll-behavior:contain;
   padding-inline-end:2px;
 }
+
+/* ── ۳ب. حالتِ خاموشِ کارت‌های عبادت ──
+   به‌جای صفحهٔ خالی، یک کارتِ راهنما با دکمهٔ روشن‌کردن. */
+.sc-off{ text-align:center; }
+.sc-off b{ display:inline-flex; align-items:center; gap:6px; color:var(--gold); }
+.sc-off b .ic{ width:18px; height:18px; }
+.sc-off p{ line-height:1.9; }
+.sc-off .btn{ margin-inline:auto; }
 
 /* ── سربرگِ اسلایدهای صحن ── */
 .sc-slide-head-row{
@@ -296,6 +319,7 @@
 @media (prefers-reduced-motion: reduce){
   .sc-wrap > *{ animation:none !important; }
   .w-item summary::before{ transition:none !important; }
+  #salahCourt .carousel-viewport{ transition:none !important; }   /* ارتفاع بی‌انیمیشن */
   .sc-next-bar i, .qb-dial{ transition:none !important; }   /* سوزن/صفحه بدونِ چرخشِ نرم */
   .sc-prayer:active, .sc-tasbih .tb-btn:active{ transform:none !important; }
   #salahCourt .slide,
