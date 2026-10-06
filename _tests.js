@@ -575,14 +575,16 @@ ok('آیه‌های برگزیده معتبرند', QPICKS.every(p => QURAN[p.s 
      /پخش از همین لحظه با صدای تازه ادامه می‌یابد/.test(src));
   ok('قاریِ خراب در برگه هشدار می‌گیرد ولی غیرفعال نمی‌شود',
      /Recite\._bad\.has\(i\)/.test(src) && !/disabled/.test(src.slice(src.indexOf('reciterSheet(){'), src.indexOf('reciterSheet(){') + 2200)));
-  /* هر راهی که قاری را عوض می‌کند باید از مسیرِ بی‌قطع برود. سه راه هست:
-     کارت‌های صفحهٔ تلاوت، برگهٔ پایین‌کش، گزینشگرِ پیش‌نمایش — به‌علاوهٔ
-     دکمهٔ «قاری بعدی» و «منبع بعدی» در تنظیمات. */
+  /* هر راهی که قاری را عوض می‌کند باید از مسیرِ بی‌قطع برود. فاز ۲
+     گزینشگرها را یکی کرد: کارتِ صفحه و نوارِ پخش هر دو همان برگهٔ
+     پایین‌کش را باز می‌کنند — به‌علاوهٔ دکمهٔ «قاری بعدی» و «منبع بعدی»
+     در تنظیمات. مرزِ سنجش خودِ برگه است، نه پنجرهٔ حذف‌شده. */
   const gui = src.slice(src.indexOf('const QuranUI'), src.indexOf('const ReaderUI'));
-  const rui = src.slice(src.indexOf('const ReciterUI'), src.indexOf('const ShareCard'));
+  const sheetStart = src.indexOf('reciterSheet(){');
+  const rui = src.slice(sheetStart, src.indexOf('renderSurahs(){', sheetStart));
   const set = src.slice(src.indexOf("U.$('#setQnext')"), src.indexOf("U.$('#setQtest')"));
-  ok('گزینشگرِ پیش‌نمایش هم از همان مسیرِ بی‌قطع می‌رود',
-     /QuranUI\.pickReciter\(i\)/.test(rui) && !/Recite\.play\(c\.s, c\.a\)/.test(rui));
+  ok('برگهٔ قاری از همان مسیرِ بی‌قطع می‌رود',
+     /pickReciter\(i\)/.test(rui) && !/Recite\.play\(c\.s, c\.a\)/.test(rui) && sheetStart > 0);
   ok('تنظیمات هم برای قاری و منبع آیه را از نو نمی‌خواند',
      /Recite\.switchTo\(i\)/.test(set) && /Recite\.switchSource\(i\)/.test(set) &&
      !/Recite\.play\(c\.s, c\.a\)/.test(set) && !/Recite\.play\(c\.s, c\.a\)/.test(gui));

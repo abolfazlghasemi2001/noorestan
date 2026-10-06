@@ -1570,6 +1570,14 @@ const Router = {
     U.$$('.nav button').forEach(b => b.classList.toggle('on',
       b.dataset.nav === name ||
       (name === 'room'  && b.dataset.nav === 'online')));
+    /* زیرتب‌های «شنیدن/خواندن» تلاوت با صفحه هم‌گام می‌مانند: در دو صفحه
+       دو نسخه از همان نوار هست، پس هیچ‌کدام نباید گمراه کند. */
+    const qtab = name === 'read' ? 'read' : (name === 'quran' ? 'listen' : '');
+    U.$$('[data-qtab]').forEach(b => {
+      const on = b.dataset.qtab === qtab;
+      b.classList.toggle('on', on);
+      if(b.setAttribute) b.setAttribute('aria-selected', String(on));
+    });
     Icon.hydrate(U.$('#nav'));
     HomeCarousel.schedule();
     /* کاروسل‌های دسته‌ها هم با همان دروازه: صفحه که `.active` شد دوباره
@@ -1777,6 +1785,11 @@ const UI = {
   closeModal(){
     if(!this._mOpen) return;
     this._mOpen = false;
+    /* قلابِ بستن: هر پنجره‌ای که کاری زنده دارد (نمونهٔ صوتیِ قاری،
+       تایمر، شنوندهٔ صفحه‌کلید) خودش را همین‌جا جمع می‌کند. بی این،
+       نمونهٔ ۵ ثانیه‌ای پس از بستنِ برگه هم به پخش خود ادامه می‌داد. */
+    try{ if(this.onClose) this.onClose(); }catch(e){ console.warn('modal close hook', e); }
+    this.onClose = null;
     U.$('#modal').classList.remove('on');
     /* نشانِ برگه پاک شود، وگرنه پنجرهٔ بعدی هم از پایین می‌آید */
     U.$('#modal').classList.remove('sheet');
@@ -2831,13 +2844,15 @@ const QuranUI = {
   picked: null,
 
   render(){
-    if(!U.$('#qReciters')) return;
+    /* دروازهٔ «صفحهٔ تلاوت در سند هست؟» — پیش‌تر شبکهٔ قاریانِ حذف‌شده
+       بود؛ حالا فهرستِ سوره‌ها همان نشانه را می‌دهد. */
+    if(!U.$('#qSurahs')) return;
     if(!this.heroDone){
       U.$('#qHero').innerHTML = Art.panorama() +
         '<div class="art-cap">🌙 تلاوت قرآن کریم — آیه‌به‌آیه، با متن عثمانی و ترجمهٔ فارسی</div>';
       this.heroDone = true;
     }
-    this.renderReciters();
+    this.paintReciter();
     this.renderSurahs();
     this.renderAyahs();
     this.renderNow();
@@ -2868,8 +2883,9 @@ const QuranUI = {
       bm.classList.toggle('ok', on);
       bm.onclick = () => Bookmarks.toggle(cur.s, cur.a);
     }
-    const rp = U.$('#qRecPick');
-    if(rp) rp.onclick = () => ReciterUI.open();
+    /* یک گزینشگر: کارتِ بالای صفحه همان برگهٔ نوارِ پخش را باز می‌کند. */
+    const rp = U.$('#qRecOpen');
+    if(rp) rp.onclick = () => this.reciterSheet();
     const mb = U.$('#qBookmarks');
     if(mb) mb.onclick = () => Bookmarks.open();
     const res = U.$('#qResume');
@@ -2889,32 +2905,65 @@ const QuranUI = {
     return `<div class="medal" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${h},${h2})">${U.esc(r.short.slice(0, 4))}</div>`;
   },
 
-  renderReciters(){
+  /* کارتِ قاریِ کنونی — یک نگاه، یک دکمه. شبکهٔ قاریان (سه راهِ قبلی)
+     برداشته شد؛ فهرست با پیش‌نمایش در برگهٔ پایین‌کش است. */
+  paintReciter(){
+    const box = U.$('#qRecNow');
+    if(!box) return;
     const q = Store.get('quran');
-    U.$('#qReciters').innerHTML = RECITERS.map((r, i) => `
-      <div class="qcard ${i === q.reciter ? 'on' : ''}" data-rec="${i}">
-        <div style="display:flex;justify-content:center;margin-bottom:6px">${this.medal(r, 40)}</div>
-        <b>${U.esc(r.short)}</b>
-        <small>${U.esc(r.note)}</small>
-      </div>`).join('');
-    U.$$('#qReciters .qcard').forEach(el => el.onclick = () => {
-      const i = +el.dataset.rec;
-      Sound.tick();
-      /* از راهِ switchTo می‌رود تا اگر پخشی در جریان است، از همین لحظه
-         ادامه یابد — نه از ثانیهٔ صفر. */
-      this.pickReciter(i);
-    });
+    const r = RECITERS[U.clamp(+q.reciter || 0, 0, RECITERS.length - 1)] || RECITERS[0];
+    box.innerHTML = `${this.medal(r, 38)}
+      <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
+        ${Recite._bad.has(Store.get('quran').reciter) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — از برگه باز امتحان کن</small>' : ''}</span>
+      <span class="rk" aria-hidden="true">✓</span>`;
+    U.$('#qRecCount').textContent = U.fa(RECITERS.length) + ' قاری';
   },
 
-  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارت‌های صفحه، برگهٔ پایین‌کش. */
+  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارتِ صفحه، برگهٔ پایین‌کش. */
   pickReciter(i){
     const before = Store.get('quran').reciter;
     const changed = Recite.switchTo(i);
     Sound.tick();
-    this.renderReciters();
+    this.stopRecPreview();
+    this.paintReciter();
     if(!changed){ UI.toast(`🎙 ${RECITERS[i].short} از قبل انتخاب بود`, '', 1400); return; }
     const same = before === Store.get('quran').reciter;
     UI.toast(same ? `🎙 ${RECITERS[i].name} انتخاب شد` : `🎙 از همین لحظه با ${RECITERS[i].short}`, 'ok', 1800);
+  },
+
+  /* ── نمونهٔ ۵ ثانیه‌ای ──
+     از گزینشگرِ پیش‌نمایش (که در فاز ۲ برداشته شد) به برگهٔ قاری منتقل
+     شد تا قابلیت گم نشود: یک بار پخش، پنج ثانیه، و ایستادنِ تضمینی.
+     نمونه آیةالکرسی است (سراسری ۲۶۲) و از منبعِ خودِ برنامه می‌آید. */
+  previewReciter(i, btn){
+    const r = RECITERS[i];
+    if(!r) return;
+    if(this._prevBtn && this._prevBtn.dataset.prev === String(i)){ this.stopRecPreview(); return; }
+    this.stopRecPreview();
+    this._prevBtn = btn;
+    if(btn){ btn.classList.add('on'); btn.innerHTML = Icon.of('pause'); }
+    Sound.tick();
+    try{
+      const url = (QSOURCES[0].url(r, 2, 255) || QSOURCES[1].url(r, 2, 255));
+      const au = new Audio(url);
+      au.volume = Math.min(1, (Store.get('quran').vol ?? .9));
+      au.playbackRate = 1;
+      au.play().catch(() => {});
+      const stop = () => { try{ au.pause(); }catch(e){} this.stopRecPreview(); };
+      this._prevTimer = setTimeout(stop, 5000);
+      au.onended = stop;
+      this._prevAu = au;
+    }catch(e){ this.stopRecPreview(); }
+  },
+  stopRecPreview(){
+    clearTimeout(this._prevTimer); this._prevTimer = null;
+    try{ if(this._prevAu) this._prevAu.pause(); }catch(e){}
+    this._prevAu = null;
+    if(this._prevBtn){
+      this._prevBtn.classList.remove('on');
+      this._prevBtn.innerHTML = Icon.of('play');
+      this._prevBtn = null;
+    }
   },
 
   /* ── برگهٔ پایین‌کشِ قاری ──
@@ -2929,6 +2978,8 @@ const QuranUI = {
         <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
           ${Recite._bad.has(i) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — می‌توانی باز امتحان کنی</small>' : ''}</span>
         ${i === q.reciter ? '<span class="rk" aria-hidden="true">✓</span>' : ''}
+        <button type="button" class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه"
+                aria-label="شنیدن نمونهٔ ${U.esc(r.short)}">${Icon.of('play')}</button>
       </div>`).join('');
     UI.sheet(`
       <div class="sheet-grab"></div>
@@ -2944,11 +2995,19 @@ const QuranUI = {
       </div>`, box => {
       const go = el => {
         const i = +(el.dataset.rec ?? el.getAttribute('data-rec'));
+        this.stopRecPreview();
         UI.closeModal();
         this.pickReciter(i);
       };
+      /* بستنِ پنجره (ضربهٔ بیرون، کلید بازگشت، دکمهٔ بستن) هم باید نمونه را
+         خفه کند؛ وگرنه صدا پس از بسته‌شدنِ برگه ادامه می‌یافت. */
+      UI.onClose = () => this.stopRecPreview();
       U.$$('#recSheetRows .rec-row').forEach(el => {
-        el.onclick = () => go(el);
+        el.onclick = e => {
+          const pv = e.target && e.target.closest ? e.target.closest('[data-prev]') : null;
+          if(pv){ e.stopPropagation(); this.previewReciter(+pv.dataset.prev, pv); return; }
+          go(el);
+        };
         el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(el); } };
       });
       U.$('#recSheetClose').onclick = () => UI.closeModal();
@@ -7319,77 +7378,6 @@ const Focus = {
   }
 };
 
-/* ─────────────────── 10.985 گزینشگر قاری با پیش‌نمایش ۵ ثانیه ─────────────────── */
-const ReciterUI = {
-  prev: null, timer: null,
-  /** چهرهٔ قاری: گرادیانِ خودِ قاری، و اگر تصویر داشت همان.
-      پیش‌تر این‌جا برای هر ده قاری یک مسیر ساختگی `avatars/reciter-N.webp`
-      ساخته می‌شد که هیچ‌کدام وجود نداشتند: ده درخواستِ شکست‌خورده در هر
-      بار باز کردنِ پنجره، و در عمل همان نگارهٔ جانشین نشان داده می‌شد.
-      حالا تصویر فقط‌وقتی خواسته می‌شود که در دادهٔ قاری نشانی باشد
-      (`img:'avatars/reciter-1.webp'`) — افزودنِ عکس یک خط تغییر داده است،
-      نه بازنویسیِ این تابع. */
-  face(r){
-    const grad = `background:linear-gradient(140deg,hsl(${r.hue} 74% 52%),hsl(${r.hue} 62% 26%))`;
-    const fallback = `<span class="rav" style="${grad}">${U.esc(r.short.slice(0, 2))}</span>`;
-    if(!r.img) return fallback;
-    return Assets.imageOrSvg(r.img, fallback, { alt: '', cls: 'art-img' });
-  },
-  /** همهٔ قاریان، هر کدام با یک چهره */
-  rows(){
-    const cur = Store.get('quran').reciter || 0;
-    return RECITERS.map((r, i) => `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
-        ${this.face(r)}
-        <span class="rn">${U.esc(r.name)}<div class="rc">${U.esc(r.note)}</div></span>
-        <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">${Icon.of('play')}</button>
-      </div>`).join('');
-  },
-  open(){
-    UI.modal(`<h3>${Icon.of('mic')} قاری قرآن</h3>
-      <div class="tiny" style="margin:8px 0 12px">روی ▶ بزن تا ۵ ثانیه بشنوی، روی نام بزن تا انتخاب شود.</div>
-      <div class="rec-grid" style="max-height:58vh;overflow-y:auto">${this.rows()}</div>`);
-    U.$$('#modal .rec').forEach(el => {
-      const i = +el.dataset.rec;
-      el.onclick = e => {
-        if(e.target.closest('[data-prev]')){ this.preview(i, e.target.closest('[data-prev]')); return; }
-        /* نمونهٔ ۵ ثانیه‌ای اگر در جریان باشد، جایش را به پخش اصلی می‌دهد */
-        this.stopPreview();
-        Haptic.hit();
-        U.$$('#modal .rec').forEach(x => x.classList.remove('on'));
-        el.classList.add('on');
-        /* همین مسیرِ بی‌قطع: اگر پخشی در جریان است، از همان لحظه ادامه بده */
-        QuranUI.pickReciter(i);
-        QuranUI.renderReciters();
-      };
-    });
-  },
-  preview(i, btn){
-    const r = RECITERS[i];
-    if(this.prev && this.prev.dataset.prev === String(i)){ this.stopPreview(); return; }
-    this.stopPreview();
-    this.prev = btn; btn.classList.add('on'); btn.innerHTML = Icon.of('pause');
-    Sound.tick();
-    /* نمونهٔ کوتاه: آیةالکرسی — سراسری ۲۶۲ است، پس از هر منبعی که هست می‌خوانیم */
-    const s = 2, a = 255;
-    try{
-      const url = (QSOURCES[0].url(r, s, a) || QSOURCES[1].url(r, s, a));
-      const au = new Audio(url);
-      au.volume = Math.min(1, (Store.get('quran').vol ?? .9));
-      au.playbackRate = 1;
-      au.play().catch(() => {});
-      const stop = () => { try{ au.pause(); }catch(e){} this.stopPreview(); };
-      this.timer = setTimeout(stop, 5000);
-      au.onended = stop;
-      this._au = au;
-    }catch(e){ this.stopPreview(); }
-  },
-  stopPreview(){
-    clearTimeout(this.timer); this.timer = null;
-    try{ if(this._au) this._au.pause(); }catch(e){}
-    if(this.prev){ this.prev.classList.remove('on'); this.prev.innerHTML = Icon.of('play'); this.prev = null; }
-  }
-};
-
 /* ─────────────────── 10.984 اشتراک‌گذاری آیه به‌صورت تصویر PNG ───────────────────
    با Canvas 2D ساخته می‌شود: قاب طلایی، متن عثمانی، ترجمه و نام سوره.
    هیچ کتابخانه‌ای لازم نیست. روی مرورگرهای بی‌Canvas، رونوشت متن می‌دهد.
@@ -9821,7 +9809,7 @@ const Games = {
   missions:  () => Missions.open(),
   bookmarks: () => Bookmarks.open(),
   friends:   () => Friends.open(),
-  reciters:  () => ReciterUI.open(),
+  reciters:  () => QuranUI.reciterSheet(),
   leaderboard: () => { Router.go('me'); Me.tab = 'records'; Me.render(); },
   settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
 };
@@ -11122,7 +11110,7 @@ const Me = {
       U.$('#setTree').onclick = () => Tree.open();
       U.$('#setBookmarks').onclick = () => Bookmarks.open();
       U.$('#setFriends').onclick = () => Friends.open();
-      U.$('#setReciters').onclick = () => ReciterUI.open();
+      U.$('#setReciters').onclick = () => QuranUI.reciterSheet();
       U.$('#setFocus').onclick = () => { Focus.toggle(); };
       U.$('#setNight').onclick = () => NightRepeat.modal();
       Install.wire();
@@ -14254,6 +14242,11 @@ function init(){
     if(n === 'play'){ U.$('#pgBody').innerHTML = ''; Router.go('play'); Launcher.open(); return; }
     Router.go(n);
   });
+  /* زیرتب‌های تلاوت (شنیدن/خواندن) — یک سیم‌کشی برای هر دو صفحه. */
+  U.$$('[data-qtab]').forEach(b => b.onclick = () => {
+    Sound.page();
+    Router.go(b.dataset.qroute);
+  });
   U.$('#btnNotif').onclick = () => Router.go('notif');
   /* فاز ۲: دو دکمهٔ «تلاوت» و «وضعیت شبکه» از نوارِ بالا برداشته شدند؛
      تلاوت و محفل تنها از تبِ پایین می‌آیند. هندلرشان هم همین‌جا رفت تا
@@ -14283,15 +14276,11 @@ function init(){
     }, 1000);
   }
 
-  /* ── مصحف‌نما ── */
-  const toReader = () => {
-    const q = Store.get('quran');
-    Sound.page();
-    ReaderUI.open(q.surah || 1, q.ayah || 1);
-  };
-  U.$('#qOpenReader').onclick = toReader;
-  U.$('#qOpenReader2').onclick = toReader;
-  U.$('#readToQuran').onclick = () => { Sound.page(); Router.go('quran'); };
+  /* ── مصحف‌نما ──
+     فاز ۲: سه راهِ جداگانه به مصحف (دو دکمه در صفحهٔ تلاوت و پلِ بازگشت
+     داخلِ خودِ مصحف) برداشته شد؛ زیرتبِ «خواندن» همان کار را می‌کند و
+     روتِ `#read` دست‌نخورده است. نامِ شناسه‌های حذف‌شده این‌جا نوشته
+     نمی‌شود تا سنجشِ «بی‌صاحب نمانده» سخت‌گیر بماند. */
   U.$('#readPrevS').onclick = () => { Sound.page(); ReaderUI.step(-1); };
   U.$('#readNextS').onclick = () => { Sound.page(); ReaderUI.step(1); };
   U.$('#readSizeUp').onclick = () => ReaderUI.setSize(2);

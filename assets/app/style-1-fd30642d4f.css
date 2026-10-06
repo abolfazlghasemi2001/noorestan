@@ -338,8 +338,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
    پس خودِ دکمه کوچک می‌ماند و یک لایهٔ نامرئی ::after روی آن کشیده می‌شود
    که انگشت را می‌گیرد. پهنا دست‌نخورده می‌ماند تا همسایهٔ چسبیده کلیک
    دزدیده‌نشود؛ فقط ارتفاع تا ۴۴ بالا می‌رود. */
-.rec .prev,.ib .ib-x,.ib .ib-go,.emoji-bar button,.wbx,.bm-row .bx,.dua-word{position:relative}
-.rec .prev::after,.ib .ib-x::after,.ib .ib-go::after,.emoji-bar button::after,
+.rec-row .prev,.ib .ib-x,.ib .ib-go,.emoji-bar button,.wbx,.bm-row .bx,.dua-word{position:relative}
+.rec-row .prev::after,.ib .ib-x::after,.ib .ib-go::after,.emoji-bar button::after,
 .wbx::after,.bm-row .bx::after,.dua-word::after{
   content:'';position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
   min-height:44px;pointer-events:auto
@@ -491,6 +491,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 
 /* Tabs */
 .tabs{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px}
+/* فاز ۲: زیرتب‌های «شنیدن/خواندن» تلاوت — همان نوارِ تب، کمی جمع‌تر،
+   چون بلافاصله زیرش سربرگِ همان صفحه نیست و فاصلهٔ ۱۶px زیاد بود. */
+.qsub{margin-bottom:14px}
 .tab{white-space:nowrap;padding:9px 14px;border-radius:999px;background:var(--card);
   border:1px solid var(--line);cursor:pointer;font-size:12.5px;transition:.16s;
   min-height:44px;display:inline-flex;align-items:center;justify-content:center}
@@ -522,7 +525,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .qbig .ic{ width:22px; height:22px }
 #miniQ button .ic{ width:19px; height:19px }
 .btn .ic{ width:17px; height:17px }
-.rec .prev .ic{ width:14px; height:14px }
+.rec-row .prev .ic{ width:14px; height:14px }
 .playb .ic{ width:15px; height:15px }
 .wbx .ic,.bx .ic{ width:15px; height:15px }
 .ib-x .ic,.ib-go .ic{ width:16px; height:16px }
@@ -1241,20 +1244,17 @@ html[data-theme="light"] .read-ar{ color:#2a2114 }
 .art-svg{ display:block; width:100%; height:100% }
 .art-svg svg{ display:block; width:100%; height:100% }
 
-/* ── گزینشگر قاری ── */
-.rec-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:9px }
-.rec{ display:flex; gap:9px; align-items:center; padding:9px; border-radius:15px;
-  background:var(--card2); border:1px solid var(--line); cursor:pointer; transition:.16s }
-.rec:hover{ transform:translateY(-2px); border-color:var(--gold) }
-.rec.on{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold2) inset }
-.rec .rav{ width:38px; height:38px; border-radius:50%; flex:none; overflow:hidden;
-  border:1.5px solid var(--gold2); display:grid; place-items:center; font-size:17px;
-  background:var(--card) }
-.rec .rn{ font-size:11.5px; font-weight:700; line-height:1.6 }
-.rec .rc{ font-size:11px; color:var(--mut) }
-.rec .prev{ width:28px; height:28px; border-radius:50%; flex:none; display:grid; place-items:center;
-  background:var(--card); border:1px solid var(--line); font-size:11px; cursor:pointer }
-.rec .prev.on{ background:var(--grad); color:var(--ink); border-color:transparent }
+/* ── گزینشگرِ قاری — برگهٔ پایین‌کش (فاز ۲) ──
+   شبکهٔ قاریانِ صفحهٔ تلاوت برداشته شد؛ فهرست و کارتِ قاریِ کنونی هر دو
+   از ردیفِ `.rec-row` استفاده می‌کنند، پس یک قاعده بس است. دکمهٔ ▶ روی
+   هر ردیف، نمونهٔ ۵ ثانیه‌ای را می‌شنواند (نه انتخاب). */
+.rec-row .prev{ width:32px; height:32px; border-radius:50%; flex:none; display:grid; place-items:center;
+  background:var(--card); border:1px solid var(--line); font-size:11px; cursor:pointer;
+  color:var(--gold); transition:background 200ms ease,color 200ms ease,border-color 200ms ease }
+.rec-row .prev:hover{ border-color:var(--gold) }
+.rec-row .prev.on{ background:var(--grad); color:var(--ink); border-color:transparent }
+/* کارتِ قاریِ کنونی در صفحهٔ تلاوت: همان ردیف، ولی بی اشارهٔ کلیک. */
+#qRecNow{ cursor:default }
 
 /* ── نشانه‌ها و ادامهٔ خواندن ── */
 .bm-row{ display:flex; gap:9px; align-items:center; padding:10px 11px; border-radius:14px;

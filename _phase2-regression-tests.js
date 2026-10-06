@@ -158,6 +158,49 @@ ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.cs
    به مسیرِ زندهٔ CI می‌آیند، نه به بخش‌های مرده.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── گامِ ۲: تلاوتِ یکپارچه — یک گزینشگرِ قاری ──
+   پیش از رفع، سه راه برای عوض‌کردنِ قاری بود: شبکهٔ همیشه‌بازِ صفحه
+   (`#qReciters`)، پنجرهٔ گزینشگرِ دومی (`#qRecPick` → ReciterUI) و برگهٔ
+   پایین‌کشِ نوارِ پخش. تنها برگه می‌ماند و پیش‌نمایشِ ۵ ثانیه‌ایِ دومی
+   به آن منتقل می‌شود تا قابلیت گم نشود. */
+section('تلاوتِ یکپارچه — یک گزینشگرِ قاری (فاز ۲، گامِ ۲)');
+{
+  ok('شبکهٔ قاریان از صفحهٔ تلاوت رفته',
+     !DOC.includes('id="qReciters"') && !SRC.includes('#qReciters'));
+  ok('گزینشگرِ دومِ قاری رفته', !DOC.includes('id="qRecPick"') && !SRC.includes('#qRecPick'));
+  ok('ReciterUI کامل برداشته شده و ارجاعی نمانده',
+     typeof ReciterUI === 'undefined' && !/ReciterUI/.test(SRC));
+  ok('دروازه‌های مصحف‌نما و پلِ بازگشتِ آن رفته‌اند',
+     ['qOpenReader', 'qOpenReader2', 'readToQuran']
+       .every(id => !DOC.includes(`id="${id}"`) && !SRC.includes(`#${id}`)));
+  /* تنها گزینشگر: برگهٔ پایین‌کش — یک پیاده‌سازی، چند درگاه. */
+  ok('تنها یک پیاده‌سازیِ برگهٔ قاری هست', (SRC.match(/reciterSheet\(\)\{/g) || []).length === 1);
+  ok('کارتِ صفحهٔ تلاوت و نوارِ پخش هر دو به همان برگه می‌رسند',
+     /#qRecOpen'\)[\s\S]{0,80}this\.reciterSheet\(\)/.test(SRC) &&
+     /rb\.onclick = \(\) => this\.reciterSheet\(\)/.test(SRC));
+  ok('تنظیمات و رجیستری هم به برگه می‌رسند، نه به گزینشگرِ حذف‌شده',
+     /#setReciters'\)\.onclick = \(\) => QuranUI\.reciterSheet\(\)/.test(SRC) &&
+     /reciters:\s*\(\)\s*=>\s*QuranUI\.reciterSheet\(\)/.test(SRC));
+  /* پیش‌نمایشِ ۵ ثانیه‌ای: از دومی به برگه منتقل شده است. */
+  ok('برگهٔ قاری دکمهٔ شنیدنِ نمونه دارد', /data-prev="\$\{i\}"/.test(SRC));
+  ok('نمونه پس از ۵ ثانیه یا با پایانِ فایل می‌ایستد',
+     /setTimeout\(stop, 5000\)/.test(SRC) && /onended = stop/.test(SRC));
+  ok('زدنِ ▶ فقط می‌شنود و انتخاب نمی‌کند', /closest\('\[data-prev\]'\)/.test(SRC));
+  ok('نمونه از منبعِ صوتیِ خودِ برنامه می‌آید (آیةالکرسی = سراسری ۲۶۲)',
+     /QSOURCES\[0\]\.url\(r, 2, 255\)/.test(SRC) && QURAN[1].offset + 255 === 262);
+  ok('بستنِ پنجره، نمونه را هم می‌بندد', /UI\.onClose|onClose\s*=\s*\(\)\s*=>/.test(SRC) &&
+     /stopRecPreview\(\)/.test(SRC));
+  /* زیرتب‌های شنیدن/خواندن: یک گزینشگر، دو نما. */
+  ok('زیرتبِ شنیدن/خواندن در هر دو صفحه هست',
+     (DOC.match(/data-qtab="listen"/g) || []).length === 2 &&
+     (DOC.match(/data-qtab="read"/g) || []).length === 2);
+  ok('کلیکِ زیرتب از یک جا سیم‌کشی می‌شود و به روتِ کانونی می‌رود',
+     /U\.\$\$\('\[data-qtab\]'\)[\s\S]{0,140}Router\.go\(b\.dataset\.qroute\)/.test(SRC));
+  ok('وضعیتِ زیرتب با صفحه هم‌گام است',
+     /\[data-qtab\][\s\S]{0,160}classList\.toggle\('on'/.test(SRC));
+  ok('روتِ read مستقل مانده و همان صفحهٔ مصحف است', Router.screens.read === 's-read');
+}
+
 /* ── گامِ ۶: روت‌های قدیمی، نگاشتِ صریح ──
    روت‌های تبِ پایین همیشه کار می‌کردند، ولی `#salah` و `#wird` فقط با
    واپس‌رویِ «ناشناس → خانه» می‌رسیدند: اگر روزی کسی همان واپس‌روی را
