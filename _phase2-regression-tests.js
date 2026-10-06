@@ -411,6 +411,22 @@ section('بازی — کاتالوگِ خالص، فیلترِ مهارت، مأ
   ok('صفحهٔ بازی هنوز با روتِ #play بالا می‌آید', Router.screens.play === 's-play' && tryIt(() => Router.go('play')) === 'OK');
 }
 
+/* ── گامِ ۷: نسخهٔ کشِ سرویس‌ورکر ──
+   پوسته عوض شد (سند + باندل + CSS)، پس بی بالا بردنِ نسخهٔ کش، کاربرِ
+   نصب‌شده نسخهٔ کهنه را از کش می‌دید. هر پنج کش باید با هم بالا بروند،
+   وگرنه یک لایه کهنه می‌ماند. */
+section('نسخهٔ کشِ سرویس‌ورکر (فاز ۲، گامِ ۷)');
+{
+  const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+  const vers = [...sw.matchAll(/const (?:CACHE|SHELL|MEDIA|TEXT|GAMES)\s*=\s*'noorestan(?:-shell|-media|-text|-games)?-(\d+)'/g)].map(m => m[1]);
+  const n = Number(vers[0]);
+  ok('پنج کشِ سرویس‌ورکر یک نسخه دارند',
+     vers.length === 5 && vers.every(v => v === vers[0]), vers.join());
+  ok('نسخهٔ کش برای تغییرِ پوستهٔ فاز ۲ بالا رفته', n >= 41, vers[0]);
+  ok('باندل و CSS هنوز در فهرستِ پیش‌ذخیره‌اند',
+     /'\.\/assets\/app\/app-1-3bce8fb8d2\.js'/.test(sw) && /'\.\/assets\/app\/style-1-fd30642d4f\.css'/.test(sw));
+}
+
 ok('no executable local-room or local-OTP fallback',typeof MiniServer==='undefined'&&typeof Gate.guest==='undefined'&&typeof OTP.code==='undefined');
 await new Promise(r=>setTimeout(r,1700));ok('no unhandled timer failures',global.__lateErrs.length===0);
 console.log(`RESULT ${PASS} passed, ${FAIL} failed; ${titles.length} preserved regression sections.`);process.exit(FAIL?1:0);
