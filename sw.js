@@ -62,13 +62,17 @@
    با قراردادهای برنامه (--glass و backdrop-filter و خط طلایی بالای کارت)،
    کاروسل اسلایدی هماهنگ با CategoryCarousel، اسلاید جدا با ارتفاع کنترل‌شده
    برای ورد و تعقیبات، و به‌روزرسانی هوشمند ساعت/نشان‌ها بی بازترسیم DOM.
+   نسخهٔ ۴۰: مارکِ باگِ نشتِ بومِ غبار — `FX.dust(false)` حلقهٔ
+   requestAnimationFrame را نمی‌بست (هر خاموش/روشن یک حلقهٔ بی‌پایان روی
+   بومی که از DOM رفته بود) و پردهٔ آغازین بومِ کاربر را هم می‌کشت.
+   فهرستِ پیش‌ذخیره دست‌نخورده است؛ فقط بدنهٔ باندل عوض شد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-39';
-const SHELL = 'noorestan-shell-39';
-const MEDIA = 'noorestan-media-39';
-const TEXT  = 'noorestan-text-39';
-const GAMES = 'noorestan-games-39';
+const CACHE = 'noorestan-40';
+const SHELL = 'noorestan-shell-40';
+const MEDIA = 'noorestan-media-40';
+const TEXT  = 'noorestan-text-40';
+const GAMES = 'noorestan-games-40';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
