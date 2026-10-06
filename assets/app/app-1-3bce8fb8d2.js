@@ -9795,14 +9795,14 @@ const Games = {
   onboarding:() => Onboarding.open(),
   profile:   () => { Router.go('me'); Me.tab = 'profile'; Me.render(); },
   stats:     () => { Router.go('me'); Me.tab = 'stats'; Me.render(); },
-  badges:    () => { Router.go('me'); Me.tab = 'badges'; Me.render(); },
+  badges:    () => { Router.go('me'); Me.tab = 'achievements'; Me.render(); },
   collection:() => Collection.open(),
   tree:      () => Tree.open(),
   missions:  () => Missions.open(),
   bookmarks: () => Bookmarks.open(),
   friends:   () => Friends.open(),
   reciters:  () => QuranUI.reciterSheet(),
-  leaderboard: () => { Router.go('me'); Me.tab = 'records'; Me.render(); },
+  leaderboard: () => { Router.go('me'); Me.tab = 'achievements'; Me.render(); },
   settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
 };
 
@@ -10726,6 +10726,10 @@ function renderNotif(){
 const Me = {
   tab: 'profile',
   render(){
+    /* سازگاریِ عقب‌رو: مقدارِ قدیمیِ `records`/`badges` (از حافظهٔ نشست یا
+       کدی که جا مانده) به «دستاوردها» نگاشت می‌شود؛ وگرنه تبِ بی‌بدنه
+       باز می‌شد. */
+    if(this.tab === 'records' || this.tab === 'badges') this.tab = 'achievements';
     const d = Store.data, st = d.stats;
     U.$('#meSub').textContent = `${d.playerName} • سطح ${U.fa(d.level)} • ${U.fa(d.score)} امتیاز`;
     U.$$('#meTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.metab === this.tab));
@@ -10839,9 +10843,6 @@ const Me = {
           <b style="font-size:13px">⚙️ میان‌برها</b>
           <div class="sep"></div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
-            <button class="btn gh sm" id="pfMissions">${Icon.of('target')} مأموریت‌ها</button>
-            <button class="btn gh sm" id="pfBadges">${Icon.of('medal')} نشان‌ها</button>
-            <button class="btn gh sm" id="pfRecords">${Icon.of('medal')} رکوردها</button>
             <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
             <button class="btn gh sm" id="pfPhone">${User.phone() ? '📱 تغییر شماره' : '📱 ورود با موبایل'}</button>
           </div>
@@ -10851,9 +10852,6 @@ const Me = {
       if(avb) avb.onclick = () => Avatar.pick();
       const sh = U.$('#pfShop'); if(sh) sh.onclick = () => Shop.open();
       const ob = U.$('#pfOnb'); if(ob) ob.onclick = () => Onboarding.open();
-      const mm = U.$('#pfMissions'); if(mm) mm.onclick = () => Missions.open();
-      const bb = U.$('#pfBadges'); if(bb) bb.onclick = () => { this.tab = 'badges'; this.render(); };
-      const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
       const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
       /* مهمان بی سرور بی‌پاسخ نماند */
@@ -10925,11 +10923,16 @@ const Me = {
         </div>`;
     }
 
-    else if(this.tab === 'records'){
+    /* ── دستاوردها = رکوردها + نشان‌ها ──
+       محتوا یکی‌به‌یکی مانده؛ فقط دو تبِ نیمه، یک بخش شده‌اند. */
+    else if(this.tab === 'achievements'){
       const localBoard = [...d.leaderboard].sort((a, b) => b.score - a.score);
       const recLabels = { surah_best: '📖 بهترین سفر سوره‌ها', quiz_best: '📚 بهترین آزمون',
         speed_best: '⚡ بهترین امتیاز سرعت', memory_best: '🧠 کمترین حرکت حافظه',
         esmfamil_best: '📝 بهترین اسم فامیل' };
+      const gotBadges = DATA.badges.filter(b => d.badges[b.id]).length;
+      /* دو تبِ نیمه یک بخش شد: اول رکوردها، بعد نشان‌ها — همان محتوای
+         پیشین، بدونِ حذفِ چیزی. یک رشته، نه دو بار نوشتن در DOM. */
       body.innerHTML = `
         <div class="card">
           <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
@@ -10953,16 +10956,10 @@ const Me = {
               </div>`).join('') || UI.empty('chart', 'هنوز نتیجه‌ای ثبت نشده', 'از خانه یک بازی انتخاب کن و اولین رکوردت را بساز.')}
           </div>
           <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
-        </div>`;
-      U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
-    }
-
-    else if(this.tab === 'badges'){
-      const got = DATA.badges.filter(b => d.badges[b.id]).length;
-      body.innerHTML = `
-        <div class="card">
+        </div>
+        <div class="card" style="margin-top:12px">
           <div class="row"><b style="font-size:13px">${Icon.of('medal')} نشان‌های من</b><div class="sp" style="flex:1"></div>
-            <span class="chip wr">${U.fa(got)} از ${U.fa(DATA.badges.length)}</span></div>
+            <span class="chip wr">${U.fa(gotBadges)} از ${U.fa(DATA.badges.length)}</span></div>
           <div class="sep"></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px">
             ${DATA.badges.map(b => {
@@ -10975,8 +10972,8 @@ const Me = {
             }).join('')}
           </div>
         </div>`;
+      U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
     }
-
     else {
       const s = d.settings;
       const q = Store.get('quran');

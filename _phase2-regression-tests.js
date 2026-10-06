@@ -158,6 +158,55 @@ ok('auth.css is precached with the shell', sw.includes("'./assets/styles/auth.cs
    به مسیرِ زندهٔ CI می‌آیند، نه به بخش‌های مرده.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── گامِ ۵: «من» با چهار تب — رکوردها و نشان‌ها یکی شدند ──
+   پنج تب، دو تای‌شان یک چیز را دو نیم می‌کردند: «رکوردها» و «نشان‌ها».
+   حالا «دستاوردها» هر دو را دارد (اول رکوردها، بعد نشان‌ها) و مقدارِ
+   قدیمیِ `records`/`badges` هم بی‌خطا به همان می‌رسد. */
+section('«من» — چهار تب با دستاوردها (فاز ۲، گامِ ۵)');
+{
+  const tabs = [...DOC.matchAll(/data-metab="([a-z]+)"/g)].map(m => m[1]);
+  const labels = [...DOC.slice(DOC.indexOf('id="meTabs"'), DOC.indexOf('id="meBody"'))
+    .matchAll(/<i data-ic="[^"]+"><\/i>\s*([^<]+?)\s*<\/button>/g)].map(m => m[1].trim());
+  ok('«من» دقیقاً چهار تب دارد', tabs.length === 4, tabs.join());
+  ok('چهار تب: پروفایل | آمار | دستاوردها | تنظیمات',
+     tabs.join() === 'profile,stats,achievements,settings' && labels.join('|') === 'پروفایل|آمار|دستاوردها|تنظیمات',
+     labels.join('|'));
+  ok('تب‌های جداگانهٔ رکوردها و نشان‌ها دیگر وجود ندارند',
+     !tabs.includes('records') && !tabs.includes('badges'));
+  ok('میان‌برهای پروفایل به یک خانه می‌رسند (مأموریت/نشان/رکورد جدا نشد)',
+     !/#pfMissions|#pfBadges|#pfRecords/.test(SRC) && /#pfShop/.test(SRC) && /#pfSettings/.test(SRC));
+  /* رندرِ تب با پوشاندنِ U.$ — همان روشی که سنجش‌های بوم به کار می‌برند. */
+  const body = (tab, legacy) => {
+    const box = { innerHTML:'', onclick:null, textContent:'', value:'',
+      classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; } },
+      style:{}, dataset:{}, setAttribute(){}, getAttribute(){ return null; } };
+    const s$ = U.$;
+    U.$ = (sel, root) => (sel === '#meBody' ? box : s$(sel, root));
+    try{ Me.tab = legacy; Me.render(); } finally { U.$ = s$; }
+    return { html: box.innerHTML, tab: Me.tab };
+  };
+  const ach = body('achievements', 'achievements');
+  ok('دستاوردها هر دو بخش را دارد: رکوردها و نشان‌ها',
+     ach.html.includes('رکوردهای شخصی') && ach.html.includes('نشان‌های من'),
+     ach.html.slice(0, 80));
+  ok('اول رکوردها می‌آید، بعد نشان‌ها',
+     ach.html.indexOf('رکوردهای شخصی') < ach.html.indexOf('نشان‌های من'));
+  ok('لیدربورد و شمارشِ نشان‌ها گم نشده‌اند',
+     ach.html.includes('لیدربورد') && ach.html.includes(`از ${U.fa(DATA.badges.length)}`));
+  const leg = body('records', 'records');
+  ok('مقدارِ قدیمیِ records به دستاوردها نگاشت می‌شود',
+     leg.tab === 'achievements' && leg.html.includes('نشان‌های من'));
+  const leg2 = body('badges', 'badges');
+  ok('مقدارِ قدیمیِ badges هم به دستاوردها نگاشت می‌شود',
+     leg2.tab === 'achievements' && leg2.html.includes('رکوردهای شخصی'));
+  ok('سه تبِ دیگر بی‌خطا رندر می‌شوند',
+     ['profile', 'stats', 'settings'].every(t => {
+       try{ const r = body(t, t); return typeof r.html === 'string' && r.html.length > 50; }
+       catch(e){ return false; }
+     }));
+  Me.tab = 'profile';
+}
+
 /* ── گامِ ۳: صحن، بی دروازهٔ دوم ──
    صحن پیش‌تر دو دکمهٔ فویه، چهار دکمهٔ بنر، کلیکِ سربرگ و سه میان‌بر داشت
    که همه به بخش‌هایی می‌بردند که تبِ پایین هم دارد. حالا محتوای صحن
