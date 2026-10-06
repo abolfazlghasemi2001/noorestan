@@ -575,14 +575,16 @@ ok('آیه‌های برگزیده معتبرند', QPICKS.every(p => QURAN[p.s 
      /پخش از همین لحظه با صدای تازه ادامه می‌یابد/.test(src));
   ok('قاریِ خراب در برگه هشدار می‌گیرد ولی غیرفعال نمی‌شود',
      /Recite\._bad\.has\(i\)/.test(src) && !/disabled/.test(src.slice(src.indexOf('reciterSheet(){'), src.indexOf('reciterSheet(){') + 2200)));
-  /* هر راهی که قاری را عوض می‌کند باید از مسیرِ بی‌قطع برود. سه راه هست:
-     کارت‌های صفحهٔ تلاوت، برگهٔ پایین‌کش، گزینشگرِ پیش‌نمایش — به‌علاوهٔ
-     دکمهٔ «قاری بعدی» و «منبع بعدی» در تنظیمات. */
+  /* هر راهی که قاری را عوض می‌کند باید از مسیرِ بی‌قطع برود. فاز ۲
+     گزینشگرها را یکی کرد: کارتِ صفحه و نوارِ پخش هر دو همان برگهٔ
+     پایین‌کش را باز می‌کنند — به‌علاوهٔ دکمهٔ «قاری بعدی» و «منبع بعدی»
+     در تنظیمات. مرزِ سنجش خودِ برگه است، نه پنجرهٔ حذف‌شده. */
   const gui = src.slice(src.indexOf('const QuranUI'), src.indexOf('const ReaderUI'));
-  const rui = src.slice(src.indexOf('const ReciterUI'), src.indexOf('const ShareCard'));
+  const sheetStart = src.indexOf('reciterSheet(){');
+  const rui = src.slice(sheetStart, src.indexOf('renderSurahs(){', sheetStart));
   const set = src.slice(src.indexOf("U.$('#setQnext')"), src.indexOf("U.$('#setQtest')"));
-  ok('گزینشگرِ پیش‌نمایش هم از همان مسیرِ بی‌قطع می‌رود',
-     /QuranUI\.pickReciter\(i\)/.test(rui) && !/Recite\.play\(c\.s, c\.a\)/.test(rui));
+  ok('برگهٔ قاری از همان مسیرِ بی‌قطع می‌رود',
+     /pickReciter\(i\)/.test(rui) && !/Recite\.play\(c\.s, c\.a\)/.test(rui) && sheetStart > 0);
   ok('تنظیمات هم برای قاری و منبع آیه را از نو نمی‌خواند',
      /Recite\.switchTo\(i\)/.test(set) && /Recite\.switchSource\(i\)/.test(set) &&
      !/Recite\.play\(c\.s, c\.a\)/.test(set) && !/Recite\.play\(c\.s, c\.a\)/.test(gui));
@@ -5632,15 +5634,16 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
      [45,30,18].every(n => SRC.includes(`data-sec="${n}"`)));
   ok('بازخورد بازی برای صفحه‌خوان زنده است',
      /id="ayahFeedback" role="status" aria-live="polite"/.test(SRC));
-  ok('بنر خانه سه اسلاید و سه مقصد واقعی دارد',
+  ok('بنر خانه چهار اسلاید محتوایی دارد و هیچ دروازهٔ دکمه‌ای نمی‌سازد',
      (SRC.match(/class="promo-panel(?: is-active)?"/g) || []).length >= 3 &&
-     ['ayahlight','quran','daily'].every(a => SRC.includes(`data-slide-action="${a}"`)));
+     !/data-slide-action/.test(SRC));
   ok('اسلایدر هیچ وابستگی Swiper/CDN ندارد', !/swiper-bundle/.test(SRC));
   ok('اسلایدر بومی هر ۵۰۰۰ میلی‌ثانیه پیش می‌رود', /5000, 'sys'/.test(SRC));
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
   ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
   ok('ورودِ اصلیِ نور آیه‌ها مستقیم گزینه‌های درون‌برنامه‌ای را نشان می‌دهد',
-     /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) && /data-slide-action="ayahlight"/.test(SRC));
+     /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) &&
+     /class="tile pro-tile" data-game="\$\{id\}"/.test(SRC));
   ok('هر سه حالت و هر سه زمان پیش از شروع در صفحهٔ انتخاب هستند',
      ['data-am="order"','data-am="missing"','data-am="surah"','data-sec="45"','data-sec="30"','data-sec="18"'].every(x => SRC.includes(x)) && SRC.includes('id="ayahStart"'));
   ok('بازیِ برخط اختیاری و از صفحهٔ گزینه‌ها قابل دسترسی است',
@@ -6186,10 +6189,9 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   }));
 
   /* میان‌برِ سه‌تایی */
-  ok('میان‌برِ سه‌تایی: تلاوت | بازیِ امروز | محفل', fresh(() => {
+  ok('میان‌برِ سه‌تاییِ صحن برداشته شد (فاز ۲: تبِ پایین تنها دروازه است)', fresh(() => {
      const h = Courtyard.html();
-     return h.includes('data-sc-short="quran"') && h.includes('data-sc-short="play"') &&
-            h.includes('data-sc-short="online"');
+     return !/data-sc-short/.test(h) && !/میان‌برهای نورستان/.test(h);
   }));
 
   /* خاموش/روشنِ نمایش رویِ خانه */
@@ -6202,10 +6204,10 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   /* روت‌های قدیم + نشانیِ تازه */
   ok('روت‌های قدیم هنوز می‌رسند: #play #quran #me #read #online',
      ['play','quran','me','read','online','home'].every(r => !!Router.screens[r]));
-  ok('#salah از راهِ واپس‌رویِ Router به خانه (صحن) می‌رسد', (() => {
-     /* همان منطقی که Router.init برای هر hashِ ناشناس دارد */
-     const h = 'salah';
-     const target = Router.screens[h] ? Router.screens[h] : Router.screens['home'];
+  ok('#salah نگاشتِ صریح دارد و به خانه (صحن) می‌رسد', (() => {
+     /* پیش از فاز ۲ این روت فقط با «واپس‌رویِ ناشناس → خانه» کار می‌کرد؛
+        حالا نگاشتِ صریح است و همین‌جا سنجیده می‌شود. */
+     const target = Router.screens[Router.resolve('salah')];
      const man = JSON.parse(require('./_shipped.js').file('manifest.json'));
      return target === 's-home' && man.shortcuts.some(s => s.url === './#salah' && /نماز/.test(s.name));
   })());
@@ -6237,11 +6239,18 @@ section('صحنِ روزانه (نسخهٔ ۱۹ب)');
   })());
   ok('دسکتاپ: ستونِ صحن حداکثر ۴۸۰ و وسط', /@media\s*\(min-width:760px\)\s*\{[^@]*\.sc-wrap\{[^}]*max-width:480px[^}]*margin-inline:auto/.test(CSS.replace(/\n/g, ' ')) ||
      (() => { const m = CSS.match(/@media\s*\(min-width:760px\)\s*\{([\s\S]*?)\n\}/); return !!m && m[1].includes('max-width:480px') && m[1].includes('margin-inline:auto'); })());
-  ok('هدفِ لمسیِ دکمه‌های صحن ≥ ۴۴px است', (() => {
-     const city = CSS.match(/\.sc-citybtn\s*\{[^}]*\}/)[0];
-     const prayer = CSS.match(/\.sc-prayer\s*\{[^}]*\}/)[0];
-     const short = CSS.match(/\.sc-short button\s*\{[^}]*\}/)[0];
-     return /min-height:44px/.test(city) && /min-height:78px/.test(prayer) && /min-height:48px/.test(short);
+  ok('هدفِ لمسیِ دکمه‌های صحن و کاروسل ≥ ۴۴px است', (() => {
+     /* قاعده‌ها در چند برگهٔ سبک تکرار می‌شوند و ترتیبِ الحاق مهم است؛ پس
+        «قاعدهٔ دارندهٔ اندازه» جسته می‌شود، نه نخستین قاعدهٔ هم‌نام.
+        فاز ۲ میان‌برهای سه‌گانه را برداشت؛ به‌جایش کنترل‌های کاروسلِ صحن
+        که کاربر با آن‌ها اسلایدها را می‌گرداند سنجیده می‌شوند. */
+     const pick = (sel, need) => (CSS.match(new RegExp(sel + '\\{[^}]*\\}', 'g')) || [])
+       .find(r => need.test(r)) || '';
+     const city = pick('\\.sc-citybtn', /min-height:44px/);
+     const prayer = pick('\\.sc-prayer', /min-height:78px/);
+     const nav = pick('\\.carousel-nav', /width:44px/);
+     const toggle = pick('\\.carousel-toggle', /width:44px/);
+     return !!(city && prayer && nav && toggle && /height:44px/.test(nav) && /height:44px/.test(toggle));
   })());
   ok('reduced-motion حرکتِ صحن و چرخشِ نرمِ قبله را خاموش می‌کند', (() => {
      /* چند بلوکِ reduced-motion در منبع هست (برگه‌های سبکِ قدیمی هم

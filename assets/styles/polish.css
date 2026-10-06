@@ -35,7 +35,7 @@ html body .top{
 /* ── سطح‌های اصلی: لبهٔ زرّین ظریف + سایهٔ لایه‌ای ── */
 html body .card,html body .hero,html body .today-card,html body .continue-card,
 html body .sc-head,html body .sc-occ,html body .sc-wird,html body .sc-ramadan,
-html body .sc-prayer-slide,html body .sc-short-slide{
+html body .sc-prayer-slide{
   border-radius:var(--pl-r-lg);
   border-color:var(--pl-hair);
   box-shadow:var(--pl-elev-1);
@@ -44,29 +44,29 @@ html body .hero{ box-shadow:var(--pl-elev-2); }
 /* خطِ زرّینِ بالای کارت (از خودِ برنامه) کمی پررنگ‌تر و پهن‌تر */
 html body .card::before,
 html body .sc-head::before,html body .sc-occ::before,html body .sc-wird::before,
-html body .sc-ramadan::before,html body .sc-prayer-slide::before,html body .sc-short-slide::before{
+html body .sc-ramadan::before,html body .sc-prayer-slide::before{
   opacity:.38; inset-inline:22px;
 }
 html[data-theme="light"] body .card::before,
 html[data-theme="light"] body .sc-head::before,html[data-theme="light"] body .sc-occ::before,
 html[data-theme="light"] body .sc-wird::before,html[data-theme="light"] body .sc-ramadan::before,
-html[data-theme="light"] body .sc-prayer-slide::before,html[data-theme="light"] body .sc-short-slide::before{
+html[data-theme="light"] body .sc-prayer-slide::before{
   opacity:.5;
 }
 
 /* ── کاشی‌ها و ردیف‌ها: پاسخِ لمسی ── */
 html body .tile,html body .item,html body .shop-item,html body .miss,html body .stat,
-html body .sc-prayer,html body .sc-short > button{
+html body .sc-prayer{
   transition:transform var(--pl-med) var(--ease), box-shadow var(--pl-med) ease, border-color var(--pl-med) ease;
 }
 @media (hover:hover){
   html body .tile:hover,html body .item.click:hover,html body .shop-item:hover,
-  html body .sc-prayer:hover,html body .sc-short > button:hover{
+  html body .sc-prayer:hover{
     transform:translateY(-2px); box-shadow:var(--pl-elev-1); border-color:var(--gold);
   }
 }
 html body .tile:active,html body .item.click:active,html body .shop-item:active,
-html body .sc-prayer:active,html body .sc-short > button:active{ transform:scale(.985); }
+html body .sc-prayer:active{ transform:scale(.985); }
 
 /* ── دکمه‌ها: هدفِ لمسیِ ۴۴px، فشردگیِ نرم ── */
 html body .btn:not(.sm),html body .iconbtn{ min-height:44px; }
@@ -134,7 +134,7 @@ html body #nav .navi:active{ transform:scale(.94); }
 @media (prefers-reduced-motion:reduce){
   .screen.active,#toasts .toast{ animation:none; }
   .skeleton::after,.shimmer::after{ display:none; }
-  html body .tile,html body .item,html body .btn,html body .sc-prayer,html body .sc-short > button{ transition:none; }
+  html body .tile,html body .item,html body .btn,html body .sc-prayer{ transition:none; }
 }
 html[data-motion="off"] .screen.active,html[data-motion="off"] #toasts .toast{ animation:none; }
 html[data-motion="off"] .skeleton::after,html[data-motion="off"] .shimmer::after{ display:none; }
@@ -213,3 +213,6 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;bac
 @media (max-width:420px){.pro-hero-panel{grid-template-columns:1fr 1fr}.pro-score{grid-column:span 2}.pro-featured{grid-template-columns:1fr}.pro-command{margin-inline:-2px}.pro-filters button{font-size:11.5px;padding-inline:11px}.pro-grid{grid-template-columns:1fr 1fr;gap:10px}.pro-tile{min-height:168px}.pro-tile-copy b{font-size:13.5px}.pro-tile-copy small{font-size:11px}.pro-tags i:nth-child(n+3){display:none}}
 @media (prefers-reduced-motion:no-preference){.pro-launch-hero,.pro-command,.pro-featured,.pro-grid{animation:fadeUp .42s var(--ease) both}.pro-command{animation-delay:.05s}.pro-featured{animation-delay:.1s}.pro-grid{animation-delay:.14s}.pro-tile{transition:transform .24s var(--ease),border-color .24s,box-shadow .24s}.pro-tile:hover{transform:translateY(-4px);box-shadow:0 24px 58px -30px rgba(0,0,0,.72)}}
 html[data-motion="off"] .pro-launch-hero,html[data-motion="off"] .pro-command,html[data-motion="off"] .pro-featured,html[data-motion="off"] .pro-grid{animation:none!important}
+html .pro-missions,html .pro-records{margin-top:12px}
+.pro-record-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pro-record-chips .chip{font-size:11.5px}

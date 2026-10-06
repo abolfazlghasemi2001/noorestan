@@ -22,7 +22,7 @@
 }
 
 /* ── ۱. الگوی کارت شیشه‌ای (Glass Card Pattern) ── */
-.sc-head, .sc-occ, .sc-wird, .sc-ramadan, .sc-prayer-slide, .sc-short-slide{
+.sc-head, .sc-occ, .sc-wird, .sc-ramadan, .sc-prayer-slide{
   background:var(--glass, var(--card));
   border:1px solid var(--glass-edge, var(--line));
   border-radius:var(--pl-r-lg, 22px);
@@ -32,7 +32,7 @@
 }
 /* خطِ زرّین بالای کارت */
 .sc-head::before, .sc-occ::before, .sc-wird::before, .sc-ramadan::before,
-.sc-prayer-slide::before, .sc-short-slide::before{
+.sc-prayer-slide::before{
   content:''; position:absolute; inset-inline:16px; top:0; height:1px;
   pointer-events:none; border-radius:0 0 2px 2px;
   background:linear-gradient(90deg, transparent, var(--gold), transparent);
@@ -43,7 +43,6 @@
 .screen.active .sc-wird,
 .screen.active .sc-ramadan,
 .screen.active .sc-prayer-slide,
-.screen.active .sc-short-slide,
 .screen.active #salahCourt .slide{
   -webkit-backdrop-filter:blur(20px) saturate(140%);
   backdrop-filter:blur(20px) saturate(140%);
@@ -209,16 +208,6 @@
 .sc-occ-tag{ font-size:10.5px; color:var(--mut); border:1px solid var(--line);
   border-radius:99px; padding:2px 8px; }
 
-/* ── E. میان‌برِ سه‌تایی ── */
-.sc-short{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; width:100%; }
-.sc-short button{
-  min-height:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2, 14px);
-  color:var(--txt); font-family:var(--f-ui); font-size:12px; cursor:pointer; padding:8px 4px;
-}
-.sc-short button:hover{ background:var(--card); }
-.sc-short .ic{ width:20px; height:20px; color:var(--gold); }
-
 /* ── رمضان: کارتِ سحر/افطار (فازِ ۳) ── */
 .sc-ramadan{
   padding:12px; display:flex; flex-direction:column; gap:8px;
@@ -311,8 +300,7 @@
   .sc-prayer:active, .sc-tasbih .tb-btn:active{ transform:none !important; }
   #salahCourt .slide,
   #salahCourt .carousel-track,
-  #salahCourt .sc-prayer,
-  #salahCourt .sc-short button{
+  #salahCourt .sc-prayer{
     animation:none !important;
     transition:none !important;
     transform:none !important;
@@ -328,8 +316,7 @@ html[data-motion="off"] .sc-next-bar i, html[data-motion="off"] .qb-dial{ transi
 html[data-motion="off"] .sc-prayer:active, html[data-motion="off"] .sc-tasbih .tb-btn:active{ transform:none !important; }
 html[data-motion="off"] #salahCourt .slide,
 html[data-motion="off"] #salahCourt .carousel-track,
-html[data-motion="off"] #salahCourt .sc-prayer,
-html[data-motion="off"] #salahCourt .sc-short button{
+html[data-motion="off"] #salahCourt .sc-prayer{
   animation:none !important;
   transition:none !important;
   transform:none !important;

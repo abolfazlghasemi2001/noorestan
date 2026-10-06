@@ -1506,12 +1506,30 @@ const FX = {
 };
 
 /* ─────────────────── 4. ROUTER ─────────────────── */
+/* ── نگاشتِ صریحِ روت‌های قدیمی (فاز ۲، گامِ ۶) ──
+   تبِ پایین پنج روتِ اصلی را می‌شناسد و `#read` هم صفحهٔ مستقلِ خودش را
+   دارد. ولی `#salah` (میان‌برِ کارتِ نصب) و `#wird` پیش‌تر فقط با
+   واپس‌رویِ «هر نشانیِ ناشناس → خانه» می‌رسیدند: کار می‌کرد، ولی هیچ
+   جایی نوشته نشده بود و همان واپس‌روی می‌توانست بی‌صدا بشکندش. حالا
+   هر نشانیِ قدیمی یک نگاشتِ صریح دارد و سنجشِ زنده دارد. */
+const ROUTE_ALIASES = {
+  /* پنج تبِ پایین و صفحهٔ مستقلِ مصحف‌نما (`read`) نشانیِ کانونی دارند و
+     در `Router.screens` فهرست شده‌اند؛ این جدول فقط نام‌های *قدیمی* را
+     نگاشت می‌کند. میان‌برِ کارتِ نصب (`./#salah`) همان تک‌موردی است که
+     کاربر از بیرونِ برنامه هم می‌بیند. */
+  salah: 'home'         // «صحن» امروز همان خانه است
+};
+
 const Router = {
   stack: ['home'],
   screens: { home:'s-home', quran:'s-quran', read:'s-read', online:'s-online', room:'s-room',
              play:'s-play', notif:'s-notif', me:'s-me', admin:'s-admin' },
   hooks: {},
+  /* یک جا برای همهٔ راه‌ها (go، init و popstate): نامِ قدیمی → نامِ
+     شناخته‌شده. ناشناس دست‌نخورده برمی‌گردد تا واپس‌رویِ خانه بگیرد. */
+  resolve(name){ return ROUTE_ALIASES[name] || name; },
   go(name, replace = false){
+    name = this.resolve(name);
     if(!this.screens[name] || !Session.allow(name)) return;
     /* تایمرِ بازی هنگام خروج پاک می‌شود. حالتِ دوم هم لازم است: رفتن از
        یک بازی به بازیِ دیگر همان صفحه است (`play` → `play`)، پس شرطِ اول
@@ -1552,6 +1570,14 @@ const Router = {
     U.$$('.nav button').forEach(b => b.classList.toggle('on',
       b.dataset.nav === name ||
       (name === 'room'  && b.dataset.nav === 'online')));
+    /* زیرتب‌های «شنیدن/خواندن» تلاوت با صفحه هم‌گام می‌مانند: در دو صفحه
+       دو نسخه از همان نوار هست، پس هیچ‌کدام نباید گمراه کند. */
+    const qtab = name === 'read' ? 'read' : (name === 'quran' ? 'listen' : '');
+    U.$$('[data-qtab]').forEach(b => {
+      const on = b.dataset.qtab === qtab;
+      b.classList.toggle('on', on);
+      if(b.setAttribute) b.setAttribute('aria-selected', String(on));
+    });
     Icon.hydrate(U.$('#nav'));
     HomeCarousel.schedule();
     /* کاروسل‌های دسته‌ها هم با همان دروازه: صفحه که `.active` شد دوباره
@@ -1590,7 +1616,7 @@ const Router = {
          حالا فقط وقتی عقب می‌کشیم که ورودیِ رسیده همان یکی‌زیرِ سرِ پشته
          باشد — یعنی واقعاً یک قدم عقب رفته‌ایم. هر چیز دیگر (پرشِ نشانی،
          دکمهٔ جلوی مرورگر) پشته را از نو می‌سازد. */
-      const name = (e.state && e.state.screen) || 'home';
+      const name = this.resolve((e.state && e.state.screen) || 'home');
       if(this.stack.length > 1 && this.stack[this.stack.length - 2] === name) this.stack.pop();
       else this.stack = [name];
       if(name !== 'play') Timers.clearPage();
@@ -1604,9 +1630,14 @@ const Router = {
       try{ history.replaceState({ screen: cur }, '', '#' + cur); }catch(e){}
     }
     const hash = location.hash.slice(1);
-    if(this.screens[hash]){
-      this.stack = [hash];
-      this._render(hash);
+    /* نشانیِ قدیمی اول به نامِ شناخته‌شده نگاشت می‌شود و بعد در تاریخچه
+       به شکلِ کانونی بازنویسی می‌شود — تا پشته و نشانی هیچ‌وقت دو چیزِ
+       متفاوت نگویند. */
+    const route = this.resolve(hash);
+    if(this.screens[route]){
+      this.stack = [route];
+      if(hash !== route){ try{ history.replaceState({ screen: route }, '', '#' + route); }catch(e){} }
+      this._render(route);
     } else {
       history.replaceState({ screen: 'home' }, '', '#home');
     }
@@ -1754,6 +1785,11 @@ const UI = {
   closeModal(){
     if(!this._mOpen) return;
     this._mOpen = false;
+    /* قلابِ بستن: هر پنجره‌ای که کاری زنده دارد (نمونهٔ صوتیِ قاری،
+       تایمر، شنوندهٔ صفحه‌کلید) خودش را همین‌جا جمع می‌کند. بی این،
+       نمونهٔ ۵ ثانیه‌ای پس از بستنِ برگه هم به پخش خود ادامه می‌داد. */
+    try{ if(this.onClose) this.onClose(); }catch(e){ console.warn('modal close hook', e); }
+    this.onClose = null;
     U.$('#modal').classList.remove('on');
     /* نشانِ برگه پاک شود، وگرنه پنجرهٔ بعدی هم از پایین می‌آید */
     U.$('#modal').classList.remove('sheet');
@@ -2808,13 +2844,15 @@ const QuranUI = {
   picked: null,
 
   render(){
-    if(!U.$('#qReciters')) return;
+    /* دروازهٔ «صفحهٔ تلاوت در سند هست؟» — پیش‌تر شبکهٔ قاریانِ حذف‌شده
+       بود؛ حالا فهرستِ سوره‌ها همان نشانه را می‌دهد. */
+    if(!U.$('#qSurahs')) return;
     if(!this.heroDone){
       U.$('#qHero').innerHTML = Art.panorama() +
         '<div class="art-cap">🌙 تلاوت قرآن کریم — آیه‌به‌آیه، با متن عثمانی و ترجمهٔ فارسی</div>';
       this.heroDone = true;
     }
-    this.renderReciters();
+    this.paintReciter();
     this.renderSurahs();
     this.renderAyahs();
     this.renderNow();
@@ -2845,8 +2883,9 @@ const QuranUI = {
       bm.classList.toggle('ok', on);
       bm.onclick = () => Bookmarks.toggle(cur.s, cur.a);
     }
-    const rp = U.$('#qRecPick');
-    if(rp) rp.onclick = () => ReciterUI.open();
+    /* یک گزینشگر: کارتِ بالای صفحه همان برگهٔ نوارِ پخش را باز می‌کند. */
+    const rp = U.$('#qRecOpen');
+    if(rp) rp.onclick = () => this.reciterSheet();
     const mb = U.$('#qBookmarks');
     if(mb) mb.onclick = () => Bookmarks.open();
     const res = U.$('#qResume');
@@ -2866,32 +2905,65 @@ const QuranUI = {
     return `<div class="medal" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,${h},${h2})">${U.esc(r.short.slice(0, 4))}</div>`;
   },
 
-  renderReciters(){
+  /* کارتِ قاریِ کنونی — یک نگاه، یک دکمه. شبکهٔ قاریان (سه راهِ قبلی)
+     برداشته شد؛ فهرست با پیش‌نمایش در برگهٔ پایین‌کش است. */
+  paintReciter(){
+    const box = U.$('#qRecNow');
+    if(!box) return;
     const q = Store.get('quran');
-    U.$('#qReciters').innerHTML = RECITERS.map((r, i) => `
-      <div class="qcard ${i === q.reciter ? 'on' : ''}" data-rec="${i}">
-        <div style="display:flex;justify-content:center;margin-bottom:6px">${this.medal(r, 40)}</div>
-        <b>${U.esc(r.short)}</b>
-        <small>${U.esc(r.note)}</small>
-      </div>`).join('');
-    U.$$('#qReciters .qcard').forEach(el => el.onclick = () => {
-      const i = +el.dataset.rec;
-      Sound.tick();
-      /* از راهِ switchTo می‌رود تا اگر پخشی در جریان است، از همین لحظه
-         ادامه یابد — نه از ثانیهٔ صفر. */
-      this.pickReciter(i);
-    });
+    const r = RECITERS[U.clamp(+q.reciter || 0, 0, RECITERS.length - 1)] || RECITERS[0];
+    box.innerHTML = `${this.medal(r, 38)}
+      <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
+        ${Recite._bad.has(Store.get('quran').reciter) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — از برگه باز امتحان کن</small>' : ''}</span>
+      <span class="rk" aria-hidden="true">✓</span>`;
+    U.$('#qRecCount').textContent = U.fa(RECITERS.length) + ' قاری';
   },
 
-  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارت‌های صفحه، برگهٔ پایین‌کش. */
+  /* یک جا برای همهٔ راه‌های عوض‌کردنِ قاری: کارتِ صفحه، برگهٔ پایین‌کش. */
   pickReciter(i){
     const before = Store.get('quran').reciter;
     const changed = Recite.switchTo(i);
     Sound.tick();
-    this.renderReciters();
+    this.stopRecPreview();
+    this.paintReciter();
     if(!changed){ UI.toast(`🎙 ${RECITERS[i].short} از قبل انتخاب بود`, '', 1400); return; }
     const same = before === Store.get('quran').reciter;
     UI.toast(same ? `🎙 ${RECITERS[i].name} انتخاب شد` : `🎙 از همین لحظه با ${RECITERS[i].short}`, 'ok', 1800);
+  },
+
+  /* ── نمونهٔ ۵ ثانیه‌ای ──
+     از گزینشگرِ پیش‌نمایش (که در فاز ۲ برداشته شد) به برگهٔ قاری منتقل
+     شد تا قابلیت گم نشود: یک بار پخش، پنج ثانیه، و ایستادنِ تضمینی.
+     نمونه آیةالکرسی است (سراسری ۲۶۲) و از منبعِ خودِ برنامه می‌آید. */
+  previewReciter(i, btn){
+    const r = RECITERS[i];
+    if(!r) return;
+    if(this._prevBtn && this._prevBtn.dataset.prev === String(i)){ this.stopRecPreview(); return; }
+    this.stopRecPreview();
+    this._prevBtn = btn;
+    if(btn){ btn.classList.add('on'); btn.innerHTML = Icon.of('pause'); }
+    Sound.tick();
+    try{
+      const url = (QSOURCES[0].url(r, 2, 255) || QSOURCES[1].url(r, 2, 255));
+      const au = new Audio(url);
+      au.volume = Math.min(1, (Store.get('quran').vol ?? .9));
+      au.playbackRate = 1;
+      au.play().catch(() => {});
+      const stop = () => { try{ au.pause(); }catch(e){} this.stopRecPreview(); };
+      this._prevTimer = setTimeout(stop, 5000);
+      au.onended = stop;
+      this._prevAu = au;
+    }catch(e){ this.stopRecPreview(); }
+  },
+  stopRecPreview(){
+    clearTimeout(this._prevTimer); this._prevTimer = null;
+    try{ if(this._prevAu) this._prevAu.pause(); }catch(e){}
+    this._prevAu = null;
+    if(this._prevBtn){
+      this._prevBtn.classList.remove('on');
+      this._prevBtn.innerHTML = Icon.of('play');
+      this._prevBtn = null;
+    }
   },
 
   /* ── برگهٔ پایین‌کشِ قاری ──
@@ -2906,6 +2978,8 @@ const QuranUI = {
         <span class="rb">${U.esc(r.name)}<small>${U.esc(r.note)}</small>
           ${Recite._bad.has(i) ? '<small class="rw">⚠️ آخرین بار بارگذاری نشد — می‌توانی باز امتحان کنی</small>' : ''}</span>
         ${i === q.reciter ? '<span class="rk" aria-hidden="true">✓</span>' : ''}
+        <button type="button" class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه"
+                aria-label="شنیدن نمونهٔ ${U.esc(r.short)}">${Icon.of('play')}</button>
       </div>`).join('');
     UI.sheet(`
       <div class="sheet-grab"></div>
@@ -2921,11 +2995,19 @@ const QuranUI = {
       </div>`, box => {
       const go = el => {
         const i = +(el.dataset.rec ?? el.getAttribute('data-rec'));
+        this.stopRecPreview();
         UI.closeModal();
         this.pickReciter(i);
       };
+      /* بستنِ پنجره (ضربهٔ بیرون، کلید بازگشت، دکمهٔ بستن) هم باید نمونه را
+         خفه کند؛ وگرنه صدا پس از بسته‌شدنِ برگه ادامه می‌یافت. */
+      UI.onClose = () => this.stopRecPreview();
       U.$$('#recSheetRows .rec-row').forEach(el => {
-        el.onclick = () => go(el);
+        el.onclick = e => {
+          const pv = e.target && e.target.closest ? e.target.closest('[data-prev]') : null;
+          if(pv){ e.stopPropagation(); this.previewReciter(+pv.dataset.prev, pv); return; }
+          go(el);
+        };
         el.onkeydown = e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(el); } };
       });
       U.$('#recSheetClose').onclick = () => UI.closeModal();
@@ -7296,77 +7378,6 @@ const Focus = {
   }
 };
 
-/* ─────────────────── 10.985 گزینشگر قاری با پیش‌نمایش ۵ ثانیه ─────────────────── */
-const ReciterUI = {
-  prev: null, timer: null,
-  /** چهرهٔ قاری: گرادیانِ خودِ قاری، و اگر تصویر داشت همان.
-      پیش‌تر این‌جا برای هر ده قاری یک مسیر ساختگی `avatars/reciter-N.webp`
-      ساخته می‌شد که هیچ‌کدام وجود نداشتند: ده درخواستِ شکست‌خورده در هر
-      بار باز کردنِ پنجره، و در عمل همان نگارهٔ جانشین نشان داده می‌شد.
-      حالا تصویر فقط‌وقتی خواسته می‌شود که در دادهٔ قاری نشانی باشد
-      (`img:'avatars/reciter-1.webp'`) — افزودنِ عکس یک خط تغییر داده است،
-      نه بازنویسیِ این تابع. */
-  face(r){
-    const grad = `background:linear-gradient(140deg,hsl(${r.hue} 74% 52%),hsl(${r.hue} 62% 26%))`;
-    const fallback = `<span class="rav" style="${grad}">${U.esc(r.short.slice(0, 2))}</span>`;
-    if(!r.img) return fallback;
-    return Assets.imageOrSvg(r.img, fallback, { alt: '', cls: 'art-img' });
-  },
-  /** همهٔ قاریان، هر کدام با یک چهره */
-  rows(){
-    const cur = Store.get('quran').reciter || 0;
-    return RECITERS.map((r, i) => `<div class="rec ${i === cur ? 'on' : ''}" data-rec="${i}">
-        ${this.face(r)}
-        <span class="rn">${U.esc(r.name)}<div class="rc">${U.esc(r.note)}</div></span>
-        <button class="prev" data-prev="${i}" title="شنیدن ۵ ثانیه">${Icon.of('play')}</button>
-      </div>`).join('');
-  },
-  open(){
-    UI.modal(`<h3>${Icon.of('mic')} قاری قرآن</h3>
-      <div class="tiny" style="margin:8px 0 12px">روی ▶ بزن تا ۵ ثانیه بشنوی، روی نام بزن تا انتخاب شود.</div>
-      <div class="rec-grid" style="max-height:58vh;overflow-y:auto">${this.rows()}</div>`);
-    U.$$('#modal .rec').forEach(el => {
-      const i = +el.dataset.rec;
-      el.onclick = e => {
-        if(e.target.closest('[data-prev]')){ this.preview(i, e.target.closest('[data-prev]')); return; }
-        /* نمونهٔ ۵ ثانیه‌ای اگر در جریان باشد، جایش را به پخش اصلی می‌دهد */
-        this.stopPreview();
-        Haptic.hit();
-        U.$$('#modal .rec').forEach(x => x.classList.remove('on'));
-        el.classList.add('on');
-        /* همین مسیرِ بی‌قطع: اگر پخشی در جریان است، از همان لحظه ادامه بده */
-        QuranUI.pickReciter(i);
-        QuranUI.renderReciters();
-      };
-    });
-  },
-  preview(i, btn){
-    const r = RECITERS[i];
-    if(this.prev && this.prev.dataset.prev === String(i)){ this.stopPreview(); return; }
-    this.stopPreview();
-    this.prev = btn; btn.classList.add('on'); btn.innerHTML = Icon.of('pause');
-    Sound.tick();
-    /* نمونهٔ کوتاه: آیةالکرسی — سراسری ۲۶۲ است، پس از هر منبعی که هست می‌خوانیم */
-    const s = 2, a = 255;
-    try{
-      const url = (QSOURCES[0].url(r, s, a) || QSOURCES[1].url(r, s, a));
-      const au = new Audio(url);
-      au.volume = Math.min(1, (Store.get('quran').vol ?? .9));
-      au.playbackRate = 1;
-      au.play().catch(() => {});
-      const stop = () => { try{ au.pause(); }catch(e){} this.stopPreview(); };
-      this.timer = setTimeout(stop, 5000);
-      au.onended = stop;
-      this._au = au;
-    }catch(e){ this.stopPreview(); }
-  },
-  stopPreview(){
-    clearTimeout(this.timer); this.timer = null;
-    try{ if(this._au) this._au.pause(); }catch(e){}
-    if(this.prev){ this.prev.classList.remove('on'); this.prev.innerHTML = Icon.of('play'); this.prev = null; }
-  }
-};
-
 /* ─────────────────── 10.984 اشتراک‌گذاری آیه به‌صورت تصویر PNG ───────────────────
    با Canvas 2D ساخته می‌شود: قاب طلایی، متن عثمانی، ترجمه و نام سوره.
    هیچ کتابخانه‌ای لازم نیست. روی مرورگرهای بی‌Canvas، رونوشت متن می‌دهد.
@@ -8867,17 +8878,9 @@ const HomeCarousel = {
     this.slides = U.$$('.promo-panel', root);
     this.dots = U.$$('[data-dot]', root);
     this.track = U.$('.promo-panels', root);
-    const open = action => {
-      Sound.click();
-      if(action === 'ayahlight') AyahLight.open();
-      else if(action === 'quran') Router.go('quran');
-      else if(action === 'games') ExternalGameHost.open('ayah-builder');
-      else DailyChallenge.open();
-    };
-    U.$$('[data-slide-action]', root).forEach(b => b.onclick = () => {
-      if(Date.now() < (this.suppressClickUntil || 0)) return;
-      open(b.dataset.slideAction);
-    });
+    /* فاز ۲: دکمه‌های بنر برداشته شدند. اسلایدها محتوای پیشنهادی‌اند و
+       ناوبریِ هر بخش تنها از تبِ پایین می‌آید؛ پس هندلرِ مسیر هم این‌جا
+       نمی‌ماند (قاعدهٔ ۷: شناسهٔ حذف‌شده بی‌صاحب نماند). */
     this.dots.forEach(d => d.onclick = () => { this.show(+d.dataset.dot); this.schedule(); });
     U.$('#slidePause').onclick = () => {
       this.pause('user', !this.pauses.has('user'));
@@ -9792,14 +9795,14 @@ const Games = {
   onboarding:() => Onboarding.open(),
   profile:   () => { Router.go('me'); Me.tab = 'profile'; Me.render(); },
   stats:     () => { Router.go('me'); Me.tab = 'stats'; Me.render(); },
-  badges:    () => { Router.go('me'); Me.tab = 'badges'; Me.render(); },
+  badges:    () => { Router.go('me'); Me.tab = 'achievements'; Me.render(); },
   collection:() => Collection.open(),
   tree:      () => Tree.open(),
   missions:  () => Missions.open(),
   bookmarks: () => Bookmarks.open(),
   friends:   () => Friends.open(),
-  reciters:  () => ReciterUI.open(),
-  leaderboard: () => { Router.go('me'); Me.tab = 'records'; Me.render(); },
+  reciters:  () => QuranUI.reciterSheet(),
+  leaderboard: () => { Router.go('me'); Me.tab = 'achievements'; Me.render(); },
   settings:  () => { Router.go('me'); Me.tab = 'settings'; Me.render(); }
 };
 
@@ -9940,43 +9943,102 @@ const RoundControl={
 };
 
 /* صفحه «همه بازی‌ها» — دکمه 🎮 در نوار پایین */
+/* ── کاتالوگِ خالصِ بازی ──
+   پیش از این، «مرکز بازی‌ها» هر چیزی بود که در `DATA.GAMES` نشسته بود —
+   از جمله پانزده دروازهٔ بخش‌های دیگر (پروفایل، فروشگاه، محفل، قاریان…).
+   حالا فهرستِ کاتالوگ یک منبع دارد: `catalogIds()`. دستهٔ نمایشی و مهارت
+   هم از نقشه‌های همین‌جا می‌آید، نه از `DATA` — نگهبانِ محتوا کلِ بلوکِ
+   `DATA` را هش می‌کند و نباید دست بخورد. */
+const HIDDEN_FROM_CATALOG = new Set(['recite','online-lobby','friends','daily','missions',
+  'profile','stats','badges','leaderboard','settings','collection','shop',
+  'bookmarks','reciters','onboarding']);
+const SKILL_LABELS = [
+  { id:'memory',    title:'حافظه',  icon:'🧠' },
+  { id:'speed',     title:'سرعت',   icon:'⚡' },
+  { id:'accuracy',  title:'دقت',    icon:'🎯' },
+  { id:'word',      title:'واژه',   icon:'🔤' },
+  { id:'knowledge', title:'دانش',   icon:'📚' },
+  { id:'maaref',    title:'معارف',  icon:'📜' }
+];
+const SKILLS = {
+  memory:'memory', match:'memory', 'noor-pairs':'memory',
+  speed:'speed', 'hadith-rush':'speed',
+  ayahlight:'accuracy', iran:'accuracy', dooz:'accuracy',
+  scramble:'word', esmfamil:'word', meaning:'word', 'ayah-builder':'word',
+  surah:'knowledge', tree:'knowledge', sudoku:'knowledge',
+  quiz:'maaref', exam:'maaref', nahj:'maaref', hadith:'maaref', imams:'maaref', dua:'maaref'
+};
+const CATALOG_CATS = [
+  { id:'quran',  title:'آموزش قرآن',   icon:'📖' },
+  { id:'brain',  title:'فکری و حافظه', icon:'🧠' },
+  { id:'online', title:'چندنفره',      icon:'🌐' },
+  { id:'maaref', title:'دانش و معارف', icon:'📜' }
+];
+const CATALOG_CAT = {
+  ayahlight:'quran', surah:'quran', scramble:'quran', meaning:'quran',
+  'ayah-builder':'quran', 'noor-pairs':'quran',
+  memory:'brain', match:'brain', speed:'brain', iran:'brain', sudoku:'brain', tree:'brain',
+  dooz:'online', esmfamil:'online',
+  quiz:'maaref', exam:'maaref', nahj:'maaref', hadith:'maaref', imams:'maaref', dua:'maaref',
+  'hadith-rush':'maaref'
+};
+function catalogIds(){
+  return Object.keys(DATA.GAMES).filter(id => !HIDDEN_FROM_CATALOG.has(id));
+}
+
+/* رکوردها یک فهرست دارند: تبِ «دستاوردها» و نوارِ رکوردهای بازی هر دو از
+   همین می‌خوانند تا برچسب‌ها از هم دور نشوند. */
+const RECORDS = [
+  { k:'surah_best',    label:'📖 بهترین سفر سوره‌ها', unit:'%' },
+  { k:'quiz_best',     label:'📚 بهترین آزمون',        unit:'%' },
+  { k:'speed_best',    label:'⚡ بهترین امتیاز سرعت',  unit:' امتیاز' },
+  { k:'memory_best',   label:'🧠 کمترین حرکت حافظه',   unit:' حرکت' },
+  { k:'esmfamil_best', label:'📝 بهترین اسم فامیل',    unit:' امتیاز' }
+];
+const recordText = (r, d) => {
+  const v = (d.best || {})[r.k];
+  return v == null ? '—' : U.fa(v) + r.unit;
+};
+
 const Launcher = {
   open(){
     Router.go('play');
     this.paint();
   },
-  meta(id){
-    const cat = (DATA.categories || []).find(c => (c.games || []).includes(id));
+  card(id){
     const gm = DATA.GAMES[id] || {};
-    return { id, gm, cat: cat || { id:'other', title:'دیگر', icon:'✨' } };
+    const catId = CATALOG_CAT[id] || 'quran';
+    const cat = CATALOG_CATS.find(c => c.id === catId) || { id:'other', title:'دیگر', icon:'✨' };
+    const skill = SKILLS[id] || 'knowledge';
+    const skillTitle = (SKILL_LABELS.find(x => x.id === skill) || {}).title || 'دانش';
+    const rec = Progress.recordLabel(id);
+    const stars = Store.get('stars')?.[id] || 0;
+    const done = Store.get('completed')?.[id];
+    const ext = ExternalGameHost?.catalog?.[id];
+    return `<button type="button" class="tile pro-tile" data-game="${id}" data-cat="${cat.id}" data-skill="${skill}" data-name="${U.esc(gm.name)} ${U.esc(gm.desc)} ${U.esc(cat.title)} ${U.esc(skillTitle)}" aria-label="شروع ${U.esc(gm.name)}">
+      <span class="pro-tile-glow" aria-hidden="true"></span>
+      <span class="ti">${ext?`<img src="${ext.art}" alt="" width="42" height="42">`:Glyph.of(gm.icon)}</span>
+      <span class="pro-tile-copy"><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
+      <span class="pro-tags"><i>${U.esc(cat.title)}</i><i>${U.esc(skillTitle)}</i>${gm.tag?`<i class="hot">${gm.tag==='new'?'تازه':gm.tag==='hot'?'محبوب':U.esc(gm.tag)}</i>`:''}${done?'<i class="ok">کامل</i>':''}</span>
+      <span class="pro-meta">${stars?`<em>${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</em>`:''}${rec !== '' && rec != null ? `<em>رکورد ${U.fa(rec)}</em>` : '<em>شروع سریع</em>'}</span>
+    </button>`;
   },
   paint(){
     RoundControl.clear();
     U.$('#pgTitle').innerHTML = Glyph.inline('🎮 مرکز بازی‌های نورستان');
-    U.$('#pgSub').textContent = 'جست‌وجو کن، دسته را انتخاب کن و مستقیم وارد بازی شو';
+    U.$('#pgSub').textContent = 'جست‌وجو کن، دسته و مهارت را انتخاب کن و مستقیم وارد بازی شو';
     U.$('#pgBar').innerHTML = '';
     U.prog(0, { cap: 'بازی' });
-    const blocked = new Set(['stats','badges','leaderboard','settings']);
-    const ids = Object.keys(DATA.GAMES).filter(g => !blocked.has(g));
-    const cats = (DATA.categories || []).filter(c => (c.games || []).some(g => ids.includes(g)));
+    const ids = catalogIds();
+    const d = Store.data;
+    const cats = CATALOG_CATS.filter(c => ids.some(id => CATALOG_CAT[id] === c.id));
+    const skillTabs = SKILL_LABELS.filter(s => ids.some(id => SKILLS[id] === s.id));
     const played = Store.get('gamesPlayed') || {};
     const totalPlayed = Object.values(played).reduce((a,b)=>a+(+b||0),0);
     const bestGame = Object.entries(played).sort((a,b)=>(b[1]||0)-(a[1]||0))[0]?.[0];
     const featured = ['ayah-builder','hadith-rush','noor-pairs','sudoku','ayahlight'].filter(g => DATA.GAMES[g]);
-    const card = id => {
-      const {gm,cat} = this.meta(id);
-      const rec = Progress.recordLabel(id);
-      const stars = Store.get('stars')?.[id] || 0;
-      const done = Store.get('completed')?.[id];
-      const ext = ExternalGameHost?.catalog?.[id];
-      return `<button type="button" class="tile pro-tile" data-game="${id}" data-cat="${cat.id}" data-name="${U.esc(gm.name)} ${U.esc(gm.desc)} ${U.esc(cat.title)}" aria-label="شروع ${U.esc(gm.name)}">
-        <span class="pro-tile-glow" aria-hidden="true"></span>
-        <span class="ti">${ext?`<img src="${ext.art}" alt="" width="42" height="42">`:Glyph.of(gm.icon)}</span>
-        <span class="pro-tile-copy"><b>${U.esc(gm.name)}</b><small>${U.esc(gm.desc)}</small></span>
-        <span class="pro-tags"><i>${U.esc(cat.title)}</i>${gm.tag?`<i class="hot">${gm.tag==='new'?'تازه':gm.tag==='hot'?'محبوب':U.esc(gm.tag)}</i>`:''}${done?'<i class="ok">کامل</i>':''}</span>
-        <span class="pro-meta">${stars?`<em>${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</em>`:''}${rec !== '' && rec != null ? `<em>رکورد ${U.fa(rec)}</em>` : '<em>شروع سریع</em>'}</span>
-      </button>`;
-    };
+    /* مأموریت‌های امروز تنها همین‌جا خانه دارند (صحن و «من» پاک شده‌اند). */
+    const ms = Missions.refresh(true);
     U.$('#pgBody').innerHTML = `
       ${Autosave.bar()}
       ${Streak.warn()}
@@ -10000,39 +10062,62 @@ const Launcher = {
         </div>
         <div class="pro-command card" role="search">
           <label class="gt-sr" for="gameSearch">جست‌وجوی بازی</label>
-          <div class="pro-search"><span aria-hidden="true">⌕</span><input id="gameSearch" class="inp" type="search" autocomplete="off" placeholder="نام بازی، دسته یا موضوع را بنویس…"></div>
+          <div class="pro-search"><span aria-hidden="true">⌕</span><input id="gameSearch" class="inp" type="search" autocomplete="off" placeholder="نام بازی، دسته یا مهارت را بنویس…"></div>
           <div class="pro-filters" role="tablist" aria-label="فیلتر دسته بازی">
             <button class="on" data-filter="all" role="tab" aria-selected="true">همه</button>
             ${cats.map(c=>`<button data-filter="${c.id}" role="tab" aria-selected="false"><span>${Glyph.of(c.icon)}</span>${U.esc(c.title)}</button>`).join('')}
           </div>
+          <div class="pro-filters" id="skillFilter" role="tablist" aria-label="فیلتر مهارت بازی">
+            <button class="on" data-skill="all" role="tab" aria-selected="true">هر مهارت</button>
+            ${skillTabs.map(s=>`<button data-skill="${s.id}" role="tab" aria-selected="false"><span>${Glyph.of(s.icon)}</span>${U.esc(s.title)}</button>`).join('')}
+          </div>
         </div>
+        <section class="card pro-missions" id="pgMissions" aria-label="مأموریت‌های امروز">
+          <div class="row" style="margin-bottom:10px">
+            <b style="font-size:13px">${Icon.of('target')} مأموریت‌های امروز</b>
+            <span class="sp" style="flex:1"></span>
+            <span class="chip wr" id="pgMissCnt">${U.fa(ms.doneCount)}/۳</span>
+            <button class="btn gh sm" id="pgMissAll">همه</button>
+          </div>
+          <div class="miss-list" id="pgMissList">${Missions.rows()}</div>
+        </section>
+        <section class="card pro-records" id="pgRecords" aria-label="رکوردهای من">
+          <b style="font-size:13px">${Icon.of('trophy')} رکوردهای من</b>
+          <div class="pro-record-chips">
+            ${RECORDS.map(r => `<span class="chip">${r.label}: <b>${recordText(r, d)}</b></span>`).join('')}
+          </div>
+        </section>
         <div class="pro-featured" aria-label="پیشنهادهای سریع">
           ${featured.map(id=>`<button type="button" data-game="${id}" class="pro-chip-game"><span>${ExternalGameHost?.catalog?.[id]?`<img src="${ExternalGameHost.catalog[id].art}" alt="">`:Glyph.of(DATA.GAMES[id].icon)}</span><b>${U.esc(DATA.GAMES[id].name)}</b></button>`).join('')}
         </div>
-        <div class="grid pro-grid" id="gameGrid">${ids.map(card).join('')}</div>
-        <div class="pro-empty card hide" id="gameEmpty" role="status"><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو را کوتاه‌تر کن یا دستهٔ «همه» را انتخاب کن.</p></div>
+        <div class="grid pro-grid" id="gameGrid">${ids.map(id => this.card(id)).join('')}</div>
+        <div class="pro-empty card hide" id="gameEmpty" role="status"><b>چیزی پیدا نشد</b><p>عبارت جست‌وجو را کوتاه‌تر کن یا فیلترها را روی «همه» بگذار.</p></div>
       </section>`;
     const root = U.$('#pgBody'), search = U.$('#gameSearch', root), empty = U.$('#gameEmpty', root);
-    let active = 'all';
+    let active = 'all', activeSkill = 'all';
     const apply = () => {
       const q = U.norm(search?.value || '').trim(); let shown = 0;
       U.$$('.pro-tile[data-game]', root).forEach(t => {
         const inCat = active === 'all' || t.dataset.cat === active;
+        const inSkill = activeSkill === 'all' || t.dataset.skill === activeSkill;
         const inText = !q || U.norm(t.dataset.name || '').includes(q);
-        const on = inCat && inText;
+        const on = inCat && inSkill && inText;
         t.hidden = !on; if(on) shown++;
       });
       if(empty) empty.classList.toggle('hide', shown !== 0);
     };
-    U.$$('.pro-filters [data-filter]', root).forEach(b => b.onclick = () => {
-      active = b.dataset.filter;
-      U.$$('.pro-filters [data-filter]', root).forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-selected',String(on));});
+    const bar = (sel, read) => U.$$(sel, root).forEach(b => b.onclick = () => {
+      read(b);
+      U.$$(sel, root).forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', String(on)); });
       apply(); Sound.tick();
     });
+    bar('.pro-filters [data-filter]', b => { active = b.dataset.filter; });
+    bar('#skillFilter [data-skill]',  b => { activeSkill = b.dataset.skill; });
     if(search) search.oninput = apply;
     U.$$('[data-game]', root).forEach(t => t.onclick = () => Games[t.dataset.game]?.());
     U.$('#quickStart').onclick = () => Games[bestGame || featured[0] || ids[0]]?.();
     U.$('#openDailyMini').onclick = () => DailyChallenge.open();
+    U.$('#pgMissAll').onclick = () => Missions.open();
     U.$$('[data-shop]').forEach(b => b.onclick = () => Shop.open());
     Streak.wire(root);
     Autosave.bind(document);
@@ -10247,16 +10332,9 @@ function updateHomeStats(){
     cd.className = 'chip ' + (st.done ? 'on' : 'wr');
     cd.textContent = st.done ? `✅ چالش امروز • زنجیره ${U.fa(st.streak)}` : `🌙 چالش امروز انجام نشده`;
   }
-  /* مأموریت‌های امروز روی خانه */
-  const mm = U.$('#homeMiss');
-  if(mm){
-    const ms = Missions.refresh(true);
-    mm.innerHTML = Missions.rows();
-    const mc = U.$('#missCnt');
-    if(mc) mc.textContent = `${U.fa(ms.doneCount)}/۳`;
-    const mo = U.$('#missOpen');
-    if(mo && !mo.onclick) mo.onclick = () => Missions.open();
-  }
+  /* فاز ۲: کارتِ «مأموریت‌های امروز» از صحن برداشته شد و تنها خانه‌اش
+     برگهٔ بازی است (`Launcher.paint`)؛ پس این‌جا نه کارتی می‌کشد و نه
+     شناسه‌ای برای شمارش می‌مانَد. */
   /* کارتِ «ادامهٔ یادگیری» و «پیشنهادِ امروز».
      هر دو کلیدِ مقایسه دارند، پس اگر داده عوض نشده DOM دست‌نخورده می‌ماند
      و گذارِ نوارِ پیشرفت هر بارِ تازه‌سازی از سر پخش نمی‌شود.
@@ -10345,7 +10423,6 @@ function catCarouselHtml(cat, d){
         <div class="cat-ico">${Glyph.of(cat.icon)}</div>
         <div><h2>${U.esc(cat.title)}</h2><p>${U.esc(cat.desc)}</p></div>
         <span class="cat-cnt">${U.fa(games.length)} مورد</span>
-        ${games.length > picks.length ? `<button type="button" class="btn gh sm" data-cat-all="${cat.id}" data-tip="فهرست کاملِ بازی‌ها">همه</button>` : ''}
       </div>
       <div class="category-carousel" data-cat="${cat.id}" role="group" aria-roledescription="کاروسل" aria-label="${U.esc(cat.title)}">
         <div class="carousel-viewport">
@@ -10459,8 +10536,8 @@ function renderHome(){
     art.dataset.done = '1';
     art.innerHTML = Art.panorama() +
       '<div class="art-cap">🌙 نورستان — آموزش قرآن کریم، بازی‌های فکری و محفل چندنفره</div>';
-    art.onclick = () => { Sound.page(); Router.go('quran'); };
-    art.style.cursor = 'pointer';
+    /* فاز ۲: سربرگِ صحن تصویرِ تزئینی است، نه دکمه؛ دروازهٔ تلاوت تبِ
+       پایین است. */
   }
   /* هشدار زنجیره، بالای دسته‌ها — ولی نه هر بار که تازه می‌شود، چون
      انیمیشن ورودش تکرار می‌شود و چشم را می‌زند. */
@@ -10480,14 +10557,12 @@ function renderHome(){
   if(catsEl && changed){
     renderHome._catsHtml = html;
     catsEl.innerHTML = html;
-    U.$$('[data-cat-all]', catsEl).forEach(b => b.onclick = () => { Sound.click(); Launcher.open(); });
   }
   /* کاروسل‌ها پس از آن‌که صفحه `.active` شد راه می‌افتند (Router._render
      پیش از این قلاب اجرا شده)، وگرنه همهٔ اندازه‌ها صفر خوانده می‌شوند. */
   try{ initAllCarousels(); }catch(e){ console.warn('carousels', e); }
 
-  U.$('#cGames').textContent = U.fa(Object.keys(DATA.GAMES)
-    .filter(g => !['stats','badges','leaderboard','settings','daily','online-lobby'].includes(g)).length);
+  U.$('#cGames').textContent = U.fa(catalogIds().length);
 
   /* ── پویانمایی خانه: ورود پله‌ای و کِن‌بارنز ──
      روی اسلایدهای کاروسل تیلت سه‌بعدی *نمی‌گذاریم*: FX.tilt مقدارِ
@@ -10725,6 +10800,10 @@ function renderNotif(){
 const Me = {
   tab: 'profile',
   render(){
+    /* سازگاریِ عقب‌رو: مقدارِ قدیمیِ `records`/`badges` (از حافظهٔ نشست یا
+       کدی که جا مانده) به «دستاوردها» نگاشت می‌شود؛ وگرنه تبِ بی‌بدنه
+       باز می‌شد. */
+    if(this.tab === 'records' || this.tab === 'badges') this.tab = 'achievements';
     const d = Store.data, st = d.stats;
     U.$('#meSub').textContent = `${d.playerName} • سطح ${U.fa(d.level)} • ${U.fa(d.score)} امتیاز`;
     U.$$('#meTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.metab === this.tab));
@@ -10838,9 +10917,6 @@ const Me = {
           <b style="font-size:13px">⚙️ میان‌برها</b>
           <div class="sep"></div>
           <div class="row" style="gap:8px;flex-wrap:wrap">
-            <button class="btn gh sm" id="pfMissions">${Icon.of('target')} مأموریت‌ها</button>
-            <button class="btn gh sm" id="pfBadges">${Icon.of('medal')} نشان‌ها</button>
-            <button class="btn gh sm" id="pfRecords">${Icon.of('medal')} رکوردها</button>
             <button class="btn gh sm" id="pfSettings">⚙️ تنظیمات</button>
             <button class="btn gh sm" id="pfPhone">${User.phone() ? '📱 تغییر شماره' : '📱 ورود با موبایل'}</button>
           </div>
@@ -10850,9 +10926,6 @@ const Me = {
       if(avb) avb.onclick = () => Avatar.pick();
       const sh = U.$('#pfShop'); if(sh) sh.onclick = () => Shop.open();
       const ob = U.$('#pfOnb'); if(ob) ob.onclick = () => Onboarding.open();
-      const mm = U.$('#pfMissions'); if(mm) mm.onclick = () => Missions.open();
-      const bb = U.$('#pfBadges'); if(bb) bb.onclick = () => { this.tab = 'badges'; this.render(); };
-      const rr = U.$('#pfRecords'); if(rr) rr.onclick = () => { this.tab = 'records'; this.render(); };
       const ss = U.$('#pfSettings'); if(ss) ss.onclick = () => { this.tab = 'settings'; this.render(); };
       const pp = U.$('#pfPhone'); if(pp) pp.onclick = () => Gate.open('phone');
       /* مهمان بی سرور بی‌پاسخ نماند */
@@ -10924,21 +10997,19 @@ const Me = {
         </div>`;
     }
 
-    else if(this.tab === 'records'){
+    /* ── دستاوردها = رکوردها + نشان‌ها ──
+       محتوا یکی‌به‌یکی مانده؛ فقط دو تبِ نیمه، یک بخش شده‌اند. */
+    else if(this.tab === 'achievements'){
       const localBoard = [...d.leaderboard].sort((a, b) => b.score - a.score);
-      const recLabels = { surah_best: '📖 بهترین سفر سوره‌ها', quiz_best: '📚 بهترین آزمون',
-        speed_best: '⚡ بهترین امتیاز سرعت', memory_best: '🧠 کمترین حرکت حافظه',
-        esmfamil_best: '📝 بهترین اسم فامیل' };
+      const gotBadges = DATA.badges.filter(b => d.badges[b.id]).length;
+      /* دو تبِ نیمه یک بخش شد: اول رکوردها، بعد نشان‌ها — همان محتوای
+         پیشین، بدونِ حذفِ چیزی. یک رشته، نه دو بار نوشتن در DOM. */
       body.innerHTML = `
         <div class="card">
           <b style="font-size:13px">${Icon.of('medal')} رکوردهای شخصی</b>
           <div class="sep"></div>
           ${Object.keys(d.best).length ? '' : UI.empty('chart', 'داستان بازی‌هایت از اینجا شروع می‌شود', 'نتیجهٔ نخستین بازی‌ات را اینجا خواهی دید.')}
-          ${Object.entries(recLabels).map(([k, label]) => {
-            const v = d.best[k];
-            const unit = k === 'memory_best' ? ' حرکت' : k.includes('best') && k !== 'esmfamil_best' ? '%' : ' امتیاز';
-            return `<div class="kv"><span>${label}</span><b>${v == null ? '—' : U.fa(v) + unit}</b></div>`;
-          }).join('')}
+          ${RECORDS.map(r => `<div class="kv"><span>${r.label}</span><b>${recordText(r, d)}</b></div>`).join('')}
         </div>
         <div class="card" style="margin-top:12px">
           <b style="font-size:13px">${Icon.of('trophy')} لیدربورد ${Net.board.length ? 'سرور' : 'محلی'}</b>
@@ -10952,16 +11023,10 @@ const Me = {
               </div>`).join('') || UI.empty('chart', 'هنوز نتیجه‌ای ثبت نشده', 'از خانه یک بازی انتخاب کن و اولین رکوردت را بساز.')}
           </div>
           <button class="btn gh w" style="margin-top:12px" id="meLbRefresh">${Icon.of('refresh')} به‌روزرسانی</button>
-        </div>`;
-      U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
-    }
-
-    else if(this.tab === 'badges'){
-      const got = DATA.badges.filter(b => d.badges[b.id]).length;
-      body.innerHTML = `
-        <div class="card">
+        </div>
+        <div class="card" style="margin-top:12px">
           <div class="row"><b style="font-size:13px">${Icon.of('medal')} نشان‌های من</b><div class="sp" style="flex:1"></div>
-            <span class="chip wr">${U.fa(got)} از ${U.fa(DATA.badges.length)}</span></div>
+            <span class="chip wr">${U.fa(gotBadges)} از ${U.fa(DATA.badges.length)}</span></div>
           <div class="sep"></div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px">
             ${DATA.badges.map(b => {
@@ -10974,8 +11039,8 @@ const Me = {
             }).join('')}
           </div>
         </div>`;
+      U.$('#meLbRefresh').onclick = () => { Net.requestBoard(); Timers.after(() => this.render(), 800); };
     }
-
     else {
       const s = d.settings;
       const q = Store.get('quran');
@@ -11004,7 +11069,7 @@ const Me = {
 
           <label class="lbl">${Icon.of('target')} رفتن به</label>
           <div class="row" style="flex-wrap:wrap;gap:8px">
-            <button class="btn gh sm" id="setMissions">${Icon.of('target')} مأموریت‌ها</button>
+            <!-- مأموریت‌ها این‌جا نیستند: تنها خانه‌شان برگهٔ بازی است. -->
             <button class="btn gh sm" id="setCollection">${Icon.of('medal')} کلکسیون</button>
             <button class="btn gh sm" id="setTree">${Icon.of('tree')} درخت دانش</button>
             <button class="btn gh sm" id="setBookmarks">${Icon.of('mark')} نشانه‌ها</button>
@@ -11094,12 +11159,11 @@ const Me = {
         this.classList.toggle('gh', !off);
         UI.toast(off ? '🎬 پویانمایی کامل روشن شد' : '🎬 پویانمایی کم شد', '', 1800);
       };
-      U.$('#setMissions').onclick = () => Missions.open();
       U.$('#setCollection').onclick = () => Collection.open();
       U.$('#setTree').onclick = () => Tree.open();
       U.$('#setBookmarks').onclick = () => Bookmarks.open();
       U.$('#setFriends').onclick = () => Friends.open();
-      U.$('#setReciters').onclick = () => ReciterUI.open();
+      U.$('#setReciters').onclick = () => QuranUI.reciterSheet();
       U.$('#setFocus').onclick = () => { Focus.toggle(); };
       U.$('#setNight').onclick = () => NightRepeat.modal();
       Install.wire();
@@ -14231,9 +14295,17 @@ function init(){
     if(n === 'play'){ U.$('#pgBody').innerHTML = ''; Router.go('play'); Launcher.open(); return; }
     Router.go(n);
   });
+  /* زیرتب‌های تلاوت (شنیدن/خواندن) — یک سیم‌کشی برای هر دو صفحه. */
+  U.$$('[data-qtab]').forEach(b => b.onclick = () => {
+    Sound.page();
+    Router.go(b.dataset.qroute);
+  });
   U.$('#btnNotif').onclick = () => Router.go('notif');
-  U.$('#btnNet').onclick = () => Router.go('online');
-  U.$('#btnQuran').onclick = () => { Sound.page(); Router.go('quran'); };
+  /* فاز ۲: دو دکمهٔ «تلاوت» و «وضعیت شبکه» از نوارِ بالا برداشته شدند؛
+     تلاوت و محفل تنها از تبِ پایین می‌آیند. هندلرشان هم همین‌جا رفت تا
+     شناسهٔ حذف‌شده در باندل بی‌صاحب نماند (قاعدهٔ ۷). نامِ شناسه‌ها عمداً
+     این‌جا نوشته نمی‌شود: سنجشِ زنده هر ارجاعی — حتی در توضیح — را
+     «بی‌صاحب» می‌شمارد و همین سخت‌گیری است که بازگشتِ دکمه را می‌گیرد. */
   QuranUI.render();	// نگاره‌ها از همان آغاز ساخته می‌شوند
   Daily.render();
   ReaderUI.paint();
@@ -14257,15 +14329,11 @@ function init(){
     }, 1000);
   }
 
-  /* ── مصحف‌نما ── */
-  const toReader = () => {
-    const q = Store.get('quran');
-    Sound.page();
-    ReaderUI.open(q.surah || 1, q.ayah || 1);
-  };
-  U.$('#qOpenReader').onclick = toReader;
-  U.$('#qOpenReader2').onclick = toReader;
-  U.$('#readToQuran').onclick = () => { Sound.page(); Router.go('quran'); };
+  /* ── مصحف‌نما ──
+     فاز ۲: سه راهِ جداگانه به مصحف (دو دکمه در صفحهٔ تلاوت و پلِ بازگشت
+     داخلِ خودِ مصحف) برداشته شد؛ زیرتبِ «خواندن» همان کار را می‌کند و
+     روتِ `#read` دست‌نخورده است. نامِ شناسه‌های حذف‌شده این‌جا نوشته
+     نمی‌شود تا سنجشِ «بی‌صاحب نمانده» سخت‌گیر بماند. */
   U.$('#readPrevS').onclick = () => { Sound.page(); ReaderUI.step(-1); };
   U.$('#readNextS').onclick = () => { Sound.page(); ReaderUI.step(1); };
   U.$('#readSizeUp').onclick = () => ReaderUI.setSize(2);
@@ -14483,7 +14551,8 @@ function init(){
     }
   });
 
-  U.$$('[data-foyer-route]').forEach(button => button.onclick = () => Router.go(button.dataset.foyerRoute));
+  /* فاز ۲: دو دکمهٔ «فویه» برداشته شدند؛ صحن ناوبریِ خودش را به تبِ
+     پایین سپرده است. */
   UI.observeShell();
   Host.ready().then(()=>Session.restore());
   if(document.fonts?.ready){

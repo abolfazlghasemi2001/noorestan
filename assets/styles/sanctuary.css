@@ -52,9 +52,6 @@ html .hero.foyer h1 em{font-style:normal;-webkit-text-fill-color:var(--gold);col
 html .hero.foyer p{font-size:13px;max-width:390px;color:var(--mut);line-height:2.1;margin:16px 0}
 .foyer-art{position:absolute;inset:-6% auto auto 0;width:52%;height:102%;object-fit:contain;pointer-events:none;z-index:0}
 html[data-theme="light"] .foyer-art{filter:drop-shadow(0 14px 17px #55633a18)}
-.foyer-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
-html .foyer-actions .btn{padding:11px 22px;border-radius:12px;font-size:12px;min-height:46px}
-html .foyer-actions .btn.gh{border-color:var(--court-line);background:transparent}
 .foyer-progress{position:relative;z-index:1;grid-column:1/-1;padding-top:14px;border-top:1px solid var(--court-line);display:flex;align-items:center;justify-content:space-between;gap:24px}
 html .foyer-progress .chips{gap:8px;max-width:70%}
 html .foyer-progress .chip{background:transparent;border:0;padding:0 0 0 12px;border-inline-end:1px solid var(--line);border-radius:0;font-size:11px}
@@ -67,7 +64,6 @@ html .promo-copy h2{color:var(--txt);font-size:30px;line-height:1.5}
 html .promo-copy p{color:var(--mut);font-size:12px;max-width:470px;line-height:2}
 html .promo-kicker,html[data-theme="light"] .promo-kicker{color:var(--gold);font-size:10px;margin-bottom:7px}
 html .promo-scene{width:28%;max-width:225px;max-height:185px;border-radius:95px 95px 12px 12px;border-color:var(--court-line);object-fit:cover;align-self:center}
-html .promo-go.btn{margin-top:12px;font-size:11px;min-height:40px;padding:8px 14px;background:var(--grad);color:var(--ink)}
 html .slider-controls{bottom:8px}
 html .slider-pause{color:var(--gold);border-color:var(--line);background:none}
 html .slider-dots button::after{background:var(--mut);opacity:.35}
@@ -122,7 +118,7 @@ html .miss{padding:14px 10px;border-bottom:1px solid var(--line)}
 html .miss:last-child{border-bottom:0}
 html .miss .mi{color:var(--gold)}
 html .daily-ayah,html .daily-card{background:var(--card);border-color:var(--court-line)}
-@media(min-width:1000px){html #homeMissCard{padding:18px 24px}html #homeMiss{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}html #homeMiss .miss{border:0;min-width:0;align-items:start}html .shop-item{padding:18px}html #s-home .stats{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1000px){html #pgMissions{padding:18px 24px}html #pgMissList{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}html #pgMissList .miss{border:0;min-width:0;align-items:start}html .shop-item{padding:18px}html #s-home .stats{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:640px){
  html #app{padding-inline:16px}html .top,html[data-theme="light"] .top{margin:0 -16px 18px;padding:14px 18px;gap:9px}
  html .brand{font-size:23px;gap:9px}html .brand small{font-size:9px}html .top .iconbtn{width:36px;height:36px}
@@ -130,11 +126,10 @@ html .daily-ayah,html .daily-card{background:var(--card);border-color:var(--cour
  .foyer-copy{padding:0 0 26px;max-width:85%}html .hero.foyer h1{font-size:36px}
  html .hero.foyer p{font-size:12px;max-width:215px;margin:13px 0}
  .foyer-art{width:88%;height:80%;inset:auto auto 6% -20%;opacity:.27;z-index:-1}
- .foyer-actions{gap:8px;margin-top:16px}html .foyer-actions .btn{padding:9px 13px;min-height:42px;font-size:11px}
  .foyer-progress{display:block;padding-top:16px}.foyer-progress .chips{max-width:100%!important;gap:12px!important;line-height:1.8}
  html .foyer-progress .lvlwrap{width:100%;margin-top:16px}.foyer-eyebrow{font-size:10px;margin-bottom:10px}
  html .promo-panel{min-height:245px;padding:23px 22px 50px;gap:12px}html .promo-copy h2{font-size:27px}html .promo-copy p{font-size:11px;line-height:2}
- html .promo-scene{width:29%;height:130px;max-height:130px}html .promo-go.btn{font-size:10px;padding:8px 12px}
+ html .promo-scene{width:29%;height:130px;max-height:130px}
  html .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}html .tile{padding:18px 14px;min-height:154px}
  html .tile small{font-size:10px}html .cat-head h2{font-size:23px}html .card{padding:18px}
  html #nav .navi{padding:6px 10px;font-size:9px}html #nav{inset-inline:10px;width:calc(100% - 20px);bottom:10px;border-radius:18px}

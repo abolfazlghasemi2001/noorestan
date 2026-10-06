@@ -94,9 +94,11 @@
       <div>نورستان<small id="tbSub">آموزش قرآن، بازی و محفل واقعی</small></div>
     </div>
     <div class="sp"></div>
-    <button class="iconbtn" id="btnQuran" title="تلاوت قرآن"><i data-ic="listen"></i></button>
+    <!-- فاز ۲: نوارِ بالا تنها یک دروازه دارد — زنگِ اعلان. تلاوت و محفل
+         هر کدام یک تبِ پایین دارند؛ داشتنِ دکمهٔ دوم در نوارِ بالا یعنی دو
+         راه برای رسیدن به یک بخش. وضعیتِ شبکه هم گم نشده: چیپِ `#cNet` در
+         صحن و چیپِ `#netState` در محفل نشانش می‌دهند. -->
     <button class="iconbtn" id="btnNotif" title="اعلان‌ها"><i data-ic="bell"></i><span class="dot hide" id="notifDot"></span></button>
-    <button class="iconbtn" id="btnNet" title="وضعیت شبکه"><i data-ic="signal"></i></button>
   </div>
 
   <section class="screen active" id="s-home">
@@ -114,10 +116,6 @@
         <div class="foyer-eyebrow" id="homeHello">به صحنِ نورستان خوش آمدی</div>
         <h1>هر روز،<br><em>روشن‌تر از دیروز.</em></h1>
         <p>اینجا جایی برای آرام گرفتن، آموختن و با هم بازی کردن است. امروزت را با یک آیه روشن کن.</p>
-        <div class="foyer-actions">
-          <button class="btn" data-foyer-route="quran"><i data-ic="book-open"></i> لحظه‌ای با قرآن</button>
-          <button class="btn gh" data-foyer-route="play"><i data-ic="gamepad"></i> انتخاب بازی</button>
-        </div>
       </div>
       <img class="foyer-art" src="assets/images/sanctuary-court.svg" width="900" height="720" alt="" fetchpriority="high">
       <div class="foyer-progress">
@@ -139,23 +137,19 @@
     <section class="home-slider" id="homeSlider" aria-label="پیشنهادهای نورستان" aria-roledescription="اسلایدر">
       <div class="promo-panels">
         <article class="promo-panel is-active" role="group" aria-roledescription="اسلاید" aria-label="1 از ۴" >
-          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p>
-            <button class="btn promo-go" data-slide-action="ayahlight">شروع بازی <i data-ic="back"></i></button></div>
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> بازی تازه</span><h2>نورِ آیه‌ها</h2><p>آیه را مرتب کن، واژهٔ گمشده را بیاب و سوره را بشناس؛ در صحن نورانی مسجد.</p></div>
           <img class="promo-scene" src="assets/images/promo/courtyard.svg" alt="" width="640" height="420" draggable="false">
         </article>
         <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="2 از ۴" inert aria-hidden="true">
-          <div class="promo-copy"><span class="promo-kicker"><i data-ic="headphones"></i> آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی و تکرار آیات، لحظه‌ای آرام بگیر.</p>
-            <button class="btn promo-go" data-slide-action="quran">رفتن به تلاوت <i data-ic="back"></i></button></div>
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="headphones"></i> آرامش روزانه</span><h2>تلاوت آیه‌به‌آیه</h2><p>با صدای ۱۰ قاری نامدار، ترجمهٔ فارسی و تکرار آیات، لحظه‌ای آرام بگیر.</p></div>
           <img class="promo-scene" src="assets/images/promo/recitation.svg" alt="" width="640" height="420" draggable="false">
         </article>
         <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="3 از ۴" inert aria-hidden="true">
-          <div class="promo-copy"><span class="promo-kicker"><i data-ic="moon"></i> هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و به روشنایی روزهای پیوسته‌ات اضافه کن.</p>
-            <button class="btn promo-go" data-slide-action="daily">چالش امروز <i data-ic="back"></i></button></div>
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="moon"></i> هر روز یک جایزه</span><h2>زنجیره‌ات را زنده نگه دار</h2><p>چالش امروز را کامل کن، سکه بگیر و به روشنایی روزهای پیوسته‌ات اضافه کن.</p></div>
           <img class="promo-scene" src="assets/images/promo/night.svg" alt="" width="640" height="420" draggable="false">
         </article>
         <article class="promo-panel" role="group" aria-roledescription="اسلاید" aria-label="4 از ۴" inert aria-hidden="true">
-          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> سه بازی مستقل تازه</span><h2>آیه‌ساز، باران حکمت، جفت نور</h2><p>بازی‌های شاخهٔ /games/ حالا با قاب حرفه‌ای، تمام‌صفحه و ذخیرهٔ رکورد در خودِ نورستان اجرا می‌شوند.</p>
-            <button class="btn promo-go" data-slide-action="games">دیدن بازی‌های تازه <i data-ic="back"></i></button></div>
+          <div class="promo-copy"><span class="promo-kicker"><i data-ic="sparkle"></i> سه بازی مستقل تازه</span><h2>آیه‌ساز، باران حکمت، جفت نور</h2><p>بازی‌های شاخهٔ /games/ حالا با قاب حرفه‌ای، تمام‌صفحه و ذخیرهٔ رکورد در خودِ نورستان اجرا می‌شوند.</p></div>
           <img class="promo-scene" src="assets/images/promo/games-gateway.svg" alt="" width="640" height="420" draggable="false">
         </article>
       </div>
@@ -202,15 +196,7 @@
     <!-- آیهٔ روز — هر روز یک آیه، ثابت برای همهٔ دستگاه‌ها -->
     <div id="daily"></div>
 
-    <div class="card" id="homeMissCard" style="margin-bottom:14px">
-      <div class="row" style="margin-bottom:10px">
-        <b style="font-size:13px"><i data-ic="target"></i> مأموریت‌های امروز</b>
-        <span class="sp" style="flex:1"></span>
-        <span class="chip wr" id="missCnt">۰/۳</span>
-        <button class="btn gh sm" id="missOpen">همه</button>
-      </div>
-      <div class="miss-list" id="homeMiss"></div>
-    </div>
+    <!-- فاز ۲: مأموریت‌های امروز به برگهٔ بازی رفتند — هر محتوا یک خانه. -->
   </section>
 
   <section class="screen" id="s-online">
@@ -341,11 +327,13 @@
       <button class="back" data-back>›</button>
       <div><h2><i data-ic="user"></i> حساب من</h2><p id="meSub">—</p></div>
     </div>
+    <!-- فاز ۲: پنج تب → چهار. «رکوردها» و «نشان‌ها» یک بخش بودند که دو نیم
+         شده بود؛ حالا تبِ «دستاوردها» هر دو را دارد (اول رکوردها، بعد
+         نشان‌ها). مقدارِ قدیمیِ این دو تب هم بی‌خطا به دستاوردها می‌رسد. -->
     <div class="tabs" id="meTabs">
       <button class="tab" data-metab="profile"><i data-ic="smile"></i> پروفایل</button>
       <button class="tab on" data-metab="stats"><i data-ic="chart"></i> آمار</button>
-      <button class="tab" data-metab="records"><i data-ic="medal"></i> رکوردها</button>
-      <button class="tab" data-metab="badges"><i data-ic="medal"></i> نشان‌ها</button>
+      <button class="tab" data-metab="achievements"><i data-ic="medal"></i> دستاوردها</button>
       <button class="tab" data-metab="settings"><i data-ic="gear"></i> تنظیمات</button>
     </div>
     <div id="meBody"></div>
@@ -377,8 +365,16 @@
     <div class="phead">
       <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2><i data-ic="headphones"></i> تلاوت قرآن</h2><p>صوت قاریان نامدار جهان — آیه‌به‌آیه</p></div>
-      <button class="iconbtn" id="qOpenReader" title="مصحف‌نما"><i data-ic="book"></i></button>
       <button class="iconbtn" id="qBookmarks" title="نشانه‌های من"><i data-ic="mark"></i></button>
+    </div>
+
+    <!-- فاز ۲: تلاوت یک بخش است با دو زیرتب — «شنیدن» (همین صفحه) و
+         «خواندن» (مصحف‌نما). پیش‌تر سه دکمهٔ جدا از این صفحه به مصحف
+         می‌بردند (دو دکمه در همین صفحه و پلِ بازگشت داخلِ مصحف). حالا
+         زیرتب جای همه را گرفته و روتِ `#read` دست‌نخورده مانده. -->
+    <div class="tabs qsub" role="tablist" aria-label="شنیدن و خواندن">
+      <button class="tab on" data-qtab="listen" data-qroute="quran"><i data-ic="listen"></i> شنیدن</button>
+      <button class="tab" data-qtab="read" data-qroute="read"><i data-ic="book-open"></i> خواندن</button>
     </div>
 
     <div id="qHero" class="art-hero"></div>
@@ -387,13 +383,16 @@
 
     <div class="qnow" id="qNow"></div>
 
+    <!-- فاز ۲: یک گزینشگرِ قاری. کارتِ زیر قاریِ کنونی را نشان می‌دهد و
+         دکمه‌اش همان برگهٔ پایین‌کشِ نوارِ پخش را باز می‌کند — با
+         پیش‌نمایشِ ۵ ثانیه‌ای که از گزینشگرِ حذف‌شده به آن منتقل شد. -->
     <div class="card">
       <div class="lbl2" style="margin-bottom:8px"><span><i data-ic="mic"></i> قاری</span>
         <span class="row" style="gap:6px">
           <span id="qRecCount">—</span>
-          <button class="btn gh sm" id="qRecPick"><i data-ic="mic"></i><span>گزینشگر با پیش‌نمایش</span></button>
+          <button class="btn gh sm" id="qRecOpen"><i data-ic="mic"></i><span>گزینش قاری</span></button>
         </span></div>
-      <div class="qgrid" id="qReciters"></div>
+      <div class="rec-row" id="qRecNow" aria-live="polite"></div>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -435,8 +434,6 @@
       <div class="lbl2" style="margin-bottom:8px"><span><i data-ic="book"></i> تلاوت‌های برگزیده</span></div>
       <div id="qPicks"></div>
     </div>
-
-    <button class="btn w" id="qOpenReader2" style="margin-top:14px"><i data-ic="book-open"></i><span>خواندن این سوره در مصحف‌نما</span></button>
   </section>
 
   <!-- ═══════ مصحف‌نما — خواندن آیه‌به‌آیه با ترجمه ═══════ -->
@@ -445,6 +442,12 @@
       <button class="iconbtn" data-back aria-label="بازگشت"><i data-ic="back"></i></button>
       <div><h2 id="readTitle"><i data-ic="book-open"></i> مصحف‌نما</h2><p id="readSub">خواندن، شنیدن و اندیشیدن</p></div>
       <button class="iconbtn" id="readMarks" title="نشانه‌گذاری"><i data-ic="mark"></i></button>
+    </div>
+
+    <!-- همان زیرتب‌های تلاوت؛ «خواندن» همان صفحهٔ مستقلِ `#read` است. -->
+    <div class="tabs qsub" role="tablist" aria-label="شنیدن و خواندن">
+      <button class="tab" data-qtab="listen" data-qroute="quran"><i data-ic="listen"></i> شنیدن</button>
+      <button class="tab on" data-qtab="read" data-qroute="read"><i data-ic="book-open"></i> خواندن</button>
     </div>
 
     <div class="card read-tools">
@@ -466,9 +469,6 @@
     </div>
 
     <div id="readBody"></div>
-    <div class="card" style="margin-top:12px;text-align:center">
-      <button class="btn gh" id="readToQuran"><i data-ic="headphones"></i><span>رفتن به بخش تلاوت</span></button>
-    </div>
   </section>
 
   <!-- نسخهٔ ۱۹ب: پنج تبِ پایدار — صحن | تلاوت | بازی | محفل | من.
