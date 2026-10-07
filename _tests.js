@@ -6460,16 +6460,22 @@ section('صفحهٔ عبادت (نسخهٔ ۲۱)');
             !!inWorship && inWorship.goal === 4 &&
             Missions.key('pray5') === SalahLog.count();
   }));
-  ok('سرویس‌ورکر برای نسخهٔ ۱۹د بالا رفته و همان فهرست را پیش‌ذخیره می‌کند', (() => {
+  ok('سرویس‌ورکر پیش‌ذخیره را با همان شمارهٔ کش بزرگ کرده است', (() => {
+     /* شماره در سنجش هاردکد نمی‌شود: هر بالابردنِ درستِ کش باید سبز
+        بماند. چیزی که باید درست بماند هم‌شماره بودنِ «نسخهٔ …» با `CACHE`
+        است، نه عددِ خودش. */
      const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
      const n = +sw.match(/const CACHE = 'noorestan-(\d+)'/)[1];
+     const fa = String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
      return n >= 42 && /'\.\/assets\/app\/courtyard-1.js'/.test(sw) &&
-            /'\.\/assets\/styles\/salah\.css'/.test(sw) && /نسخهٔ ۴۲/.test(sw);
+            /'\.\/assets\/app\/sajjada-1.js'/.test(sw) &&
+            /'\.\/assets\/styles\/salah\.css'/.test(sw) &&
+            new RegExp('نسخهٔ ' + fa).test(sw);
   })());
   ok('پیش‌ذخیرهٔ SW دقیقاً پنج نسخهٔ هم‌شماره دارد', (() => {
      const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
      const vers = [...sw.matchAll(/const (?:CACHE|SHELL|MEDIA|TEXT|GAMES)\s*=\s*'noorestan(?:-shell|-media|-text|-games)?-(\d+)'/g)].map(m => m[1]);
-     return vers.length === 5 && vers.every(v => v === '42');
+     return vers.length === 5 && vers.every(v => v === vers[0]);
   })());
 }
 
@@ -6925,6 +6931,488 @@ section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
      const keep = typeof PersonalData !== 'undefined' ? PersonalData.clean(Store.defaults()) : null;
      return keep === null || ('adhanEnabled' in keep && 'tasbihToday' in keep && 'khatm' in keep);
   }));
+}
+
+
+/* ═══════════════ نسخهٔ ۲۲ — همراهِ نماز، ذکرشمار و قبله‌نمای تمام‌صفحه ═══════════════
+   سنجشِ همین‌جا دو دسته است: توابعِ خالص (ساختِ صفّ مرحله، reducer، حالت‌یاب،
+   دفترچهٔ پنج نماز) که بی‌DOM‌اند، و پیمان‌های DOM/ذخیره‌سازی که باید ثابت
+   کنند هیچ‌چیز به حسگر بند نیست و هیچ شنونده‌ای نشت نمی‌کند. */
+section('همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)');
+{
+  const data0 = Store.data;
+  const fresh = fn => { Store.data = Store.defaults();
+    /* قفلِ مأموریت: پرداختِ خودکارِ مأموریت اقتصادِ سنجش‌ها را نبازد */
+    Store.data.missions = { date:U.today(), list:[1, 2, 3].map(i => (
+      { id:'fake' + i, icon:'', t:'', d:'', goal:9999, pts:0, n:0, done:false, paid:false })) };
+    Store.save();
+    try{ return fn(); } finally { Store.data = data0; Store.save(); } };
+
+  ok('چهار ماژولِ تازه بار شده‌اند، بی‌آن‌که به DOMِ در دسترس وابسته باشند',
+     typeof SalahFive === 'object' && typeof Dhikr === 'object' &&
+     typeof NoorPose === 'object' && typeof Sajjada === 'object' &&
+     typeof NoorSensor === 'object' && typeof NoorWake === 'object');
+
+  /* ── ۱. دفترچهٔ پنج نماز ── */
+  ok('پنج نمازِ واجبه و ۱۷ رکعت (۲/۴/۴/۳/۴)', (() => {
+     const sum = SalahFive.NAMES.reduce((a, n) => a + SalahFive.RAKA[n], 0);
+     return SalahFive.NAMES.length === 5 && sum === 17 && SalahFive.TOTAL_RAKA === 17 &&
+            ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].join() === SalahFive.NAMES.join();
+  })());
+  ok('برچسب‌ها از Salah.LABEL‌اند (عصر و عشا هم در این دفترچه هست)',
+     SalahFive.NAMES.every(n => SalahFive.label(n) === Salah.LABEL[n]) &&
+     ['ظهر', 'عصر', 'مغرب', 'عشا'].every(x => SalahFive.NAMES.some(n => SalahFive.label(n) === x)));
+  ok('مسافر فقط نمازهای چهاررکعتی را کوتاه می‌کند',
+     SalahFive.rakat('dhuhr', { travel:true }) === 2 && SalahFive.rakat('isha', { travel:true }) === 2 &&
+     SalahFive.rakat('fajr', { travel:true }) === 2 && SalahFive.rakat('maghrib', { travel:true }) === 3 &&
+     SalahFive.rakat('asr') === 4);
+  ok('علامت‌زدن: یک‌بار در روز، بی تکرار و بی نامِ جعلی', fresh(() => {
+     const a = SalahFive.mark('asr'), b = SalahFive.mark('asr'), c = SalahFive.mark('nope');
+     return a.ok === true && a.total === 1 && b.ok === false && b.dup === true &&
+            c.ok === false && c.why === 'bad' && SalahFive.marked('asr') === true &&
+            SalahFive.count() === 1 && SalahFive.unmark('asr') === true && SalahFive.count() === 0;
+  }));
+  ok('دفترچه روزمحور است: دیروز امروز را نمی‌شمارد', fresh(() => {
+     Store.data.salahFive = { '2020-01-01':['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'] };
+     return SalahFive.count() === 0 && SalahFive.complete() === false && SalahFive.marked('fajr') === false;
+  }));
+  ok('پنج نمازِ کامل: سکه‌ها و زنجیره، یک‌بار در روز', fresh(() => {
+     const c0 = Wallet.get();
+     const rs = SalahFive.NAMES.map(n => SalahFive.mark(n));
+     const coins = SalahFive.COIN * 5 + SalahFive.ALL_COIN;   // پنجمی سهمِ خودش را هم می‌گیرد
+     const again = SalahFive.mark('fajr');
+     return SalahFive.complete() === true && rs[4].bonus === SalahFive.ALL_COIN &&
+            Wallet.get() - c0 === coins && SalahFive.streak() === 1 && again.ok === false &&
+            Wallet.get() - c0 === coins;
+  }));
+  ok('دفترچهٔ پنج نماز از دفترچهٔ ستونِ اوقات جداست (سه نماز دست‌نخورده)',
+     Salah.NAMES.length === 3 && SalahFive.NAMES.length === 5 && typeof SalahLog === 'object' &&
+     Missions.key('pray5') === SalahLog.count() && Missions.key('pray5all') === SalahFive.count());
+
+  /* ── ۲. صفّ مرحلهها ── */
+  ok('هر رکعت هفت مرحله است؛ تشهّد پس از رکعتِ جفت و سلامِ پایان', (() => {
+     const f = Sajjada.build('fajr'), d = Sajjada.build('dhuhr');
+     const keys = a => a.map(x => x.key);
+     return f[0].key === 'niyyah' && f[1].key === 'takbir' &&
+            f.length === 18 && d.length === 33 &&
+            keys(f).filter(k => k === 'qiyam').length === 2 &&
+            keys(d).filter(k => k === 'qiyam').length === 4 &&
+            keys(f).filter(k => k === 'tashahhud').length === 1 &&
+            keys(d).filter(k => k === 'tashahhud').length === 2 &&
+            keys(d).filter(k => k === 'sujud').length === 8 &&
+            keys(d).filter(k => k === 'ruku').length === 4 &&
+            d[d.length - 1].key === 'salam';
+  })());
+  ok('نمازِ مسافر دو رکعت است و صفّ کوتاه‌تر می‌شود', (() => {
+     const t = Sajjada.build('dhuhr', { rakat:SalahFive.rakat('dhuhr', { travel:true }) });
+     return t.length === 18 && t.map(x => x.r).filter(x => x === 3 || x === 4).length === 0;
+  })());
+  ok('ذکرهای مأثور در صف هست و هر مرحله حالتِ بدن دارد', (() => {
+     const st = Sajjada.build('dhuhr'), poses = ['stand', 'ruku', 'sujud', 'sit'];
+     return st.every(x => poses.includes(Sajjada.POSE[x.key])) &&
+            st.some(x => x.ar && x.ar.indexOf('سُبْحانَ رَبِّیَ الْعَظیمِ') >= 0) &&
+            st.some(x => x.ar && x.ar.indexOf('اَللهُ اَکبَر') >= 0) &&
+            Sajjada.poseOf({ key:'ruku' }) === 'ruku' && Sajjada.poseOf({ key:'qunut' }) === 'stand' &&
+            Sajjada.poseOf({ key:'julus' }) === 'sit';
+  })());
+  ok('رکعت‌های سوم و چهارم حمد/ذکر جای سوره دارند', (() => {
+     const d = Sajjada.build('dhuhr'), r3 = d.filter(x => x.key === 'qiyam')[2];
+     return !!r3 && r3.r === 3 && r3.ar.indexOf('سُبْحَانَ اللَّهِ وَ الْحَمْدُ') >= 0;
+  })());
+
+  /* ── ۳. reducerِ خالص ── */
+  ok('reducer بی‌عارضه است: ورودی را دست نمی‌زند', (() => {
+     const steps = Sajjada.build('fajr'), z = Sajjada.blank(steps.length);
+     const n1 = Sajjada.reducer(steps, z, { t:'next' });
+     return z.i === 0 && z.done === false && n1.i === 1 && n1 !== z;
+  })());
+  ok('next از آخرین مرحله نماز را تمام می‌کند؛ پیش از آن فقط جلو می‌رود', (() => {
+     const steps = Sajjada.build('fajr'), last = steps.length - 1;
+     const a = Sajjada.reducer(steps, { i:last - 1, reps:[], done:false }, { t:'next' });
+     const b = Sajjada.reducer(steps, { i:last, reps:[], done:false }, { t:'next' });
+     return a.i === last && a.done === false && b.done === true;
+  })());
+  ok('back اول ذکرهای همان مرحله را کم می‌کند، بعد مرحله را', (() => {
+     const steps = Sajjada.build('fajr');
+     const i = steps.findIndex(x => x.key === 'ruku');
+     const reps = steps.map(() => 0); reps[i] = 2;
+     const s1 = Sajjada.reducer(steps, { i, reps, done:false }, { t:'back' });
+     return s1.i === i && s1.reps[i] === 1;
+  })());
+  ok('rep تا هدف می‌شمارد و رسیدن به هدف خودش مرحله را جلو می‌برد', (() => {
+     const steps = Sajjada.build('fajr');
+     const i = steps.findIndex(x => x.key === 'sujud'), need = steps[i].reps;
+     let s = { i, reps:steps.map(() => 0) };
+     for(let k = 0; k < need; k++) s = Sajjada.reducer(steps, s, { t:'rep' });
+     return need === 3 && s.i === i + 1 && s.reps[i] === need;
+  })());
+  ok('pose فقط گذارِ مجاور را جلو می‌برد؛ مرحلهٔ هم‌حالت را نمی‌شکند', (() => {
+     const steps = Sajjada.build('fajr');
+     const i = steps.findIndex(x => x.key === 'ruku');            // مرحلهٔ پیش از رکوع: قنوت (ایستاده)
+     const match = Sajjada.reducer(steps, { i:i - 1, reps:[], done:false }, { t:'pose', p:'ruku' });
+     const same = Sajjada.reducer(steps, { i:i - 2, reps:[], done:false }, { t:'pose', p:'stand' });
+     const skip = Sajjada.reducer(steps, { i:i - 1, reps:[], done:false }, { t:'pose', p:'sujud' });
+     const done = Sajjada.reducer(steps, { i:i - 1, reps:[], done:true }, { t:'pose', p:'ruku' });
+     return match.i === i && same.i === i - 2 && skip.i === i - 1 && done.i === i - 1 && done.done === true;
+  })());
+  ok('goto در بازهٔ صف می‌ماند (انگشتِ لغزیده عددِ نامعتبر نمی‌سازد)', (() => {
+     const steps = Sajjada.build('fajr');
+     return Sajjada.reducer(steps, { i:0, reps:[], done:false }, { t:'goto', i:999 }).i === steps.length - 1 &&
+            Sajjada.reducer(steps, { i:3, reps:[], done:false }, { t:'goto', i:-7 }).i === 0;
+  })());
+
+  /* ── ۴. حالت‌یاب ── */
+  ok('vec فقط بردارِ معنادار می‌دهد (بی‌شتاب و پُرشتاب رد می‌شوند)', (() => {
+     const v = NoorPose.vec({ accelerationIncludingGravity:{ x:0, y:9.8, z:0 } });
+     return !!v && Math.abs(v[1] - 1) < 1e-6 &&
+            NoorPose.vec({ accelerationIncludingGravity:{ x:0, y:0.1, z:0 } }) === null &&
+            NoorPose.vec({}) === null && NoorPose.vec(null) === null &&
+            NoorPose.vec({ accelerationIncludingGravity:{ x:NaN, y:1, z:1 } }) === null;
+  })());
+  ok('sim/norm روی بردارِ واحد کار می‌کنند',
+     Math.abs(NoorPose.sim([0, 1, 0], [0, 1, 0]) - 1) < 1e-9 &&
+     Math.abs(NoorPose.sim([0, 1, 0], [1, 0, 0])) < 1e-9 &&
+     NoorPose.norm([0, 0, 5]).join() === '0,0,1');
+  ok('match نزدیک‌ترین حالت را می‌گوید و در شک ساکت می‌ماند', (() => {
+     const g = NoorPose.guess();
+     const hit = NoorPose.match(g.sujud.v, g);
+     const two = { stand:{ v:[0, 1, 0], n:4 }, ruku:{ v:[0, 1, 0], n:4 } };
+     return hit.key === 'sujud' && hit.conf > .99 && NoorPose.match(two.stand.v, two).key === null &&
+            NoorPose.match(null, g).key === null;
+  })());
+  ok('سه نمونهٔ پیاپیِ هم‌حالت لازم است (لرزشِ دست مرحله را جلو نمی‌برد)', (() => {
+     const g = NoorPose.guess(); NoorPose.reset();
+     const ev = v => ({ accelerationIncludingGravity:{ x:v[0] * 9.8, y:v[1] * 9.8, z:v[2] * 9.8 } });
+     const a = NoorPose.feed(ev(g.ruku.v), g), b = NoorPose.feed(ev(g.ruku.v), g), c = NoorPose.feed(ev(g.ruku.v), g);
+     return a === null && b === null && c === 'ruku';
+  })());
+  ok('کالیبراسیون: بی نمونهٔ کافی هیچ پروفایلی ساخته نمی‌شود', (() => {
+     NoorPose.begin();
+     NoorPose.sample('stand', { accelerationIncludingGravity:{ x:0, y:9.8, z:0 } });
+     const weak = NoorPose.build();
+     NoorPose.begin();
+     const ev = v => ({ accelerationIncludingGravity:{ x:v[0] * 9.8, y:v[1] * 9.8, z:v[2] * 9.8 } });
+     for(const k of ['stand', 'ruku', 'sujud']) for(let i = 0; i < 5; i++) NoorPose.sample(k, ev(NoorPose.guess()[k].v));
+     const good = NoorPose.build();
+     return weak === null && !!good && Object.keys(good).join() === 'stand,ruku,sujud' &&
+            NoorPose.sim(good.sujud.v, NoorPose.guess().sujud.v) > .99;
+  })());
+  ok('پراکندگیِ زیادِ نمونه‌ها آن حالت را بی‌اعتبار می‌کند', (() => {
+     NoorPose.begin();
+     const wob = [[0, 9.8, 0], [7, 7, 0], [-6, 6, 2], [3, -8, 1], [0, 9, -4]];
+     for(const w of wob) NoorPose.sample('stand', { accelerationIncludingGravity:{ x:w[0], y:w[1], z:w[2] } });
+     for(let i = 0; i < 4; i++) NoorPose.sample('ruku', { accelerationIncludingGravity:{ x:0, y:i, z:9.8 } });
+     const built = NoorPose.build();
+     return built === null || !built.stand;
+  })());
+  ok('پروفایلِ کالیبره در Store می‌نشیند و پاک می‌شود', fresh(() => {
+     NoorPose.save({ stand:{ v:[0, 1, 0], n:5 }, sujud:{ v:[0, -1, 0], n:5 } }, true);
+     const p1 = Store.get('poseProfiles');
+     const read = NoorPose.profiles();
+     const cal = NoorPose.calibrated();
+     NoorPose.clear();
+     return !!p1 && p1.calibrated === true && !!read && cal === true &&
+            Store.get('poseProfiles') === null && NoorPose.calibrated() === false;
+  }));
+
+  /* ── ۵. ذکرشمار ── */
+  ok('پیش‌تنظیم‌ها: زهرا (س) ۳۳/۳۳/۳۳ و ذکرهای تعقیب با هدفِ خودش', (() => {
+     const z = Dhikr.by('zahra');
+     return z.phases.length === 3 && z.phases.every(x => x.n === 33) && z.store === 'tasbihToday' && z.coin === 2 &&
+            Dhikr.by('istighfar').phases[0].n === 70 && Dhikr.by('tahlil').phases[0].n === 100 &&
+            Dhikr.by('salawat').phases[0].n === 100 &&
+            Dhikr.PRESETS.every(p => p.id && p.title && p.phases.length);
+  })());
+  ok('ذکرهایِ ساده سکه ندارند تا اقتصاد تورم نکند (فقط زهرا سکه دارد)',
+     Dhikr.PRESETS.filter(p => p.coin > 0).every(p => p.id === 'zahra'));
+  ok('ضربه روی ذکرِ دیگر، تسبیحاتِ زهرا را دست نمی‌زند', fresh(() => {
+     for(let i = 0; i < 70; i++) Dhikr.tap('istighfar');
+     return Dhikr.doneToday('istighfar') === true && Dhikr.state('istighfar').counts.join() === '70' &&
+            Dhikr.state('zahra').counts.join() === '0,0,0' &&
+            Store.data.dhikrToday.by.istighfar.c.join() === '70' &&
+            !('zahra' in Store.data.dhikrToday.by) &&
+            Store.data.tasbihToday.counts.join() === '0,0,0';
+  }));
+  ok('تکمیلِ ذکرِ ساده سکه نمی‌دهد و تجربه می‌دهد', fresh(() => {
+     const c0 = Wallet.get(), x0 = Store.get('xp');
+     for(let i = 0; i < 100; i++) Dhikr.tap('tahlil');
+     return Wallet.get() === c0 && Store.get('xp') > x0 && Dhikr.progress('tahlil').done === true;
+  }));
+  ok('ذکرشمارِ یکپارچه و تسبیحِ کهنه یک شمارنده‌اند، نه دو تا', fresh(() => {
+     Dhikr.tap('zahra'); Dhikr.tap('zahra');
+     const a = Tasbih.st().counts.join();
+     Tasbih.tap();
+     return a === '2,0,0' && Dhikr.state('zahra').counts.join() === '3,0,0' &&
+            Tasbih.PHASES.length === 3 && Tasbih.COIN === 2 &&
+            Tasbih.doneToday() === Dhikr.doneToday('zahra');
+  }));
+  ok('ضربهٔ اضافه پس از کامل‌شدن جایزهٔ دوباره نمی‌دهد', fresh(() => {
+     for(let i = 0; i < 99; i++) Dhikr.tap('zahra');
+     const c0 = Wallet.get();
+     const r = Dhikr.tap('zahra');
+     return r.ok === false && r.complete === true && Wallet.get() === c0;
+  }));
+  ok('«یکی کم» از آخرین فازِ پُر کم می‌کند و «کامل شد» را برمی‌گرداند', fresh(() => {
+     for(let i = 0; i < 99; i++) Dhikr.tap('zahra');
+     const back = Dhikr.tap('zahra', true);
+     return back.ok === true && back.back === true && back.phase === 2 &&
+            Dhikr.state('zahra').counts.join() === '33,33,32' && Dhikr.doneToday('zahra') === false &&
+            Dhikr.tap('zahra', true).counts.join() === '33,33,31';
+  }));
+  ok('ریستِ یک ذکر بقیه را پاک نمی‌کند', fresh(() => {
+     Dhikr.tap('tahlil'); Dhikr.tap('hawqala'); Dhikr.reset('tahlil');
+     return Dhikr.state('tahlil').counts.join() === '0' && Dhikr.state('hawqala').counts.join() === '1';
+  }));
+  ok('مرزِ روز ذکرشمارها را هم صفر می‌کند', fresh(() => {
+     Store.data.dhikrToday = { date:'2020-01-01', by:{ tahlil:{ c:[100], d:true } } };
+     Store.data.tasbihToday = { date:'2020-01-01', counts:[33, 33, 33], done:true };
+     return Dhikr.state('tahlil').counts.join() === '0' && Dhikr.doneToday('tahlil') === false &&
+            Dhikr.state('zahra').counts.join() === '0,0,0';
+  }));
+  ok('ذکرِ دلخواه تا متن ندارد در فهرست نمی‌آید', fresh(() => {
+     const before = Dhikr.list().some(p => p.id === 'custom');
+     Dhikr.setCustom('اَللهُ اَکبَر', 20);
+     const c = Store.get('dhikrCustom'), v = Dhikr.view('custom');
+     return before === false && Dhikr.list().some(p => p.id === 'custom') === true &&
+            c.n === 20 && v.phases[0].n === 20 && v.editable === true;
+  }));
+  ok('هدفِ ذکرِ دلخواه در ۱..۹۹۹ می‌ماند و متنِ خالی پاک می‌شود', fresh(() => {
+     Dhikr.setCustom('ذکر', 99999);
+     const a = Store.get('dhikrCustom').n;
+     Dhikr.setCustom('   ', 10);
+     return a === 999 && Store.get('dhikrCustom') === null;
+  }));
+
+  /* ── ۶. پیمان‌های ذخیره‌سازی ── */
+  ok('کلیدهای تازه در defaults هست (بی آن sanitize دورشان می‌ریزد)', (() => {
+     const d = Store.defaults();
+     return 'prayerMate' in d && 'salahFive' in d && 'dhikrToday' in d &&
+            'prayStreak' in d && 'dhikrCustom' in d && 'poseProfiles' in d;
+  })());
+  ok('sanitize نسخهٔ ۲۲: شکل‌های خراب ترمیم می‌شوند', fresh(() => {
+     Store.data.prayerMate = { date:'2020-01-01', pray:'asr', idx:99, reps:'بد', auto:'yes' };
+     Store.data.salahFive = { '2020-01-01':['fajr'], today:'fajr' };
+     Store.data.salahFive[U.today()] = ['fajr', 'fajr', 'nope', 'asr'];
+     Store.data.dhikrToday = { date:'x', by:'بد' };
+     Store.data.prayStreak = { n:-4, at:'بد' };
+     Store.data.dhikrCustom = { ar:'', n:5 };
+     Store.data.poseProfiles = { profiles:{ stand:[0, 9, 0], ruku:{ v:[0, 1, 0], n:3 }, sujud:'بد' } };
+     Store.sanitize();
+     const d = Store.data;
+     return d.prayerMate.date === '' && d.prayerMate.idx === 0 && Array.isArray(d.prayerMate.reps) &&
+            d.salahFive[U.today()].join() === 'fajr,asr' && d.salahFive['2020-01-01'].join() === 'fajr' &&
+            !('today' in d.salahFive) &&
+            d.dhikrToday.date === U.today() && Object.keys(d.dhikrToday.by).length === 0 &&
+            d.prayStreak.n === 0 && d.prayStreak.at === '' && d.dhikrCustom === null &&
+            !!d.poseProfiles && !d.poseProfiles.profiles.stand && !!d.poseProfiles.profiles.ruku &&
+            d.poseProfiles.profiles.ruku.v.join() === '0,1,0' &&
+            Wallet.earned() - Wallet.spent() === Wallet.get();
+  }));
+  ok('ذکر و حالت‌ها دستگاه‌محلی‌اند: در فهرستِ همگام‌سازی نمی‌آیند', fresh(() => {
+     if(typeof PersonalData === 'undefined' || !PersonalData.keys) return true;
+     return !PersonalData.keys.includes('poseProfiles') && !PersonalData.keys.includes('prayerMate');
+  }));
+
+  /* ── ۷. صحنهٔ نماز و نشتیِ شنونده‌ها ── */
+  ok('صفحهٔ نماز بی متنِ پایین و بی فهرستِ علائمِ قبله است', (() => {
+     const h = Sajjada.stageHtml();
+     return h.indexOf('sj-stage') >= 0 && h.indexOf('sj-ctl') >= 0 && h.indexOf('sjSheet') >= 0 &&
+            h.indexOf('qb-hint') < 0 && h.indexOf('qb-live-row') < 0 && h.indexOf('sc-sec-sub') < 0 &&
+            !/https?:\/\//.test(h);
+  })());
+  ok('بی حسگرِ دستگاه، همراهِ نماز باز می‌شود و با دکمه کار می‌کند', fresh(() => {
+     const r = tryIt(() => Sajjada.open('fajr'));
+     const moved = tryIt(() => { Sajjada.act({ t:'next' }); Sajjada.act({ t:'next' }); });
+     const i = Sajjada._st ? Sajjada._st.i : -1;
+     try{ Sajjada.close(); }catch(e){}
+     return r === 'OK' && moved === 'OK' && i === 2 && NoorSensor.count() === 0;
+  }));
+  ok('نیمهٔ نماز نگه داشته می‌شود تا «ادامه» بیاید، و پس از سلام پاک', fresh(() => {
+     Sajjada.open('fajr');
+     Sajjada.act({ t:'next' }); Sajjada.act({ t:'next' }); Sajjada.act({ t:'next' });
+     const mid = Store.get('prayerMate');
+     const lbl = Sajjada.resumeLabel();          // «قُنوت · صبح» — نامِ مرحله و نامِ نماز
+     Sajjada.close();
+     const kept = Store.get('prayerMate');
+     Sajjada.open('fajr', { resume:true });
+     const i2 = Sajjada._st.i;
+     for(let k = 0; k < 60; k++) Sajjada.act({ t:'next' });
+     const after = Store.get('prayerMate');
+     const marked = SalahFive.marked('fajr');
+     Sajjada.close();
+     return mid.date === U.today() && mid.pray === 'fajr' && mid.idx === 3 && lbl.indexOf('قُنوت') >= 0 &&
+            kept.date === U.today() && i2 === 3 && after.date === '' && marked === true &&
+            lbl.indexOf(SalahFive.label('fajr')) >= 0;
+  }));
+  ok('کارتِ همراهِ نماز پنج نماز را می‌شمارد و یادآور را «مرجع» نمی‌خواند', fresh(() => {
+     const h = Sajjada.cardHtml();
+     return h.indexOf('qb-hint') < 0 && h.indexOf('qb-live-row') < 0 &&
+            h.indexOf('نه مرجعِ فقهی') >= 0 && h.indexOf('۱۷') >= 0 &&
+            h.indexOf('data-sj-pray="asr"') >= 0 && h.indexOf('data-sj-pray="isha"') >= 0 &&
+            (h.match(/data-sj-pray="/g) || []).length === 5;
+  }));
+  ok('کارتِ همراهِ نماز پس از کارتِ قبله و پیش از ذکر می‌آید', fresh(() => {
+     const h = Courtyard.html();
+     const a = h.indexOf('sc-qibla-card'), b = h.indexOf('sjCard'), c = h.indexOf('id="wirdCard"');
+     return a >= 0 && b > a && c > b;
+  }));
+  ok('کلیدِ «مسافر» در صفحهٔ نماز صف را کوتاه و بلند می‌کند', fresh(() => {
+     Sajjada.open('dhuhr');
+     const n0 = Sajjada._steps.length;
+     Sajjada.toggleTravel();
+     const n1 = Sajjada._steps.length;
+     Sajjada.toggleTravel();
+     const n2 = Sajjada._steps.length;
+     try{ Sajjada.close(); }catch(e){}
+     return n0 === 33 && n1 === 18 && n2 === 33;
+  }));
+  ok('هیچ‌چیز به حسگر بند نیست: شنونده‌ها صفرند و ask شکست را می‌گوید', fresh(() => {
+     let fell = false;
+     NoorSensor.askMotion(() => { fell = 'never'; }, () => { fell = true; });
+     return NoorSensor.oriAvail() === false && NoorSensor.motAvail() === false &&
+            NoorSensor.count() === 0 && fell === true && NoorWake.avail() === false;
+  }));
+
+  /* ── ۸. قبله‌نمایِ تمام‌صفحه ── */
+  ok('قطب‌نمایِ بزرگ پایینِ صفحه بی راهنما و بی فهرستِ علائم است', (() => {
+     const d = Qibla.dialHtml(219.3);
+     return d.indexOf('<svg') >= 0 && d.indexOf('qb-kaaba2') >= 0 && d.indexOf('qb-idx') >= 0 &&
+            d.indexOf('qb-hint') < 0 && d.indexOf('qb-live-row') < 0 && d.indexOf('qb-inter') < 0 &&
+            !/https?:\/\//.test(d) && (d.match(/qb-tick/g) || []).length === 72;
+  })());
+  ok('زاویهٔ انحراف کوتاه‌ترین راه را می‌گوید و از ۳۵۹ به ۱ می‌پرد',
+     Qibla.delta(350, 10) === 20 && Qibla.delta(10, 350) === -20 &&
+     Math.abs(Qibla.delta(0, 180)) === 180 && Qibla.delta(219.3, 219.3) === 0);
+  ok('میانگینِ دورانیِ نمایی زاویه را از ۳۶۰ رد نمی‌کند', (() => {
+     const a = Qibla.ease(359, 1, 1), b = Qibla.ease(1, 359, 1), c = Qibla.ease(null, 219.3, .3);
+     return a === 1 && b === 359 && Math.abs(c - 219.3) < 1e-9 &&
+            Qibla.ease(100, 120, .5) === 110;
+  })());
+  ok('کمانِ انحراف مسیرِ SVG می‌سازد (بی منبعِ بیرونی)', (() => {
+     const p = Qibla.arcPath(160, 160, 176, 0, 90);
+     return p.indexOf('M') === 0 && p.indexOf('A176 176') >= 0 && !/https?:\/\//.test(p);
+  })());
+  ok('صفحهٔ قبله در محیطِ بی‌حسگر باز می‌شود، دستی می‌شود و بی‌نشت بسته', fresh(() => {
+     const r = tryIt(() => Qibla.open());
+     const manual = tryIt(() => Qibla.toggleManual());
+     const paint = tryIt(() => Qibla.paint());
+     const tilt = tryIt(() => Qibla.tilt(NaN, NaN));
+     const leaked = NoorSensor.count();
+     try{ Qibla.close(); }catch(e){}
+     return r === 'OK' && manual === 'OK' && paint === 'OK' && tilt === 'OK' &&
+            NoorSensor.count() === 0 && leaked === 0 && Qibla.sensorAvail() === false && Qibla._bound === false;
+  }));
+  ok('ناپایداریِ داده پرچمِ «هشت‌خط» را بالا می‌آورد و دادهٔ سالم پایین می‌برد', fresh(() => {
+     const h = Qibla.stageHtml(219.3);
+     const chip = h.indexOf('qbCalChip') >= 0 && h.indexOf('qb-calib') >= 0;
+     Qibla._open = true; Qibla._needCalib = false; Qibla._calAt = 0;
+     tryIt(() => Qibla.flagCalib());
+     const on = Qibla._needCalib === true;
+     tryIt(() => Qibla.flagCalib());                    // پشتِ سر هم پیامِ دوم نمی‌آید (سقفِ ۱٫۲ ثانیه)
+     tryIt(() => Qibla.hideCalib());
+     const off = Qibla._needCalib === false && Qibla._calTimer == null;
+     try{ Qibla.close(); }catch(e){}
+     return chip === true && on === true && off === true;
+  }));
+  ok('کارتِ کوچکِ قبله درجه و فاصله را نگه داشته (فقط صفحهٔ بزرگ ساده شد)', fresh(() => {
+     Courtyard.setCity('tehran');
+     const h = Courtyard.qiblaCardHtml();
+     const loc = Salah.resolveLoc(Store.get('loc'));
+     const q = Salah.qibla(loc.lat, loc.lon);
+     return h.indexOf(U.fa(Math.round(q)) + '°') >= 0 && h.indexOf(Qibla.describe(q)) >= 0 &&
+            h.indexOf('qbOpenPage') >= 0 && h.indexOf('sc-qibla-card') >= 0 && h.indexOf('qb-hint') < 0;
+  }));
+
+  /* ── ۹. پیوندِ فایل، سرویس‌ورکر و سبک ── */
+  ok('sajjada-1.js در سند و پیش‌ذخیره هست', (() => {
+     const sw = fs.readFileSync(__dirname + '/sw.js', 'utf8');
+     return DOC.indexOf('assets/app/sajjada-1.js') >= 0 && sw.indexOf("'./assets/app/sajjada-1.js'") >= 0 &&
+            SRC.indexOf('const SalahFive') < SRC.indexOf('const Dhikr');
+  })());
+  ok('CSS: صحنه، ذکرشمار و قابِ تمام‌صفحه تعریف شده‌اند', (() => {
+     return /\.sj-card\s*\{/.test(CSS) && /\.sj-stage\s*\{/.test(CSS) && /\.sj-ctl\s*\{/.test(CSS) &&
+            /\.dj-pad\s*\{/.test(CSS) && /\.dj-ph\.done\s*\{/.test(CSS) &&
+            /#modal\.stage \.box\{/.test(CSS) && /html\[data-theme="light"\] #modal\.stage \.box\{/.test(CSS) &&
+            /\.qb-svg-lg \.qb-rose/.test(CSS) && /\.qb-stage\[data-align="on"\]/.test(CSS);
+  })());
+  ok('CSS: هدفِ لمسیِ کنترل‌های تازه ≥ ۴۴px', (() => {
+     const need = (sel, min) => (CSS.match(new RegExp(sel + '\\{[^}]*\\}', 'g')) || [])
+       .some(r => { const m = r.match(/min-height:(\d+)px/); return m && +m[1] >= min; });
+     return need('\\.dj-tab', 44) && need('\\.sj-cb', 44) && need('\\.sj-ib', 44) && need('\\.sj-li', 44);
+  })());
+  /* ── ۱۰. ذکرشمار در کارتِ ذکر و در صفحهٔ نماز ── */
+  ok('کارتِ «ذکر و تعقیبات» جای تسبیحِ کهنه ذکرشمارِ یکپارچه را دارد', fresh(() => {
+     const h = WirdUI.cardHtml(new Date());
+     return h.indexOf('data-dj="zahra"') >= 0 && h.indexOf('dj-tabs') >= 0 &&
+            h.indexOf('data-dj-tap') >= 0 && h.indexOf('tb-btn') < 0 && h.indexOf('id="tasbihBox"') >= 0 &&
+            h.indexOf('data-wird-tab="') >= 0;
+  }));
+  ok('ذکرشمارِ پس از سلام جمع‌وجور است و پنجرهٔ تازه روی صحنه باز نمی‌کند', fresh(() => {
+     const h = Sajjada.afterHtml();
+     return h.indexOf('dj dj-c') >= 0 && h.indexOf('data-dj-go') < 0 && h.indexOf('data-dj-edit') < 0 &&
+            h.indexOf('data-dj-tap') >= 0 && h.indexOf('sjAgain') >= 0 && h.indexOf('sjWird') >= 0;
+  }));
+  ok('ذکرشمارِ کاملِ صفحهٔ عبادت راهِ تمام‌صفحه و نوشتنِ ذکر دارد', fresh(() => {
+     const full = Dhikr.html('zahra');
+     const cust = Dhikr.html('custom');
+     return full.indexOf('data-dj-go') >= 0 && full.indexOf('data-dj-edit') < 0 &&
+            full.indexOf('dj-tabs') >= 0 && cust.indexOf('data-dj-edit') >= 0 &&
+            (full.match(/data-dj-tab="/g) || []).length === Dhikr.list().length;
+  }));
+  ok('Tasbih.html همان ذکرشمار را در ظرفِ کهنه می‌گذارد (سیم‌کشیِ ورد نشکند)', fresh(() => {
+     const h = Tasbih.html();
+     return h.indexOf('class="sc-tasbih" id="tasbihBox"') >= 0 && h.indexOf('data-dj=') >= 0 &&
+            tryIt(() => Tasbih.paint()) === 'OK' && tryIt(() => Tasbih.wire(null)) === 'OK';
+  }));
+  ok('مأموریتِ ذکرشمار با شمارشِ پیش‌تنظیم‌ها هم‌گام است', fresh(() => {
+     for(let i = 0; i < 100; i++) Dhikr.tap('tahlil');
+     return Missions.key('dhikr1') === 1 && Dhikr.doneToday('tahlil') === true;
+  }));
+  ok('نوارِ بالای قبله‌نما سه کلید دارد و هیچ ردیفِ توضیحی پایین نیست', (() => {
+     const h = Qibla.stageHtml(219.3);
+     return h.indexOf('qbGeo') >= 0 && h.indexOf('qbSensor') >= 0 && h.indexOf('qbManual') >= 0 &&
+            h.indexOf('qb-hint') < 0 && h.indexOf('qb-live-row') < 0 && h.indexOf('qb-actions') < 0 &&
+            h.indexOf('qbRead') < 0 && h.indexOf('qb-read') >= 0 && h.indexOf('qbHold') >= 0;
+  })());
+  ok('صفحهٔ نماز کلیدِ خودکار/مسافر/تنظیم و برگهٔ داخلی دارد', (() => {
+     const h = Sajjada.stageHtml();
+     return ['sjAuto', 'sjTravel', 'sjCal', 'sjList', 'sjSheet', 'sjReps', 'sjProg', 'sjFig', 'sjClock']
+       .every(id => h.indexOf(id) >= 0) && h.indexOf('data-sj-go') < 0;
+  })());
+
+  ok('CSS: کم‌حرکتی انیمیشن‌هایِ تازه را هم خاموش می‌کند', (() => {
+     const blocks = [...CSS.matchAll(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)\n\}/g)].map(m => m[1]);
+     return blocks.some(b => b.indexOf('.qb-calib svg') >= 0 && b.indexOf('animation:none') >= 0) &&
+            blocks.some(b => b.indexOf('.sj-fig') >= 0);
+  })());
+  /* ── ۱۱. پنلِ ذکرشمارِ پس از سلام (انتخابِ ذکر) ── */
+  ok('پنلِ پس از سلام ردیفِ انتخابِ ذکر دارد و یکی را روشن نگه می‌دارد', fresh(() => {
+     Sajjada._afterDj = 'zahra';
+     const h = Sajjada.afterHtml();
+     const n = (h.match(/data-dj-pick="/g) || []).length;
+     const on = (h.match(/"dj-pick on"/g) || []).length;
+     return h.indexOf('dj-picks') >= 0 && n === Dhikr.list().length && on === 1 &&
+            h.indexOf('data-dj="zahra"') >= 0 && h.indexOf('data-dj-go') < 0 && h.indexOf('data-dj-edit') < 0;
+  }));
+  ok('ذکرِ برگزیده تا نمازِ بعدی در همان پنل می‌ماند (تعقیبِ کامل هم هشدارش را دارد)', fresh(() => {
+     Sajjada._afterDj = 'salawat';
+     const h = Sajjada.afterHtml();
+     const back = (h.match(/"dj-pick on"/g) || []).length;
+     const okSel = h.indexOf('data-dj="salawat"') >= 0 && back === 1 && h.indexOf('مرجعِ فقهی') < 0;
+     Sajjada._afterDj = 'nope-not-a-dhikr';
+     const fb = Sajjada.afterHtml().indexOf('data-dj="zahra"') >= 0;
+     Sajjada._afterDj = 'zahra';
+     return okSel && fb;
+  }));
+  ok('ساختِ پنل و پاک‌کردنش با «برگشت» بی‌DOMِ زنده هم خطا نمی‌دهد', fresh(() => {
+     const a = tryIt(() => { Sajjada.open('fajr'); Sajjada.mountAfter(); });
+     const b = tryIt(() => Sajjada.paint());
+     const c = tryIt(() => Sajjada.close());
+     return a === 'OK' && b === 'OK' && c === 'OK' && typeof Sajjada.mountAfter === 'function';
+  }));
+  ok('CSS: ردیفِ انتخابِ ذکر و کلیدهایش رنگِ پوسته‌ای دارند',
+     /\.dj-picks\{/.test(CSS) && /\.dj-pick\{[^}]*var\(--line\)/.test(CSS) &&
+     /\.dj-pick\.on\{/.test(CSS) && /html\[data-theme="light"\] \.dj-pick\.on/.test(CSS));
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');

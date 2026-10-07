@@ -224,44 +224,62 @@ const WirdUI = {
   }
 };
 
-/* ── تسبیحِ حضرتِ زهرا (س): ۳۳ / ۳۳ / ۳۳ ──
-   ریست با U.today (مرزِ روزِ محلی — همان مرزی که بقیهٔ برنامه دارد).
-   لرزش اختیاری است و فقط اگر haptics در تنظیمات روشن باشد. */
+/* ── تسبیحاتِ زهرا (س) — سازهٔ Dhikr (نسخهٔ ۲۲) ──
+   این دیگر شمارندهٔ مستقل نیست: ذکرشمارِ یکپارچهٔ `sajjada-1.js` سه فازِ
+   ۳۳/۳۳/۳۳ را هم به‌عنوانِ یک «پیش‌تنظیم» می‌شناسد و همان‌جا نگه می‌دارد.
+   چه ماند و چرا:
+     • جایِ ذخیره `tasbihToday` است، با همان شکلِ {date, counts, done} —
+       تا سنجش‌ها، مأموریت‌ها و `sanitize` دست‌نخورده بمانند و شمارشِ
+       کسی که از نسخهٔ ۱۹ امروز را شروع کرده، با ارتقا صفر نشود؛
+     • `reward:2` برای سکه‌ها (ذکرهایِ ساده سکه نمی‌دهند تا اقتصاد تورم
+       نکند)، `reset()`، `doneToday()` و `phaseIndex()` همان‌اند.
+   ارجاع به `Dhikr` تنبل است (همان لحظهٔ صدا زدن) تا ترتیبِ بارگذاریِ
+   فایل‌ها و محیطِ تست، چیزی را نشکند؛ اگر روزی `sajjada-1.js` نبود،
+   همین سازهٔ کهنه کار می‌کرد. */
 const Tasbih = {
-  PHASES: [
-    { label:'سبحان الله', goal:33 },
-    { label:'الحمدلله', goal:33 },
-    { label:'الله اکبر', goal:33 }
-  ],
+  /* فهرستِ ظاهریِ فازها — برای هر چیزی که بیرون از این فایل می‌خواند */
+  get PHASES(){
+    const p = (typeof Dhikr !== 'undefined') ? Dhikr.by(Dhikr.ZAHRA) : null;
+    if(p && p.phases) return p.phases.map(x => ({ label:x.ar, goal:x.n }));
+    return [{ label:'سبحان الله', goal:33 }, { label:'الحمدلله', goal:33 }, { label:'الله اکبر', goal:33 }];
+  },
   COIN: 2,
+  _live(){ return (typeof Dhikr !== 'undefined' && Dhikr.state); },
 
   st(){
+    if(this._live()) return Dhikr.state(Dhikr.ZAHRA);
     const t = Store.get('tasbihToday') || {};
-    if(t.date !== U.today()) return { date:U.today(), counts:[0, 0, 0], done:false };  /* تغییرِ روز ⇒ ریست */
+    if(t.date !== U.today()) return { date:U.today(), counts:[0, 0, 0], done:false };
     return { date:t.date, counts:Array.isArray(t.counts) ? t.counts.slice(0, 3) : [0, 0, 0], done:!!t.done };
   },
   phaseIndex(s){
+    if(this._live()) return Dhikr.phaseIndex(Dhikr.ZAHRA, s);
     s = s || this.st();
     for(let i = 0; i < 3; i++) if(s.counts[i] < this.PHASES[i].goal) return i;
     return -1;
   },
   doneToday(){ const s = this.st(); return s.done && this.phaseIndex(s) === -1; },
 
-  tap(){
-    const s = this.st();
-    const i = this.phaseIndex(s);
-    if(i < 0){
-      UI.toast('تسبیحِ امروز کامل است — آفرین', 'ok', 1800);
-      return { ok:false, complete:true };
+  tap(back){
+    const before = this.st();
+    const bi = this.phaseIndex(before);
+    if(this._live()){
+      const r = Dhikr.tap(Dhikr.ZAHRA, back);
+      this.paint();
+      if(!r || r.ok === false) return r && r.complete ? { ok:false, complete:true } : (r || { ok:false });
+      return { ok:true, phase:(bi < 0 ? -1 : bi), counts:r.counts, done:!!r.done, reward:r.reward || 0 };
     }
-    s.counts[i]++;
+    /* مسیرِ کهنه (بی sajjada-1.js) */
+    const s = before;
+    const i = bi;
+    if(i < 0){ UI.toast('تسبیحِ امروز کامل است — آفرین', 'ok', 1800); return { ok:false, complete:true }; }
+    s.counts[i] += back ? -1 : 1;
+    if(s.counts[i] < 0) s.counts[i] = 0;
     const haptics = (Store.get('settings') || {}).haptics !== false;
-    if(haptics && typeof navigator !== 'undefined' && navigator.vibrate){
-      try{ navigator.vibrate(10); }catch(e){}
-    }
+    if(haptics && typeof navigator !== 'undefined' && navigator.vibrate){ try{ navigator.vibrate(10); }catch(e){} }
     try{ Sound.click && Sound.click(); }catch(e){}
     let reward = 0;
-    if(this.phaseIndex(s) === -1){
+    if(!back && this.phaseIndex(s) === -1){
       s.done = true;
       Wallet.earn(this.COIN, 'تسبیحِ ۳۳/۳۳/۳۳');
       Store.update(d => { d.xp += 2; });
@@ -274,48 +292,31 @@ const Tasbih = {
     return { ok:true, phase:i, counts:s.counts, reward };
   },
   reset(){
+    if(this._live()){ Dhikr.reset(Dhikr.ZAHRA); this.paint(); return; }
     Store.set('tasbihToday', { date:U.today(), counts:[0, 0, 0], done:false });
     this.paint();
   },
 
+  /* مارک‌آپ و سیم‌کشیِ ذکرشمارِ یکپارچه — با حفظِ آخرین زبانه‌ای که
+     کاربر در همان نشست باز کرده بود (صفحهٔ عبادت و صفحهٔ همراهِ نماز). */
   html(){
-    const s = this.st();
-    const i = this.phaseIndex(s);
-    const cur = i >= 0 ? this.PHASES[i] : null;
-    return `
-      <div class="sc-tasbih" id="tasbihBox">
-        <button class="tb-btn" id="tbTap" aria-label="شمارِ تسبیح — ${cur ? U.esc(cur.label) : 'کامل'}">
-          <span>${cur ? U.esc(cur.label) : '✅ کامل'}</span>
-          <span class="tb-count" id="tbCount">${cur ? U.fa(s.counts[i]) + '/' + U.fa(cur.goal) : U.fa(99) + '/' + U.fa(99)}</span>
-        </button>
-        <div class="tb-side">
-          ${this.PHASES.map((p, k) => `
-            <span id="tbP${k}" ${k === i ? 'style="color:var(--gold)"' : ''}>${U.esc(p.label)}: ${U.fa(s.counts[k])}/${U.fa(p.goal)}</span>`).join('')}
-          <button class="btn gh sm" id="tbReset" aria-label="ریستِ تسبیح">${Icon.of('close')}<span>ریست</span></button>
-        </div>
-      </div>`;
+    if(!this._live()) return '';
+    const id = Dhikr.by(Tasbih._id) ? Tasbih._id : Dhikr.ZAHRA;
+    return `<div class="sc-tasbih" id="tasbihBox">${Dhikr.html(id, { card:true })}</div>`;
   },
   paint(){
-    /* فقط عددها و برچسبِ فاز تازه می‌شوند — نه کلِ کارت */
-    const s = this.st();
-    const i = this.phaseIndex(s);
-    const tap = U.$('#tbTap');
-    if(tap){
-      const cur = i >= 0 ? this.PHASES[i] : null;
-      tap.innerHTML = `<span>${cur ? U.esc(cur.label) : '✅ کامل'}</span>
-        <span class="tb-count" id="tbCount">${cur ? U.fa(s.counts[i]) + '/' + U.fa(cur.goal) : U.fa(99) + '/' + U.fa(99)}</span>`;
-      tap.setAttribute && tap.setAttribute('aria-label', 'شمارِ تسبیح — ' + (cur ? cur.label : 'کامل'));
-    }
-    this.PHASES.forEach((p, k) => {
-      const el = U.$('#tbP' + k);
-      if(el) el.textContent = `${p.label}: ${U.fa(s.counts[k])}/${U.fa(p.goal)}`;
-    });
+    if(!this._live()) return;
+    const box = U.$('#tasbihBox');
+    if(!box) return;
+    const el = U.$('[data-dj]', box);
+    if(el) Dhikr.refresh(el, el.dataset.dj || Dhikr.ZAHRA);
   },
   wire(box){
-    const tap = U.$('#tbTap', box);
-    if(tap) tap.onclick = () => Tasbih.tap();
-    const rs = U.$('#tbReset', box);
-    if(rs) rs.onclick = () => { Tasbih.reset(); UI.toast('تسبیح ریست شد', '', 1400); };
+    if(!this._live()) return;
+    Dhikr.wire(box, {
+      onTap:(id) => { Tasbih._id = id; },
+      onChange:() => { try{ Courtyard.invalidateSig(); }catch(e){} }
+    });
   }
 };
 

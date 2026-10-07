@@ -522,27 +522,44 @@ const Courtyard = {
   }
 };
 
-/* ── قبله‌نمای واقعی: قطب‌نمای زندهٔ دستگاه + محاسبهٔ دقیق ──
-   نسخهٔ ۲۱: سه مسیرِ حسگر پوشش داده می‌شود —
-   • iOS: `webkitCompassHeading` (جهتِ واقعیِ قطب‌نما، با اجازهٔ کاربر)؛
-   • اندرویدِ تازه: رویدادِ `deviceorientationabsolute` (آلفای مطلق)؛
-   • اندرویدِ قدیمی: `deviceorientation` با پرچمِ `absolute`.
-   آلفای نسبی (غیرِ absolute) عمداً استفاده نمی‌شود، چون جهتِ واقعی
-   نمی‌دهد و فقط کاربر را گمراه می‌کند — در آن حالت همان عددِ درجه +
-   راهنمای فارسی نشان داده می‌شود.
+/* ── قبله‌نمای تمام‌صفحه (نسخهٔ ۲۲) ──
+   خواستهٔ صاحبِ برنامه: «از برترین برنامه‌های جهانی الهام بگیر، و
+   توضیحات و علامات پایینِ قبله‌نما حذف شود.» پس دو کار شد:
 
-   مرجعِ «بالا» لبهٔ بالای گوشی است (فیزیکی)، پس جبرانِ چرخشِ صفحه لازم
-   نیست؛ اگر گوشی افقی باشد فقط یک یادآوری نشان داده می‌شود. با
-   prefers-reduced-motion چرخشِ نرم خاموش است (CSS) و JS مستقیم می‌نویسد. */
+   الف) پایینِ صفحه رفت: نه پاراگرافِ راهنما، نه ردیفِ «جهتِ گوشی/دقت»،
+      نه فهرستِ جهت‌های چهارگانه. هرچه لازم است روی خودِ ابزار دیده
+      می‌شود: عددِ درجه در مغزِ قطب‌نما، وضعیتِ هم‌راستایی با رنگ و حلقه،
+      و دو کلیدِ کوچکِ بالا (حسگر، حالتِ دستی).
+   ب) خودِ ابزار واقعی شد — همان چیزهایی که در Muslim Pro / Athan /
+      «Qibla Finder» هست و در قطب‌نمایِ قبلیِ ما نبود:
+        • صفحه‌گردانِ ۳۶۰ درجه با شِکَبِ هر ۵ درجه و شماره‌گذاری هر ۳۰
+        • صافیِ زاویه‌ای (میانگینِ دورانیِ نمایی) تا سوزن نلرزد
+        • مخروطِ دقت روی صفحه‌گردان (از `webkitCompassAccuracy` یا
+          برآوردِ ناپایداریِ خودِ داده)
+        • کمانِ انحراف تا قبله + آستانهٔ ۵ درجه برای «پیدا شدی»
+        • بازخوردِ لمسی و صوتی در لحظهٔ هم‌راستایی (بی‌سروصدا در حالتِ بی‌صدا)
+        • کالیبراسیون: اگر داده ناپایدار بود یا دستگاه خودش خواست،
+          انیمیشنِ «هشت‌خط» وسطِ صفحه می‌آید (متنِ پایین، نه!)
+        • حالتِ دستی: اگر حسگری نبود یا کاربر بستش، با کشیدنِ انگشت روی
+          حلقه جهتِ خودت را از شمالِ جغرافیایی می‌گیری و کعبه همان‌جا
+          می‌نشیند — همان کاری که با قطب‌نمایِ کاغذی یا نقشه می‌کنی
+        • بیدار ماندنِ صفحه تا زمانی که قبله‌نما باز است
+
+   مرجعِ «بالا» لبهٔ فیزیکیِ بالای گوشی است، پس جبرانِ چرخشِ صفحه لازم
+   نیست؛ اگر گوشی افقی باشد نشانگرِ تراز در نوارِ بالا روشن می‌شود.
+   با `prefers-reduced-motion` چرخشِ نرم خاموش است و JS مستقیم می‌نویسد. */
 const Qibla = {
-  _bound:false, _open:false, _heading:null, _q:0, _acc:null, _aligned:false,
-  _needCalib:false, _uselessSeen:false,
+  _open:false, _bound:false, _heading:null, _uselessSeen:false, _shown:null, _q:0, _acc:null, _dist:0,
+  _oriCb:null, _waitTimer:null, _calTimer:null, _calAt:0,
+  _aligned:false, _needCalib:false, _stable:0, _manual:false, _level:true,
+  _tiltN:0, _tiltSum:0, _raf:null, _lastEv:0,
 
-  /* صفحهٔ قطب‌نما: N بالا، E راست (قراردادِ نقشه). درجهٔ قبله از شمال،
-     ساعتگرد. `ns` فضای نامِ اختیاریِ شناسه‌هاست تا نگارهٔ کوچکِ روی
-     صفحه و پنجرهٔ زنده هم‌زمان شناسهٔ یکتا داشته باشند. */
+  /* ══ نگارهٔ کلاسیک — همان چیزی که کارتِ کوچکِ صفحه و سنجش‌ها می‌شناسند ══
+     N بالا، E راست (قراردادِ نقشه). `ns` فضای‌نامِ شناسه‌هاست تا نگارهٔ
+     کوچکِ روی صفحه و هر نسخهٔ دیگرِ هم‌زمان، شناسهٔ یکتا داشته باشند. */
   svgHtml(q, ns){
     ns = ns || '';
+    q = this.deg(q);
     const id = s => ns + s;
     let ticks = '';
     for(let i = 0; i < 24; i++){
@@ -564,7 +581,7 @@ const Qibla = {
           <text class="qb-inter" x="59" y="143">ج‌ب</text>
           <text class="qb-inter" x="59" y="63">ش‌ب</text>
         </g>
-        <g class="qb-dial" id="${id('qbDial')}" transform="rotate(${q.toFixed(1)} 100 100)">
+        <g class="qb-dial" id="${id('qbDial')}" transform="rotate(${(+q).toFixed(1)} 100 100)">
           <line class="qb-tail" x1="100" y1="100" x2="100" y2="128"/>
           <line class="qb-needle" x1="100" y1="100" x2="100" y2="44"/>
           <rect class="qb-kaaba" x="92" y="30" width="16" height="16" rx="3"/>
@@ -573,11 +590,59 @@ const Qibla = {
       </svg>`;
   },
 
+  /* ══ صفحه‌گردانِ تمام‌صفحه ══
+     دو گروهِ چرخان: «rose» (جهت‌های جغرافیایی، با منهای جهتِ گوشی) و
+     «kb» (کعبه، با فرقِ قبله و جهتِ گوشی). کمانِ انحراف بینِ این دو
+     کشیده می‌شود؛ وقتی صفر شد همه‌چیز سبز است. */
+  dialHtml(q){
+    q = this.deg(q);
+    const R = 148, A = [];
+    for(let i = 0; i < 72; i++){
+      const a = i * 5, major = i % 6 === 0, mid = i % 3 === 0;
+      A.push(`<line class="qb-tick${major ? ' major' : (mid ? ' mid' : '')}" x1="160" y1="${160 - R}" x2="160" y2="${160 - R + (major ? 16 : (mid ? 10 : 6))}" transform="rotate(${a} 160 160)"/>`);
+    }
+    const NUMS = [[0, '۰'], [30, '۳۰'], [60, '۶۰'], [90, '۹۰'], [120, '۱۲۰'], [150, '۱۵۰'],
+                  [180, '۱۸۰'], [210, '۲۱۰'], [240, '۲۴۰'], [270, '۲۷۰'], [300, '۳۰۰'], [330, '۳۳۰']];
+    const nums = NUMS.map(([a, t]) => `<text class="qb-num" x="160" y="${160 - R + 30}" transform="rotate(${a} 160 160)">${t}</text>`).join('');
+    const card = [[0, 'ش', 'n'], [90, 'خ', ''], [180, 'ج', ''], [270, 'ب', '']]
+      .map(([a, t, cls]) => `<text class="qb-cardinal ${cls}" x="160" y="${160 - R + 50}" transform="rotate(${a} 160 160)">${t}</text>`).join('');
+    return `
+      <svg class="qb-svg qb-svg-lg" viewBox="0 0 320 320" role="img"
+           aria-label="قطب‌نمای قبله — ${U.fa(Math.round(q))} درجه از شمالِ جغرافیایی">
+        <defs>
+          <radialGradient id="qbFaceG" cx="50%" cy="38%" r="72%">
+            <stop offset="0" stop-color="rgba(255,255,255,.06)"/>
+            <stop offset="1" stop-color="rgba(0,0,0,.16)"/>
+          </radialGradient>
+          <linearGradient id="qbArcG" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--gold)"/><stop offset="1" stop-color="var(--grn)"/>
+          </linearGradient>
+        </defs>
+        <circle class="qb-face2" cx="160" cy="160" r="${R + 14}"/>
+        <circle cx="160" cy="160" r="${R + 14}" fill="url(#qbFaceG)"/>
+        <circle class="qb-ring2" cx="160" cy="160" r="${R + 14}"/>
+        <path class="qb-dev-arc" id="qbDevArc" d=""/>
+        <g class="qb-rose" id="qbRose">
+          <circle class="qb-rose-ring" cx="160" cy="160" r="${R}"/>
+          ${A.join('')}${nums}${card}
+        </g>
+        <g class="qb-kb" id="qbKb" transform="rotate(${(+q).toFixed(1)} 160 160)">
+          <path class="qb-wedge" d="M160 160 L148 ${160 - R + 16} L172 ${160 - R + 16} Z"/>
+          <line class="qb-needle2" x1="160" y1="160" x2="160" y2="${160 - R + 22}"/>
+          <g class="qb-kaaba2" transform="translate(160 ${160 - R + 6})">
+            <rect x="-13" y="-13" width="26" height="26" rx="5"/>
+            <path class="qb-band" d="M-13 -4h26"/>
+          </g>
+        </g>
+        <path class="qb-idx" d="M160 8 l9 17h-18z"/>
+        <circle class="qb-hub2" cx="160" cy="160" r="6"/>
+      </svg>`;
+  },
+
   /* فاصلهٔ هوایی تا کعبه (کیلومتر) — هاورساینِ استاندارد */
   distanceKm(lat, lon){
     try{
-      const k = Salah.KAABA;
-      const R = 6371, t = Math.PI / 180;
+      const k = Salah.KAABA, R = 6371, t = Math.PI / 180;
       const la1 = (+lat) * t, la2 = k.lat * t;
       const dLa = (k.lat - (+lat)) * t, dLo = (k.lon - (+lon)) * t;
       const h = Math.sin(dLa / 2) * Math.sin(dLa / 2) +
@@ -586,62 +651,110 @@ const Qibla = {
       return isFinite(d) ? d : 0;
     }catch(e){ return 0; }
   },
-
   fmtKm(km){
     const n = Math.max(0, Math.round(+km || 0));
     return U.fa(n.toLocaleString('en-US').replace(/,/g, '٬'));
   },
-
-  /* توصیفِ فارسیِ جهت: شمال، شمال‌شرقی، شرقی، … */
+  /* توصیفِ فارسیِ جهت: شمالی، شمال‌شرقی، شرقی، … */
   describe(q){
     const dirs = ['شمالی', 'شمال‌شرقی', 'شرقی', 'جنوب‌شرقی', 'جنوبی', 'جنوب‌غربی', 'غربی', 'شمال‌غربی'];
     const i = Math.round((((+q % 360) + 360) % 360) / 45) % 8;
     return dirs[i] || '';
+  },
+  /* هر زاویه‌ای که از هر جایی می‌آید (دادهٔ خرابِ حسگر، locِ نصفه) باید
+     عددِ ۰..۳۶۰ شود: `rotate(NaN …)` در SVG بی‌اعتبار است و حلقه از
+     کار می‌افتد — صفر بهتر از حلقهٔ مُرده است. */
+  deg(q){ q = +q; return isFinite(q) ? ((q % 360) + 360) % 360 : 0; },
+  /* کوتاه‌ترین زاویهٔ signedِ دو جهت — برای «چقدر بچرخم» */
+  delta(a, b){ return ((b - a + 540) % 360) - 180; },
+  /* میانگینِ دورانیِ نمایی: ۳۵۹° و ۱° را «۱۸۰» نمی‌کند */
+  ease(cur, target, k){
+    if(cur == null || !isFinite(cur)) return target;
+    const d = this.delta(cur, target);
+    return ((cur + d * U.clamp(+k || .28, .02, 1) + 360) % 360);
   },
 
   open(){
     let loc;
     try{ loc = Salah.resolveLoc(Store.get('loc')); }
     catch(e){ loc = { lat:35.6892, lon:51.3890 }; }
-    this._show(loc);
+    this.show(loc);
   },
 
-  _show(loc){
-    const q = Salah.qibla(loc.lat, loc.lon);
-    const dist = this.distanceKm(loc.lat, loc.lon);
-    this._q = q; this._heading = null; this._acc = null;
-    this._aligned = false; this._uselessSeen = false; this._open = true;
+  show(loc){
+    loc = loc || (() => { try{ return Salah.resolveLoc(Store.get('loc')); }catch(e){ return { lat:35.6892, lon:51.3890 }; } })();
+    const q = this.deg(Salah.qibla(loc.lat, loc.lon));
+    this._q = q;
+    this._dist = this.distanceKm(loc.lat, loc.lon);
+    this._heading = null; this._shown = null; this._acc = null;
+    this._aligned = false; this._needCalib = false; this._stable = 0; this._tiltSum = 0; this._tiltN = 0;
+    this._uselessSeen = false;
+    this._manual = !this.sensorAvail();
+    this._open = true;
+    UI.stage(this.stageHtml(q), box => this.mount(box));
+  },
+  /* ساختارِ صحنه از «نمایش» جداست: هارنسِ Node DOMِ واقعی ندارد، پس باید
+     شد سنجید که پایینِ صفحهٔ قبله هیچ توضیحی و هیچ فهرستِ علامت ندارد. */
+  stageHtml(q){
     const hasSensor = this.sensorAvail();
-    UI.modal(`
-      <h3 style="margin-bottom:4px">${Icon.of('target')} قبله‌نما</h3>
-      <p style="font-size:12px;color:var(--mut);margin-bottom:8px" id="qbMeta">
-        ${U.esc(Courtyard.cityLabel())} — <b class="qb-deg" id="qbDeg">${U.fa(Math.round(q))}°</b>
-        از شمال، به سمتِ ${U.esc(this.describe(q))}
-        <br>فاصلهٔ هوایی تا مکه: ${this.fmtKm(dist)} کیلومتر</p>
-      <div class="sc-qibla" id="qbBox">
-        ${this.svgHtml(q)}
-        <div class="qb-live-row">
-          <span class="qb-live" id="qbHead">جهتِ گوشی: —</span>
-          <span class="qb-live dim" id="qbAcc"></span>
+    return `
+      <div class="qb-stage" id="qbStage" data-align="off">
+        <div class="qb-sky" aria-hidden="true"><i></i><i></i><i></i><div class="qb-pat"></div></div>
+        <header class="qb-bar">
+          <button class="qb-ib" id="qbX" aria-label="بستنِ قبله‌نما">${Icon.of('close')}</button>
+          <div class="qb-meta">
+            <b>${U.fa(Math.round(q))}°</b>
+            <span>${U.esc(Courtyard.cityLabel())} · ${U.fa(Math.round(this._dist))} کیلومتر تا مکه</span>
+          </div>
+          <div class="qb-tools">
+            <button class="qb-ib" id="qbGeo" aria-label="موقعیتِ دقیقِ دستگاه برای قبله">${Icon.of('globe')}</button>
+            <button class="qb-ib" id="qbManual" aria-pressed="${this._manual ? 'true' : 'false'}"
+                    aria-label="حالتِ دستی — چرخاندنِ صفحه‌گردان با انگشت">${Icon.of('repeat')}</button>
+            <button class="qb-ib" id="qbSensor" aria-pressed="false" ${hasSensor ? '' : 'disabled'}
+                    aria-label="فعال‌سازیِ حسگرِ قطب‌نما">${Icon.of('sat')}</button>
+          </div>
+        </header>
+        <div class="qb-chips">
+          <span class="qb-chip" id="qbLv">${Icon.of('signal')}<b>تراز</b></span>
+          <span class="qb-chip" id="qbAcc">${Icon.of('target')}<b>دقت: —</b></span>
+          <span class="qb-chip" id="qbCalChip" hidden>${Icon.of('warn')}<b>هشت‌خط بچرخان</b></span>
         </div>
-        <div class="qb-hint" id="qbHint">${hasSensor
-          ? '«فعال‌سازیِ قطب‌نما» را بزن و گوشی را تخت و بی‌حرکت نگه دار؛ نشانگرِ طلاییِ کعبه سمتِ قبله را نشان می‌دهد.'
-          : `این مرورگر قطب‌نمای زنده نمی‌دهد — لبهٔ بالای گوشی را ${U.fa(Math.round(q))} درجه از شمال (به سمتِ ${U.esc(this.describe(q))}) بگیر؛ با یک قطب‌نمای معمولی یا نقشهٔ محلّت مطابقت بده.`}</div>
-        <div class="qb-actions">
-          <button class="btn gh sm" id="qbSensor" ${hasSensor ? '' : 'hidden'}>
-            ${Icon.of('sat')}<span>فعال‌سازیِ قطب‌نما</span></button>
-          <button class="btn gh sm" id="qbGeo">${Icon.of('city')}<span>موقعیتِ دقیق</span></button>
-          <button class="btn gh sm" id="qbClose">${Icon.of('close')}<span>بستن</span></button>
+        <div class="qb-hold" id="qbHold">
+          ${this.dialHtml(q)}
+          <div class="qb-read" aria-live="polite">
+            <b id="qbDelta">—</b>
+            <small id="qbHint">جهتِ گوشی</small>
+          </div>
+          <div class="qb-calib" id="qbCalib" hidden aria-hidden="true">
+            <svg viewBox="0 0 120 120"><path d="M60 30c22 0 22 30 0 30s-22 30 0 30 22 0 0 0 -22-30 0-30 22 0 0 0"/></svg>
+            <span>هشت‌خط</span>
+          </div>
         </div>
-      </div>`, box => {
-      const btn = U.$('#qbSensor', box);
-      if(btn) btn.onclick = () => this.enableSensor(btn);
-      const geo = U.$('#qbGeo', box);
-      if(geo) geo.onclick = () => this.useGeo();
-      const cl = U.$('#qbClose', box);
-      if(cl) cl.onclick = () => { this._open = false; UI.closeModal(); };
-      this.bindOnce();
-    });
+      </div>
+    `;
+  },
+
+  mount(box){
+    const on = (id, fn) => { const el = U.$(id, box); if(el) el.onclick = e => { try{ e && e.preventDefault && e.preventDefault(); }catch(err){} try{ fn(e); }catch(err){ console.warn('qibla', err); } }; };
+    on('#qbX', () => this.close());
+    on('#qbGeo', () => this.useGeo());
+    on('#qbSensor', () => this.enableSensor());
+    on('#qbManual', () => this.toggleManual());
+    this.bind();
+    this.drag(box);
+    UI.onClose = () => this.shutdown();
+    this.paint();
+    if(!this._manual) this.enableSensor(true);
+    try{ NoorWake.ask('qibla'); }catch(e){}
+  },
+  close(){ this._open = false; try{ UI.closeModal(); }catch(e){} this.shutdown(); },
+  shutdown(){
+    this._open = false;
+    if(this._raf){ try{ cancelAnimationFrame(this._raf); }catch(e){} this._raf = null; }
+    try{ if(this._waitTimer){ clearTimeout(this._waitTimer); this._waitTimer = null; } }catch(e){}
+    this.unbind();
+    this.hideCalib();
+    try{ NoorWake.release('qibla'); }catch(e){}
   },
 
   sensorAvail(){
@@ -650,131 +763,231 @@ const Qibla = {
         (('DeviceOrientationEvent' in window) || ('DeviceOrientationAbsoluteEvent' in window));
     }catch(e){ return false; }
   },
-
-  /* یک‌بار شنونده می‌نشینیم (بی‌نشت)؛ اثر فقط وقتی پنجره باز است */
-  bindOnce(){
-    if(this._bound || !this.sensorAvail()) return;
+  /* یک‌بار شنونده می‌نشیند؛ شناسهٔ شنونده نگه داشته می‌شود تا با بستنِ
+     صحنه برداشته شود (الگویِ نشتِ کلاسیک: پنجره بسته، شنونده روی صفحهٔ
+     مرده مانده و با هر رویدادِ حسگر چیزی را نویشته می‌کند). */
+  bind(){
+    if(this._bound) return;
+    if(!this.sensorAvail()) return;
     this._bound = true;
-    const onOri = e => {
-      try{
-        if(!this._open || !e) return;
-        let h = null, acc = null;
-        /* iOS: جهتِ واقعیِ قطب‌نما + دقت */
-        if(e.webkitCompassHeading != null && isFinite(+e.webkitCompassHeading)){
-          h = +e.webkitCompassHeading;
-          if(isFinite(+e.webkitCompassAccuracy)) acc = +e.webkitCompassAccuracy;
-        }else if(e.alpha != null && isFinite(+e.alpha) && e.absolute === true){
-          /* اندرویدِ مطلق: آلفا پادساعتگرد است، پس معکوسش جهت می‌شود */
-          h = (360 - (+e.alpha)) % 360;
-        }else if(e.alpha != null && isFinite(+e.alpha) && e.type === 'deviceorientationabsolute'){
-          h = (360 - (+e.alpha)) % 360;
-        }else{
-          /* آلفای نسبی جهتِ واقعی نمی‌دهد — یک‌بار توضیح بده، بعد سکوت */
-          if(!this._uselessSeen){
-            this._uselessSeen = true;
-            const hint = U.$('#qbHint');
-            if(hint) hint.textContent = 'قطب‌نمای واقعی در این مرورگر در دسترس نیست — از عددِ درجه و جهتِ نوشته‌شده استفاده کن.';
-          }
-          return;
-        }
-        this._heading = ((h % 360) + 360) % 360;
-        this._acc = acc;
-        this.paint();
-      }catch(err){}
-    };
-    try{
-      if('DeviceOrientationAbsoluteEvent' in window){
-        window.addEventListener('deviceorientationabsolute', onOri);
-      }
-    }catch(e){}
-    try{ window.addEventListener('deviceorientation', onOri); }catch(e){}
-    /* کالیبراسیون: اگر خودِ دستگاه گفت، یک‌بار فارسی راهنمایی کن */
-    try{
-      window.addEventListener('compassneedscalibration', () => {
-        try{
-          if(!this._open || this._needCalib) return;
-          this._needCalib = true;
-          UI.toast('🧭 برای دقتِ بیشتر، گوشی را چند بار به شکلِ ۸ در هوا بچرخان', '', 3200);
-          setTimeout(() => { this._needCalib = false; }, 30000);
-        }catch(err){}
-      });
-    }catch(e){}
+    const push = this._oriCb = e => { try{ this.onOri(e); }catch(err){} };
+    try{ if(typeof NoorSensor !== 'undefined' && NoorSensor.watchOri) NoorSensor.watchOri(push); }
+    catch(e){
+      try{ window.addEventListener('deviceorientationabsolute', push); }catch(err){}
+      try{ window.addEventListener('deviceorientation', push); }catch(err){}
+    }
+    /* اگر ۹ ثانیه هیچ رویدادِ مطلق نیاید، دستگاه یا حسگر ندارد یا
+       کاربر باید اجازه بدهد — صفحهٔ بی‌حرکت نمی‌مانیم. */
+    try{ this._waitTimer = setTimeout(() => { if(this._heading == null) this.flagCalib(); }, 9000); }catch(e){}
   },
-
-  async enableSensor(btn){
-    try{
-      const W = typeof window !== 'undefined' ? window : {};
-      for(const key of ['DeviceOrientationEvent', 'DeviceOrientationAbsoluteEvent']){
-        const DOE = W[key];
-        if(DOE && typeof DOE.requestPermission === 'function'){
-          const r = await DOE.requestPermission();
-          if(r !== 'granted'){ UI.toast('اجازهٔ قطب‌نما داده نشد — همان عددِ درجه کافی است', '', 2600); return; }
-        }
+  unbind(){
+    if(!this._bound) return;
+    this._bound = false;
+    try{ if(typeof NoorSensor !== 'undefined' && NoorSensor.stopOri && this._oriCb) NoorSensor.stopOri(this._oriCb); }catch(e){}
+    this._oriCb = null;
+  },
+  /* iOS: `webkitCompassHeading`؛ اندروید: آلفای *مطلق* (نسبی جهتِ
+     واقعی نمی‌دهد و عمداً پذیرفته نمی‌شود، چون کاربر را گمراه می‌کند). */
+  onOri(e){
+    if(!this._open || !e) return;
+    if(e.needCalib){ this.flagCalib(); return; }
+    if(this._manual) return;
+    let h = null, acc = null;
+    if(e.webkitCompassHeading != null && isFinite(+e.webkitCompassHeading)){
+      h = +e.webkitCompassHeading;
+      if(isFinite(+e.webkitCompassAccuracy)) acc = +e.webkitCompassAccuracy;
+    } else if(e.alpha != null && isFinite(+e.alpha) && (e.absolute === true || e.type === 'deviceorientationabsolute')){
+      h = (360 - (+e.alpha)) % 360;
+      if(isFinite(+e.beta)) this.tilt(+e.beta, +e.gamma);
+    } else {
+      /* آلفای نسبی جهتِ واقعی نمی‌دهد؛ یک‌بار همان را می‌گوییم و بعد
+         سکوت — جایز نیست وسطِ چرخشِ گوشی پیام بیاید. */
+      if(!this._uselessSeen){
+        this._uselessSeen = true;
+        try{ UI.toast('قطب‌نمایِ واقعی در این مرورگر نیست — از عددِ درجه یا حالتِ دستی استفاده کن', '', 3200); }catch(err){}
       }
-      if(btn){ try{ U.label ? U.label(btn, 'قطب‌نما روشن است') : null; }catch(e){} btn.disabled = true; }
-      /* اگر گوشی افقی است، همان اول بگو عمودیش کند */
-      let portrait = true;
-      try{
-        if(window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number')
-          portrait = (window.screen.orientation.angle % 180) === 0;
-        else if(typeof window.orientation === 'number') portrait = (window.orientation % 180) === 0;
-      }catch(e){}
-      UI.toast(portrait
-        ? '🧭 گوشی را تخت و بی‌حرکت نگه دار — نشانگرِ کعبه سمتِ قبله را می‌گوید'
-        : '🧭 گوشی را عمودی نگه دار تا جهت دقیق شود', 'ok', 2600);
-    }catch(e){
-      UI.toast('قطب‌نمای دستگاه در دسترس نیست', 'err', 2400);
+      this.flagCalib(); return;
+    }
+    h = ((h % 360) + 360) % 360;
+    this._acc = acc;
+    this._lastEv = U.now();
+    /* ناپایداری = کالیبراسیون لازم است؛ سه ثانیه دادهٔ نرم ⇒ تمام */
+    if(this._heading != null){
+      const jump = Math.abs(this.delta(this._heading, h));
+      if(jump > 22){ this._stable = 0; this.flagCalib(); } else this._stable++;
+    }
+    this._heading = h;
+    if(this._raf == null) this._raf = requestAnimationFrame(() => { this._raf = null; this.tick(); });
+  },
+  /* تراز: قطب‌نمایِ دیجیتال با کج‌شدنِ گوشی خطا می‌کند. بتا در حالتِ
+     ایستادهٔ گوشی ≈ ±۹۰ است؛ هرچه از آن دورتر شویم کج‌تر هستیم. میانگینِ
+     ۲۴ نمونهٔ اخیر گرفته می‌شود تا با یک لرزشِ دست هشدار نپرد. */
+  tilt(beta, gamma){
+    const off = Math.min(60, Math.abs(Math.abs(+beta) - 90) + (isFinite(+gamma) ? Math.abs(+gamma) : 0));
+    this._tiltSum += off; this._tiltN++;
+    if(this._tiltN < 24) return;
+    const avg = this._tiltSum / this._tiltN;
+    this._tiltN = 0; this._tiltSum = 0;
+    const lv = avg < 22;
+    if(lv === this._level) return;
+    this._level = lv;
+    const c = U.$('#qbLv');
+    if(c){
+      c.classList.toggle('bad', !lv);
+      const b = c.querySelector('b');
+      if(b) b.textContent = lv ? 'تراز' : 'گوشی را عمودیِ تخت بگیر';
     }
   },
+  flagCalib(){
+    const now = U.now();
+    if(this._needCalib && now - (this._calAt || 0) < 1200) return;
+    this._needCalib = true; this._calAt = now;
+    const c = U.$('#qbCalChip'); if(c) c.hidden = false;
+    const box = U.$('#qbCalib'); if(box) box.hidden = false;
+    try{ if(this._calTimer) clearTimeout(this._calTimer); }catch(e){}
+    try{ this._calTimer = setTimeout(() => { this.hideCalib(); }, 9000); }catch(e){}
+  },
+  hideCalib(){
+    this._needCalib = false;
+    try{ if(this._calTimer){ clearTimeout(this._calTimer); this._calTimer = null; } }catch(e){}
+    const c = U.$('#qbCalChip'); if(c) c.hidden = true;
+    const box = U.$('#qbCalib'); if(box) box.hidden = true;
+  },
+  /* نرم‌کردنِ زاویه با rAF — نه با هر نمونهٔ خام: روی گوشی‌هایی که ۱۰۰Hz
+     رویداد می‌دهند، نوشتنِ DOM در هر نمونه صفحه را می‌خورد. */
+  tick(){
+    if(!this._open || this._heading == null) return;
+    this._shown = this.ease(this._shown, this._heading, this._stable > 40 ? .5 : .22);
+    this.paint();
+    if(Math.abs(this.delta(this._shown, this._heading)) > 0.4 && this._raf == null){
+      this._raf = requestAnimationFrame(() => { this._raf = null; this.tick(); });
+    }
+  },
+  paint(){
+    const rose = U.$('#qbRose'), kb = U.$('#qbKb');
+    const head = this._manual ? (this._heading == null ? 0 : this._heading) : (this._shown == null ? 0 : this._shown);
+    const d = this.delta(head, this._q);                  // + یعنی باید راست بچرخیم
+    const aligned = this._heading != null && Math.abs(d) <= 5;
+    if(rose) rose.setAttribute('transform', `rotate(${(-head).toFixed(1)} 160 160)`);
+    if(kb) kb.setAttribute('transform', `rotate(${(+this._q - head).toFixed(1)} 160 160)`);
+    const arc = U.$('#qbDevArc');
+    if(arc) arc.setAttribute('d', aligned ? '' : this.arcPath(160, 160, 176, head, this._q));
+    const dl = U.$('#qbDelta'), hint = U.$('#qbHint');
+    if(dl) dl.textContent = this._heading == null ? '—' : (aligned ? '✓' : U.fa(Math.abs(Math.round(d))) + '°');
+    if(hint) hint.textContent = this._heading == null
+      ? (this._manual ? 'جهتِ گوشی را بچرخان' : 'در انتظارِ حسگر')
+      : (aligned ? 'روبه‌روی قبله' : (d > 0 ? 'به راست بچرخ' : 'به چپ بچرخ'));
+    const st = U.$('#qbStage');
+    if(st && st.dataset) st.dataset.align = aligned ? 'on' : (this._heading == null ? 'off' : 'near');
+    const ac = U.$('#qbAcc');
+    if(ac){
+      const acc = this._acc;
+      const est = acc != null ? acc : (this._heading == null ? null : (this._stable > 60 ? 8 : 24));
+      ac.querySelector('b') && (ac.querySelector('b').textContent = est == null ? 'دقت: —' : 'دقت: ±' + U.fa(Math.round(est)) + '°');
+      ac.classList.toggle('good', est != null && est <= 12);
+      ac.classList.toggle('bad', est != null && est > 20);
+    }
+    if(aligned && !this._aligned){
+      this._aligned = true;
+      try{ if((Store.get('settings') || {}).haptics !== false && navigator.vibrate) navigator.vibrate([18, 40, 22]); }catch(e){}
+      try{ if((Store.get('settings') || {}).sound) Sound.rich(740, .18, .05); }catch(e){}
+      this.hideCalib();
+    } else if(!aligned) this._aligned = false;
+  },
+  /* کمانِ SVG بینِ دو زاویه — همان «چقدر مانده» روی لبهٔ بیرونی */
+  arcPath(cx, cy, r, a0, a1){
+    const A = (a) => { const t = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; };
+    let span = ((a1 - a0) % 360 + 360) % 360;
+    if(span > 359.5) span = 359.5;
+    const [x0, y0] = A(a0), [x1, y1] = A(a0 + span);
+    return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${span > 180 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  },
 
-  /* موقعیتِ دقیق برای قبله: یک‌بار، با درخواستِ صریح — بعد پنجره با
-     درجه و فاصلهٔ تازه از نو کشیده می‌شود (بی‌شمارشِ دوبارهٔ مأموریت،
-     چون `_show` مستقیم صدا زده می‌شود نه `open`). */
+  /* ══ حالتِ دستی ══ گوشی را که نمی‌توان به مغناطیس‌سنج اعتماد کرد، با
+     انگشت روی حلقه جهتِ خودت را از شمال می‌گیری (از نقشه یا خورشید). */
+  toggleManual(force){
+    this._manual = (force == null) ? !this._manual : !!force;
+    const b = U.$('#qbManual');
+    if(b){ b.setAttribute('aria-pressed', this._manual ? 'true' : 'false'); b.classList.toggle('on', this._manual); }
+    if(this._manual && this._heading == null) this._heading = 0;
+    if(this._manual) this._shown = this._heading;
+    const hint = U.$('#qbHint');
+    if(hint) hint.textContent = this._manual ? 'حالتِ دستی — حلقه را بچرخان' : 'جهتِ گوشی';
+    this.paint();
+  },
+  drag(box){
+    const hold = U.$('#qbHold', box);
+    if(!hold) return;
+    const set = (ev) => {
+      const t = (ev.touches && ev.touches[0]) || ev;
+      const r = hold.getBoundingClientRect ? hold.getBoundingClientRect() : { left:0, top:0, width:320, height:320 };
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const a = (Math.atan2(t.clientX - cx, -(t.clientY - cy)) * 180 / Math.PI + 360) % 360;
+      this._heading = a; this._shown = a; this._acc = null;
+      this.paint();
+    };
+    let on = false;
+    const down = ev => { if(!this._manual) return; on = true; try{ ev.preventDefault(); }catch(e){} set(ev); };
+    const move = ev => { if(!on || !this._manual) return; try{ ev.preventDefault(); }catch(e){} set(ev); };
+    const up = () => { on = false; };
+    try{
+      hold.addEventListener('touchstart', down, { passive:false });
+      hold.addEventListener('touchmove', move, { passive:false });
+      hold.addEventListener('touchend', up);
+      hold.addEventListener('pointerdown', down);
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    }catch(e){}
+  },
+
+  /* حسگر — با اجازهٔ کاربر (iOS) و بی هیچ اصراری؛ اگر نشد همان عددِ
+     درجه و حالتِ دستی کار می‌کند. */
+  enableSensor(quiet){
+    const go = ok => {
+      const b = U.$('#qbSensor');
+      if(b){
+        b.setAttribute('aria-pressed', ok ? 'true' : 'false');
+        b.classList.toggle('on', !!ok);
+      }
+      if(ok){
+        if(this._manual) this.toggleManual(false);
+        this.bind();
+        if(!quiet) UI.toast('🧭 گوشی را تخت و بی‌حرکت نگه دار', 'ok', 2200);
+      } else if(!quiet) UI.toast('حسگرِ قطب‌نما باز نشد — با حالتِ دستی (چرخاندنِ حلقه) هم قبله پیدا می‌شود', '', 3000);
+    };
+    if(typeof NoorSensor !== 'undefined' && NoorSensor.askOri) NoorSensor.askOri(() => go(true), () => go(false));
+    else go(this.sensorAvail());
+  },
+
+  /* موقعیتِ دقیق برای قبله: یک‌بار، با درخواستِ صریحِ کاربر */
   useGeo(){
     if(!(typeof navigator !== 'undefined' && navigator.geolocation)){
-      UI.toast('این مرورگر موقعیتِ دستگاه ندارد', 'err', 2400);
-      return;
+      UI.toast('این مرورگر موقعیتِ دستگاه ندارد', 'err', 2400); return;
     }
     UI.toast('⏳ در حالِ گرفتنِ موقعیت…', '', 1800);
     navigator.geolocation.getCurrentPosition(pos => {
       const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
       if(!isFinite(lat) || !isFinite(lon)){ UI.toast('موقعیت خوانده نشد', 'err'); return; }
       Store.update(d => { d.loc = { cityId:'', lat:+lat.toFixed(4), lon:+lon.toFixed(4), source:'geo' }; });
-      try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
-      try{ Courtyard.render(); }catch(e){}
+      try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); Courtyard.render(); }catch(e){}
       try{ SalahSettings.refresh(); }catch(e){}
-      this._show({ lat, lon });
+      const q = Salah.qibla(lat, lon);
+      this._q = q;
+      this._dist = this.distanceKm(lat, lon);
+      const meta = U.$('.qb-meta');
+      if(meta){
+        const b = meta.querySelector('b'), s = meta.querySelector('span');
+        if(b) b.textContent = U.fa(Math.round(q)) + '°';
+        if(s) s.textContent = 'موقعیتِ دستگاه · ' + U.fa(Math.round(this._dist)) + ' کیلومتر تا مکه';
+      }
+      this.paint();
       UI.toast('📍 قبله با موقعیتِ دقیقِ تو حساب شد', 'ok', 2200);
     }, () => {
       UI.toast('موقعیت گرفته نشد — همان شهرِ انتخابی حساب می‌شود', 'err', 2600);
     }, { timeout:8000, maximumAge:6e5 });
   },
 
-  paint(){
-    if(this._heading == null) return;
-    const rose = U.$('#qbRose');
-    if(rose) rose.setAttribute('transform', `rotate(${(-this._heading).toFixed(1)} 100 100)`);
-    const dial = U.$('#qbDial');
-    if(dial) dial.setAttribute('transform', `rotate(${(this._q - this._heading).toFixed(1)} 100 100)`);
-    const head = U.$('#qbHead');
-    if(head) head.textContent = `جهتِ گوشی: ${U.fa(Math.round(this._heading))}°`;
-    const acc = U.$('#qbAcc');
-    if(acc) acc.textContent = (this._acc != null && isFinite(this._acc)) ? `دقت: ‎±${U.fa(Math.round(this._acc))}°` : '';
-    const delta = Math.round(((this._q - this._heading + 540) % 360) - 180);
-    const hint = U.$('#qbHint');
-    const svg = hint && hint.parentNode ? hint.parentNode.querySelector('.qb-svg') : null;
-    const aligned = Math.abs(delta) <= 6;
-    if(aligned && !this._aligned){
-      try{ if(((Store.get('settings') || {}).haptics !== false) && navigator.vibrate) navigator.vibrate(25); }catch(e){}
-    }
-    this._aligned = aligned;
-    try{ if(svg && svg.classList) svg.classList.toggle('is-aligned', aligned); }catch(e){}
-    if(hint){
-      hint.textContent = aligned ? '✅ روبه‌روی قبله‌ای — همین جهت را نگه دار'
-        : `نشانگرِ کعبه را بالا نگه دار: ${U.fa(Math.abs(delta))}° به سمتِ ${delta > 0 ? 'راست' : 'چپ'} بچرخ`;
-    }
-  }
-};
+}
 
 /* ── تنظیماتِ عبادت — بخشِ «عبادتِ روزانه» در «من → تنظیمات» ── */
 const SalahSettings = {
