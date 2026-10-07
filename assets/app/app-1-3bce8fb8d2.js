@@ -771,10 +771,10 @@ const Store = {
       maghribOffsetMin: 14,
       ashaOffsetMin: 90,
       /* ── نسخهٔ ۱۹ب: دفترچهٔ علامتِ نماز ──
-         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr','maghrib','isha'] — فقط
-         محلی، فقط همان نمازهای ستونِ عبادت (نسخهٔ ۱۹د: «عصر» برداشته
-         شد). سقفِ روزانه خودش در همین ساختار است: هر نماز در هر روز
-         حداکثر یک بار ثبت (و جایزه) می‌شود. */
+         salahLog['yyyy-mm-dd'] = ['fajr','dhuhr','maghrib'] — فقط
+         محلی، فقط همان نمازهای ستونِ عبادت (نسخهٔ ۱۹د «عصر» و نسخهٔ ۲۱
+         «عشا» را برداشتند). سقفِ روزانه خودش در همین ساختار است: هر
+         نماز در هر روز حداکثر یک بار ثبت (و جایزه) می‌شود. */
       salahLog: {},
       /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم و اذانِ محلی ──
          adhanEnabled: روشن/خاموشِ یادآور برای هر نماز (master کلیدِ کل).
@@ -786,8 +786,8 @@ const Store = {
          notifGranted: نتیجهٔ آخرین درخواستِ اجازهٔ Notification —
                       '' | 'granted' | 'denied' | 'default'.
          همه فقط محلی‌اند: هیچ سرور، پوش یا Firebaseای در کار نیست. */
-      /* نسخهٔ ۱۹د: «عصر» از یادآورها برداشته شد — کلیدِ کل + چهار نماز. */
-      adhanEnabled: { master:true, fajr:true, dhuhr:true, maghrib:true, isha:true },
+      /* نسخهٔ ۲۱: «عصر» و «عشا» از یادآورها برداشته شدند — کلیدِ کل + سه نماز. */
+      adhanEnabled: { master:true, fajr:true, dhuhr:true, maghrib:true },
       adhanOffsets: { before15:false },
       tasbihToday: { date:'', counts:[0, 0, 0], done:false },
       wirdToday: { date:'', done:{} },
@@ -1047,10 +1047,11 @@ const Store = {
        روزهایِ خیلی قدیمی هم هرس می‌شوند تا دفترچه بی‌نهایت رشد نکند. */
     if(!d.salahLog || typeof d.salahLog !== 'object' || Array.isArray(d.salahLog)) d.salahLog = {};
     {
-      /* نسخهٔ ۱۹د: «عصر» از ستونِ نمازها برداشته شد (درخواستِ صاحبِ
-         برنامه)؛ پس نامِ معتبرِ دفترچه هم همان چهار نماز است و هر روزِ
-         ذخیره‌شده‌ای که «عصر» داشته باشد، همان‌جا دور ریخته می‌شود. */
-      const NAMES = ['fajr', 'dhuhr', 'maghrib', 'isha'];
+      /* نسخهٔ ۲۱: «عصر» و «عشا» از ستونِ نمازها برداشته شدند (درخواستِ
+         صاحبِ برنامه)؛ پس نامِ معتبرِ دفترچه هم همان سه نماز است و هر
+         روزِ ذخیره‌شده‌ای که «عصر» یا «عشا» داشته باشد، همان‌جا دور
+         ریخته می‌شود. */
+      const NAMES = ['fajr', 'dhuhr', 'maghrib'];
       for(const k of Object.keys(d.salahLog)){
         if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(d.salahLog[k])){ delete d.salahLog[k]; continue; }
         d.salahLog[k] = [...new Set(d.salahLog[k].filter(n => NAMES.includes(n)))].slice(0, 5);
@@ -1059,13 +1060,14 @@ const Store = {
       while(keys.length > 400){ delete d.salahLog[keys.shift()]; }
     }
     /* ── نسخهٔ ۱۹: ذکر/تسبیح/ورد، ختم، اذان ── */
-    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'maghrib', 'isha'];
+    const ADHAN_KEYS = ['master', 'fajr', 'dhuhr', 'maghrib'];
     if(!d.adhanEnabled || typeof d.adhanEnabled !== 'object' || Array.isArray(d.adhanEnabled))
       d.adhanEnabled = {};
     ADHAN_KEYS.forEach(k => { if(typeof d.adhanEnabled[k] !== 'boolean') d.adhanEnabled[k] = true; });
-    /* یادآورِ اذانِ عصر دیگر نیست؛ کلیدِ کهنه‌اش هم پاک می‌شود تا هیچ
-       جای دیگری به آن استناد نکند. */
+    /* یادآورِ اذانِ عصر و عشا دیگر نیست؛ کلیدِ کهنه‌شان هم پاک می‌شود تا
+       هیچ جای دیگری به آن استناد نکند. */
     delete d.adhanEnabled.asr;
+    delete d.adhanEnabled.isha;
     if(!d.adhanOffsets || typeof d.adhanOffsets !== 'object' || Array.isArray(d.adhanOffsets))
       d.adhanOffsets = {};
     d.adhanOffsets.before15 = !!d.adhanOffsets.before15;

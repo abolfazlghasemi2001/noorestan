@@ -1,16 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════
-   نورستان — نسخهٔ ۱۹: همراهِ روزانه
+   نورستان — نسخهٔ ۲۱: همراهِ روزانه (ذکر با متنِ کامل)
    ═══════════════════════════════════════════════════════════════════
    لایهٔ سومِ عبادت: بانک‌های ورد، کارتِ ذکر، تسبیحِ ۳۳/۳۳/۳۳، ختمِ
    محلی، کارتِ رمضان و اذانِ محلی (بدونِ سرور).
 
    دو قاعدهٔ سخت:
-   ۱) هیچ متنِ عربی تازه‌ای از حافظه ساخته نمی‌شود — بانک‌های ورد فقط
-      «ارجاع» به عنوان‌های DATA.duas (بانکِ دعا) هستند و همان شیءِ
-      بانک برگردانده می‌شود؛ اگر عنوانی پیدا نشود، جایش خالی می‌ماند.
-      میان‌برِ دعاها هم فقط همان‌هایی است که در بانک هست (کمیل،
-      عاشورا، فرج، یونسیه، آیةالکرسی، تعقیبات) — هر دُعایی که در
-      بانک نباشد، میان‌بری هم ندارد و هرگز از حافظه ساخته نمی‌شود.
+   ۱) بانک‌های ورد فقط «ارجاع» به عنوان‌های DATA.duas (بانکِ دعا)
+      هستند و همان شیءِ بانک برگردانده می‌شود؛ اگر عنوانی پیدا نشود،
+      جایش خالی می‌ماند. میان‌برِ دعاها هم فقط همان‌هایی است که در
+      بانک هست (کمیل، عاشورا، فرج، یونسیه، آیةالکرسی، تعقیبات).
+      نسخهٔ ۲۱: «متنِ کامل» برای نمایش از پوششِ `DUA_FULL` (فایلِ
+      جدا، با نشانیِ کاملِ منبع برای هر دعا) می‌آید — `WirdUI.text()`
+      با تطبیقِ عنوان پوشش را پیدا می‌کند و اگر نبود، همان شیءِ بانک.
+      خودِ این فایل هیچ متنِ عربی‌ای ندارد (تستِ منبع می‌سنجد) و بانکِ
+      بازیِ «نجوا» دست‌نخورده می‌ماند.
    ۲) اذان «محلی» است: فقط وقتی برنامه زنده است برنامه‌ریزی می‌شود
       (setTimeout) — پوشِ سرور، service-worker push و Firebase هیچ‌کدام
       در کار نیستند و محدودیتش صریح در README آمده. صدای اذان هم
@@ -79,37 +82,95 @@ const WirdUI = {
     return { ok:true };
   },
 
-  /* ── کارتِ ذکرِ صفحهٔ عبادت (کنارِ اوقات و مناسبت) ── */
+  /* ── متنِ نمایشیِ یک دعا: پوششِ کامل اگر بود، وگرنه همان بانک ──
+     تطبیق با U.norm (بی‌اعراب) تا به املای عنوان گره نخورد. خروجی
+     همیشه { title, ar, fa, src } است. */
+  text(d){
+    try{
+      if(d && typeof DUA_FULL !== 'undefined' && Array.isArray(DUA_FULL)){
+        const nt = U.norm(d.title || '');
+        const f = DUA_FULL.find(x => x && nt.includes(U.norm(x.for || '###')));
+        if(f) return { title:d.title, ar:f.ar, fa:f.fa, src:f.src };
+      }
+    }catch(e){}
+    return d || { title:'', ar:'', fa:'', src:'' };
+  },
+
+  /* زبانهٔ فعالِ کارتِ ذکر — پیش‌فرض، بانکِ درستِ همان ساعت */
+  _tab: '',
+
+  tabsHtml(active){
+    return ['morning', 'evening', 'afterPrayer'].map(w => `
+      <button class="sc-tab${w === active ? ' on' : ''}" data-wird-tab="${w}"
+              aria-pressed="${w === active ? 'true' : 'false'}">${this.LABEL[w]}${this.done(w) ? ' ✓' : ''}</button>`).join('');
+  },
+
+  /* بدنهٔ یک بانک: هر سه دعا با متنِ کامل، بی‌جمع‌شدگی */
+  itemsHtml(which){
+    const items = this.bankItems(which);
+    const done = this.done(which);
+    return `
+      ${items.map(d => {
+        const t = this.text(d);
+        return `
+        <article class="w-full">
+          <div class="w-full-title">${U.esc(t.title)}</div>
+          <div class="w-ar">${U.esc(t.ar)}</div>
+          <div class="w-fa">${U.esc(t.fa)}</div>
+          <div class="w-src">📚 ${U.esc(t.src || '')}</div>
+        </article>`;
+      }).join('')}
+      ${done
+        ? '<div class="w-done">✓ این ورد امروز انجام شد</div>'
+        : `<button class="btn w" data-wird-finish="${which}">${Icon.of('check')}<span>تمام کردم</span></button>`}`;
+  },
+
+  /* ── کارتِ ذکرِ صفحهٔ عبادت ──
+     زبانه‌های صبح/شام/تعقیب + متنِ کاملِ هر دعا + تسبیح + میان‌برها. */
   cardHtml(now){
     now = now || new Date();
     const which = this.whichAt(now);
-    const items = this.bankItems(which);
-    const done = this.done(which);
-    const other = which === 'morning' ? 'evening' : 'morning';
+    this._tab = which;
     const sc = this.shortcuts();
     return `
       <div class="sc-wird" id="wirdCard">
-        <div class="w-title">${Icon.of('medal')} ${this.LABEL[which]}
-          ${done ? '<span class="chip wr" style="font-size:10px">✓ انجام شد</span>' : ''}</div>
-        ${items.map((d, i) => `
-          <details class="w-item" ${i === 0 ? 'open' : ''} data-wird="${which}" data-i="${i}">
-            <summary>${U.esc(d.title)}</summary>
-            <div class="w-ar">${U.esc(d.ar)}</div>
-            <div class="w-fa">${U.esc(d.fa)}</div>
-            <div class="w-src">${U.esc(d.src || '')}</div>
-          </details>`).join('')}
-        ${done ? '' : `<button class="btn gh sm" data-wird-finish="${which}">
-            ${Icon.of('check')}<span>تمام کردم</span></button>`}
+        <div class="sc-sec-head">
+          <span class="sc-sec-title">${Icon.of('medal')} <b>ذکر و تعقیبات</b></span>
+          <small class="sc-sec-sub">${U.fa(this.doneCount())} از ${U.fa(3)} ورد</small>
+        </div>
+        <div class="sc-tabs" role="group" aria-label="بانکِ ذکر">${this.tabsHtml(which)}</div>
+        <div id="wirdBody">${this.itemsHtml(which)}</div>
         <div class="sep"></div>
         ${Tasbih.html()}
         <div class="sep"></div>
         <div class="w-title" style="font-size:12px">${Icon.of('book-open')} میان‌برِ دعاها</div>
         <div class="sc-set-row" style="flex-wrap:wrap">
           ${sc.map(x => `<button class="btn gh sm" data-dua-open="${U.esc(x.q)}" style="min-height:44px">${U.esc(x.dua.title.split(' — ')[0])}</button>`).join('')}
-          <button class="btn gh sm" data-wird-open="${other}" style="min-height:44px">${this.LABEL[other]}</button>
           <button class="btn gh sm" id="khatmOpen" style="min-height:44px">${Icon.of('listen')}<span>ختمِ قرآن</span></button>
         </div>
       </div>`;
+  },
+
+  /* جابه‌جاییِ زبانه بی‌بازترسیمِ کلِ صفحه: فقط بدنه + نشانِ زبانه */
+  paintTab(box, which){
+    if(!this.BANKS[which]) return;
+    this._tab = which;
+    const body = U.$('#wirdBody', box);
+    if(body) body.innerHTML = this.itemsHtml(which);
+    U.$$('[data-wird-tab]', box).forEach(b => {
+      const on = b.dataset.wirdTab === which;
+      b.classList.toggle('on', on);
+      try{ b.setAttribute('aria-pressed', on ? 'true' : 'false'); }catch(e){}
+      try{ b.innerHTML = U.esc(this.LABEL[b.dataset.wirdTab]) + (this.done(b.dataset.wirdTab) ? ' ✓' : ''); }catch(e){}
+    });
+    this._wireFinish(box || (typeof document !== 'undefined' ? document : null));
+  },
+
+  _wireFinish(scope){
+    U.$$('[data-wird-finish]', scope).forEach(b => b.onclick = () => {
+      WirdUI.finish(b.dataset.wirdFinish);
+      try{ Courtyard.render(); }catch(e){}
+    });
   },
 
   open(which){
@@ -117,13 +178,16 @@ const WirdUI = {
     if(!items.length){ UI.toast('بانکِ ورد خالی است', 'err'); return; }
     UI.modal(`
       <h3 style="margin-bottom:8px">${Icon.of('medal')} ${this.LABEL[which]}</h3>
-      ${items.map(d => `
+      ${items.map(d => {
+        const t = this.text(d);
+        return `
         <div class="card" style="padding:10px;margin-bottom:8px">
-          <b style="font-size:12px">${U.esc(d.title)}</b>
-          <div class="w-ar" style="margin-top:6px">${U.esc(d.ar)}</div>
-          <div class="w-fa">${U.esc(d.fa)}</div>
-          <div class="w-src">${U.esc(d.src || '')}</div>
-        </div>`).join('')}
+          <b style="font-size:12px">${U.esc(t.title)}</b>
+          <div class="w-ar" style="margin-top:6px">${U.esc(t.ar)}</div>
+          <div class="w-fa">${U.esc(t.fa)}</div>
+          <div class="w-src">📚 ${U.esc(t.src || '')}</div>
+        </div>`;
+      }).join('')}
       ${this.done(which) ? '' : `<button class="btn w" data-wird-finish="${which}" style="width:100%">
           ${Icon.of('check')}<span>تمام کردم</span></button>`}
     `, box => {
@@ -138,19 +202,21 @@ const WirdUI = {
   duaModal(substr){
     const d = this.dua(substr);
     if(!d){ UI.toast('این دعا در بانک نیست', 'err'); return; }
+    const t = this.text(d);
     UI.modal(`
-      <h3 style="margin-bottom:8px">${Icon.of('medal')} ${U.esc(d.title)}</h3>
-      <div class="w-ar" style="font-size:22px">${U.esc(d.ar)}</div>
-      <div class="w-fa" style="margin-top:8px">${U.esc(d.fa)}</div>
-      <div class="w-src" style="margin-top:8px">${U.esc(d.src || '')}</div>
+      <h3 style="margin-bottom:8px">${Icon.of('medal')} ${U.esc(t.title)}</h3>
+      <div class="w-ar" style="font-size:22px">${U.esc(t.ar)}</div>
+      <div class="w-fa" style="margin-top:8px">${U.esc(t.fa)}</div>
+      <div class="w-src" style="margin-top:8px">📚 ${U.esc(t.src || '')}</div>
     `, () => {});
   },
 
   wire(box){
-    U.$$('[data-wird-finish]', box).forEach(b => b.onclick = () => {
-      WirdUI.finish(b.dataset.wirdFinish);
-      try{ Courtyard.render(); }catch(e){}
+    U.$$('[data-wird-tab]', box).forEach(b => b.onclick = () => {
+      try{ Sound.click(); }catch(e){}
+      WirdUI.paintTab(box, b.dataset.wirdTab);
     });
+    this._wireFinish(box);
     U.$$('[data-dua-open]', box).forEach(b => b.onclick = () => WirdUI.duaModal(b.dataset.duaOpen));
     U.$$('[data-wird-open]', box).forEach(b => b.onclick = () => WirdUI.open(b.dataset.wirdOpen));
     const kh = U.$('#khatmOpen', box); if(kh) kh.onclick = () => Khatm.modal();
@@ -352,9 +418,11 @@ const RamadanUI = {
     if(!this.isRamadan(now)) return '';          /* بیرونِ رمضان: هیچ کارتی نیست */
     const t = times || Salah.times(now);
     const hij = Hijri.formatFa(now);
-    const sahri = (() => {                        /* ذکرِ سحر — از همان بانکِ دعا */
+    const sahri = (() => {                        /* ذکرِ سحر — متنِ کامل با منبع */
       const d = WirdUI.dua('دعای سلامتی امام زمان');
-      return d ? `<div class="rm-dua"><b>ذکرِ سحر (از بانکِ دعا):</b><br>${U.esc(d.title)} — ${U.esc(d.fa)}<br><small>${U.esc(d.src || '')}</small></div>` : '';
+      if(!d) return '';
+      const t = WirdUI.text(d);
+      return `<div class="rm-dua"><b>ذکرِ سحر:</b> ${U.esc(t.title)}<br>${U.esc(t.fa)}<br><small>📚 ${U.esc(t.src || '')}</small></div>`;
     })();
     const fasted = SalahLog.marked('maghrib');
     return `

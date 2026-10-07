@@ -1,33 +1,33 @@
 /* ═══════════════════════════════════════════════════════════════════
-   نورستان — نسخهٔ ۱۹د: صفحهٔ «عبادت» + تنظیماتِ عبادت + قبله
+   نورستان — نسخهٔ ۲۱: صفحهٔ «عبادت» (بازطراحیِ کامل)
    ═══════════════════════════════════════════════════════════════════
-   تزِ UI (نسخهٔ ۱۹د): سه بخشِ بالاییِ صحنِ نسخهٔ ۱۹ب — سربرگِ امروز (نام،
-   شمسی+قمری، شهر و نوارِ تا اذانِ بعدی)، اوقاتِ شرعیِ امروز و کارتِ ذکر و
-   تعقیبات — از خانه برداشته شدند و یک صفحهٔ مستقلِ خودشان را دارند:
-   «عبادت» (`#s-ebadat`، تبِ تازهٔ نوارِ پایین). خانه (صحن) با تصویر و
-   خوش‌آمد و آیهٔ روز و دسته‌ها سرِ جایش است؛ نوارِ نماز هم چهار نماز
-   دارد، چون «عصر» به درخواستِ صاحبِ برنامه برداشته شد.
+   تزِ UI (نسخهٔ ۲۱): کاروسلِ نسخهٔ ۱۹د کنار رفت — به درخواستِ صاحبِ
+   برنامه صفحه «نظم ندارد و جذاب نیست». عبادت حالا یک ستونِ عمودیِ
+   منظم است، هم‌خانواده با بقیهٔ صفحه‌ها (سربرگِ بخش، کارتِ شیشه‌ای،
+   خطِ زرّین):
 
-   این فایل *پس از* باندلِ اصلی و موتورِ اوقات بار می‌شود و به همان
-   سبکِ بقیهٔ برنامه، خودش را به نقاطِ موجود وصل می‌کند:
-   • `Router.hooks.ebadat` را می‌نشاند تا هر بارِ ورود به صفحه، اوقات و
-     ذکر و مناسبتِ امروز را تازه کند (بی پوشاندنِ هیچ تابعِ دیگری)؛
-   • Me.render() را می‌پوشاند تا بخشِ «عبادتِ روزانه» در تنظیمات بنشیند؛
-   • نشانی‌های قدیمیِ #salah و #wird در `ROUTE_ALIASES` باندلِ اصلی به
-     همین صفحه نگاشت شده‌اند، پس میان‌برِ کارتِ نصب هم کار می‌کند.
+   ۱) سربرگِ امروز: سلام + نام، تاریخِ شمسی و قمری، شهر، و تابلوی
+      «اذانِ بعدی» با شمارشِ معکوسِ زنده و نوارِ پیشرفتِ بازه؛
+   ۲) مناسبتِ امروز (فقط اگر هست)؛
+   ۳) اوقاتِ امروز: سه ردیفِ نماز (صبح/ظهر/مغرب — «عشا» در نسخهٔ ۲۱
+      مثلِ «عصر» از ستون رفت) با دکمهٔ «علامت زدم» روی هر ردیف، به‌علاوهٔ
+      طلوع/غروب/نیمه‌شب؛
+   ۴) کارتِ رمضان (فقط در ماهِ نهم)؛
+   ۵) کارتِ قبله: درجه، جهت و فاصله تا مکه + دکمهٔ «قبله‌نمای زنده»؛
+   ۶) ذکر و تعقیبات: زبانه‌های صبح/شام/پس‌ازنماز با متنِ کاملِ ادعیه
+      (از پوششِ DUA_FULL)، تسبیح، میان‌برِ دعاها و ختم.
 
-   همهٔ رنگ‌ها از توکن‌های پوسته‌اند (assets/styles/salah.css)؛ پس
-   شب/اقیانوس/جنگل/سلطنتی/کویر/روشن، عبادت را هم‌رنگِ خودشان می‌کنند.
+   اتصال‌ها مثلِ پیش است: `Router.hooks.ebadat`، پوششِ `Me.render` برای
+   بخشِ «عبادتِ روزانه» در تنظیمات، و دکمهٔ `#ebQibla` در سربرگِ صفحه.
+   همهٔ رنگ‌ها از توکن‌های پوسته‌اند (assets/styles/salah.css).
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── دفترچهٔ علامتِ نماز ──
    محلی، ساده و با سقف: هر نماز در هر روز یک بار ثبت می‌شود و جایزهٔ
-   هر ثبت «خیلی کم» است (۱ سکه + ۳ تجربه) — یعنی حداکثر یک سکه به ازای
-   هر نمازِ ستونِ عبادت در روز. علامتِ نماز قرار است عادت بسازد، نه
-   اینکه اقتصادِ سکه را پُر کند.
+   هر ثبت «خیلی کم» است (۱ سکه + ۳ تجربه).
    فهرستِ نام‌ها از خودِ موتور می‌آید (`Salah.NAMES`): نسخهٔ ۱۹د «عصر»
-   را از آن ستون برداشته، پس این‌جا هم چهار نماز است و سقفِ روزانه هم
-   همان چهار می‌شود — بی آنکه عددی دستی تکرار شده باشد. */
+   و نسخهٔ ۲۱ «عشا» را از آن ستون برداشتند، پس این‌جا هم سه نماز است و
+   سقفِ روزانه هم همان سه می‌شود — بی آنکه عددی دستی تکرار شده باشد. */
 const SalahLog = {
   NAMES: Salah.NAMES,
   COIN: 1, XP: 3, DAILY_CAP: Salah.NAMES.length,
@@ -75,10 +75,14 @@ const SalahLog = {
   }
 };
 
-/* ── صحنِ روزانه ── */
+/* ── صفحهٔ عبادت ── */
 const Courtyard = {
   _clockId: null,
   _curName: '',
+
+  /* آیکنِ هر نماز در ردیفِ اوقات — سحر/نیمروز/شامگاه */
+  PRAYER_ICON: { fajr:'sparkle', dhuhr:'sun', maghrib:'moon' },
+  PRAYER_SUB: { fajr:'اذانِ صبح', dhuhr:'اذانِ ظهر', maghrib:'اذانِ مغرب' },
 
   enabled(){
     const s = Store.get('settings') || {};
@@ -88,10 +92,13 @@ const Courtyard = {
   hhmm(d){
     return U.fa(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
   },
+  /* شمارشِ معکوس: زیرِ یک ساعت «دقیقه:ثانیه»، وگرنه «ساعت:دقیقه:ثانیه» */
   mmss(ms){
     ms = Math.max(0, +ms || 0);
-    const m = Math.floor(ms / 6e4), s = Math.floor((ms % 6e4) / 1e3);
-    return U.fa(m + ':' + String(s).padStart(2, '0'));
+    const h = Math.floor(ms / 36e5), m = Math.floor((ms % 36e5) / 6e4), s = Math.floor((ms % 6e4) / 1e3);
+    const body = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                       : `${m}:${String(s).padStart(2, '0')}`;
+    return U.fa(body);
   },
 
   _buildSig(){
@@ -130,11 +137,7 @@ const Courtyard = {
 
   hasLoc(){ try{ return !!Store.get('loc'); }catch(e){ return false; } },
 
-  /* ── صفحهٔ عبادت: هست یا نه؟ ──
-     کارت‌های اوقات حالا در صفحهٔ جداگانه‌ای زندگی می‌کنند، پس رسم و
-     تیکِ هرثانیه‌ای فقط وقتی معنا دارد که همان صفحه باز باشد. در
-     هارنسِ Node (DOMِ ساختگی) یا پیش از افزودنِ بخش به سند، «باز نیست»
-     نتیجه می‌شود و کد بی‌خطا سرِ جایش می‌ماند. */
+  /* رسم و تیکِ هرثانیه‌ای فقط وقتی معنا دارد که صفحهٔ عبادت باز باشد */
   open(){
     try{
       const el = U.$('#s-ebadat');
@@ -142,44 +145,23 @@ const Courtyard = {
     }catch(e){ return false; }
   },
 
-  /* ── اندازهٔ کاروسل: به اندازهٔ اسلایدِ فعال ──
-     قابِ کاروسل به بلندترین اسلاید قفل می‌شد؛ یعنی سربرگ (کارتِ کوتاه)
-     صدها پیکسل جای خالی زیرش داشت. حالا پیمانهٔ ارتفاع همان اسلایدی است
-     که دیده می‌شود و با هر جابه‌جایی نرم عوض می‌شود (CSS گذارِ ارتفاع
-     را دارد). کم‌حرکتی هم گذار را خاموش می‌کند، ولی اندازه درست
-     می‌ماند. */
-  fitCarousel(){
-    try{
-      const box = U.$('#salahCourt');
-      if(!box) return;
-      const car = U.$('#scCarousel', box);
-      const vp = car && U.$('.carousel-viewport', car);
-      if(!car || !vp || !vp.style) return;
-      const act = U.$('.slide.is-active', car) || U.$('.slide', car);
-      const h = act && (act.offsetHeight || act.getBoundingClientRect && Math.round(act.getBoundingClientRect().height));
-      /* نوشتنِ فقط-در-تغییر: اگر مقدار همان باشد دست نمی‌زنیم. همین
-         بی‌اثر‌بودنِ نوشتن است که حلقهٔ ناظر→اندازه→کلاس→ناظر را
-         می‌بندد (اندازه‌گیریِ پشت‌سرهم با تغییرهای بی‌مورد). */
-      const want = h > 0 ? Math.round(h) + 'px' : '';
-      if(vp.style.height !== want) vp.style.height = want;
-      const sized = car.classList.contains('sc-sized');
-      if(sized !== (h > 0)) car.classList.toggle('sc-sized', h > 0);
-    }catch(e){}
-  },
-
   times(){ return Salah.times(new Date()); },
 
+  /* ── ۱. سربرگِ امروز + تابلوی اذانِ بعدی ── */
   headerHtml(now, t, nx){
     const name = Store.get('playerName') || 'بازیکن';
     const jal = U.jalali(+now);
     const hij = Hijri.formatFa(now);
     return `
-      <div class="sc-head">
-        <div class="sc-head-top">
-          <div>
+      <div class="sc-hero">
+        <div class="sc-hero-top">
+          <div class="sc-hero-id">
             <div class="sc-hello">سلام،</div>
             <div class="sc-name">${U.esc(name)}</div>
-            <div class="sc-dates"><span>${U.esc(jal)}</span> • <span>${U.esc(hij)}</span></div>
+            <div class="sc-dates">
+              <span class="sc-chip">${Icon.of('calendar')}<span>${U.esc(jal)}</span></span>
+              <span class="sc-chip">${Icon.of('moon')}<span>${U.esc(hij)}</span></span>
+            </div>
           </div>
           <button class="sc-citybtn" data-sc="city" aria-label="انتخابِ شهر برای اوقاتِ نماز">
             ${Icon.of('city')} <span>${U.esc(this.cityLabel())}</span>
@@ -187,15 +169,18 @@ const Courtyard = {
         </div>
         ${this.hasLoc() ? '' : '<div class="sc-noloc">برای اوقاتِ دقیق، شهرت را انتخاب کن.</div>'}
         <div class="sc-next">
-          <div class="sc-next-row">
+          <div class="sc-next-head">
+            <span class="sc-next-label">اذانِ بعدی</span>
             <span class="sc-next-name" id="scNextName">—</span>
-            <span>اذانِ بعدی</span>
             <span class="sc-next-clock" id="scNextAt">${this.hhmm(nx.at)}</span>
-            <span class="sc-next-count" id="scNextIn">—</span>
           </div>
+          <div class="sc-next-count" id="scNextIn" aria-live="off">—</div>
           <div class="sc-next-bar" role="progressbar" aria-label="زمان تا اذان بعدی"
                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="scNextBarWrap"><i id="scNextBar"></i></div>
-          <div class="sc-count-chip" id="scMarks">${this.marksChip()}</div>
+          <div class="sc-marks-row">
+            <div class="sc-segs" aria-hidden="true">${this.segsHtml()}</div>
+            <div class="sc-count-chip" id="scMarks">${this.marksChip()}</div>
+          </div>
         </div>
       </div>`;
   },
@@ -205,22 +190,82 @@ const Courtyard = {
     return `${U.fa(n)} از ${U.fa(SalahLog.NAMES.length)} نمازِ امروز علامت خورده`;
   },
 
+  segsHtml(){
+    return SalahLog.NAMES.map(name =>
+      `<span class="seg${SalahLog.marked(name) ? ' done' : ''}" title="${U.esc(Salah.LABEL[name] || name)}"></span>`
+    ).join('');
+  },
+
+  /* ── ۳. ردیف‌های نمازِ امروز + طلوع/غروب/نیمه‌شب ── */
   prayersHtml(t, curName){
+    const rows = Salah.NAMES.map(name => {
+      const label = Salah.LABEL[name] || name;
+      const isCur = name === curName;
+      const done = SalahLog.marked(name);
+      const icon = this.PRAYER_ICON[name] || 'clock';
+      const sub = this.PRAYER_SUB[name] || '';
+      return `
+      <div class="sc-prayer-row">
+        <button class="sc-prayer${isCur ? ' is-current' : ''}${done ? ' is-marked' : ''}"
+                data-sp="${name}" ${isCur ? 'aria-current="time"' : ''}
+                aria-label="نمازِ ${label} — ${this.hhmm(t[name])}${done ? ' — علامت خورده' : ''}">
+          <span class="sp-ic">${Icon.of(icon)}</span>
+          <span class="sp-main">
+            <span class="sp-name">${label}${isCur ? ' <span class="sp-badge">الآن</span>' : ''}</span>
+            <span class="sp-sub">${sub}</span>
+          </span>
+          <span class="sp-time">${this.hhmm(t[name])}</span>
+        </button>
+        <button class="sp-mark${done ? ' done' : ''}" data-sp-mark="${name}"
+                aria-pressed="${done ? 'true' : 'false'}"
+                aria-label="${done ? 'برداشتنِ علامتِ نمازِ' : 'علامتِ نمازِ'} ${label}"
+                title="${done ? 'علامت خورده — برای برداشتن بزن' : 'علامت زدم'}">${Icon.of('check')}</button>
+      </div>`;
+    }).join('');
+    const subs = [
+      ['sun', 'طلوعِ آفتاب', t.sunrise],
+      ['moon', 'غروبِ آفتاب', t.sunset],
+      ['star', 'نیمه‌شبِ شرعی', t.midnight]
+    ].map(([ic, label, at]) => `
+      <div class="sc-sub">${Icon.of(ic)}<span>${label}</span><b>${this.hhmm(at)}</b></div>`).join('');
     return `
-      <div class="sc-prayers" role="group" aria-label="نوارِ نمازهای امروز">
-        ${Salah.NAMES.map(name => {
-          const label = Salah.LABEL[name] || name;
-          const isCur = name === curName;
-          const done = SalahLog.marked(name);
-          return `
-          <button class="sc-prayer${isCur ? ' is-current' : ''}${done ? ' is-marked' : ''}"
-                  data-sp="${name}" ${isCur ? 'aria-current="time"' : ''}
-                  aria-label="نمازِ ${label} — ${this.hhmm(t[name])}${done ? ' — علامت خورده' : ''}">
-            ${done ? '<span class="sp-mark" aria-hidden="true">✓</span>' : ''}
-            <span class="sp-name">${label}</span>
-            <span class="sp-time">${this.hhmm(t[name])}</span>
-          </button>`;
-        }).join('')}
+      <div class="sc-times">
+        <div class="sc-sec-head">
+          <span class="sc-sec-title">${Icon.of('clock')} <b>اوقاتِ امروز</b></span>
+          <small class="sc-sec-sub">${U.esc(this.cityLabel())}</small>
+        </div>
+        <div class="sc-prayers" role="group" aria-label="نمازهای امروز">
+          ${rows}
+        </div>
+        <div class="sc-sub-times">${subs}</div>
+      </div>`;
+  },
+
+  /* ── ۵. کارتِ قبله روی صفحه ──
+     درجه و جهت و فاصله همین‌جا دیده می‌شود؛ «قبله‌نمای زنده» همان
+     پنجرهٔ قطب‌نمای واقعی (`Qibla.open`) را باز می‌کند. */
+  qiblaCardHtml(){
+    let q = 0, dist = 0;
+    try{
+      const loc = Salah.resolveLoc(Store.get('loc'));
+      q = Salah.qibla(loc.lat, loc.lon);
+      dist = Qibla.distanceKm(loc.lat, loc.lon);
+    }catch(e){}
+    return `
+      <div class="sc-qibla-card">
+        <div class="sc-sec-head">
+          <span class="sc-sec-title">${Icon.of('target')} <b>قبله</b></span>
+          <small class="sc-sec-sub">${U.esc(this.cityLabel())}</small>
+        </div>
+        <div class="qb-mini-row">
+          <div class="qb-mini-svg" aria-hidden="true">${Qibla.svgHtml(q, 'mini')}</div>
+          <div class="qb-mini-info">
+            <div class="qb-deg-big">${U.fa(Math.round(q))}°</div>
+            <div class="qb-desc">به سمتِ ${U.esc(Qibla.describe(q))}</div>
+            <div class="qb-dist">فاصله تا مکه: ${Qibla.fmtKm(dist)} کیلومتر</div>
+          </div>
+        </div>
+        <button class="btn w" id="qbOpenPage">${Icon.of('target')}<span>قبله‌نمای زنده</span></button>
       </div>`;
   },
 
@@ -241,7 +286,7 @@ const Courtyard = {
       </div>`;
   },
 
-  /* کلِ عبادت — اسلایدهای کاروسلی */
+  /* کلِ عبادت — ستونِ عمودیِ بخش‌ها (نسخهٔ ۲۱: بی‌کاروسل) */
   html(){
     const now = new Date();
     const t = this.times();
@@ -253,64 +298,14 @@ const Courtyard = {
     const wird = (typeof WirdUI !== 'undefined' && WirdUI.cardHtml) ? WirdUI.cardHtml(now) : '';
     const occ = this.occasionHtml(now);
 
-    const slides = [
-      `<article class="slide sc-slide sc-head-slide" role="group" aria-label="سربرگ و اذان بعدی">
-        ${this.headerHtml(now, t, nx)}
-      </article>`,
-      `<article class="slide sc-slide sc-prayer-slide" role="group" aria-label="اوقات نماز">
-        <div class="sc-slide-head-row">
-          <span class="sc-slide-title">${Icon.of('clock')} <b>اوقاتِ شرعیِ امروز</b></span>
-          <small class="sc-slide-sub">${U.esc(this.cityLabel())}</small>
-        </div>
-        ${this.prayersHtml(t, cur.name)}
-      </article>`
-    ];
-
-    if(ramadan){
-      slides.push(`
-        <article class="slide sc-slide sc-ramadan-slide" role="group" aria-label="رمضان — سحر و افطار">
-          ${ramadan}
-        </article>`);
-    }
-
-    if(wird){
-      slides.push(`
-        <article class="slide sc-slide sc-wird-slide" role="group" aria-label="ذکر و تعقیبات روز">
-          ${wird}
-        </article>`);
-    }
-
-    if(occ){
-      slides.push(`
-        <article class="slide sc-slide sc-occ-slide" role="group" aria-label="مناسبت امروز">
-          ${occ}
-        </article>`);
-    }
-
-    /* فاز ۲: اسلایدِ «میان‌برهای نورستان» برداشته شد. سه دکمهٔ آن به
-       تلاوت/بازی/محفل می‌بردند — همان سه بخشی که تبِ پایین دارد. عبادت
-       محتواست (اوقات، قبله، ذکر، مناسبت)، نه دروازهٔ دوم. */
-
-    /* نسخهٔ ۱۹د: همین چند اسلاید از بالای صحن به این صفحه منتقل شدند.
-       کاروسل دست‌نخورده مانده — فقط اندازه‌اش را `fitCarousel` به اندازهٔ
-       اسلایدِ فعال می‌بندد تا زیرِ کارتِ کوتاه جای خالی نماند. */
-
     return `
       <div class="sc-wrap">
-        <div class="category-carousel" id="scCarousel" role="group" aria-roledescription="کاروسل" aria-label="عبادت — اوقات نماز، ذکر و برنامه‌های امروز">
-          <div class="carousel-viewport">
-            <div class="carousel-track">
-              ${slides.join('')}
-            </div>
-          </div>
-          <button type="button" class="carousel-nav prev" aria-label="اسلاید قبلی">›</button>
-          <button type="button" class="carousel-nav next" aria-label="اسلاید بعدی">‹</button>
-          <div class="carousel-controls">
-            <button type="button" class="carousel-toggle" aria-label="توقف چرخش خودکار" aria-pressed="false">${Icon.of('pause')}</button>
-            <div class="carousel-dots" role="group" aria-label="انتخاب اسلاید"></div>
-          </div>
-          <p class="carousel-status" role="status" aria-live="polite"></p>
-        </div>
+        ${this.headerHtml(now, t, nx)}
+        ${occ}
+        ${this.prayersHtml(t, cur.name)}
+        ${ramadan}
+        ${this.qiblaCardHtml()}
+        ${wird}
       </div>`;
   },
 
@@ -342,62 +337,36 @@ const Courtyard = {
     }
 
     const sig = this._buildSig();
-    if(box.dataset.scSig === sig && U.$('#scCarousel', box)){
+    if(box.dataset.scSig === sig && box.innerHTML && box.innerHTML.includes('sc-hero')){
       this.tick();
-      this.fitCarousel();
       return;
     }
 
     box.dataset.scSig = sig;
     box.innerHTML = this.html();
     this.wire(box);
-    try{ initAllCarousels(); }catch(e){}
     this.startClock();
-    this.observeCarousel(box);
     this.tick();
-    this.fitCarousel();
-  },
-
-  /* ── دیدنِ جابه‌جاییِ اسلاید و هم‌اندازه‌کردنِ قاب ──
-     کنترل‌کنندهٔ کاروسل کلاسِ `is-active` را روی اسلاید می‌گرداند؛ همان
-     یک تغییر برای ما نشانه است. یک ناظرِ کوچک روی زیردرختِ کاروسل
-     می‌نشیند و ارتفاعِ قاب را با اسلایدِ تازه یکی می‌کند. ناظرِ پیشین
-     (اگر بود) جدا می‌شود تا با هر بازترسیم، شنوندهٔ کهنه نماند.
-     دو نگهبانِ حلقه: کلاسِ ریشه نادیده گرفته می‌شود (آن نشانِ خودِ
-     `fitCarousel` است) و اندازه‌گیری به فریمِ بعد موکول می‌شود و فقط
-     یک‌بار در هر فریم می‌افتد. */
-  observeCarousel(box){
-    try{
-      if(this._fitObs){ try{ this._fitObs.disconnect(); }catch(e){} }
-      this._fitObs = null;
-      if(typeof MutationObserver !== 'function') return;
-      const car = U.$('#scCarousel', box);
-      if(!car) return;
-      this._fitObs = new MutationObserver(recs => {
-        /* کلاسِ ریشهٔ کاروسل نشانِ خودِ ماست؛ گوش‌دادن به آن حلقهٔ
-           ناظر→اندازه→کلاس→ناظر می‌سازد. فقط جابه‌جاییِ اسلایدها (زیردرخت)
-           ارزشِ اندازه‌گیری دارد. */
-        if(recs.every(r => r.target === car)) return;
-        /* هر نشانه فقط یک اندازه‌گیری در همان فریم می‌ارزد، نه یک
-           آبشارِ ریزکارتی که صفحه را قفل کند. */
-        if(this._fitPending) return;
-        this._fitPending = true;
-        const run = () => { this._fitPending = false; this.fitCarousel(); };
-        if(typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
-        else setTimeout(run, 16);
-      });
-      this._fitObs.observe(car, { attributes:true, attributeFilter:['class'], subtree:true });
-    }catch(e){ this._fitObs = null; }
   },
 
   wire(box){
-    U.$$('[data-sp]', box).forEach(b => b.onclick = () => { Sound.click(); this.prayerModal(b.dataset.sp); });
+    U.$$('[data-sp]', box).forEach(b => b.onclick = () => { try{ Sound.click(); }catch(e){} this.prayerModal(b.dataset.sp); });
+    U.$$('[data-sp-mark]', box).forEach(b => b.onclick = (ev) => {
+      try{ ev && ev.stopPropagation && ev.stopPropagation(); }catch(e){}
+      const name = b.dataset.spMark;
+      if(SalahLog.marked(name)){ SalahLog.unmark(name); UI.toast('علامت برداشته شد', '', 1400); }
+      else SalahLog.mark(name);
+      this.invalidateSig();
+      this.render();
+    });
     U.$$('[data-sc="city"]', box).forEach(b => b.onclick = () => this.cityPicker());
     U.$$('[data-sc="occ-quiz"]', box).forEach(b => b.onclick = () => {
       const topic = b.dataset.topic;
       UI.closeModal && UI.closeModal();
       QuizPick.open([topic]);
     });
+    const qb = U.$('#qbOpenPage', box);
+    if(qb) qb.onclick = () => { try{ Sound.click(); }catch(e){} Qibla.open(); };
     const on = U.$('#scTurnOn', box);
     if(on) on.onclick = () => {
       Store.update(x => { x.settings.salahOnHome = true; });
@@ -408,13 +377,11 @@ const Courtyard = {
     };
     try{ if(typeof WirdUI !== 'undefined' && WirdUI.wire) WirdUI.wire(box); }catch(e){}
     try{ if(typeof Adhan !== 'undefined' && Adhan.reschedule) Adhan.reschedule(); }catch(e){}
-    this.fitCarousel();
   },
 
   /* ساعتِ عبادت: هر ثانیه فقط متنِ شمارش و نوار تازه می‌شود (نه کلِ DOM)؛
      وقتی نمازِ جاری عوض شود، فقط نشانگرِ is-current عوض می‌شود.
-     تیک فقط وقتی می‌زند که صفحهٔ عبادت باز باشد — محاسبهٔ نجومیِ هر
-     ثانیه در صفحه‌های دیگر بی‌فایده است. */
+     تیک فقط وقتی می‌زند که صفحهٔ عبادت باز باشد. */
   startClock(){
     if(this._clockId != null) return;
     try{
@@ -431,7 +398,7 @@ const Courtyard = {
     const nx = Salah.next(now);
     const cur = Salah.current(now);
     const inn = U.$('#scNextIn'); if(inn) inn.textContent = this.mmss(nx.inMs);
-    const nm = U.$('#scNextName'); if(nm) nm.textContent = (Salah.LABEL[nx.name] || nx.name) + ' —';
+    const nm = U.$('#scNextName'); if(nm) nm.textContent = (Salah.LABEL[nx.name] || nx.name);
     const at = U.$('#scNextAt'); if(at) at.textContent = this.hhmm(nx.at);
     const p = Math.round(Salah.progress(now) * 100);
     const bar = U.$('#scNextBar'); if(bar) bar.style.width = p + '%';
@@ -440,7 +407,6 @@ const Courtyard = {
 
     if(cur.name !== this._curName){
       this._curName = cur.name;
-      this.fitCarousel();
       const box = U.$('#salahCourt');
       if(box){
         U.$$('[data-sp]', box).forEach(btn => {
@@ -461,10 +427,9 @@ const Courtyard = {
     const t = this.times();
     const label = Salah.LABEL[name] || name;
     const done = SalahLog.marked(name);
-    /* نسخهٔ ۱۹د: «عصر» از اوقاتِ نمایش‌داده‌شده برداشته شد — همان‌طور که
-       از ستونِ نمازها و یادآورهای اذان رفت. باقیِ اوقات دست‌نخورده‌اند. */
+    /* نسخهٔ ۲۱: «عشا» هم مثلِ «عصر» از اوقاتِ نمایش‌داده‌شده رفت. */
     const rows = [['فجر','fajr'],['طلوع','sunrise'],['ظهر','dhuhr'],
-                  ['غروب','sunset'],['مغرب','maghrib'],['عشا','isha'],['نیمه‌شبِ شرعی','midnight']];
+                  ['غروب','sunset'],['مغرب','maghrib'],['نیمه‌شبِ شرعی','midnight']];
     UI.modal(`
       <h3 style="margin-bottom:4px">${Icon.of('clock')} نمازِ ${label}</h3>
       <p style="font-size:12px;color:var(--mut);margin-bottom:10px">
@@ -557,60 +522,122 @@ const Courtyard = {
   }
 };
 
-/* ── قبله: SVG/CSS خالص، بدونِ کتابخانه ──
-   دو حالت: اگر DeviceOrientation در دسترس بود، صفحهٔ قطب‌نما می‌چرخد و
-   نشانگرِ کعبه سمتِ واقعی را می‌گوید؛ وگرنه سوزن روی درجهٔ محاسبه‌شده
-   می‌نشیند و عدد + راهنمای فارسی نمایش داده می‌شود. با
-   prefers-reduced-motion هیچ چرخشِ نرمی نیست (CSS انتقال را خاموش
-   می‌کند و JS مستقیم می‌نویسد). */
-const Qibla = {
-  _bound:false, _open:false, _heading:null, _q:0,
+/* ── قبله‌نمای واقعی: قطب‌نمای زندهٔ دستگاه + محاسبهٔ دقیق ──
+   نسخهٔ ۲۱: سه مسیرِ حسگر پوشش داده می‌شود —
+   • iOS: `webkitCompassHeading` (جهتِ واقعیِ قطب‌نما، با اجازهٔ کاربر)؛
+   • اندرویدِ تازه: رویدادِ `deviceorientationabsolute` (آلفای مطلق)؛
+   • اندرویدِ قدیمی: `deviceorientation` با پرچمِ `absolute`.
+   آلفای نسبی (غیرِ absolute) عمداً استفاده نمی‌شود، چون جهتِ واقعی
+   نمی‌دهد و فقط کاربر را گمراه می‌کند — در آن حالت همان عددِ درجه +
+   راهنمای فارسی نشان داده می‌شود.
 
-  svgHtml(q){
-    /* صفحهٔ قطب‌نما: N بالا، E راست (همان قراردادِ نقشه). درجهٔ قبله
-       از شمال، ساعتگرد. */
-    const ticks = Array.from({ length:12 }, (_, i) => {
-      const a = i * 30;
-      return `<line class="qb-tick" x1="100" y1="14" x2="100" y2="${i % 3 === 0 ? 24 : 19}" transform="rotate(${a} 100 100)"/>`;
-    }).join('');
+   مرجعِ «بالا» لبهٔ بالای گوشی است (فیزیکی)، پس جبرانِ چرخشِ صفحه لازم
+   نیست؛ اگر گوشی افقی باشد فقط یک یادآوری نشان داده می‌شود. با
+   prefers-reduced-motion چرخشِ نرم خاموش است (CSS) و JS مستقیم می‌نویسد. */
+const Qibla = {
+  _bound:false, _open:false, _heading:null, _q:0, _acc:null, _aligned:false,
+  _needCalib:false, _uselessSeen:false,
+
+  /* صفحهٔ قطب‌نما: N بالا، E راست (قراردادِ نقشه). درجهٔ قبله از شمال،
+     ساعتگرد. `ns` فضای نامِ اختیاریِ شناسه‌هاست تا نگارهٔ کوچکِ روی
+     صفحه و پنجرهٔ زنده هم‌زمان شناسهٔ یکتا داشته باشند. */
+  svgHtml(q, ns){
+    ns = ns || '';
+    const id = s => ns + s;
+    let ticks = '';
+    for(let i = 0; i < 24; i++){
+      const a = i * 15, major = i % 6 === 0, mid = i % 2 === 0;
+      ticks += `<line class="qb-tick${major ? ' major' : ''}" x1="100" y1="12" x2="100" y2="${major ? 26 : (mid ? 21 : 18)}" transform="rotate(${a} 100 100)"/>`;
+    }
     return `
-      <svg viewBox="0 0 200 200" role="img" aria-label="قطب‌نمای قبله — ${Math.round(q)} درجه از شمال">
+      <svg class="qb-svg" viewBox="0 0 200 200" role="img" aria-label="قطب‌نمای قبله — ${Math.round(q)} درجه از شمال">
         <circle class="qb-face" cx="100" cy="100" r="92"/>
         <circle class="qb-ring" cx="100" cy="100" r="92"/>
-        ${ticks}
-        <text class="qb-cardinal n" x="100" y="36">ش</text>
-        <text class="qb-cardinal" x="164" y="102">خ</text>
-        <text class="qb-cardinal" x="100" y="168">ج</text>
-        <text class="qb-cardinal" x="36" y="102">ب</text>
-        <g class="qb-dial" id="qbDial" transform="rotate(${q.toFixed(1)} 100 100)">
-          <line class="qb-needle" x1="100" y1="100" x2="100" y2="46"/>
-          <rect class="qb-kaaba" x="93" y="36" width="14" height="14" rx="3"/>
+        <g class="qb-rose" id="${id('qbRose')}">
+          ${ticks}
+          <text class="qb-cardinal n" x="100" y="42">ش</text>
+          <text class="qb-cardinal" x="162" y="104">خ</text>
+          <text class="qb-cardinal" x="100" y="168">ج</text>
+          <text class="qb-cardinal" x="38" y="104">ب</text>
+          <text class="qb-inter" x="141" y="63">ش‌خ</text>
+          <text class="qb-inter" x="141" y="143">ج‌خ</text>
+          <text class="qb-inter" x="59" y="143">ج‌ب</text>
+          <text class="qb-inter" x="59" y="63">ش‌ب</text>
         </g>
-        <circle cx="100" cy="100" r="5" fill="var(--mut)"/>
+        <g class="qb-dial" id="${id('qbDial')}" transform="rotate(${q.toFixed(1)} 100 100)">
+          <line class="qb-tail" x1="100" y1="100" x2="100" y2="128"/>
+          <line class="qb-needle" x1="100" y1="100" x2="100" y2="44"/>
+          <rect class="qb-kaaba" x="92" y="30" width="16" height="16" rx="3"/>
+        </g>
+        <circle class="qb-hub" cx="100" cy="100" r="5"/>
       </svg>`;
   },
 
+  /* فاصلهٔ هوایی تا کعبه (کیلومتر) — هاورساینِ استاندارد */
+  distanceKm(lat, lon){
+    try{
+      const k = Salah.KAABA;
+      const R = 6371, t = Math.PI / 180;
+      const la1 = (+lat) * t, la2 = k.lat * t;
+      const dLa = (k.lat - (+lat)) * t, dLo = (k.lon - (+lon)) * t;
+      const h = Math.sin(dLa / 2) * Math.sin(dLa / 2) +
+                Math.cos(la1) * Math.cos(la2) * Math.sin(dLo / 2) * Math.sin(dLo / 2);
+      const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+      return isFinite(d) ? d : 0;
+    }catch(e){ return 0; }
+  },
+
+  fmtKm(km){
+    const n = Math.max(0, Math.round(+km || 0));
+    return U.fa(n.toLocaleString('en-US').replace(/,/g, '٬'));
+  },
+
+  /* توصیفِ فارسیِ جهت: شمال، شمال‌شرقی، شرقی، … */
+  describe(q){
+    const dirs = ['شمالی', 'شمال‌شرقی', 'شرقی', 'جنوب‌شرقی', 'جنوبی', 'جنوب‌غربی', 'غربی', 'شمال‌غربی'];
+    const i = Math.round((((+q % 360) + 360) % 360) / 45) % 8;
+    return dirs[i] || '';
+  },
+
   open(){
-    const loc = Salah.resolveLoc(Store.get('loc'));
+    let loc;
+    try{ loc = Salah.resolveLoc(Store.get('loc')); }
+    catch(e){ loc = { lat:35.6892, lon:51.3890 }; }
+    this._show(loc);
+  },
+
+  _show(loc){
     const q = Salah.qibla(loc.lat, loc.lon);
-    this._q = q; this._heading = null; this._open = true;
+    const dist = this.distanceKm(loc.lat, loc.lon);
+    this._q = q; this._heading = null; this._acc = null;
+    this._aligned = false; this._uselessSeen = false; this._open = true;
+    const hasSensor = this.sensorAvail();
     UI.modal(`
-      <h3 style="margin-bottom:4px">${Icon.of('target')} قبله</h3>
-      <p style="font-size:12px;color:var(--mut);margin-bottom:8px">
-        ${U.esc(Courtyard.cityLabel())} — <b class="qb-deg" id="qbDeg">${U.fa(Math.round(q))}°</b> از شمالِ جغرافیایی</p>
+      <h3 style="margin-bottom:4px">${Icon.of('target')} قبله‌نما</h3>
+      <p style="font-size:12px;color:var(--mut);margin-bottom:8px" id="qbMeta">
+        ${U.esc(Courtyard.cityLabel())} — <b class="qb-deg" id="qbDeg">${U.fa(Math.round(q))}°</b>
+        از شمال، به سمتِ ${U.esc(this.describe(q))}
+        <br>فاصلهٔ هوایی تا مکه: ${this.fmtKm(dist)} کیلومتر</p>
       <div class="sc-qibla" id="qbBox">
         ${this.svgHtml(q)}
-        <div class="qb-hint" id="qbHint">گوشی را افقیِ دستِ‌نخورده نگه دار و لبهٔ بالایش را به سمتِ
-          «ش» (بالای صفحه) بچرخان تا نشانگرِ طلاییِ کعبه سمتِ قبله را نشان دهد.
-          ${this.sensorAvail() ? '' : 'این مرورگر قطب‌نمای دستگاه نمی‌دهد — عددِ درجه را با یک قطب‌نمای معمولی یا نقشهٔ محلّت مطابقت بده.'}</div>
+        <div class="qb-live-row">
+          <span class="qb-live" id="qbHead">جهتِ گوشی: —</span>
+          <span class="qb-live dim" id="qbAcc"></span>
+        </div>
+        <div class="qb-hint" id="qbHint">${hasSensor
+          ? '«فعال‌سازیِ قطب‌نما» را بزن و گوشی را تخت و بی‌حرکت نگه دار؛ نشانگرِ طلاییِ کعبه سمتِ قبله را نشان می‌دهد.'
+          : `این مرورگر قطب‌نمای زنده نمی‌دهد — لبهٔ بالای گوشی را ${U.fa(Math.round(q))} درجه از شمال (به سمتِ ${U.esc(this.describe(q))}) بگیر؛ با یک قطب‌نمای معمولی یا نقشهٔ محلّت مطابقت بده.`}</div>
         <div class="qb-actions">
-          <button class="btn gh sm" id="qbSensor" ${this.sensorAvail() ? '' : 'hidden'}>
-            ${Icon.of('sat')}<span>فعال‌سازیِ قطب‌نمای دستگاه</span></button>
+          <button class="btn gh sm" id="qbSensor" ${hasSensor ? '' : 'hidden'}>
+            ${Icon.of('sat')}<span>فعال‌سازیِ قطب‌نما</span></button>
+          <button class="btn gh sm" id="qbGeo">${Icon.of('city')}<span>موقعیتِ دقیق</span></button>
           <button class="btn gh sm" id="qbClose">${Icon.of('close')}<span>بستن</span></button>
         </div>
       </div>`, box => {
       const btn = U.$('#qbSensor', box);
       if(btn) btn.onclick = () => this.enableSensor(btn);
+      const geo = U.$('#qbGeo', box);
+      if(geo) geo.onclick = () => this.useGeo();
       const cl = U.$('#qbClose', box);
       if(cl) cl.onclick = () => { this._open = false; UI.closeModal(); };
       this.bindOnce();
@@ -618,26 +645,57 @@ const Qibla = {
   },
 
   sensorAvail(){
-    return typeof window !== 'undefined' && 'DeviceOrientationEvent' in window;
+    try{
+      return typeof window !== 'undefined' &&
+        (('DeviceOrientationEvent' in window) || ('DeviceOrientationAbsoluteEvent' in window));
+    }catch(e){ return false; }
   },
 
-  /* یک شنوندهٔ دائمی (بدونِ نشت): فقط وقتی پنجرهٔ قبله باز است اثر
-     می‌کند. روی iOS پیش از هر چیز باید با ژستِ کاربر اجازه گرفته شود. */
+  /* یک‌بار شنونده می‌نشینیم (بی‌نشت)؛ اثر فقط وقتی پنجره باز است */
   bindOnce(){
     if(this._bound || !this.sensorAvail()) return;
     this._bound = true;
+    const onOri = e => {
+      try{
+        if(!this._open || !e) return;
+        let h = null, acc = null;
+        /* iOS: جهتِ واقعیِ قطب‌نما + دقت */
+        if(e.webkitCompassHeading != null && isFinite(+e.webkitCompassHeading)){
+          h = +e.webkitCompassHeading;
+          if(isFinite(+e.webkitCompassAccuracy)) acc = +e.webkitCompassAccuracy;
+        }else if(e.alpha != null && isFinite(+e.alpha) && e.absolute === true){
+          /* اندرویدِ مطلق: آلفا پادساعتگرد است، پس معکوسش جهت می‌شود */
+          h = (360 - (+e.alpha)) % 360;
+        }else if(e.alpha != null && isFinite(+e.alpha) && e.type === 'deviceorientationabsolute'){
+          h = (360 - (+e.alpha)) % 360;
+        }else{
+          /* آلفای نسبی جهتِ واقعی نمی‌دهد — یک‌بار توضیح بده، بعد سکوت */
+          if(!this._uselessSeen){
+            this._uselessSeen = true;
+            const hint = U.$('#qbHint');
+            if(hint) hint.textContent = 'قطب‌نمای واقعی در این مرورگر در دسترس نیست — از عددِ درجه و جهتِ نوشته‌شده استفاده کن.';
+          }
+          return;
+        }
+        this._heading = ((h % 360) + 360) % 360;
+        this._acc = acc;
+        this.paint();
+      }catch(err){}
+    };
     try{
-      window.addEventListener('deviceorientation', e => {
+      if('DeviceOrientationAbsoluteEvent' in window){
+        window.addEventListener('deviceorientationabsolute', onOri);
+      }
+    }catch(e){}
+    try{ window.addEventListener('deviceorientation', onOri); }catch(e){}
+    /* کالیبراسیون: اگر خودِ دستگاه گفت، یک‌بار فارسی راهنمایی کن */
+    try{
+      window.addEventListener('compassneedscalibration', () => {
         try{
-          if(!this._open) return;
-          if(e.alpha == null && e.webkitCompassHeading == null) return;
-          /* iOS جهتِ قطب‌نما را مستقیم می‌دهد؛ اندرویدِ absolute از آلفا
-             ساخته می‌شود (۰ = شمال، پادساعتگرد → معکوسش می‌کنیم). */
-          let h = e.webkitCompassHeading != null ? +e.webkitCompassHeading
-                : (e.absolute ? 360 - e.alpha : null);
-          if(h == null || !isFinite(h)) return;
-          this._heading = ((h % 360) + 360) % 360;
-          this.paint();
+          if(!this._open || this._needCalib) return;
+          this._needCalib = true;
+          UI.toast('🧭 برای دقتِ بیشتر، گوشی را چند بار به شکلِ ۸ در هوا بچرخان', '', 3200);
+          setTimeout(() => { this._needCalib = false; }, 30000);
         }catch(err){}
       });
     }catch(e){}
@@ -645,30 +703,75 @@ const Qibla = {
 
   async enableSensor(btn){
     try{
-      const DOE = window.DeviceOrientationEvent;
-      if(DOE && typeof DOE.requestPermission === 'function'){
-        const r = await DOE.requestPermission();
-        if(r !== 'granted'){ UI.toast('اجازهٔ قطب‌نما داده نشد — همان عددِ درجه کافی است', '', 2600); return; }
+      const W = typeof window !== 'undefined' ? window : {};
+      for(const key of ['DeviceOrientationEvent', 'DeviceOrientationAbsoluteEvent']){
+        const DOE = W[key];
+        if(DOE && typeof DOE.requestPermission === 'function'){
+          const r = await DOE.requestPermission();
+          if(r !== 'granted'){ UI.toast('اجازهٔ قطب‌نما داده نشد — همان عددِ درجه کافی است', '', 2600); return; }
+        }
       }
-      if(btn){ U.label ? U.label(btn, 'قطب‌نما روشن است') : null; btn.disabled = true; }
-      UI.toast('🧭 گوشی را تخت و بی‌حرکت نگه دار — صفحه با چرخشِ تو جابه‌جا می‌شود', 'ok', 2400);
+      if(btn){ try{ U.label ? U.label(btn, 'قطب‌نما روشن است') : null; }catch(e){} btn.disabled = true; }
+      /* اگر گوشی افقی است، همان اول بگو عمودیش کند */
+      let portrait = true;
+      try{
+        if(window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number')
+          portrait = (window.screen.orientation.angle % 180) === 0;
+        else if(typeof window.orientation === 'number') portrait = (window.orientation % 180) === 0;
+      }catch(e){}
+      UI.toast(portrait
+        ? '🧭 گوشی را تخت و بی‌حرکت نگه دار — نشانگرِ کعبه سمتِ قبله را می‌گوید'
+        : '🧭 گوشی را عمودی نگه دار تا جهت دقیق شود', 'ok', 2600);
     }catch(e){
       UI.toast('قطب‌نمای دستگاه در دسترس نیست', 'err', 2400);
     }
   },
 
+  /* موقعیتِ دقیق برای قبله: یک‌بار، با درخواستِ صریح — بعد پنجره با
+     درجه و فاصلهٔ تازه از نو کشیده می‌شود (بی‌شمارشِ دوبارهٔ مأموریت،
+     چون `_show` مستقیم صدا زده می‌شود نه `open`). */
+  useGeo(){
+    if(!(typeof navigator !== 'undefined' && navigator.geolocation)){
+      UI.toast('این مرورگر موقعیتِ دستگاه ندارد', 'err', 2400);
+      return;
+    }
+    UI.toast('⏳ در حالِ گرفتنِ موقعیت…', '', 1800);
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = +pos.coords.latitude, lon = +pos.coords.longitude;
+      if(!isFinite(lat) || !isFinite(lon)){ UI.toast('موقعیت خوانده نشد', 'err'); return; }
+      Store.update(d => { d.loc = { cityId:'', lat:+lat.toFixed(4), lon:+lon.toFixed(4), source:'geo' }; });
+      try{ Courtyard.invalidateSig && Courtyard.invalidateSig(); }catch(e){}
+      try{ Courtyard.render(); }catch(e){}
+      try{ SalahSettings.refresh(); }catch(e){}
+      this._show({ lat, lon });
+      UI.toast('📍 قبله با موقعیتِ دقیقِ تو حساب شد', 'ok', 2200);
+    }, () => {
+      UI.toast('موقعیت گرفته نشد — همان شهرِ انتخابی حساب می‌شود', 'err', 2600);
+    }, { timeout:8000, maximumAge:6e5 });
+  },
+
   paint(){
+    if(this._heading == null) return;
+    const rose = U.$('#qbRose');
+    if(rose) rose.setAttribute('transform', `rotate(${(-this._heading).toFixed(1)} 100 100)`);
     const dial = U.$('#qbDial');
-    if(dial && this._heading != null){
-      /* صفحه خلافِ حرکتِ گوشی می‌چرخد تا «ش» همیشه شمالِ واقعی بماند؛
-         نشانگرِ کعبه (که با q روی صفحه نشسته) سمتِ قبله را می‌گوید. */
-      dial.setAttribute('transform', `rotate(${(this._q - this._heading).toFixed(1)} 100 100)`);
-      const hint = U.$('#qbHint');
-      if(hint){
-        const delta = Math.round(((this._q - this._heading + 540) % 360) - 180);
-        hint.textContent = delta === 0 ? '✅ روبه‌روی قبله‌ای'
-          : `نشانگرِ کعبه را بگیر: ${U.fa(Math.abs(delta))}° به سمتِ ${delta > 0 ? 'راست' : 'چپ'}`;
-      }
+    if(dial) dial.setAttribute('transform', `rotate(${(this._q - this._heading).toFixed(1)} 100 100)`);
+    const head = U.$('#qbHead');
+    if(head) head.textContent = `جهتِ گوشی: ${U.fa(Math.round(this._heading))}°`;
+    const acc = U.$('#qbAcc');
+    if(acc) acc.textContent = (this._acc != null && isFinite(this._acc)) ? `دقت: ‎±${U.fa(Math.round(this._acc))}°` : '';
+    const delta = Math.round(((this._q - this._heading + 540) % 360) - 180);
+    const hint = U.$('#qbHint');
+    const svg = hint && hint.parentNode ? hint.parentNode.querySelector('.qb-svg') : null;
+    const aligned = Math.abs(delta) <= 6;
+    if(aligned && !this._aligned){
+      try{ if(((Store.get('settings') || {}).haptics !== false) && navigator.vibrate) navigator.vibrate(25); }catch(e){}
+    }
+    this._aligned = aligned;
+    try{ if(svg && svg.classList) svg.classList.toggle('is-aligned', aligned); }catch(e){}
+    if(hint){
+      hint.textContent = aligned ? '✅ روبه‌روی قبله‌ای — همین جهت را نگه دار'
+        : `نشانگرِ کعبه را بالا نگه دار: ${U.fa(Math.abs(delta))}° به سمتِ ${delta > 0 ? 'راست' : 'چپ'} بچرخ`;
     }
   }
 };
@@ -679,9 +782,9 @@ const SalahSettings = {
 
   previewHtml(){
     const t = Salah.times(new Date());
-    /* همان فهرستِ اوقاتِ کارتِ هر نماز — بی «عصر» (نسخهٔ ۱۹د). */
-    const cells = [['fajr','فجر'],['sunrise','طلوع'],['dhuhr','ظهر'],
-                   ['sunset','غروب'],['maghrib','مغرب'],['isha','عشا'],['midnight','نیمه‌شب']];
+    /* نسخهٔ ۲۱: بی «عصر» و بی «عشا» — همان فهرستِ کارتِ هر نماز. */
+    const cells = [['fajr','صبح'],['sunrise','طلوع'],['dhuhr','ظهر'],
+                   ['sunset','غروب'],['maghrib','مغرب'],['midnight','نیمه‌شب']];
     return cells.map(([k, fa]) => `
       <div class="pv"><b>${Courtyard.hhmm(t[k])}</b>${fa}</div>`).join('');
   },
@@ -725,12 +828,6 @@ const SalahSettings = {
           <button class="btn gh sm" id="setMaghribDown" aria-label="کم کردنِ دقیقهٔ مغرب">−</button>
           <span class="sv" id="setMaghribVal">${U.fa(d.maghribOffsetMin || 14)} دقیقه</span>
           <button class="btn gh sm" id="setMaghribUp" aria-label="افزودنِ دقیقهٔ مغرب">+</button>
-        </div>
-        <label class="lbl">عشا = مغرب + … دقیقه</label>
-        <div class="sc-stepper">
-          <button class="btn gh sm" id="setIshaDown" aria-label="کم کردنِ دقیقهٔ عشا">−</button>
-          <span class="sv" id="setIshaVal">${U.fa(d.ashaOffsetMin || 90)} دقیقه</span>
-          <button class="btn gh sm" id="setIshaUp" aria-label="افزودنِ دقیقهٔ عشا">+</button>
         </div>` : ''}
 
         <label class="lbl">پیش‌نمایشِ اوقاتِ امروز — ${U.esc(Courtyard.cityLabel())}</label>
@@ -745,8 +842,8 @@ const SalahSettings = {
         <p style="font-size:11.5px;color:var(--mut);margin-top:8px">
           اوقات با الگوریتمِ نجومیِ مستند (PrayTimes) روی خودِ دستگاه حساب می‌شود —
           بی اینترنت هم درست است. برای دقتِ بیشتر، شهرت را انتخاب کن.
-          «عصر» در این نسخه از اوقاتِ نمایش‌داده‌شده و از یادآورهای اذان
-          برداشته شده است.</p>
+          «عصر» و «عشا» در این نسخه از اوقاتِ نمایش‌داده‌شده و از یادآورهای اذان
+          برداشته شده‌اند.</p>
       </div>`;
   },
 
@@ -770,8 +867,6 @@ const SalahSettings = {
     const f18 = U.$('#setFajr18'); if(f18) f18.onclick = () => this.setFajrAngle(18);
     const md = U.$('#setMaghribDown'); if(md) md.onclick = () => this.step('maghribOffsetMin', -1, 12, 18);
     const mu = U.$('#setMaghribUp'); if(mu) mu.onclick = () => this.step('maghribOffsetMin', +1, 12, 18);
-    const id = U.$('#setIshaDown'); if(id) id.onclick = () => this.step('ashaOffsetMin', -5, 60, 120);
-    const iu = U.$('#setIshaUp'); if(iu) iu.onclick = () => this.step('ashaOffsetMin', +5, 60, 120);
     const sh = U.$('#setSalahHome'); if(sh) sh.onclick = () => {
       const v = !((Store.get('settings') || {}).salahOnHome !== false);
       Store.update(x => { x.settings.salahOnHome = v; });
@@ -822,11 +917,9 @@ const SalahSettings = {
 };
 
 /* ═══════════════ اتصال به برنامهٔ موجود ═══════════════
-   نسخهٔ ۱۹د: کارت‌های عبادت از خانه به صفحهٔ خودشان (`#s-ebadat`) رفته‌اند،
-   پس دیگر `renderHome` پوشانده نمی‌شود؛ به‌جایش یک قلابِ روتِ صریح
-   (`Router.hooks.ebadat`) می‌نشیند که با هر بارِ ورود، اوقات و ذکر و
-   مناسبتِ همان لحظه را می‌کشد. Me.render هم مثل پیش سرِ جایش می‌ماند تا
-   بخشِ «عبادتِ روزانه» در تنظیمات بنشیند. */
+   نسخهٔ ۲۱: ستونِ عمودیِ بخش‌ها جای کاروسل نشست، ولی اتصال‌ها همان‌اند:
+   قلابِ روتِ `ebadat`، دکمهٔ قبلهٔ سربرگ (`#ebQibla`) و تزریقِ بخشِ
+   «عبادتِ روزانه» به تنظیمات از راهِ پوششِ `Me.render`. */
 (function attachSalahUI(){
   try{
     if(typeof Router === 'object' && Router.screens && Router.screens.ebadat === 's-ebadat'){

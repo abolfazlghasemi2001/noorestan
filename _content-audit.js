@@ -374,5 +374,38 @@ for(const [label, list] of Object.entries(hits)){
   if(list.length > 6) console.log(`      … و ${list.length - 6} مورد دیگر`);
 }
 
+/* ── ۸. پوششِ متنِ کاملِ ادعیه (نسخهٔ ۲۱) ─────────────────────────
+   DUA_FULL بیرونِ DATA زندگی می‌کند (بانک قفل است، چون بازیِ «نجوا»
+   روی همان متنِ کوتاه سوار است) ولی هر مدخلش با کلیدِ `for` به یکی از
+   عنوان‌های DATA.duas گره خورده. این‌جا همان گره سنجیده می‌شود: به‌ازای
+   هر دعای بانک دقیقاً یک مدخل، با متنِ کامل و منبعِ کامل. */
+head('پوششِ متنِ کاملِ ادعیه');
+{
+  const atF = html.indexOf('\nconst DUA_FULL = [');
+  const endF = atF < 0 ? -1 : html.indexOf('\n];', atF);
+  if(atF < 0 || endF < 0){ bad('DUA_FULL', 'پوشش در منبعِ منتشرشده پیدا نشد'); }
+  else {
+    const FULL = eval('(' + html.slice(atF + '\nconst DUA_FULL = '.length, endF + 2) + ')');
+    let n = 0;
+    const bank = DATA.duas || [];
+    if(FULL.length !== bank.length){ bad('DUA_FULL', `شمارِ مدخل‌ها ${FULL.length} است ولی بانک ${bank.length} دعا دارد`); n++; }
+    FULL.forEach((x, i) => {
+      const w = 'full#' + i;
+      for(const f of ['for', 'ar', 'fa', 'src'])
+        if(!String(x[f] || '').trim()){ bad(w, f + ' خالی'); n++; }
+      const m = bank.filter(b => norm(b.title || '').includes(norm(x.for || '')));
+      if(m.length !== 1){ bad(w, `کلیدِ ${cut(x.for, 30)} به ${m.length} عنوان می‌خورد (باید ۱ باشد)`); n++; }
+      for(const f of ['for', 'ar', 'fa', 'src']){
+        const v = x[f];
+        if(typeof v !== 'string') continue;
+        for(const [re, label] of DIRTY)
+          if(re.test(v)){ bad(w + '.' + f, label + ': ' + cut(v, 40)); n++; break; }
+        if(KASHIDA.test(v)){ bad(w + '.' + f, 'کشیده (ـ): ' + cut(v, 40)); n++; }
+      }
+    });
+    console.log(`  dua-full    ${String(FULL.length).padStart(3)} مدخل` + (n ? `  ← ${n} ایراد` : '  ✓'));
+  }
+}
+
 console.log(`\n── نتیجه ──\n  ${issues} ایراد ساختاری، ${warns} هشدار`);
 process.exit(issues ? 1 : 0);
