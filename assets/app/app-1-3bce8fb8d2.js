@@ -793,6 +793,36 @@ const Store = {
       wirdToday: { date:'', done:{} },
       khatm: { page:1, month:'', stamp:'' },
       notifGranted: '',
+      /* ── نسخهٔ ۲۲: همراهِ نماز، ذکرشمار و نمازهای پنج‌گانه ──
+         prayerMate: وضعیتِ نمازی که کاربر *همین حالا* می‌خواند —
+                    { date, pray, idx, at, reps[], auto }. `idx` شمارهٔ
+                    مرحله در فهرستِ مرحله‌های همان نماز است و `reps` شمارشِ
+                    اذکارِ هر مرحله. تاریخ‌دار است و اگر روز عوض شده باشد
+                    بی‌مقدار می‌شود، تا «ادامهٔ نمازِ دیروز» هیچ‌گاه
+                    پیشِ کاربر نیاید. `auto` یعنی تشخیصِ حالتِ بدن با
+                    حسگرِ حرکت (شتاب‌سنج) روشن است — بی دوربین، بی میکروفن.
+         salahFive: 'yyyy-mm-dd' → ['fajr','dhuhr',…] — دفترچهٔ *پنج* نمازِ
+                    واجبۀ روزانه (صبح ۲، ظهر ۴، عصر ۴، مغرب ۳، عشا ۴ = ۱۷
+                    رکعت). از `salahLog` جداست: آن دفترچه ستونِ اوقاتِ صفحهٔ
+                    عبادت است (سه نماز، طبقِ تصمیمِ نسخهٔ ۲۱) و این
+                    دفترچه، نمازهایی که با همراهِ نماز *خوانده* شده‌اند.
+         dhikrToday: { date, by:{ presetId:{ c:[…], d:true } } } — شمارشِ
+                    امروزِ ذکرشمارها (تسبیحات، تهلیل، استغفار، صلوات، …).
+                    تسبیحاتِ حضرتِ زهرا (س) جای کهنه‌اش می‌ماند
+                    (`tasbihToday`) تا مأموریت‌ها و سنجش‌های پیشین نشکنند.
+         prayStreak: { n, at } — روزهای پیاپی که هر پنج نماز تمام شده.
+         همه محلی‌اند: هیچ سروری در کار نیست و هیچ‌کدام در
+         `PersonalData.keys` (فهرستِ همگام‌سازی) نیامده‌اند. */
+      /* dhikrCustom: یک ذکرِ دلخواه که کاربر خودش نوشته { ar, n } — بی
+         متنِ عربی هیچ‌وقت «null» نیست تا زبانۀ «ذکرِ من» پدیدار شود.
+         poseProfiles: حالت‌های بدنت روی *همین* گوشی، که فقط با شتاب‌سنجِ
+         خودِ دستگاه درست درمی‌آید و هیچ مقدارِ جهانی ندارد. */
+      dhikrCustom: null,
+      poseProfiles: null,
+      prayerMate: { date:'', pray:'', idx:0, at:0, reps:[], auto:true },
+      salahFive: {},
+      dhikrToday: { date:'', by:{} },
+      prayStreak: { n:0, at:'' },
       /* ── نسخهٔ ۹: هویتِ کاربر ──
          `user` مرجعِ هویت است: {id, name, phone, joinedAt, lastLogin, visits,
          plays, blocked, lastIp}. `null` یعنی هنوز ساخته نشده و User.ensure
@@ -1092,6 +1122,76 @@ const Store = {
     if(typeof d.khatm.stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.khatm.stamp))
       d.khatm.stamp = '';
     if(!['', 'granted', 'denied', 'default'].includes(d.notifGranted)) d.notifGranted = '';
+
+    /* ── نسخهٔ ۲۲: همراهِ نماز، ذکرشمار و پنج‌گانه ──
+       پنج نامِ نماز این‌جا صریح نوشته شده (نه از `Salah.NAMES`): موتورِ
+       اوقات *پس از* این باندل بار می‌شود و `sanitize` هنگامِ `load()`ِ همان
+       باندل اجرا می‌شود — همان دلیلی که `salahLog` هم نام‌هایش را خودش
+       می‌شمارد. فهرستِ مرجع در `assets/app/sajjada-1.js` (`SalahFive.NAMES`)
+       است و سنجشِ «هم‌شمار بودنِ دو فهرست» در `_tests.js` نگهبانش است. */
+    {
+      const FIVE = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+      const day = /^\d{4}-\d{2}-\d{2}$/;
+      if(!d.prayerMate || typeof d.prayerMate !== 'object' || Array.isArray(d.prayerMate))
+        d.prayerMate = { date:'', pray:'', idx:0, at:0, reps:[], auto:true };
+      const pm = d.prayerMate;
+      if(!day.test(pm.date || '') || pm.date !== U.today() || !FIVE.includes(pm.pray)){
+        pm.date = ''; pm.pray = ''; pm.idx = 0; pm.at = 0; pm.reps = [];
+      } else {
+        pm.idx = U.clamp(Math.floor(+pm.idx) || 0, 0, 80);
+        pm.at = Math.max(0, Math.floor(+pm.at) || 0);
+        pm.reps = (Array.isArray(pm.reps) ? pm.reps : [])
+          .map(n => U.clamp(Math.floor(+n) || 0, 0, 999)).slice(0, 80);
+      }
+      pm.auto = pm.auto !== false;
+      if(!d.salahFive || typeof d.salahFive !== 'object' || Array.isArray(d.salahFive)) d.salahFive = {};
+      for(const k of Object.keys(d.salahFive)){
+        if(!day.test(k) || !Array.isArray(d.salahFive[k])){ delete d.salahFive[k]; continue; }
+        d.salahFive[k] = [...new Set(d.salahFive[k].filter(n => FIVE.includes(n)))].slice(0, 5);
+        if(!d.salahFive[k].length) delete d.salahFive[k];
+      }
+      const fk = Object.keys(d.salahFive).sort();
+      while(fk.length > 400){ delete d.salahFive[fk.shift()]; }
+      if(!d.dhikrToday || typeof d.dhikrToday !== 'object' || Array.isArray(d.dhikrToday))
+        d.dhikrToday = { date:'', by:{} };
+      if(!day.test(d.dhikrToday.date || '') || d.dhikrToday.date !== U.today()){
+        d.dhikrToday.date = U.today(); d.dhikrToday.by = {};
+      }
+      if(!d.dhikrToday.by || typeof d.dhikrToday.by !== 'object' || Array.isArray(d.dhikrToday.by))
+        d.dhikrToday.by = {};
+      const bk = Object.keys(d.dhikrToday.by).slice(0, 12);
+      for(const k of Object.keys(d.dhikrToday.by)){
+        const v = d.dhikrToday.by[k];
+        if(!bk.includes(k) || !v || typeof v !== 'object' || Array.isArray(v)){ delete d.dhikrToday.by[k]; continue; }
+        v.c = (Array.isArray(v.c) ? v.c : []).map(n => U.clamp(Math.floor(+n) || 0, 0, 9999)).slice(0, 8);
+        v.d = !!v.d;
+      }
+      if(!d.prayStreak || typeof d.prayStreak !== 'object' || Array.isArray(d.prayStreak))
+        d.prayStreak = { n:0, at:'' };
+      d.prayStreak.n = U.clamp(Math.floor(+d.prayStreak.n) || 0, 0, 9999);
+      if(!day.test(d.prayStreak.at || '')) d.prayStreak.at = '';
+      const dc = d.dhikrCustom;
+      d.dhikrCustom = (dc && typeof dc === 'object' && !Array.isArray(dc) && String(dc.ar || '').trim())
+        ? { ar:String(dc.ar).replace(/\s+/g, ' ').trim().slice(0, 160), n:U.clamp(Math.floor(+dc.n) || 33, 1, 999) }
+        : null;
+      const pp = d.poseProfiles;
+      d.poseProfiles = null;
+      if(pp && typeof pp === 'object' && !Array.isArray(pp) && pp.profiles && typeof pp.profiles === 'object'){
+        /* بردارِ یکایِ جاذبه — سه مؤلفۀ محدودِ در بازۀ [-1,1]. هرچه
+           بیرونِ این باشد ریاضیِ تشخیص حالت را می‌شکند، می‌اندازیمش.
+           شکلِ ذخیره { v:[x,y,z], n:تعدادنمونه } است؛ آرایهٔ خام هم
+           پذیرفته می‌شود (سازگاری با نوشتۀ پیشین). */
+        const vec = v => (Array.isArray(v) && v.length === 3 && v.every(x => isFinite(+x) && Math.abs(+x) <= 1))
+          ? [ +v[0], +v[1], +v[2] ] : null;
+        const out = {};
+        for(const k of ['stand', 'ruku', 'sujud', 'sit']){
+          const raw = pp.profiles[k];
+          const v = vec(raw && !Array.isArray(raw) && raw.v ? raw.v : raw);
+          if(v) out[k] = { v, n:U.clamp(Math.floor(raw && !Array.isArray(raw) ? +raw.n : 0) || 0, 0, 999) };
+        }
+        if(Object.keys(out).length) d.poseProfiles = { at:+pp.at || 0, calibrated:!!pp.calibrated, profiles:out };
+      }
+    }
 
     /* ── دور ریختنِ کلیدِ ناشناس ──
        پیش‌تر sanitize فقط کلیدهای *شناخته‌شده* را درست می‌کرد؛ هر کلیدِ
@@ -1773,7 +1873,12 @@ const UI = {
        بعدی که با modal باز می‌شود هم از پایین می‌آمد. */
     const wrap = U.$('#modal');
     if(wrap && wrap.classList) wrap.classList.toggle('sheet', !!this._wantSheet);
+    /* نسخهٔ ۲۲: نشانِ «صحنه» — همان پنجره، ولی جعبه‌اش کلِ صفحه را
+       می‌گیرد (قبله‌نمای تمام‌صفحه و همراهِ نماز). یک‌بارمصرف است، مثلِ
+       نشانِ برگه؛ وگرنه پنجرهٔ بعدی هم بی‌قابِ تمام‌صفحه می‌آمد. */
+    if(wrap && wrap.classList) wrap.classList.toggle('stage', !!this._wantStage);
     this._wantSheet = false;
+    this._wantStage = false;
     if(!this._mOpen){
       this._focusBack = document.activeElement || null;
       try{
@@ -1800,6 +1905,15 @@ const UI = {
     this.modal(html, onMount);
   },
 
+  /* صحنهٔ تمام‌صفحه (نسخهٔ ۲۲) — تاریخچه، Escape، تلهٔ کلید و قلابِ
+     `onClose` همان پنجره است؛ فقط قاب عوض می‌شود. دو صفحه به این‌جا
+     می‌آیند: قبله‌نمای زنده و همراهِ نماز — هر دو چیزی‌اند که کاربر وسطِ
+     کارِ خودش با گوشیِ تمام‌صفحه می‌خواهد، نه داخلِ یک جعبهٔ ۴۲۰ پیکسلی. */
+  stage(html, onMount){
+    this._wantStage = true;
+    this.modal(html, onMount);
+  },
+
   closeModal(){
     if(!this._mOpen) return;
     this._mOpen = false;
@@ -1812,6 +1926,9 @@ const UI = {
     /* نشانِ برگه پاک شود، وگرنه پنجرهٔ بعدی هم از پایین می‌آید */
     U.$('#modal').classList.remove('sheet');
     this._wantSheet = false;
+    /* نشانِ صحنه هم همین‌طور (نسخهٔ ۲۲) */
+    U.$('#modal').classList.remove('stage');
+    this._wantStage = false;
     this.giveBackFocus();
     /* پاک‌کردنِ ورودیِ نشان‌دار به پایانِ همین چرخهٔ رویداد موکول می‌شود:
        اگر بلافاصله پس از بستن، Router.go صدا زده شود (الگوی «بستن و رفتن
