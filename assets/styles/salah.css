@@ -1,15 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════
-   نورستان — نسخهٔ ۱۹ج: برگهٔ سبکِ «صحنِ روزانه» (شیشه‌ای + کاروسل)
+   نورستان — نسخهٔ ۲۱: برگهٔ سبکِ صفحهٔ «عبادت» (ستونی، شیشه‌ای)
    ═══════════════════════════════════════════════════════════════════
-   همهٔ قاعده‌های نماز/قبله/صحن یک‌جا این‌جاست — هم‌خانواده با دیزاین
-   سیستمِ نورستان. رنگ‌ها فقط از توکن‌های پوسته می‌آیند:
+   همهٔ قاعده‌های نماز/قبله/ذکر یک‌جا این‌جاست — هم‌خانواده با دیزاین
+   سیستمِ نورستان: سربرگِ بخش، کارتِ شیشه‌ای و خطِ زرّینِ بالای کارت،
+   مثلِ بقیهٔ صفحه‌ها. رنگ‌ها فقط از توکن‌های پوسته می‌آیند:
    (--bg, --bg2, --card, --card2, --line, --txt, --mut, --gold, --gold2,
     --grn, --red, --glass, --glass-edge, --pl-r-lg, --pl-elev-1, --pl-elev-2)
-   پس در هر شش پوسته (شب، اقیانوس، جنگل، سلطنتی، کویر، روشن) کاملاً
-   هماهنگ است. هدف لمسی دکمه‌ها ≥ ۴۴px و کم‌حرکتی پشتیبانی می‌شود.
+   پس در هر شش پوسته کاملاً هماهنگ است. هدف لمسی دکمه‌ها ≥ ۴۴px و
+   کم‌حرکتی پشتیبانی می‌شود.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── ستونِ صحن — موبایل‌اول (۳۶۰–۴۳۰) ── */
+/* ── ستونِ عبادت — موبایل‌اول (۳۶۰–۴۳۰) ── */
 #salahCourt{ width:100%; max-width:100%; box-sizing:border-box; }
 .sc-wrap{
   display:flex; flex-direction:column; gap:12px;
@@ -21,8 +22,8 @@
   .sc-wrap{ max-width:480px; margin-inline:auto; }
 }
 
-/* ── ۱. الگوی کارت شیشه‌ای (Glass Card Pattern) ── */
-.sc-head, .sc-occ, .sc-wird, .sc-ramadan, .sc-prayer-slide{
+/* ── الگوی کارت شیشه‌ای ── */
+.sc-hero, .sc-occ, .sc-times, .sc-ramadan, .sc-qibla-card, .sc-wird{
   background:var(--glass, var(--card));
   border:1px solid var(--glass-edge, var(--line));
   border-radius:var(--pl-r-lg, 22px);
@@ -31,137 +32,50 @@
   box-sizing:border-box;
 }
 /* خطِ زرّین بالای کارت */
-.sc-head::before, .sc-occ::before, .sc-wird::before, .sc-ramadan::before,
-.sc-prayer-slide::before{
+.sc-hero::before, .sc-occ::before, .sc-times::before,
+.sc-ramadan::before, .sc-qibla-card::before, .sc-wird::before{
   content:''; position:absolute; inset-inline:16px; top:0; height:1px;
   pointer-events:none; border-radius:0 0 2px 2px;
   background:linear-gradient(90deg, transparent, var(--gold), transparent);
   opacity:.55;
 }
-.screen.active .sc-head,
-.screen.active .sc-occ,
-.screen.active .sc-wird,
-.screen.active .sc-ramadan,
-.screen.active .sc-prayer-slide,
-.screen.active #salahCourt .slide{
-  -webkit-backdrop-filter:blur(20px) saturate(140%);
-  backdrop-filter:blur(20px) saturate(140%);
-}
 
-/* ── ۲. کاروسلِ عبادت (CategoryCarousel Scoped) ──
-   نسخهٔ ۱۹د — اندازهٔ متناسب: قابِ کاروسل پیش‌تر به بلندترین اسلاید قفل
-   می‌شد و زیرِ کارتِ کوتاه (سربرگ) صدها پیکسل جای خالی می‌ماند. حالا
-   `Courtyard.fitCarousel()` ارتفاعِ قاب را با اسلایدِ فعال یکی می‌کند و
-   گذارِ همین قاعده، جابه‌جایی را نرم نگه می‌دارد. اسلایدها هم کمی پهن‌تر
-   شده‌اند (۹۶٪ جای ۹۲٪) تا محتوا نفس بکشد و با این حال لبهٔ اسلایدِ بعدی
-   دیده شود که یعنی «کاروسل ادامه دارد». */
-#salahCourt .category-carousel{
-  position:relative; margin:0 0 4px; width:100%; box-sizing:border-box;
-}
-#salahCourt .carousel-viewport{
-  position:relative; overflow:hidden; padding:4px 0 12px;
-  touch-action:pan-y pinch-zoom; width:100%; box-sizing:border-box;
-  transition:height 420ms var(--ease);
-}
-/* فلش‌های ناوبری (۴۴px، همان هدفِ لمسی) روی اسلایدِ ۹۶٪ می‌افتادند و
-   گوشهٔ متن را می‌پوشاندند؛ کمی به شکافِ کاروسل می‌لغزند تا کارت آزاد
-   بماند. اندازه و جای عمودی دست‌نخورده است. */
-#salahCourt .carousel-nav.prev{ right:-16px; }
-#salahCourt .carousel-nav.next{ left:-16px; }
-#salahCourt .carousel-track{
-  display:flex; gap:12px; padding:0 4px; perspective:1200px;
-  transition:transform 800ms var(--ease); cursor:grab; align-items:flex-start;
-}
-#salahCourt .category-carousel.dragging .carousel-track{
-  transition:none; will-change:transform; cursor:grabbing;
-}
-#salahCourt .category-carousel.dragging .slide{
-  transition:none; pointer-events:none;
-}
-
-#salahCourt .slide{
-  flex:0 0 96%; max-width:96%; min-width:0; box-sizing:border-box;
-  position:relative; overflow:hidden; text-align:right;
-  border-radius:var(--pl-r-lg, 22px); padding:16px;
-  border:1px solid var(--glass-edge, var(--line));
-  background:var(--glass, var(--card));
-  box-shadow:var(--pl-elev-1);
-  contain:layout paint;
-  opacity:0; visibility:hidden; transform:scale(.88) translateZ(-60px);
-  transition:transform 600ms var(--ease), opacity 600ms ease, filter 600ms ease, border-color 300ms ease, visibility 600ms, box-shadow 300ms ease;
-}
-@media (min-width:760px){
-  #salahCourt .slide{ flex:0 0 96%; max-width:96%; }
-}
-
-#salahCourt .slide.is-far{ opacity:.35; visibility:visible; transform:scale(.88) translateZ(-60px); filter:blur(2px); }
-#salahCourt .slide.is-prev, #salahCourt .slide.is-next{ opacity:.72; visibility:visible; transform:scale(.94) translateZ(-30px); filter:blur(1px); }
-#salahCourt .slide.is-active{
-  opacity:1; visibility:visible; filter:none; transform:scale(1) translateZ(0);
-  border-color:var(--gold);
-  box-shadow:var(--pl-elev-2), 0 0 0 1px color-mix(in srgb, var(--gold) 22%, transparent) inset;
-}
-#salahCourt .slide::after{
-  content:""; position:absolute; top:0; inset-inline:18px; height:2px; border-radius:2px;
-  background:linear-gradient(90deg, transparent, var(--gold), transparent);
-  opacity:0; transition:opacity 400ms ease; pointer-events:none;
-}
-#salahCourt .slide.is-active::after{ opacity:1; }
-
-/* ریست بلوک‌های درون اسلاید تا قابِ دوگانه ساخته نشود */
-#salahCourt .slide > .sc-head,
-#salahCourt .slide > .sc-occ,
-#salahCourt .slide > .sc-wird,
-#salahCourt .slide > .sc-ramadan{
-  background:transparent; border:none; box-shadow:none; border-radius:0; padding:0; margin:0;
-}
-#salahCourt .slide > .sc-head::before,
-#salahCourt .slide > .sc-occ::before,
-#salahCourt .slide > .sc-wird::before,
-#salahCourt .slide > .sc-ramadan::before{
-  display:none;
-}
-
-/* ── ۳. کنترلِ ارتفاعِ بخش‌های بلند (به‌ویژه ذکر) ──
-   بلندترین اسلاید تعیینِ‌کنندهٔ ارتفاعِ قاب است؛ پس سقفش را کمی کوتاه‌تر
-   گرفتیم تا کاروسلِ عبادت روی گوشی یک صفحه را نبلعد. درونِ خودش
-   اسکرولِ نرم دارد. */
-#salahCourt .sc-wird-slide,
-#salahCourt .sc-wird{
-  max-height:258px; overflow-y:auto; overflow-x:hidden;
-  scrollbar-width:thin; overscroll-behavior:contain;
-  padding-inline-end:2px;
-}
-
-/* ── ۳ب. حالتِ خاموشِ کارت‌های عبادت ──
-   به‌جای صفحهٔ خالی، یک کارتِ راهنما با دکمهٔ روشن‌کردن. */
-.sc-off{ text-align:center; }
-.sc-off b{ display:inline-flex; align-items:center; gap:6px; color:var(--gold); }
-.sc-off b .ic{ width:18px; height:18px; }
-.sc-off p{ line-height:1.9; }
-.sc-off .btn{ margin-inline:auto; }
-
-/* ── سربرگِ اسلایدهای صحن ── */
-.sc-slide-head-row{
+/* ── سربرگِ بخش (هم‌خانواده با .cat-head بقیهٔ صفحه‌ها) ── */
+.sc-sec-head{
   display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:12px; padding-bottom:6px;
-  border-bottom:1px solid color-mix(in srgb, var(--line) 40%, transparent);
+  gap:8px; margin-bottom:12px; padding-bottom:8px;
+  border-bottom:1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
-.sc-slide-title{
-  font-size:13.5px; font-weight:700; color:var(--gold);
-  display:inline-flex; align-items:center; gap:6px;
+.sc-sec-title{
+  font-size:14px; font-weight:800; color:var(--txt);
+  display:inline-flex; align-items:center; gap:7px;
 }
-.sc-slide-title .ic{ width:17px; height:17px; color:var(--gold); }
-.sc-slide-sub{ font-size:11.5px; color:var(--mut); }
+.sc-sec-title .ic{ width:19px; height:19px; color:var(--gold); }
+.sc-sec-title b{ font-weight:800; }
+.sc-sec-sub{ font-size:11.5px; color:var(--mut); white-space:nowrap; }
 
-/* ── A. سربرگ امروز ── */
-.sc-head{ padding:14px; display:flex; flex-direction:column; gap:8px; }
-.sc-head-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+/* ── ۱. سربرگِ امروز ── */
+.sc-hero{
+  padding:16px;
+  background:
+    radial-gradient(120% 90% at 85% -10%, color-mix(in srgb, var(--gold) 13%, transparent), transparent 60%),
+    var(--glass, var(--card));
+  overflow:hidden;
+}
+.sc-hero-top{ display:flex; align-items:flex-start; gap:10px; }
+.sc-hero-id{ min-width:0; flex:1; }
 .sc-hello{ font-size:12.5px; color:var(--mut); }
-.sc-name{ font-family:var(--f-disp); font-size:20px; color:var(--txt); line-height:1.2; }
-.sc-dates{ font-size:11.5px; color:var(--mut); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.sc-name{ font-family:var(--f-disp); font-size:22px; color:var(--txt); line-height:1.35; }
+.sc-dates{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.sc-chip{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11.5px; color:var(--mut);
+  background:var(--card2); border:1px solid var(--line);
+  border-radius:99px; padding:4px 10px;
+}
+.sc-chip .ic{ width:14px; height:14px; color:var(--gold); }
 .sc-citybtn{
-  margin-inline-start:auto; min-height:44px; min-width:44px;
+  flex-shrink:0; min-height:44px; min-width:44px;
   display:inline-flex; align-items:center; gap:6px;
   background:var(--card2); color:var(--txt);
   border:1px solid var(--line); border-radius:12px;
@@ -172,85 +86,184 @@
 .sc-citybtn:hover{ background:var(--card); border-color:var(--gold); }
 .sc-citybtn:active{ transform:scale(.97); }
 .sc-citybtn .ic{ width:18px; height:18px; color:var(--gold); }
-.sc-noloc{ font-size:11.5px; color:var(--mut); }
+.sc-noloc{ font-size:11.5px; color:var(--mut); margin-top:8px; }
 
-/* نوارِ تا اذانِ بعدی */
-.sc-next{ display:flex; flex-direction:column; gap:6px; margin-top:6px; }
-.sc-next-row{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:12.5px; color:var(--mut); }
-.sc-next-name{ color:var(--gold); font-weight:700; font-size:14px; }
-.sc-next-clock{ font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate; }
-.sc-next-count{ margin-inline-start:auto; font-weight:700; color:var(--txt);
-  font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate; }
-.sc-next-bar{ height:6px; border-radius:99px; background:var(--card2); overflow:hidden; border:1px solid var(--line); }
+/* تابلوی اذانِ بعدی */
+.sc-next{
+  margin-top:12px; padding-top:12px;
+  border-top:1px dashed color-mix(in srgb, var(--line) 70%, transparent);
+  display:flex; flex-direction:column; gap:8px;
+}
+.sc-next-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.sc-next-label{ font-size:12px; color:var(--mut); }
+.sc-next-name{ color:var(--gold); font-weight:800; font-size:17px; }
+.sc-next-clock{
+  margin-inline-start:auto; font-size:13px; color:var(--mut);
+  font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate;
+}
+.sc-next-count{
+  font-size:34px; font-weight:800; color:var(--txt); line-height:1.2;
+  font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate;
+  text-align:center; letter-spacing:.5px;
+}
+.sc-next-bar{ height:7px; border-radius:99px; background:var(--card2); overflow:hidden; border:1px solid var(--line); }
 .sc-next-bar i{ display:block; height:100%; width:0%; border-radius:99px; background:var(--grad); transition:width .9s linear; }
-.sc-count-chip{ font-size:11px; color:var(--mut); }
+.sc-marks-row{ display:flex; align-items:center; gap:10px; }
+.sc-segs{ display:flex; gap:5px; }
+.sc-segs .seg{
+  width:26px; height:6px; border-radius:99px;
+  background:var(--card2); border:1px solid var(--line);
+}
+.sc-segs .seg.done{ background:var(--grad); border-color:transparent; }
+.sc-count-chip{ font-size:11.5px; color:var(--mut); }
 
-/* ── B. نوارِ پنج نماز (افقی + Scroll-Snap) ── */
-.sc-prayers{
-  display:flex; flex-direction:row; gap:8px;
-  width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden;
-  scroll-snap-type:x mandatory;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none; -ms-overflow-style:none;
-  padding:4px 2px;
-}
-.sc-prayers::-webkit-scrollbar{ display:none; }
-.sc-prayer{
-  flex:1 1 0; min-width:58px; min-height:78px;       /* هدفِ لمسی ≥ ۴۴px */
-  scroll-snap-align:center;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-  background:var(--card2); border:1px solid var(--line); border-radius:var(--r2, 14px);
-  color:var(--txt); font-family:var(--f-ui); cursor:pointer;
-  padding:8px 4px; position:relative;
-}
-.sc-prayer:active{ transform:scale(.97); }
-.sc-prayer .sp-name{ font-size:13px; font-weight:700; }
-.sc-prayer .sp-time{ font-size:12px; color:var(--mut); direction:ltr; unicode-bidi:isolate;
-  font-variant-numeric:tabular-nums; }
-.sc-prayer .sp-mark{ position:absolute; top:4px; inset-inline-start:5px; font-size:11px; color:var(--grn); font-weight:700; }
-/* نمازِ فعلی: حلقهٔ طلایی */
-.sc-prayer.is-current{
-  border-color:var(--gold);
-  box-shadow:0 0 0 2px color-mix(in srgb, var(--gold) 45%, transparent), var(--pl-elev-1);
-  background:linear-gradient(165deg, color-mix(in srgb, var(--gold) 14%, var(--card2)), var(--card));
-}
-.sc-prayer.is-current .sp-name{ color:var(--gold); font-weight:800; }
-.sc-prayer.is-past .sp-time{ color:var(--txt); }
-
-/* ── F. کارتِ مناسبت ── */
+/* ── ۲. کارتِ مناسبت ── */
 .sc-occ{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   background:var(--card); border:1px solid var(--line);
   border-inline-start:4px solid var(--gold);
-  border-radius:var(--r2, 14px); padding:12px;
+  border-radius:var(--r2, 14px); padding:12px 14px;
 }
 .sc-occ.mourning{ border-inline-start-color:var(--red); }
 .sc-occ b{ font-size:13.5px; color:var(--txt); }
-.sc-occ small{ display:block; font-size:11.5px; color:var(--mut); margin-top:2px; }
+.sc-occ small{ display:block; font-size:11.5px; color:var(--mut); margin-top:2px; line-height:1.8; }
 .sc-occ .sc-occ-go{ margin-inline-start:auto; }
 .sc-occ-tag{ font-size:10.5px; color:var(--mut); border:1px solid var(--line);
-  border-radius:99px; padding:2px 8px; }
+  border-radius:99px; padding:2px 8px; margin-inline-start:6px; }
 
-/* ── رمضان: کارتِ سحر/افطار (فازِ ۳) ── */
-.sc-ramadan{
-  padding:12px; display:flex; flex-direction:column; gap:8px;
+/* ── ۳. اوقاتِ امروز ── */
+.sc-times{ padding:14px; }
+.sc-prayers{
+  display:flex; flex-direction:column; gap:8px;
+  width:100%; max-width:100%; box-sizing:border-box;
 }
-.sc-ramadan .rm-top{ display:flex; align-items:center; gap:8px; }
+.sc-prayer-row{ display:flex; gap:8px; align-items:stretch; }
+.sc-prayer{
+  flex:1; min-width:0; min-height:78px;       /* هدفِ لمسی ≥ ۴۴px */
+  display:flex; align-items:center; gap:10px;
+  background:var(--card2); border:1px solid var(--line);
+  border-radius:var(--r2, 14px);
+  color:var(--txt); font-family:var(--f-ui); cursor:pointer;
+  padding:10px 12px; text-align:right;
+  transition:border-color .25s var(--ease), transform .12s var(--ease), box-shadow .25s var(--ease);
+}
+.sc-prayer:active{ transform:scale(.98); }
+.sp-ic{
+  flex-shrink:0; width:42px; height:42px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  background:color-mix(in srgb, var(--gold) 12%, var(--card));
+  border:1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.sp-ic .ic{ width:21px; height:21px; color:var(--gold); }
+.sp-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.sp-name{ font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px; }
+.sp-badge{
+  font-size:10px; font-weight:700; color:#0b1120;
+  background:var(--gold); border-radius:99px; padding:1px 8px;
+}
+.sp-sub{ font-size:11.5px; color:var(--mut); }
+.sp-time{
+  font-size:19px; font-weight:800; color:var(--txt);
+  direction:ltr; unicode-bidi:isolate; font-variant-numeric:tabular-nums;
+}
+/* نمازِ جاری: حلقهٔ طلایی */
+.sc-prayer.is-current{
+  border-color:var(--gold);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--gold) 40%, transparent), var(--pl-elev-1);
+  background:linear-gradient(165deg, color-mix(in srgb, var(--gold) 13%, var(--card2)), var(--card));
+}
+.sc-prayer.is-current .sp-name{ color:var(--gold); }
+.sc-prayer.is-marked .sp-time{ color:var(--grn); }
+/* دکمهٔ «علامت زدم» روی هر ردیف */
+.sp-mark{
+  flex-shrink:0; width:52px; min-height:44px; border-radius:14px;
+  background:var(--card2); border:1px dashed color-mix(in srgb, var(--mut) 45%, transparent);
+  color:var(--mut); cursor:pointer; font-family:var(--f-ui);
+  display:flex; align-items:center; justify-content:center;
+  transition:all .2s var(--ease);
+}
+.sp-mark .ic{ width:20px; height:20px; }
+.sp-mark:active{ transform:scale(.93); }
+.sp-mark.done{
+  background:color-mix(in srgb, var(--grn) 16%, var(--card2));
+  border:1px solid var(--grn); color:var(--grn);
+}
+/* طلوع / غروب / نیمه‌شب */
+.sc-sub-times{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+  margin-top:10px;
+}
+.sc-sub{
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  background:var(--card2); border:1px solid var(--line);
+  border-radius:12px; padding:8px 4px;
+  font-size:11px; color:var(--mut);
+}
+.sc-sub .ic{ width:17px; height:17px; color:var(--gold); }
+.sc-sub b{
+  font-size:14px; color:var(--txt);
+  direction:ltr; unicode-bidi:isolate; font-variant-numeric:tabular-nums;
+}
+
+/* ── ۴. رمضان: کارتِ سحر/افطار ── */
+.sc-ramadan{ padding:14px; display:flex; flex-direction:column; gap:8px; }
+.sc-ramadan .rm-top{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .sc-ramadan .rm-top b{ font-size:13.5px; }
 .sc-ramadan .rm-times{ display:flex; gap:14px; font-size:12.5px; color:var(--mut); flex-wrap:wrap; }
-.sc-ramadan .rm-times b{ color:var(--gold); direction:ltr; unicode-bidi:isolate; }
+.sc-ramadan .rm-times b{ color:var(--gold); direction:ltr; unicode-bidi:isolate; font-variant-numeric:tabular-nums; }
 .sc-ramadan .rm-dua{ font-size:12px; color:var(--mut); line-height:1.9; }
+.sc-ramadan .rm-dua b{ color:var(--txt); }
 
-/* ── ذکر/تسبیح روی صحن (فازِ ۳) ── */
-.sc-wird{ padding:12px; display:flex; flex-direction:column; gap:8px; }
+/* ── ۵. کارتِ قبله ── */
+.sc-qibla-card{ padding:14px; display:flex; flex-direction:column; gap:10px; }
+.qb-mini-row{ display:flex; align-items:center; gap:12px; }
+.qb-mini-svg{ flex-shrink:0; width:104px; height:104px; }
+.qb-mini-svg svg{ width:100%; height:100%; display:block; }
+.qb-mini-info{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+.qb-deg-big{
+  font-size:26px; font-weight:800; color:var(--gold);
+  direction:ltr; unicode-bidi:isolate; font-variant-numeric:tabular-nums;
+}
+.qb-desc{ font-size:12.5px; color:var(--txt); }
+.qb-dist{ font-size:11.5px; color:var(--mut); }
+
+/* ── ۶. ذکر و تعقیبات ── */
+.sc-wird{ padding:14px; display:flex; flex-direction:column; gap:10px; }
+.sc-tabs{
+  display:flex; gap:6px; padding:4px;
+  background:var(--card2); border:1px solid var(--line); border-radius:14px;
+}
+.sc-tab{
+  flex:1; min-height:44px; border:none; border-radius:10px;
+  background:transparent; color:var(--mut);
+  font-family:var(--f-ui); font-size:12.5px; font-weight:700; cursor:pointer;
+  transition:all .2s var(--ease);
+}
+.sc-tab.on{
+  background:linear-gradient(165deg, color-mix(in srgb, var(--gold) 22%, var(--card)), var(--card2));
+  color:var(--gold); box-shadow:var(--pl-elev-1);
+}
+.w-full{
+  padding:12px 2px;
+  border-bottom:1px dashed color-mix(in srgb, var(--line) 70%, transparent);
+}
+.w-full:last-of-type{ border-bottom:none; }
+.w-full-title{ font-size:12.5px; font-weight:800; color:var(--gold); margin-bottom:6px; }
+.w-full .w-ar{ font-size:19px; }
+.w-done{
+  text-align:center; font-size:12.5px; font-weight:700; color:var(--grn);
+  background:color-mix(in srgb, var(--grn) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--grn) 40%, transparent);
+  border-radius:12px; padding:9px; margin-top:8px;
+}
 .sc-wird .w-title{ font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; }
 .sc-wird .w-title .ic{ width:18px; height:18px; color:var(--gold); }
-.sc-wird .w-ar{ font-family:var(--f-quran); font-size:18px; line-height:1.9; color:var(--txt); text-align:right; }
-.sc-wird .w-fa{ font-size:12px; color:var(--mut); line-height:1.8; }
-.sc-wird .w-src{ font-size:10.5px; color:var(--mut); }
+.sc-wird .w-ar{ font-family:var(--f-quran); font-size:18px; line-height:2; color:var(--txt); text-align:right; }
+.sc-wird .w-fa{ font-size:12.5px; color:var(--mut); line-height:1.9; margin-top:6px; }
+.sc-wird .w-src{ font-size:11px; color:var(--mut); margin-top:6px; line-height:1.8; }
 .sc-tasbih{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .sc-tasbih .tb-btn{
-  min-width:88px; min-height:54px; border-radius:16px;
+  min-width:96px; min-height:58px; border-radius:16px;
   background:radial-gradient(circle at 30% 25%, var(--card2), var(--bg2));
   border:1px solid var(--gold); color:var(--txt);
   font-family:var(--f-ui); font-size:14px; font-weight:700; cursor:pointer;
@@ -261,25 +274,49 @@
 .sc-tasbih .tb-side{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--mut); }
 .sc-tasbih .tb-side button{ min-height:44px; }
 
-/* ── قبله ── */
+/* ── حالتِ خاموش ── */
+.sc-off{ text-align:center; }
+.sc-off b{ display:inline-flex; align-items:center; gap:6px; color:var(--gold); }
+.sc-off b .ic{ width:18px; height:18px; }
+.sc-off p{ line-height:1.9; }
+.sc-off .btn{ margin-inline:auto; }
+
+/* ── قبله‌نما (پنجرهٔ زنده + نگارهٔ کوچک) ── */
 .sc-qibla{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:6px 0; }
 .sc-qibla svg{ width:min(72vw, 300px); height:auto; touch-action:manipulation; }
+.qb-svg{ transition:filter .3s var(--ease); }
 .qb-ring{ fill:none; stroke:var(--line); stroke-width:2; }
 .qb-face{ fill:var(--card); }
-.qb-tick{ stroke:var(--mut); stroke-width:1.5; }
-.qb-cardinal{ fill:var(--mut); font-size:11px; font-family:var(--f-ui); text-anchor:middle; dominant-baseline:middle; }
-.qb-cardinal.n{ fill:var(--red); font-weight:700; }
+.qb-tick{ stroke:var(--mut); stroke-width:1; opacity:.55; }
+.qb-tick.major{ stroke:var(--gold); stroke-width:2; opacity:.9; }
+.qb-cardinal{ fill:var(--mut); font-size:12px; font-weight:700; font-family:var(--f-ui); text-anchor:middle; dominant-baseline:middle; }
+.qb-cardinal.n{ fill:var(--red); }
+.qb-inter{ fill:var(--mut); font-size:8.5px; font-family:var(--f-ui); text-anchor:middle; dominant-baseline:middle; opacity:.8; }
+.qb-rose{ transform-origin:100px 100px; }
 .qb-dial{ transform-origin:100px 100px; }
-.qb-needle{ stroke:var(--gold); stroke-width:3.5; stroke-linecap:round; }
-.qb-kaaba{ fill:var(--gold); }
+.qb-needle{ stroke:var(--gold); stroke-width:4; stroke-linecap:round; }
+.qb-tail{ stroke:var(--mut); stroke-width:3; stroke-linecap:round; opacity:.5; }
+.qb-kaaba{ fill:var(--gold); stroke:color-mix(in srgb, var(--gold) 60%, #000); stroke-width:1; }
+.qb-hub{ fill:var(--mut); }
+.qb-svg.is-aligned{ filter:drop-shadow(0 0 10px color-mix(in srgb, var(--grn) 65%, transparent)); }
+.qb-svg.is-aligned .qb-needle{ stroke:var(--grn); }
+.qb-svg.is-aligned .qb-kaaba{ fill:var(--grn); stroke:var(--grn); }
 .qb-deg{ font-size:13px; color:var(--txt); font-weight:700; }
-.qb-hint{ font-size:12px; color:var(--mut); text-align:center; line-height:1.9; }
+.qb-live-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
+.qb-live{
+  font-size:12.5px; font-weight:700; color:var(--txt);
+  background:var(--card2); border:1px solid var(--line);
+  border-radius:99px; padding:4px 12px;
+  font-variant-numeric:tabular-nums;
+}
+.qb-live.dim{ font-weight:400; color:var(--mut); }
+.qb-hint{ font-size:12px; color:var(--mut); text-align:center; line-height:1.9; max-width:44ch; }
 .sc-qibla .qb-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 
 /* ── تنظیماتِ عبادت (در «من») ── */
 .sc-set-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .sc-set-row .btn{ min-height:44px; }
-.sc-set-preview{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:8px; }
+.sc-set-preview{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
 .sc-set-preview .pv{ background:var(--card2); border:1px solid var(--line); border-radius:10px;
   padding:6px 4px; text-align:center; font-size:11px; color:var(--mut); }
 .sc-set-preview .pv b{ display:block; font-size:13px; color:var(--txt); direction:ltr; unicode-bidi:isolate;
@@ -292,16 +329,9 @@
 .sc-citylist{ display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; max-height:52vh; overflow:auto; }
 .sc-citylist button{ min-height:44px; font-size:12.5px; }
 
-/* ── نسخهٔ ۱۹: ورد و تسبیح ── */
+/* ── ورد و تسبیح (سازگاریِ پنجره‌ها) ── */
 .w-item{ border-bottom:1px solid var(--line); padding:4px 0; }
 .w-item:last-of-type{ border-bottom:0; }
-.w-item summary{ cursor:pointer; font-size:12.5px; color:var(--txt); min-height:44px;
-  display:flex; align-items:center; list-style:none; }
-.w-item summary::-webkit-details-marker{ display:none; }
-.w-item summary::before{ content:'›'; display:inline-block; margin-inline-end:6px;
-  color:var(--mut); transition:transform .18s var(--ease); }
-.w-item[open] summary::before{ transform:rotate(90deg); }
-.w-item[open] summary{ color:var(--gold); }
 #wirdCard .chip{ margin-inline-start:auto; }
 .sc-tasbih .tb-btn:disabled{ opacity:.6; }
 
@@ -311,40 +341,24 @@
 .sc-wrap > *:nth-child(3){ animation-delay:.1s; }
 .sc-wrap > *:nth-child(4){ animation-delay:.15s; }
 .sc-wrap > *:nth-child(5){ animation-delay:.2s; }
+.sc-wrap > *:nth-child(6){ animation-delay:.25s; }
 @keyframes sc-in{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
 .sc-next-bar i{ transition:width .9s linear; }
-.qb-dial{ transition:transform .2s linear; }
+.qb-dial, .qb-rose{ transition:transform .2s linear; }
+.qb-svg{ transition:filter .3s var(--ease); }
 
 /* ── کم‌حرکتی: سیستم و درون‌برنامه ── */
 @media (prefers-reduced-motion: reduce){
   .sc-wrap > *{ animation:none !important; }
-  .w-item summary::before{ transition:none !important; }
-  #salahCourt .carousel-viewport{ transition:none !important; }   /* ارتفاع بی‌انیمیشن */
-  .sc-next-bar i, .qb-dial{ transition:none !important; }   /* سوزن/صفحه بدونِ چرخشِ نرم */
-  .sc-prayer:active, .sc-tasbih .tb-btn:active{ transform:none !important; }
-  #salahCourt .slide,
-  #salahCourt .carousel-track,
-  #salahCourt .sc-prayer{
-    animation:none !important;
-    transition:none !important;
-    transform:none !important;
-    filter:none !important;
-  }
-  #salahCourt .slide{ opacity:1 !important; visibility:visible !important; }
-  #salahCourt .slide:not(.is-active){ display:none !important; }
+  .sc-next-bar i, .qb-dial, .qb-rose, .qb-svg{ transition:none !important; }
+  .sc-prayer:active, .sc-tasbih .tb-btn:active, .sp-mark:active{ transform:none !important; }
 }
 
 html[data-motion="off"] .sc-wrap > *{ animation:none !important; }
-html[data-motion="off"] .w-item summary::before{ transition:none !important; }
-html[data-motion="off"] .sc-next-bar i, html[data-motion="off"] .qb-dial{ transition:none !important; }
-html[data-motion="off"] .sc-prayer:active, html[data-motion="off"] .sc-tasbih .tb-btn:active{ transform:none !important; }
-html[data-motion="off"] #salahCourt .slide,
-html[data-motion="off"] #salahCourt .carousel-track,
-html[data-motion="off"] #salahCourt .sc-prayer{
-  animation:none !important;
-  transition:none !important;
-  transform:none !important;
-  filter:none !important;
-}
-html[data-motion="off"] #salahCourt .slide{ opacity:1 !important; visibility:visible !important; }
-html[data-motion="off"] #salahCourt .slide:not(.is-active){ display:none !important; }
+html[data-motion="off"] .sc-next-bar i,
+html[data-motion="off"] .qb-dial,
+html[data-motion="off"] .qb-rose,
+html[data-motion="off"] .qb-svg{ transition:none !important; }
+html[data-motion="off"] .sc-prayer:active,
+html[data-motion="off"] .sc-tasbih .tb-btn:active,
+html[data-motion="off"] .sp-mark:active{ transform:none !important; }
