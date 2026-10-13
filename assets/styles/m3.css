@@ -1,0 +1,896 @@
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان — سیستمِ طراحیِ Material 3 (نسخهٔ ۲۳)
+   ═══════════════════════════════════════════════════════════════════
+   این برگهٔ سبک *جایگزین* پوسته‌های پیشین نیست؛ لایهٔ نقش‌های M3 است که
+   روی همان توکن‌های پوستهٔ نورستان (--gold/--card/--txt/…) می‌نشیند. پس هر
+   شش تمِ برنامه (شب، اقیانوس، جنگل، شبِ زرین، کویر، روشن) بی‌تغییر کار
+   می‌کنند و فقط «نقشِ» رنگ‌ها صریح می‌شود.
+
+   سه چیزی که این فایل می‌آورد:
+     ۱) نقش‌های رنگی M3 (primary/surface-container/outline/…) + لایهٔ
+        وضعیت (state layer) + ارتفاع + شکل + مقیاسِ تایپ + منحنی‌های حرکت.
+     ۲) چیدمانِ انطباقی: کلاسِ اندازهٔ پنجره (compact/medium/expanded)،
+        نوارِ راهبریِ پایین روی موبایل و *نوارِ کناری* (navigation rail)
+        روی دسکتاپ، ستون‌های بیشتر و فاصلهٔ بیشتر در عرض‌های بزرگ.
+     ۳) بازسازیِ اجزای پرکاربرد به شکلِ M3: دکمه‌ها، چیپ‌ها، کارت‌ها،
+        زبانه‌ها، ورودی‌ها، پنجره و برگهٔ پایین‌کش، اسنک‌بار، نوارهای
+        پیشرفت، وضعیت‌های خالی/بارگذاری/خطا و ذکرشمار.
+
+   دو قاعدهٔ سختِ خودِ نورستان این‌جا هم برقرار است:
+     • همه‌چیز RTL و با خاصیت‌های منطقی (inline-start/block-end) نوشته شده
+       تا جهت، هیچ‌جا hard-code نشود و افزودنِ زبانِ چپ‌به‌راست فقط یک
+       `dir` بخواهد.
+     • قلمِ رابط Vazirmatnِ میزبانی‌شدهٔ محلی است (سه وزنِ ۴۰۰/۷۰۰/۸۰۰) و
+       مقیاسِ تایپ به همان وزن‌ها نگاشت شده؛ هیچ قلمِ بیرونی بار نمی‌شود.
+
+   ترتیبِ آبشار: این فایل *آخرین* برگهٔ سبکِ سند است و بی `@layer` نوشته
+   شده، پس نقش‌های M3 بر قاعده‌های لایه‌دارِ style-1 می‌چربند — بدونِ آنکه
+   لازم باشد سلکتورها سنگین شوند یا قاعده‌ای از فایل‌های دیگر پاک شود.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────── ۱. توکن‌ها ─────────────── */
+:root{
+  /* ══ ۱.۱ نقش‌های رنگی ══
+     هر نقش از توکنِ پوستهٔ جاری مشتق می‌شود، پس با عوض‌شدنِ تم همهٔ نقش‌ها
+     با هم عوض می‌شوند. `color-mix` برای ساختنِ ظرف‌ها (container) و لایه‌های
+     وضعیت از همان رنگِ پایه است؛ در مرورگرِ بدونِ پشتیبانی، `@supports`
+     پایین همان نقش‌ها را با مقدارِ پرِ قدیمی جایگزین می‌کند. */
+  --md-primary:var(--gold);
+  --md-on-primary:var(--ink);
+  --md-primary-container:color-mix(in srgb, var(--gold) 26%, var(--card));
+  --md-on-primary-container:var(--txt);
+  --md-inverse-primary:var(--gold2);
+
+  --md-secondary:var(--grn);
+  --md-on-secondary:#04231a;
+  --md-secondary-container:color-mix(in srgb, var(--grn) 22%, var(--card));
+  --md-on-secondary-container:var(--txt);
+
+  --md-tertiary:var(--prp);
+  --md-on-tertiary:#160b2b;
+  --md-tertiary-container:color-mix(in srgb, var(--prp) 22%, var(--card));
+  --md-on-tertiary-container:var(--txt);
+
+  --md-error:var(--red);
+  --md-on-error:#2b0409;
+  --md-error-container:color-mix(in srgb, var(--red) 24%, var(--card));
+  --md-on-error-container:var(--txt);
+
+  --md-background:var(--bg);
+  --md-on-background:var(--txt);
+
+  /* سطح‌ها: M3 به‌جای سایه، «ارتفاعِ تونال» دارد — هرچه سطح بالاتر، کمی
+     روشن‌تر (در تمِ تیره) تا سلسله‌مراتب بی‌سایهٔ سنگین خوانده شود. */
+  --md-surface:var(--card);
+  --md-surface-dim:var(--bg2);
+  --md-surface-bright:var(--card2);
+  --md-on-surface:var(--txt);
+  --md-surface-variant:var(--card2);
+  --md-on-surface-variant:var(--mut);
+  --md-surface-container-lowest:color-mix(in srgb, var(--card) 72%, var(--bg));
+  --md-surface-container-low:var(--card);
+  --md-surface-container:var(--card2);
+  --md-surface-container-high:color-mix(in srgb, var(--card2) 82%, #ffffff 6%);
+  --md-surface-container-highest:color-mix(in srgb, var(--card2) 68%, #ffffff 12%);
+  --md-inverse-surface:var(--txt);
+  --md-inverse-on-surface:var(--bg);
+
+  --md-outline:var(--line);
+  --md-outline-variant:color-mix(in srgb, var(--line) 62%, transparent);
+  --md-shadow:#000;
+  --md-scrim:rgba(4,7,14,.62);
+
+  /* ══ ۱.۲ لایهٔ وضعیت (state layer) ══
+     همان عددِ مرجعِ M3: هاور ۸٪، فوکوس ۱۰٪، فشار ۱۰٪، کشیدن ۱۶٪.
+     لایه روی خودِ عنصر با `::before` می‌نشیند تا رنگِ پایه دست‌نخورده بماند. */
+  --md-hover:.08; --md-focus:.10; --md-press:.10; --md-drag:.16;
+
+  /* ══ ۱.۳ ارتفاع ══ */
+  --md-elev-0:none;
+  --md-elev-1:0 1px 2px rgba(0,0,0,.30), 0 1px 3px 1px rgba(0,0,0,.15);
+  --md-elev-2:0 1px 2px rgba(0,0,0,.30), 0 2px 6px 2px rgba(0,0,0,.15);
+  --md-elev-3:0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.30);
+  --md-elev-4:0 6px 10px 4px rgba(0,0,0,.15), 0 2px 3px rgba(0,0,0,.30);
+  --md-elev-5:0 8px 12px 6px rgba(0,0,0,.15), 0 4px 4px rgba(0,0,0,.30);
+  /* ارتفاعِ رنگیِ برند: برای کنشِ اصلی (شروعِ ذکر، پخش) — سایهٔ طلاییِ ملایم */
+  --md-elev-brand:0 8px 24px -10px color-mix(in srgb, var(--gold) 55%, transparent);
+
+  /* ══ ۱.۴ شکل (shape scale) ══ */
+  --md-shape-none:0;
+  --md-shape-xs:4px;
+  --md-shape-sm:8px;
+  --md-shape-md:12px;
+  --md-shape-lg:16px;
+  --md-shape-xl:28px;
+  --md-shape-full:999px;
+
+  /* ══ ۱.۵ تایپ — Vazirmatn، با اعدادِ فارسی و خطوطِ بلندترِ فارسی ══
+     مقیاسِ مرجعِ M3 برای خطِ لاتین است؛ برای متنِ فارسی بلندیِ خط
+     (line-height) عمداً بزرگ‌تر گرفته شده چون خواناییِ فارسی در ۱٫۲
+     از دست می‌رود. وزن‌ها به سه وزنِ میزبانی‌شده (۴۰۰/۷۰۰/۸۰۰) نگاشت
+     شده‌اند — هیچ قلمِ تازه‌ای از بیرون نمی‌آید. */
+  --md-font:var(--f-ui);
+
+  /* ضریبِ مقیاسِ تایپِ رابط. همهٔ اندازه‌های زیر در آن ضرب می‌شوند، پس
+     «قلمِ بزرگ‌تر/کوچک‌تر» یک تنظیمِ پوسته‌ای است نه بازنویسیِ قاعده‌ها.
+     `m3-1.js` با `html[data-fs="sm|md|lg"]` همین را عوض می‌کند و در
+     localStorage نگه می‌دارد. بلندیِ خط (عددِ بی‌واحد) خودش با اندازهٔ
+     قلم بزرگ می‌شود، پس دست‌نخورده می‌ماند. */
+  --md-ts:1;
+
+  --md-display-large:800 calc(clamp(34px,6.4vw,57px) * var(--md-ts))/1.35 var(--md-font);
+  --md-display-medium:800 calc(clamp(30px,5.4vw,45px) * var(--md-ts))/1.4 var(--md-font);
+  --md-display-small:800 calc(clamp(26px,4.4vw,36px) * var(--md-ts))/1.45 var(--md-font);
+
+  --md-headline-large:700 calc(clamp(24px,3.6vw,32px) * var(--md-ts))/1.5 var(--md-font);
+  --md-headline-medium:700 calc(clamp(21px,3.1vw,28px) * var(--md-ts))/1.55 var(--md-font);
+  --md-headline-small:700 calc(clamp(19px,2.7vw,24px) * var(--md-ts))/1.6 var(--md-font);
+
+  --md-title-large:700 calc(22px * var(--md-ts))/1.6 var(--md-font);
+  --md-title-medium:700 calc(16px * var(--md-ts))/1.7 var(--md-font);
+  --md-title-small:700 calc(14px * var(--md-ts))/1.75 var(--md-font);
+
+  --md-label-large:700 calc(14px * var(--md-ts))/1.6 var(--md-font);
+  --md-label-medium:700 calc(12px * var(--md-ts))/1.6 var(--md-font);
+  --md-label-small:700 calc(11px * var(--md-ts))/1.6 var(--md-font);
+
+  --md-body-large:400 calc(16px * var(--md-ts))/2.05 var(--md-font);
+  --md-body-medium:400 calc(14px * var(--md-ts))/2 var(--md-font);
+  --md-body-small:400 calc(12px * var(--md-ts))/1.95 var(--md-font);
+
+  /* متنِ عبادی (عربی/قرآنی) — قلمِ قرآنِ برنامه، بلندیِ خطِ بازتر */
+  --md-sacred-large:400 calc(clamp(21px,4.6vw,30px) * var(--md-ts))/2.35 var(--f-quran);
+  --md-sacred-medium:400 calc(clamp(18px,3.8vw,24px) * var(--md-ts))/2.3 var(--f-quran);
+  --md-sacred-small:400 calc(17px * var(--md-ts))/2.2 var(--f-quran);
+
+  /* ══ ۱.۶ حرکت ══
+     منحنی‌های مرجعِ M3. `--ease`/`--bounce` پیشینِ برنامه سرِ جایشان
+     می‌مانند (قاعده‌های قدیمی به آن‌ها تکیه دارند) و فقط نقش‌های M3 از
+     این چهار منحنی می‌گیرند. */
+  --md-ease-emphasized:cubic-bezier(.2,0,0,1);
+  --md-ease-emphasized-decelerate:cubic-bezier(.05,.7,.1,1);
+  --md-ease-emphasized-accelerate:cubic-bezier(.3,0,.8,.15);
+  --md-ease-standard:cubic-bezier(.2,0,0,1);
+  --md-ease-legacy:cubic-bezier(.4,0,.2,1);
+  --md-dur-short:150ms; --md-dur-medium:300ms; --md-dur-long:450ms; --md-dur-long2:600ms;
+
+  /* ══ ۱.۷ فاصله و اندازهٔ لمس ══ */
+  --md-space-1:4px; --md-space-2:8px; --md-space-3:12px; --md-space-4:16px;
+  --md-space-5:24px; --md-space-6:32px; --md-space-7:48px;
+  --md-target:48px;              /* کمینهٔ هدفِ لمسیِ M3 */
+  --md-target-min:44px;          /* کفِ دسترس‌پذیری که سنجش‌ها هم می‌سنجند */
+  --md-btn-h:44px;
+  --md-nav-h:80px;               /* نوارِ راهبریِ پایین */
+  --md-rail-w:96px;              /* نوارِ راهبریِ کناری (دسکتاپ) */
+  --md-gutter:16px;              /* حاشیهٔ کناریِ محتوا در compact */
+}
+
+/* ── پیش‌فرض‌های اندازهٔ قلمِ رابط (تنظیمات ← قلم) ──
+   سه پیش‌فرض، هیچ عددِ دلخواهی از سویِ ماژول پذیرفته نمی‌شود؛ اگر مقدارِ
+   ناشناخته برسد، `m3-1.js` همان «میانه» را می‌نشاند. */
+html[data-fs="sm"]{ --md-ts:.94 }
+html[data-fs="md"]{ --md-ts:1 }
+html[data-fs="lg"]{ --md-ts:1.08 }
+
+/* ── تمِ روشن: نقش‌ها همان‌اند، فقط سطح‌ها روشن‌تر و سایه نرم‌تر ── */
+html[data-theme="light"]{
+  --md-surface-container-lowest:#ffffff;
+  --md-surface-container-low:var(--card);
+  --md-surface-container:var(--card2);
+  --md-surface-container-high:color-mix(in srgb, var(--card2) 88%, #ffffff);
+  --md-surface-container-highest:color-mix(in srgb, var(--card2) 74%, #ffffff);
+  --md-on-secondary:#04231a;
+  --md-elev-1:0 1px 2px rgba(60,73,51,.16), 0 1px 3px 1px rgba(60,73,51,.10);
+  --md-elev-2:0 1px 2px rgba(60,73,51,.16), 0 2px 6px 2px rgba(60,73,51,.10);
+  --md-elev-3:0 4px 8px 3px rgba(60,73,51,.10), 0 1px 3px rgba(60,73,51,.16);
+  --md-elev-4:0 6px 10px 4px rgba(60,73,51,.10), 0 2px 3px rgba(60,73,51,.16);
+  --md-elev-5:0 8px 12px 6px rgba(60,73,51,.10), 0 4px 4px rgba(60,73,51,.16);
+  --md-scrim:rgba(40,51,34,.42);
+}
+
+/* ── واپس‌رویِ مرورگرِ بدونِ `color-mix` (نقش‌ها پر می‌شوند، نه شفاف) ── */
+@supports not (color: color-mix(in srgb, red 50%, blue 50%)){
+  :root{
+    --md-primary-container:var(--card2);
+    --md-secondary-container:var(--card2);
+    --md-tertiary-container:var(--card2);
+    --md-error-container:var(--card2);
+    --md-surface-container-lowest:var(--bg2);
+    --md-surface-container-high:var(--card2);
+    --md-surface-container-highest:var(--card2);
+    --md-outline-variant:var(--line);
+  }
+}
+
+/* ─────────────── ۲. پایه: تایپ، فوکوس، سطح ─────────────── */
+html body{
+  font:var(--md-body-medium);
+  color:var(--md-on-surface);
+  /* فاصلهٔ حروف برای فارسی صفر می‌ماند؛ letter-spacing منفی/مثلب
+     خواناییِ خطِ فارسی را به‌هم می‌زند. */
+  letter-spacing:0;
+}
+html body h1{font:var(--md-display-small);letter-spacing:0}
+html body h2{font:var(--md-title-large);letter-spacing:0}
+html body h3{font:var(--md-title-medium);letter-spacing:0}
+html body p{font:var(--md-body-medium)}
+html body small{font:var(--md-body-small)}
+
+/* فوکوسِ مرئیِ یکدست: حلقهٔ ۲px از نقشِ primary با فاصلهٔ ۲px.
+   پیش‌تر چهار برگهٔ سبک هر کدام حلقهٔ خودش را داشت و در sanctuary/salah/
+   motion هیچ حلقه‌ای نبود. */
+/* حلقهٔ فوکوسِ M3: ۲px از نقشِ primary با ۲px فاصله، یکدست در همهٔ برنامه.
+   polish.css همین گزینش را با `!important` قفل کرده بود (outline:none به‌همراهِ
+   سایهٔ --ds-focus)؛ برای همین این‌جا هم همان الگو به کار رفته تا لایهِٔ آخر
+   برنده شود، و خودِ توکن‌ها هم به نقش‌های M3 نگاشت شده‌اند. */
+:where(a,button,input,select,textarea,[tabindex],[role="button"],summary):focus-visible{
+  outline:2px solid var(--md-primary)!important;
+  outline-offset:2px!important;
+  box-shadow:none!important;
+}
+:root{
+  --md-max-w:1200px;
+  --ds-focus:0 0 0 2px var(--md-surface-container-low), 0 0 0 5px var(--md-primary);
+  --pl-ring:0 0 0 3px color-mix(in srgb, var(--md-primary) 30%, transparent);
+}
+
+/* نوارِ لغزشِ باریک‌تر و هم‌رنگِ سطح */
+html body ::-webkit-scrollbar{width:10px;height:10px}
+html body ::-webkit-scrollbar-track{background:transparent}
+html body ::-webkit-scrollbar-thumb{background:var(--md-outline-variant);border-radius:var(--md-shape-full);
+  border:3px solid transparent;background-clip:content-box}
+html body ::-webkit-scrollbar-thumb:hover{background:var(--md-outline);background-clip:content-box}
+
+/* لایهٔ وضعیتِ مشترک: هر عنصرِ `.m3-state` یک `::before` نیمه‌شفاف می‌گیرد
+   که با هاور/فوکوس/فشار روشن می‌شود (رفتارِ مرجعِ M3). */
+html body .m3-state{position:relative;isolation:isolate}
+html body .m3-state::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:currentColor;opacity:0;transition:opacity var(--md-dur-short) var(--md-ease-standard);
+  z-index:0;
+}
+html body .m3-state:hover::before{opacity:var(--md-hover)}
+html body .m3-state:focus-visible::before{opacity:var(--md-focus)}
+html body .m3-state:active::before{opacity:var(--md-press)}
+html body .m3-state > *{position:relative;z-index:1}
+
+/* موجِ لمس (ripple) — با m3-1.js ساخته می‌شود */
+html body .m3-ripple{
+  position:absolute;border-radius:50%;pointer-events:none;z-index:0;
+  background:currentColor;opacity:.16;transform:scale(0);
+  animation:m3-ripple-out 520ms var(--md-ease-emphasized-decelerate) forwards;
+}
+@keyframes m3-ripple-out{ to{ transform:scale(2.4); opacity:0 } }
+
+/* ستونِ اصلی: پهنا، حاشیهٔ منطقی و فضای پایین برای نوارِ راهبری.
+   `html body #app` عمداً این‌قدر خاص نوشته شده: sanctuary با `html #app` و
+   polish با `#app` همان جعبه را اندازه داده‌اند و لایهٔ M3 باید آخر بماند. */
+html body #app{
+  max-width:var(--md-max-w);
+  margin-inline:auto;
+  padding-inline:var(--md-gutter);
+  padding-block-start:0;
+  padding-block-end:calc(var(--md-nav-h) + var(--md-space-7) + env(safe-area-inset-bottom,0px));
+}
+/* نوارِ بالا هم‌اندازهٔ حاشیهٔ ستون به بیرون می‌زند تا لبه‌به‌لبه بنشیند */
+html body .top{margin-inline:calc(-1 * var(--md-gutter));padding-inline:var(--md-gutter)}
+
+/* ─────────────── ۳. چیدمانِ انطباقی ───────────────
+   سه کلاسِ پنجره بر پایهٔ breakpoint های مرجعِ M3:
+     compact  < 600px   — موبایل: نوارِ راهبریِ پایین، یک ستون
+     medium   600..839  — تبلت/تاشو: نوارِ پایین، ستون‌های بیشتر، حاشیهٔ بیشتر
+     expanded ≥ 840px   — دسکتاپ: نوارِ راهبریِ کناری (rail)، محتوای پهن‌تر
+   کلاس را m3-1.js روی <html> می‌گذارد (`data-wsc`) تا JS هم همان را ببیند؛
+   خودِ چیدمان اما با media query است تا بی‌JS هم درست بماند. */
+
+/* ── ۳.۱ نوارِ راهبریِ پایین — Navigation bar (M3) ── */
+html body #nav{
+  /* sanctuary یک قرصِ شناور ساخته بود (inset-inline:16px، bottom:12px،
+     max-width:700px، گوشهٔ ۲۰px). نوارِ راهبریِ M3 لبه‌به‌لبه و بدونِ
+     گوشه است؛ همهٔ آن خاصیت‌ها این‌جا صریح خنثی می‌شوند. */
+  inset-inline:0;width:auto;max-width:none;margin-inline:0;bottom:0;
+  border:0;border-radius:0;box-shadow:none;
+  height:calc(var(--md-nav-h) + env(safe-area-inset-bottom,0px));
+  background:color-mix(in srgb, var(--md-surface-container) 92%, transparent);
+  backdrop-filter:blur(18px) saturate(1.2);
+  -webkit-backdrop-filter:blur(18px) saturate(1.2);
+  border-top:1px solid var(--md-outline-variant);
+  border-block-start:1px solid var(--md-outline-variant);
+  padding:0 var(--md-space-2) env(safe-area-inset-bottom,0px);
+  display:flex;align-items:stretch;justify-content:space-around;gap:2px;
+  box-shadow:none;
+}
+html body #nav .navi{
+  flex:1 1 0;min-width:0;min-height:var(--md-target);
+  display:grid;grid-template-rows:auto auto;align-content:center;justify-items:center;
+  gap:var(--md-space-1);padding:var(--md-space-3) var(--md-space-1) var(--md-space-2);
+  border-radius:var(--md-shape-lg);
+  color:var(--md-on-surface-variant);
+  font:var(--md-label-medium);
+  background:transparent;
+  transition:color var(--md-dur-short) var(--md-ease-standard);
+}
+/* نشانگرِ فعالِ M3: قرصِ ۶۴×۳۲ پشتِ آیکن، نه پس‌زمینهٔ کلِ دکمه */
+html body #nav .navi .ni{
+  position:relative;display:grid;place-items:center;
+  width:64px;max-width:100%;height:32px;border-radius:var(--md-shape-full);
+  transition:background var(--md-dur-medium) var(--md-ease-emphasized),
+             transform var(--md-dur-medium) var(--md-ease-emphasized-decelerate);
+}
+html body #nav .navi:hover{color:var(--md-on-surface)}
+html body #nav .navi:hover .ni{background:color-mix(in srgb, var(--md-on-surface) 8%, transparent)}
+html body #nav .navi:active .ni{transform:scale(.94)}
+html body #nav .navi.on{color:var(--md-on-secondary-container);font-weight:700}
+html body #nav .navi.on .ni{background:var(--md-secondary-container)}
+html body #nav .navi.on .ic{stroke-width:2.2}
+html body #nav .navi .ic{width:24px;height:24px}
+/* برچسبِ تب‌ها روی گوشی‌های باریک کوچک‌تر می‌شود، ولی هدفِ لمسی سرِ جایش */
+@media(max-width:430px){
+  html body #nav{padding-inline:2px}
+  html body #nav .navi{padding-inline:2px;font-size:10.5px}
+  html body #nav .navi .ni{width:56px;height:30px}
+  html body #nav .navi .ic{width:22px;height:22px}
+}
+
+/* ── ۳.۲ medium به بالا: حاشیه و ستونِ بیشتر ── */
+@media(min-width:600px){
+  :root{ --md-gutter:24px; --md-space-5:28px }
+  html body #app{ padding-inline:var(--md-gutter) }
+  html body .stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--md-space-3)}
+  html body .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--md-space-4)}
+  html body .phead{gap:var(--md-space-4);margin-bottom:var(--md-space-5)}
+}
+
+/* ── ۳.۳ expanded به بالا: نوارِ راهبریِ کناری + محتوای پهن‌تر ── */
+@media(min-width:840px){
+  :root{ --md-gutter:32px }
+  html body #nav{
+    /* rail: از پایین به کنارِ آغازیِ سند (در RTL یعنی راست) */
+    position:fixed;inset-block:0;inset-inline-start:0;inset-inline-end:auto;
+    width:var(--md-rail-w);height:100dvh;
+    flex-direction:column;justify-content:flex-start;align-items:stretch;
+    gap:var(--md-space-1);
+    padding:var(--md-space-4) var(--md-space-2);
+    bottom:auto;top:0;
+    border:0;border-radius:0;box-shadow:none;
+    border-inline-end:1px solid var(--md-outline-variant);
+    background:color-mix(in srgb, var(--md-surface-container-low) 94%, transparent);
+    overflow-y:auto;overscroll-behavior:contain;
+  }
+  /* فاصلهٔ سرِ نوار تا بالا، هم‌قدِ نوارِ بالای برنامه */
+  html body #nav::before{content:"";display:block;height:64px;flex:none}
+  html body #nav .navi{flex:0 0 auto;padding-block:var(--md-space-2)}
+  /* محتوا از نوارِ کناری فاصله می‌گیرد؛ جهت با خاصیتِ منطقی، پس در RTL
+     خودبه‌خود از راست فاصله می‌گیرد. */
+  html body #app{
+    max-width:1120px;
+    padding-inline-start:calc(var(--md-rail-w) + var(--md-gutter));
+    padding-inline-end:var(--md-gutter);
+    padding-bottom:var(--md-space-7);
+  }
+  html body .top{margin-inline:calc(-1 * var(--md-gutter));padding-inline:var(--md-gutter)}
+  /* نوارِ پخش و بنر نصب هم از نوارِ کناری کنار می‌روند */
+  html body #miniQ{inset-inline-start:calc(var(--md-rail-w) + 24px);inset-inline-end:24px;inset-block-end:24px}
+  html body #toasts{max-width:520px}
+  html body .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  /* پنجره‌ها روی دسکتاپ دیگر تمام‌پهنا نیستند: dialog با ارتفاعِ متن */
+  html body #modal{padding:var(--md-space-5)}
+  html body #modal:not(.stage) .box{max-width:560px;max-height:min(86vh,760px)}
+  html body #modal.sheet .box{max-width:720px}
+  /* هاورِ واقعی فقط جایی که نشانگرِ دقیق هست */
+  @media(hover:hover) and (pointer:fine){
+    html body .card:hover,html body .tile:hover,html body .stat:hover{box-shadow:var(--md-elev-2)}
+  }
+}
+
+/* ── ۳.۴ large: ستون‌های بیشتر برای فهرست‌ها ── */
+@media(min-width:1200px){
+  html body #app{max-width:1280px}
+  html body .grid{grid-template-columns:repeat(auto-fill,minmax(216px,1fr))}
+  html body .stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+
+/* ارتفاعِ نوارِ کناری در حالتِ «تمرکز» هم پنهان می‌شود (قاعدهٔ قدیمیِ برنامه) */
+html body.focus #nav{opacity:0;pointer-events:none}
+
+/* ─────────────── ۴. اجزا ─────────────── */
+
+/* ══ ۴.۱ نوارِ بالا — Top app bar ══ */
+html body .top{
+  background:color-mix(in srgb, var(--md-surface-container-low) 86%, transparent);
+  backdrop-filter:blur(16px) saturate(1.2);
+  -webkit-backdrop-filter:blur(16px) saturate(1.2);
+  border-bottom:1px solid var(--md-outline-variant);
+  padding-block:var(--md-space-3);
+}
+html[data-theme="light"] body .top{
+  background:color-mix(in srgb, var(--md-surface-container-low) 88%, transparent);
+  border-bottom:1px solid var(--md-outline-variant);
+}
+html body .brand{font:var(--md-title-large);color:var(--md-on-surface)}
+html body .brand small{font:var(--md-label-small);color:var(--md-on-surface-variant)}
+html body .logo{
+  border-radius:var(--md-shape-md);
+  background:var(--md-primary);color:var(--md-on-primary);
+  box-shadow:var(--md-elev-brand);
+}
+html body .iconbtn,html body .top .iconbtn{
+  width:var(--md-target);height:var(--md-target);
+  border-radius:var(--md-shape-full);
+  border:1px solid transparent;
+  background:transparent;color:var(--md-on-surface-variant);
+  transition:background var(--md-dur-short) var(--md-ease-standard),
+             color var(--md-dur-short) var(--md-ease-standard);
+}
+html body .iconbtn:hover,html body .top .iconbtn:hover{background:color-mix(in srgb, var(--md-on-surface) 8%, transparent);color:var(--md-on-surface);transform:none}
+html body .iconbtn:active,html body .top .iconbtn:active{background:color-mix(in srgb, var(--md-on-surface) 12%, transparent)}
+/* نشانِ اعلان: نقطهٔ قرمز با خاصیتِ منطقی (پیش‌تر `left:5px` بود و در RTL
+   جای اشتباهی می‌نشست) */
+html body .iconbtn .dot{inset-block-start:6px;inset-inline-start:auto;inset-inline-end:6px;left:auto;right:auto;
+  background:var(--md-error);border:2px solid var(--md-surface-container-low)}
+
+/* ══ ۴.۲ سربرگِ صفحه ══ */
+html body .phead h2{font:var(--md-headline-small);color:var(--md-on-surface)}
+html body .phead p{font:var(--md-body-small);color:var(--md-on-surface-variant)}
+/* دو مدلِ دکمهٔ برگشت یکی شد: هم `›` متنی و هم iconbtn، یک شکل و یک اندازه */
+html body .back{
+  position:relative;
+  width:var(--md-target);height:var(--md-target);
+  border-radius:var(--md-shape-full);border:0;
+  background:transparent;color:var(--md-on-surface);
+  display:grid;place-items:center;font-size:22px;line-height:1;
+  transition:background var(--md-dur-short) var(--md-ease-standard);
+}
+html body .back::before{content:"";position:absolute;inset:0;border-radius:inherit}
+html body .back:hover{background:color-mix(in srgb, var(--md-on-surface) 8%, transparent)}
+
+/* ══ ۴.۳ دکمه‌ها ══
+   نگاشتِ کلاس‌های موجود به نقش‌های M3:
+     .btn       → Filled  (کنشِ اصلی)
+     .btn.gh    → Outlined (کنشِ فرعی)
+     .btn.ok    → Filled با نقشِ secondary
+     .btn.dg    → Filled با نقشِ error
+     .btn.sm    → اندازهٔ کوچک‌تر، ولی هدفِ لمسی ≥ ۴۴ */
+html body .btn,html body .btn:not(.sm){
+  position:relative;overflow:hidden;isolation:isolate;
+  min-height:var(--md-btn-h);
+  padding-inline:var(--md-space-5);padding-block:var(--md-space-3);
+  border:0;border-radius:var(--md-shape-full);
+  background:var(--md-primary);color:var(--md-on-primary);
+  font:var(--md-label-large);
+  box-shadow:var(--md-elev-0);
+  transition:box-shadow var(--md-dur-medium) var(--md-ease-standard),
+             background var(--md-dur-short) var(--md-ease-standard),
+             transform var(--md-dur-short) var(--md-ease-emphasized);
+}
+html body .btn::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;background:currentColor;
+  opacity:0;transition:opacity var(--md-dur-short) var(--md-ease-standard);pointer-events:none;
+}
+html body .btn:hover{transform:none;box-shadow:var(--md-elev-1)}
+html body .btn:hover::before{opacity:var(--md-hover)}
+html body .btn:active{transform:scale(.985);box-shadow:var(--md-elev-0)}
+html body .btn:active::before{opacity:var(--md-press)}
+html body .btn:focus-visible{outline:2px solid var(--md-primary);outline-offset:2px}
+html body .btn:disabled{background:color-mix(in srgb, var(--md-on-surface) 12%, transparent);
+  color:color-mix(in srgb, var(--md-on-surface) 38%, transparent);box-shadow:none;opacity:1}
+
+/* sanctuary پس‌زمینهٔ دکمهٔ توپُر را با `html .btn:not(.dg):not(.ok):not(.gh):not(.ghost)`
+   قفل کرده بود؛ همان زنجیره این‌جا تکرار می‌شود تا نقشِ primary واقعاً بنشیند. */
+html body .btn:not(.dg):not(.ok):not(.gh):not(.ghost){
+  background:var(--md-primary);color:var(--md-on-primary);
+  border:0;border-radius:var(--md-shape-full);box-shadow:var(--md-elev-0);
+}
+html body .btn.gh,html body .btn.ghost{
+  background:transparent;color:var(--md-primary);
+  border:1px solid var(--md-outline);
+}
+html body .btn.gh:hover{background:color-mix(in srgb, var(--md-primary) 8%, transparent);box-shadow:none}
+html body .btn.gh:disabled{border-color:color-mix(in srgb, var(--md-on-surface) 12%, transparent)}
+
+html body .btn.ok{background:var(--md-secondary);color:var(--md-on-secondary)}
+html body .btn.dg{background:var(--md-error);color:var(--md-on-error)}
+html body .btn.sm{min-height:var(--md-target-min);padding-inline:var(--md-space-4);padding-block:var(--md-space-2);
+  font:var(--md-label-medium);border-radius:var(--md-shape-full)}
+html body .btn.w{width:100%}
+html body .btn .ic{width:18px;height:18px}
+/* دکمهٔ بزرگِ ذکرشمار و CTA های خانه: ارتفاعِ بیشتر و ارتفاعِ رنگی */
+html body .btn-lg,html body .room-create-btn{min-height:56px;font:var(--md-label-large);padding-inline:var(--md-space-6)}
+html body .room-create-btn{background:var(--md-primary);color:var(--md-on-primary);border-radius:var(--md-shape-full)}
+
+/* دکمهٔ شناورِ M3 — اگر جایی از برنامه خواست، همین کلاس هست */
+html body .m3-fab{
+  position:fixed;inset-block-end:calc(var(--md-nav-h) + env(safe-area-inset-bottom,0px) + 16px);
+  inset-inline-end:16px;z-index:45;
+  width:56px;height:56px;border:0;border-radius:var(--md-shape-lg);
+  background:var(--md-primary-container);color:var(--md-on-primary-container);
+  display:grid;place-items:center;box-shadow:var(--md-elev-3);cursor:pointer;
+}
+@media(min-width:840px){
+  html body .m3-fab{inset-inline-end:24px}
+}
+
+/* ══ ۴.۴ چیپ‌ها — Assist / Filter chip ══ */
+html body .chip,html body .foyer-progress .chip,html body .pro-hero-panel > .chip{
+  display:inline-flex;align-items:center;gap:var(--md-space-2);
+  min-height:32px;padding-inline:var(--md-space-3);
+  border:1px solid var(--md-outline-variant);border-radius:var(--md-shape-sm);
+  background:transparent;color:var(--md-on-surface-variant);
+  font:var(--md-label-large);
+}
+html body .chip .ic{width:16px;height:16px}
+html body .chip.on{background:var(--md-secondary-container);border-color:transparent;color:var(--md-on-secondary-container)}
+html body .chip.off{background:var(--md-error-container);border-color:transparent;color:var(--md-on-error-container)}
+html body .chip.wr{background:var(--md-primary-container);border-color:transparent;color:var(--md-on-primary-container)}
+html body .pill{
+  border:1px solid var(--md-outline-variant);border-radius:var(--md-shape-sm);
+  background:var(--md-surface-container);color:var(--md-on-surface-variant);
+  font:var(--md-label-large);padding-inline:var(--md-space-4);min-height:32px;
+  display:inline-flex;align-items:center;gap:var(--md-space-2);
+}
+html body .pill b{color:var(--md-primary)}
+html body .pill.danger{border-color:var(--md-error);color:var(--md-error);background:transparent}
+
+/* ══ ۴.۵ سطح‌ها: کارت، کاشی، آمار، دسته ══ */
+html body .card,html body .qbox,html body .rec-row,html body .stat,html body .tile{
+  border-radius:var(--md-shape-lg);
+  border:1px solid var(--md-outline-variant);
+  box-shadow:var(--md-elev-0);
+}
+html body .card{background:var(--md-surface-container-low);padding:var(--md-space-4)}
+html body .hero,html body .today-card,html body .continue-card,html body .sc-head,
+html body .sc-occ,html body .sc-wird,html body .sc-ramadan,html body .sc-prayer-slide{
+  border-radius:var(--md-shape-xl);
+  border-color:var(--md-outline-variant);
+  box-shadow:var(--md-elev-1);
+}
+html body .qbox{background:var(--md-surface-container);padding:var(--md-space-5)}
+html body .stat{background:var(--md-surface-container);padding:var(--md-space-4) var(--md-space-2)}
+html body .stat b{font:var(--md-title-large);color:var(--md-primary)}
+html body .stat span{font:var(--md-label-small);color:var(--md-on-surface-variant)}
+html body .stat:hover{transform:none;border-color:var(--md-outline)}
+html body .stat-icon{color:var(--md-on-surface-variant)}
+/* `.stat-card` ردیفِ افقیِ آمار است (جدا از `.stat` خانه) و قاعدهٔ دامنه‌دارِ
+   style-1 رنگش را می‌گرفت؛ پس این‌جا هم دامنه‌دار نوشته شده. */
+html body .stat-card{
+  border-radius:var(--md-shape-lg);
+  border:1px solid var(--md-outline-variant);
+  background:var(--md-surface-container);
+}
+html body .stat-card:hover{transform:none;border-color:var(--md-outline)}
+html body .stat-card .stat-icon{color:var(--md-primary)}
+html body .stat-card .stat-value{font:var(--md-title-medium);color:var(--md-on-surface)}
+html body .stat-card .stat-label{font:var(--md-label-small);color:var(--md-on-surface-variant)}
+html body .tile{
+  background:var(--md-surface-container-low);
+  padding:var(--md-space-4);
+  border-radius:var(--md-shape-lg);
+  transition:box-shadow var(--md-dur-medium) var(--md-ease-standard),
+             border-color var(--md-dur-medium) var(--md-ease-standard),
+             transform var(--md-dur-short) var(--md-ease-standard);
+}
+html body .tile:hover{transform:none;border-color:var(--md-outline);box-shadow:var(--md-elev-1)}
+html body .tile.on,html body .tile:active{border-color:var(--md-primary);box-shadow:var(--md-elev-2)}
+html body .tile b{font:var(--md-title-small);color:var(--md-on-surface)}
+html body .tile small{font:var(--md-body-small);color:var(--md-on-surface-variant)}
+html body .tile .ti{background:var(--md-primary-container);border-color:transparent;color:var(--md-on-primary-container)}
+html body .tile.locked{opacity:.5}
+html body .cat-head h2{font:var(--md-title-medium)}
+html body .cat-head p{font:var(--md-body-small);color:var(--md-on-surface-variant)}
+html body .cat-ico{background:var(--md-primary-container);
+  border:1px solid var(--md-outline-variant);color:var(--md-on-primary-container)}
+html body .cat-cnt{
+  border-radius:var(--md-shape-full);background:var(--md-surface-container-high);
+  border:1px solid var(--md-outline-variant);color:var(--md-on-surface-variant);
+  font:var(--md-label-small);margin-inline-start:auto;margin-inline-end:0;
+}
+html body .cat-head{border-bottom:1px solid var(--md-outline-variant)}
+html body .badge{
+  left:auto;right:auto;top:auto;inset-block-start:10px;inset-inline-end:10px;
+  border-radius:var(--md-shape-full);background:var(--md-primary);color:var(--md-on-primary);
+  font:var(--md-label-small);
+}
+
+/* ══ ۴.۶ زبانه‌ها — Secondary tabs با نشانگرِ قرصی ══ */
+html body .tabs{gap:var(--md-space-2)}
+html body .tab{
+  min-height:var(--md-target-min);
+  padding-inline:var(--md-space-4);
+  border-radius:var(--md-shape-full);
+  border:1px solid transparent;
+  background:transparent;color:var(--md-on-surface-variant);
+  font:var(--md-label-large);
+  transition:background var(--md-dur-short) var(--md-ease-standard),
+             color var(--md-dur-short) var(--md-ease-standard);
+}
+html body .tab:hover{background:color-mix(in srgb, var(--md-on-surface) 8%, transparent)}
+html body .tab.on{background:var(--md-secondary-container);color:var(--md-on-secondary-container);border-color:transparent}
+html body .tab .ic{width:18px;height:18px}
+/* زبانهٔ ذکرشمار — همان نقش‌ها، کمی فشرده‌تر */
+html body .dj-tab,html body .sc-tab{
+  min-height:var(--md-target-min);border-radius:var(--md-shape-full);
+  border:1px solid var(--md-outline-variant);background:transparent;
+  color:var(--md-on-surface-variant);font:var(--md-label-medium);
+  padding-inline:var(--md-space-3);
+}
+html body .dj-tab.on,html body .sc-tab.on{background:var(--md-primary-container);border-color:transparent;color:var(--md-on-primary-container)}
+
+/* ══ ۴.۷ ورودی‌ها — Outlined text field ══ */
+html body .inp,html body select,html body textarea,html body #alog .al-card .inp,html body .pro-search .inp{
+  min-height:var(--md-target);
+  background:transparent;
+  border:1px solid var(--md-outline);
+  border-radius:var(--md-shape-xs);
+  padding-inline:var(--md-space-4);
+  color:var(--md-on-surface);
+  font:var(--md-body-large);
+  transition:border-color var(--md-dur-short) var(--md-ease-standard),
+             box-shadow var(--md-dur-short) var(--md-ease-standard);
+}
+html body .inp::placeholder{color:color-mix(in srgb, var(--md-on-surface-variant) 78%, transparent)}
+html body .inp:hover,html body #alog .al-card .inp:hover{border-color:var(--md-on-surface)}
+html body .inp:focus,html body #alog .al-card .inp:focus,html body .pro-search .inp:focus{border-color:var(--md-primary);box-shadow:inset 0 0 0 1px var(--md-primary)}
+html body .lbl{font:var(--md-label-medium);color:var(--md-on-surface-variant)}
+html body input[type="range"]{accent-color:var(--md-primary)}
+
+/* ══ ۴.۸ پنجره، برگهٔ پایین‌کش، اسنک‌بار ══ */
+html body #modal{background:var(--md-scrim);padding:var(--md-space-4)}
+html body #modal:not(.stage) .box{
+  background:var(--md-surface-container-high);
+  border:0;border-radius:var(--md-shape-xl);
+  padding:var(--md-space-5);
+  box-shadow:var(--md-elev-3);
+  animation:m3-dialog-in var(--md-dur-medium) var(--md-ease-emphasized-decelerate) both;
+}
+@keyframes m3-dialog-in{ from{opacity:0;transform:scale(.92)} to{opacity:1;transform:none} }
+html body #modal.sheet .box{
+  border-radius:var(--md-shape-xl) var(--md-shape-xl) 0 0;
+  background:var(--md-surface-container-high);
+  box-shadow:var(--md-elev-4);
+}
+html body .sheet-grab{background:var(--md-outline-variant);width:32px;height:4px;border-radius:var(--md-shape-full)}
+
+/* اسنک‌بارِ M3: سطحِ معکوس، گوشهٔ ۴px، یک خط، ارتفاعِ ۴۸ */
+html body #toasts{
+  /* M3 اسنک‌بار را پایینِ صفحه، بالای نوارِ راهبری می‌گذارد (پیش‌تر زیرِ
+     نوارِ بالا بود و با نوارِ ۸۰px جدید هم‌پوشانی می‌کرد). */
+  top:auto;bottom:auto;left:auto;right:auto;transform:none;
+  inset-inline:var(--md-space-4);margin-inline:auto;
+  inset-block-end:calc(var(--md-nav-h) + env(safe-area-inset-bottom,0px) + var(--md-space-3));
+  width:auto;max-width:480px;gap:var(--md-space-2);
+}
+html body #toasts .toast{
+  background:var(--md-inverse-surface);color:var(--md-inverse-on-surface);
+  border:0;border-inline-start:0;
+  border-radius:var(--md-shape-xs);
+  padding-inline:var(--md-space-4);padding-block:var(--md-space-3);
+  min-height:var(--md-target);
+  font:var(--md-body-medium);
+  box-shadow:var(--md-elev-3);
+  animation:m3-snack-in var(--md-dur-medium) var(--md-ease-emphasized-decelerate) both;
+}
+@keyframes m3-snack-in{ from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:none} }
+/* رنگِ معنا دیگر نوارِ کناریِ ضخیم نیست (M3 اسنک‌بار تک‌رنگ است)؛ به‌جایش
+   آیکنِ پیام رنگ می‌گیرد تا معنی از دست نرود. */
+html body #toasts .toast.ok{border-inline-start:0}
+html body #toasts .toast.err{border-inline-start:0}
+html body #toasts .toast.live .ic-w{color:var(--md-primary)}
+html body #toasts .toast.live.ok .ic-w{color:var(--md-secondary)}
+html body #toasts .toast.live.err .ic-w{color:var(--md-error)}
+html body #toasts .toast.live .x{color:var(--md-inverse-on-surface);border-radius:var(--md-shape-full)}
+html body #toasts .toast.live .x:hover{background:color-mix(in srgb, var(--md-inverse-on-surface) 12%, transparent)}
+/* کنشِ درونِ اسنک‌بار (M3: text button با رنگِ معکوس) */
+html body #toasts .toast .btn.gh,html body #toasts .toast button.text-btn{
+  background:transparent;border:0;color:var(--md-inverse-primary);font:var(--md-label-large);
+}
+
+/* ══ ۴.۹ نوارهای پیشرفت — Linear progress ══ */
+html body .prog,html body .lvlbar,html body .foyer-progress .lvlbar{
+  height:4px;border-radius:var(--md-shape-full);
+  background:var(--md-surface-container-highest);border:0;overflow:hidden;
+}
+html body .prog i,html body .lvlbar i,html body .foyer-progress .lvlbar i{background:var(--md-primary);border-radius:inherit}
+html body .progress-ring .ring-track{stroke:var(--md-surface-container-highest);stroke-width:6}
+html body .progress-ring .ring-progress{stroke:var(--md-primary);stroke-width:6}
+html body .progress-text b{font:var(--md-title-medium);color:var(--md-on-surface)}
+html body .progress-text small{font:var(--md-label-small);color:var(--md-on-surface-variant)}
+html body .game-progress.is-correct .ring-progress{stroke:var(--md-secondary)}
+html body .game-progress.is-wrong .ring-progress,html body .game-progress.timer .ring-progress{stroke:var(--md-error)}
+html body .game-progress.is-complete .ring-progress{stroke:var(--md-primary)}
+
+/* ══ ۴.۱۰ وضعیت‌های خالی / بارگذاری / خطا ══
+   سه حالتی که سندِ طراحی خواسته؛ همه یک شکلِ مشترک دارند تا کاربر
+   «داده نیست»، «دارد می‌آید» و «مشکل هست» را از هم تشخیص دهد. */
+html body .empty,html body .empty-state,html body .pro-empty,html body .m3-empty{
+  display:grid;justify-items:center;gap:var(--md-space-3);
+  padding:var(--md-space-6) var(--md-space-4);
+  text-align:center;color:var(--md-on-surface-variant);
+}
+html body .empty b,html body .empty-state b,html body .pro-empty b,html body .m3-empty b{font:var(--md-title-medium);color:var(--md-on-surface)}
+html body .empty p,html body .empty-state p,html body .pro-empty p,html body .m3-empty p{font:var(--md-body-medium);max-width:46ch;color:var(--md-on-surface-variant)}
+html body .m3-empty-ic{
+  width:64px;height:64px;border-radius:var(--md-shape-full);
+  display:grid;place-items:center;
+  background:var(--md-surface-container-high);color:var(--md-on-surface-variant);
+}
+html body .m3-empty-ic .ic{width:28px;height:28px}
+/* حالتِ خطا: همان شکل، با نقشِ error و کنشِ «تلاشِ دوباره» */
+html body .m3-error{
+  display:grid;justify-items:center;gap:var(--md-space-3);text-align:center;
+  padding:var(--md-space-5);border-radius:var(--md-shape-lg);
+  background:var(--md-error-container);color:var(--md-on-error-container);
+}
+html body .m3-error b{font:var(--md-title-medium)}
+html body .m3-error p{font:var(--md-body-medium);max-width:46ch}
+/* ناحیهٔ اعلامِ صفحهٔ تازه (m3-1.js می‌سازدش): دیده نمی‌شود، خوانده
+   می‌شود. `.sr` خودِ برنامه همان کار را می‌کند؛ این قاعده پشتبان است. */
+html body .m3-live{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;
+}
+/* حالتِ بارگذاری: نشانگرِ دایره‌ای + اسکلت، بدونِ عدد و متنِ ساختگی */
+html body .m3-loading{
+  display:grid;justify-items:center;gap:var(--md-space-3);text-align:center;
+  padding:var(--md-space-6) var(--md-space-4);color:var(--md-on-surface-variant);
+}
+html body .m3-loading-t{font:var(--md-label-large);color:var(--md-on-surface-variant)}
+html body .m3-loading .m3-skeleton{block-size:16px;inline-size:min(100%,420px);margin-block:var(--md-space-1)}
+html body .m3-skeleton{display:block;inline-size:100%}
+html body .m3-skeleton,html body .skeleton{
+  position:relative;overflow:hidden;border-radius:var(--md-shape-md);
+  background:var(--md-surface-container-high);color:transparent;min-height:18px;
+}
+html body .m3-skeleton::after,html body .skeleton::after{
+  content:"";position:absolute;inset:0;transform:translateX(100%);
+  background:linear-gradient(90deg,transparent,
+    color-mix(in srgb, var(--md-on-surface) 8%, transparent),transparent);
+  animation:m3-skeleton 1.6s var(--md-ease-standard) infinite;
+}
+@keyframes m3-skeleton{ to{ transform:translateX(-100%) } }
+/* بارگذاریِ دایره‌ای (M3 circular indicator) — با CSS، بی تصویر */
+html body .m3-spinner{
+  width:28px;height:28px;border-radius:50%;display:inline-block;
+  border:3px solid var(--md-surface-container-highest);
+  border-block-start-color:var(--md-primary);
+  animation:m3-spin 900ms linear infinite;
+}
+@keyframes m3-spin{ to{ transform:rotate(360deg) } }
+
+/* ══ ۴.۱۱ فهرست‌ها ══ */
+html body .list{gap:var(--md-space-2)}
+html body .item{
+  border-radius:var(--md-shape-md);
+  background:var(--md-surface-container);
+  border:1px solid transparent;
+  transition:background var(--md-dur-short) var(--md-ease-standard);
+}
+html body .item:hover{background:var(--md-surface-container-high)}
+html body .sep{background:var(--md-outline-variant);height:1px;margin-block:var(--md-space-4)}
+html body .kv{border-bottom:1px solid var(--md-outline-variant);font:var(--md-body-medium)}
+html body .kv b{color:var(--md-primary)}
+
+/* ══ ۴.۱۲ ذکرشمار (Zikr counter) — تمرکز، بی‌حواس‌پرتی ══
+   صفحهٔ ذکر مهم‌ترین سطحِ عبادی برنامه است: عددِ بزرگ با نقشِ primary،
+   متنِ عربی با قلمِ قرآن و بلندیِ خطِ باز، ترجمهٔ فارسی زیرش با نقشِ
+   on-surface-variant، و حلقهٔ پیشرفتِ ۴px. هیچ تزئینِ اضافه‌ای نیست. */
+html body .dj{
+  background:var(--md-surface-container-low);
+  border:1px solid var(--md-outline-variant);
+  border-radius:var(--md-shape-xl);
+  padding:var(--md-space-4);
+}
+html body .dj-pad,html body .dj-c .dj-pad{
+  border-radius:var(--md-shape-xl);
+  transition:background var(--md-dur-short) var(--md-ease-standard);
+  min-height:var(--md-target);
+}
+html body .dj-pad:hover{background:color-mix(in srgb, var(--md-on-surface) 4%, transparent)}
+html body .dj-pad:active{background:color-mix(in srgb, var(--md-primary) 8%, transparent)}
+html body .dj-n{
+  font:800 clamp(40px,13vw,64px)/1.1 var(--md-font);
+  color:var(--md-primary);
+  font-variant-numeric:tabular-nums;
+}
+html body .dj-of{font:var(--md-label-large);color:var(--md-on-surface-variant)}
+html body .dj-ar{font:var(--md-sacred-medium);color:var(--md-on-surface);text-align:center}
+html body .dj-fa{font:var(--md-body-medium);color:var(--md-on-surface-variant);text-align:center}
+html body .dj-ok{font:var(--md-label-large);color:var(--md-secondary)}
+html body .dj-note{font:var(--md-body-small);color:var(--md-on-surface-variant);text-align:center}
+html body .dj-note-warn{color:var(--md-on-primary-container)}
+html body .dj-c-bg{stroke:var(--md-surface-container-highest)}
+html body .dj-c-fg{stroke:var(--md-primary)}
+/* فازها: هر فاز یک «کارتِ کوچک» با شمارندهٔ خودش — دیگر زیرِ یک عدد
+   قاطی نمی‌شوند (باگِ نسخهٔ پیشین: سه فاز زیرِ یک شماره) */
+html body .dj-phases{gap:var(--md-space-2)}
+html body .dj-ph{
+  border-radius:var(--md-shape-md);
+  border:1px solid var(--md-outline-variant);
+  background:var(--md-surface-container);
+  padding:var(--md-space-2) var(--md-space-3);
+  transition:background var(--md-dur-medium) var(--md-ease-emphasized),
+             border-color var(--md-dur-medium) var(--md-ease-emphasized);
+}
+html body .dj-ph b{font:var(--md-sacred-small);color:var(--md-on-surface)}
+html body .dj-ph i{font:var(--md-label-medium);color:var(--md-on-surface-variant);font-style:normal;
+  font-variant-numeric:tabular-nums}
+html body .dj-ph.on{border-color:var(--md-primary);background:var(--md-primary-container)}
+html body .dj-ph.on b,html body .dj-ph.on i{color:var(--md-on-primary-container)}
+html body .dj-ph.done{border-color:transparent;background:var(--md-secondary-container)}
+html body .dj-ph.done b,html body .dj-ph.done i{color:var(--md-on-secondary-container)}
+/* حالتِ «دادهٔ اذکار در دسترس نیست» (خطای محتوا) */
+html body .dj-empty{
+  display:grid;justify-items:center;gap:var(--md-space-3);text-align:center;
+  padding:var(--md-space-6) var(--md-space-4);
+  background:var(--md-surface-container-low);border:1px dashed var(--md-outline);
+  border-radius:var(--md-shape-xl);
+}
+html body .dj-empty-ic{color:var(--md-on-surface-variant)}
+html body .dj-empty-ic .ic{width:32px;height:32px}
+html body .dj-empty-t{font:var(--md-title-medium);color:var(--md-on-surface)}
+html body .dj-empty-p{font:var(--md-body-small);color:var(--md-on-surface-variant);max-width:44ch}
+
+/* ══ ۴.۱۳ همراهِ نماز ══ */
+html body .sj-card{border-radius:var(--md-shape-xl);border:1px solid var(--md-outline-variant);
+  background:var(--md-surface-container-low)}
+html body .sj-ctl .btn{border-radius:var(--md-shape-full)}
+html body .sj-fig-img{border-radius:var(--md-shape-lg)}
+
+/* ══ ۴.۱۴ نوارِ پخشِ قرآن ══ */
+html body #miniQ{
+  border-radius:var(--md-shape-lg);
+  background:color-mix(in srgb, var(--md-surface-container-high) 96%, transparent);
+  border:1px solid var(--md-outline-variant);
+  box-shadow:var(--md-elev-3);
+}
+html body #miniQ button{border-radius:var(--md-shape-full);min-width:var(--md-target-min);min-height:var(--md-target-min)}
+html body #miniQ button:hover{background:color-mix(in srgb, var(--md-on-surface) 8%, transparent)}
+html body #mqBar{background:var(--md-surface-container-highest);border-radius:var(--md-shape-full)}
+html body #mqFill{background:var(--md-primary);border-radius:var(--md-shape-full)}
+
+/* ══ ۴.۱۵ بنرِ نصب و کارت‌های شناور ══ */
+html body .ib{
+  border-radius:var(--md-shape-lg);border:1px solid var(--md-outline-variant);
+  background:var(--md-surface-container-high);box-shadow:var(--md-elev-3);
+}
+
+/* ─────────────── ۵. RTL و متنِ عبادی ─────────────── */
+/* متنِ عربی همیشه راست‌به‌چپ است، حتی اگر روزی زبانِ رابط عوض شود */
+html body .read-ar,html body .w-ar,html body .sc-wird .w-ar,html body .dj-ar,html body .qbox .ar,html body .sj-ar,html body [data-arabic]{direction:rtl;text-align:right}
+/* خاصیت‌های فیزیکیِ باقی‌مانده به منطقی تبدیل شدند تا افزودنِ زبانِ
+   چپ‌به‌راست فقط `dir` بخواهد (معماریِ چندزبانه). */
+/* ترتیبِ اعلام‌ها مهم است: صفرهای فیزیکی اول می‌آیند تا خاصیتِ منطقیِ بعدی
+   (که در RTL به همان `left` نگاشت می‌شود) در آبشار برنده بماند. */
+html body .read-ar,html body .read-fa{padding-left:0;padding-right:0;padding-inline-end:42px}
+/* شمارهٔ آیه و نوارِ «آیهٔ انتخاب‌شده» هم از `left` فیزیکی به پایانِ خطِ
+   منطقی منتقل شدند: در RTL همان جایِ امروز، در LTR جایِ درست. */
+html body .read-num{left:auto;right:auto;inset-inline-end:12px}
+html body .read-ayah.on:before{inset:0 auto 0 0;inset-inline:auto 0}
+html body .carousel-nav.prev{left:auto;right:auto;inset-inline-start:6px}
+html body .carousel-nav.next{left:auto;right:auto;inset-inline-end:6px}
+html body #toasts .toast{border-inline-start:0}
+
+/* گزینهٔ آزمون: پیش‌تر در هاور `translateX(-4px)` بود که در RTL به چپ
+   (خلافِ جهتِ خواندن) می‌رفت؛ حالا به سمتِ آغازِ متن جابه‌جا می‌شود. */
+html[dir="rtl"] .opt:hover,html[dir="rtl"] .slide .slide-cta:hover{transform:translateX(4px)}
+html[dir="ltr"] .opt:hover,html[dir="ltr"] .slide .slide-cta:hover{transform:translateX(-4px)}
+html body .opt{border-radius:var(--md-shape-md);border:1px solid var(--md-outline-variant);
+  background:var(--md-surface-container);transition:transform var(--md-dur-short) var(--md-ease-standard),
+  border-color var(--md-dur-short) var(--md-ease-standard)}
+html body .opt:hover{border-color:var(--md-primary)}
+html body .opt.correct,html body .opt.ok{border-color:var(--md-secondary);background:var(--md-secondary-container)}
+html body .opt.wrong,html body .opt.no{border-color:var(--md-error);background:var(--md-error-container)}
+
+/* ─────────────── ۶. دسترس‌پذیری و کم‌حرکتی ─────────────── */
+@media(prefers-reduced-motion:reduce){
+  html body .m3-ripple{animation:none;opacity:0}
+  html body .m3-skeleton::after,html body .skeleton::after{animation:none}
+  html body .m3-spinner{animation-duration:1.8s}
+  html body #modal .box,html body #toasts .toast{animation:none}
+  html body .btn,html body .tile,html body .tab,html body #nav .navi .ni{transition:none}
+  html body .btn:hover,html body .btn:active{transform:none}
+}
+/* کنتراستِ بیشتر: لایهٔ وضعیت پررنگ‌تر و مرزها دیده‌شونده */
+@media(prefers-contrast:more){
+  :root{ --md-hover:.16; --md-focus:.2; --md-press:.2; --md-outline-variant:var(--line) }
+  html body .card,html body .tile,html body .stat,html body .chip,html body .inp,html body .dj,html body .dj-ph{border-width:2px}
+}

@@ -139,6 +139,19 @@ const U = {
        پیشین روی پرسشِ بعدی می‌ماند. */
     wrap.classList.remove('is-correct', 'is-wrong');
     wrap.classList.toggle('is-complete', p >= 100);
+
+    /* دسترس‌پذیری: `#pgProgWrap` در index.html نقشِ progressbar دارد، ولی
+       مقدارش هیچ‌وقت به آن نقش نوشته نمی‌شد — یعنی خوانندهٔ صفحه تنها
+       «نوارِ پیشرفت» می‌شنید و هیچ عددی نه. حالا همان درصد (تنها منبعِ
+       حقیقت) به `aria-valuenow` می‌رود و همان متنی که کاربر می‌بیند
+       («۳/۱۰» یا «۴۵٪») به `aria-valuetext`، تا عددِ فارسی خوانده شود. */
+    if(typeof wrap.setAttribute === 'function'){
+      wrap.setAttribute('aria-valuenow', String(Math.round(p * 100) / 100));
+      wrap.setAttribute('aria-valuetext',
+        (o.cur != null && o.total != null)
+          ? this.fa(o.cur) + ' از ' + this.fa(o.total)
+          : this.fa(Math.round(p)) + '٪');
+    }
     return p;
   },
 
@@ -370,7 +383,12 @@ const Icon = {
        وضعیت عوض شده. */
     collapse: { d:'<path d="M9 4v5H4m11-5v5h5M9 20v-5H4m11 5v-5h5"/>' },
     lab: { d:'<path d="M9 3h6M10 3v7L4 19q-1 2 2 2h12q3 0 2-2l-6-9V3M7 15h10"/>' },
-    repeat: { d:'<path d="M4 9a8 8 0 0 1 14-3l2 2m0-5v5h-5M20 15a8 8 0 0 1-14 3l-2-2m0 5v-5h5"/>' },
+    /* کلیدِ `repeat` پیش‌تر دو بار در همین شیء نوشته شده بود (یک بار این‌جا
+       با نقشِ دایره‌ایِ دو فلش، یک بار پایین‌تر با نقشِ دو فلشِ مستطیلی).
+       در شیءِ JS کلیدِ تکراری بی‌صدا با نمونهٔ *آخر* جایگزین می‌شود، پس
+       تعریفِ اول مرده بود و هر ویرایشی رویش بی‌اثر — همان دامی که
+       `'🧊'` در Glyph.MAP هم بود. نمونهٔ زنده (پایین‌تر) نگه داشته شد تا
+       هیچ آیکنی عوض نشود؛ مرده برداشته شد تا ویرایشِ بعدی گم نشود. */
     home:   { d:'<path d="M3.6 10.9 12 3.5l8.4 7.4"/><path d="M5.9 9.7V20a1 1 0 0 0 1 1h10.2a1 1 0 0 0 1-1V9.7"/><path d="M10 21v-5.5h4V21"/>' },
     listen: { d:'<path d="M4.2 15.1v-3.3a7.8 7.8 0 0 1 15.6 0v3.3"/><path d="M7.4 13.3H6.1a1.6 1.6 0 0 0-1.6 1.6v3a1.6 1.6 0 0 0 1.6 1.6h1.3z"/><path d="M16.6 13.3h1.3a1.6 1.6 0 0 1 1.6 1.6v3a1.6 1.6 0 0 1-1.6 1.6h-1.3z"/>' },
     globe:  { d:'<path d="M12 3.3a8.7 8.7 0 1 0 0 17.4 8.7 8.7 0 0 0 0-17.4z"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/><path d="M12 3.3c2.4 2.6 2.4 14.8 0 17.4M12 3.3c-2.4 2.6-2.4 14.8 0 17.4"/>' },
@@ -547,7 +565,11 @@ const Glyph = {
     '🚩':'flag', '💬':'chat', '📩':'send', '🧭':'target', '🕋':'mosque',
     '📖':'book-open', '📚':'book', '📜':'scroll', '📝':'pen', '📿':'sparkle',
     '🕌':'mosque',    '🤲':'smile', '🕯️':'sun',  '🌙':'moon',  '🌠':'sparkle',
-    '🧠':'target',    '🧩':'plus',  '🧊':'gem',   '🦋':'sparkle', '💎':'gem',
+    /* '🧊' پیش‌تر این‌جا به 'gem' نگاشت شده بود و چند خط پایین‌تر به
+       'snow'؛ کلیدِ تکراری یعنی نگاشتِ اول هرگز اثر نمی‌کرد. 'snow' درست
+       است — همین ایموجی برای «یخِ زنجیره» در فروشگاه به کار می‌رود — پس
+       نگاشتِ مرده برداشته شد. '💎' سرِ جایش به 'gem' می‌ماند. */
+    '🧠':'target',    '🧩':'plus',  '🦋':'sparkle', '💎':'gem',
     '🏆':'trophy',    '🥇':'medal', '🏅':'medal', '🎖️':'medal', '⭐':'star',
     '🌟':'star',      '🔥':'flame', '☄️':'flame', '⚡':'bolt',  '🌱':'sprout',
     '🌿':'sprout',    '🌳':'tree',  '🏜':'sun',   '🌐':'globe', '🔗':'link',
@@ -1713,6 +1735,17 @@ const Router = {
       document.body.classList.add('nav-bounce');
       setTimeout(() => document.body.classList.remove('nav-bounce'), 520);
     }catch(e){}
+    /* رویدادِ «صفحه نشست». برنامه SPA است و تا پیش از این هیچ‌کس بیرونِ
+       راهبر نمی‌فهمید صفحه عوض شده — یعنی کاربرِ صفحه‌خوان تنها سکوت
+       می‌شنید. لایهٔ Material 3 (m3-1.js) با همین رویداد صفحه را اعلام
+       می‌کند و نوارهای پیشرفتِ صفحهٔ تازه را هم‌گام می‌سازد، بدونِ آنکه
+       تابعی از راهبر پوشانده شود. در محیطِ تست که `window.dispatchEvent`
+       نیست، بی‌صدا رد می‌شود. */
+    try{
+      if(typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' &&
+         typeof CustomEvent === 'function')
+        window.dispatchEvent(new CustomEvent('noor:screen', { detail:{ name:name } }));
+    }catch(e){}
   },
   init(){
     /* یک بار. بی این نگهبان، هر فراخوانیِ دوباره یک شنوندهٔ popstate
@@ -2417,7 +2450,13 @@ const FONTS = {
   /* ── فونت متن قرآن: نسخ قرآنی ── */
   amiri:       { name:'امیری',              note:'نسخ قرآنی — نزدیک به مصحف', role:'quran',
                  group:'نسخ قرآن', w:400, lh:2.15,
-                 css:'https://cdn.jsdelivr.net/npm/@fontsource/amiri/arabic.css' },
+                 /* امیری تنها قلمِ قرآنیِ *میزبانی‌شده* است: قلمِ پیش‌فرضِ
+                    متنِ قرآن و ذکر است و برنامه آفلاین هم باید همان را
+                    نشان دهد. پیش‌تر `css` از jsDelivr می‌آمد و در نخستین
+                    اجرای آفلاین بی‌صدا به واپس‌رویِ وزیرمتن می‌افتاد.
+                    `@font-face` آن کنارِ لاله‌زار و وزیرمتن در style-1 است
+                    و فایل‌ها در assets/fonts (SIL OFL 1.1). */
+                 family:'Amiri' },
   naskh:       { name:'نسخ نو',             note:'نسخ رسمی Noto — بسیار خوانا و امروزی', role:'quran',
                  group:'نسخ قرآن', w:400, lh:2.1,
                  css:'https://cdn.jsdelivr.net/npm/@fontsource/noto-naskh-arabic/arabic.css' },
@@ -3577,7 +3616,7 @@ function openFontPicker(role){
   const keys = Fonts.grouped(role).flatMap(g => g.keys);
 
   UI.modal(`<h3 style="margin-bottom:10px">${title}</h3>
-    <div class="fpicks" id="fpList" style="max-height:56vh;overflow:auto;padding-left:2px">${rows}</div>
+    <div class="fpicks" id="fpList" style="max-height:56vh;overflow:auto;padding-inline-end:2px">${rows}</div>
     <p style="font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.9">
       ${note}<br>
       فونت‌ها با تنبلی از jsDelivr بار می‌شوند؛ بار نخست به اینترنت نیاز دارد و بعد روی دستگاه می‌ماند.
@@ -9652,7 +9691,29 @@ const Carousels = {
 function initAllCarousels(){ return Carousels.init(); }
 
 const AyahEmbed = {
- URL:'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true',
+ /* ── نشانیِ نسخهٔ برخطِ «نور آیه‌ها» ──
+    پیش‌تر این‌جا نشانیِ یک میزبانِ موقتِ آزمایشی (یک زیردامنهٔ ساختِ
+    خودکار با `?embed=true`) سفت‌نویسی شده بود. آن میزبان
+    دیگر پاسخ نمی‌دهد، پس صفحه همیشه قابِ خاموشِ خطا نشان می‌داد و کاربر
+    هیچ راهی برای فهمیدنِ دلیلش نداشت. نشانیِ غلط را با حدسِ نشانیِ دیگر
+    عوض نکردم (هیچ منبعِ تأییدشده‌ای در دست نیست)؛ پیش‌فرض تهی است و صفحه
+    صادقانه می‌گوید نسخهٔ برخط در دسترس نیست و همان مسیرِ داخلِ برنامه را
+    پیشنهاد می‌دهد. اگر روزی نشانیِ درست تأمین شد، یکی از این دو کافی است:
+      • همین `URL` را پر کن، یا
+      • در کنسول/تنظیمات: `localStorage.noorestan_ayah_remote = 'https://…'`
+    بقیهٔ صفحه (قاب، اندازه‌گیری، تمام‌صفحه، سیم‌کشی) دست‌نخورده است. */
+ URL:'',
+ REMOTE_KEY:'noorestan_ayah_remote',
+ /* نشانیِ معتبرِ نسخهٔ برخط یا رشتهٔ تهی. فقط http/https پذیرفته می‌شود و
+    `embed=true` خودش اضافه می‌شود؛ این‌گونه یک مقدارِ دست‌کاری‌شده در
+    localStorage نمی‌تواند `javascript:` یا `data:` را داخل قاب بگذارد. */
+ remote(){
+  let u='';
+  try{ const v=window.localStorage && window.localStorage.getItem; if(v) u=(v.call(window.localStorage,this.REMOTE_KEY)||'').trim(); }catch(e){}
+  if(!u) u=(this.URL||'').trim();
+  if(!/^https?:\/\/[^\s"'<>]+$/i.test(u)) return '';
+  return /[?&]embed=true/.test(u) ? u : u+(u.indexOf('?')>=0?'&':'?')+'embed=true';
+ },
  /* ── حالتِ عمودی (portrait) ──
     پیش‌تر بازشدنِ این صفحه، قاب را تمام‌صفحه می‌کرد و بعد جهتِ صفحه را
     روی «افقی» قفل می‌کرد. مانیفستِ خودِ نورستان `portrait-primary` است،
@@ -9664,6 +9725,33 @@ const AyahEmbed = {
       • هیچ قفلِ جهتی در کار نیست،
       • «تمام‌صفحه» فقط با خواستِ کاربر اجرا می‌شود و جهت را عوض نمی‌کند.
     خودِ بازیِ بیرونی دست‌نخورده است؛ فقط قابش این‌جا عمودی شده. */
+ /* نقشِ صفحه — تابعِ خالص. جدا از `open()` نوشته شده تا (۱) بتوان بی
+    مرورگر آزمودش و (۲) دو حالتِ «نشانی هست» و «نشانی نیست» هر دو
+    صریح و خوانا باشند. هر دو حالت `#ayahGame` را می‌سازند تا قاعدهٔ
+    «این صفحه بازی است» (`data-ayah`) و اندازه‌گیریِ `fit()` سرِ جایشان
+    بمانند. */
+ screenHtml(){
+  const url=this.remote();
+  if(!url){
+   /* حالتِ صادقانه: نه خطای کاربر است، نه اینترنت؛ نشانی ثبت نشده.
+      از همان بلوکِ خطای M3 استفاده می‌شود تا لحن و ظاهر بقیهٔ برنامه
+      یکی بماند؛ اگر m3-1.js نرسیده باشد، نشانِ ساده جای آن را می‌گیرد. */
+   const ti='نسخهٔ برخطِ «نور آیه‌ها» در دسترس نیست';
+   const ds='نشانیِ این بخشِ بیرونی در این نسخه ثبت نشده است — نه خطای شماست و نه ایرادِ اینترنت. همان تمرینِ داخلِ نورستان بی‌نیاز از اینترنت کار می‌کند.';
+   const inner=(typeof M3!=='undefined'&&M3&&M3.error)
+    ? M3.error({icon:'sat',title:ti,body:ds,action:{label:'تمرین با گزینه‌ها',action:'ayah-offline'}})
+    : '<div class="m3-error" data-m3-state="error"><b>'+ti+'</b><p>'+ds+'</p>'+
+      '<button type="button" class="btn sm" data-m3-action="ayah-offline">تمرین با گزینه‌ها</button></div>';
+   return    '<div id="ayahGame" class="ayah-game">'+inner+
+    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">نشانیِ نسخهٔ برخط ثبت نشده است. «تمرین با گزینه‌ها» داخل نورستان و بدون اینترنت اجرا می‌شود.</p></div>';
+  }
+  return    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها — نسخهٔ برخط" src="'+url+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
+    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
+    '<p class="tiny ayah-orient" role="status">بازی در حالت عمودی اجرا می‌شود؛ چرخاندنِ گوشی لازم نیست. «تمام‌صفحه» ارتفاع را بیشتر می‌کند و جهتِ صفحه را عوض نمی‌کند.</p></div>'+
+    '<p class="tiny" id="ayahFrameStatus" role="status">نسخهٔ برخط به اینترنت نیاز دارد. برای دیدنِ همهٔ حالت‌های بازی و انتخاب زمان، «تمرین با گزینه‌ها» را بزن؛ این نسخه داخل نورستان و بدون اینترنت اجرا می‌شود. حالت دونفرهٔ برخط به پشتیبانی خودِ بازی نیاز دارد.</p>'+
+    '<div class="ayah-under"><a class="btn gh sm" href="'+url+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین با گزینه‌ها</button></div>';
+ },
  open(){
   if(!Session.user())return Gate.open();Router.go('play');
   U.$('#pgTitle').innerHTML=Icon.of('mosque')+' نورِ آیه‌ها';U.$('#pgSub').textContent='نمایش عمودی — بازی و تمرین با آیات قرآن';U.$('#pgBar').innerHTML='';U.$('#pgProgWrap').classList.add('hide');
@@ -9671,15 +9759,21 @@ const AyahEmbed = {
      صدا با نخستین لمس باز می‌شود و هیچ دوربین/میکروفن/موقعیت داده نمی‌شود.
      روی قاب هیچ لایهٔ پوشاننده‌ای نمی‌گذاریم تا گزینه‌ها و دکمه‌های بازی
      پشتِ یک کارتِ میزبان پنهان نشوند. */
-  U.$('#pgBody').innerHTML=    '<div id="ayahGame" class="ayah-game"><div class="ayah-frame-shell" id="ayahFrameShell"><iframe id="ayahFrame" title="نور آیه‌ها — نسخهٔ برخط" src="'+this.URL+'" allow="fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'+
-    '<div class="ayah-under"><button class="btn gh sm" id="ayahHome">خانه</button><button class="btn gh sm" id="ayahBack">بازگشت</button><button class="btn gh sm" id="ayahExit">خروج از بازی</button><button class="btn gh sm" id="ayahExpand">تمام‌صفحه</button><button class="btn gh sm" id="ayahRestart">شروع دوباره</button></div>'+
-    '<p class="tiny ayah-orient" role="status">بازی در حالت عمودی اجرا می‌شود؛ چرخاندنِ گوشی لازم نیست. «تمام‌صفحه» ارتفاع را بیشتر می‌کند و جهتِ صفحه را عوض نمی‌کند.</p></div>'+
-    '<p class="tiny" id="ayahFrameStatus" role="status">نسخهٔ برخط به اینترنت نیاز دارد. برای دیدنِ همهٔ حالت‌های بازی و انتخاب زمان، «تمرین با گزینه‌ها» را بزن؛ این نسخه داخل نورستان و بدون اینترنت اجرا می‌شود. حالت دونفرهٔ برخط به پشتیبانی خودِ بازی نیاز دارد.</p>'+
-    '<div class="ayah-under"><a class="btn gh sm" href="'+this.URL+'" target="_blank" rel="noopener noreferrer">بازکردن جداگانه</a><button class="btn gh sm" id="ayahOffline">تمرین با گزینه‌ها</button></div>';
-  U.$('#ayahHome').onclick=()=>Router.go('home');U.$('#ayahBack').onclick=()=>{this.cleanup();Router.back();};U.$('#ayahExit').onclick=()=>Launcher.open();
-  U.$('#ayahExpand').onclick=()=>this.expand();U.$('#ayahRestart').onclick=()=>RoundControl.restart();U.$('#ayahOffline').onclick=()=>{this.cleanup();AyahLight.open();};
+  U.$('#pgBody').innerHTML=this.screenHtml();
+  /* سیم‌کشی با نگهبان: در حالتِ «نشانی ثبت نشده» دکمهٔ تمام‌صفحه و
+     لنگرِ بیرونی اصلاً رندر نمی‌شوند و دکمهٔ «تمرین با گزینه‌ها» به‌جای
+     `#ayahOffline` با `data-m3-action` می‌آید. بی نگهبان، همان یک
+     `.onclick` روی `null` کلِ صفحه را با خطا باز می‌گذاشت. */
+  const on=(sel,fn)=>{const el=U.$(sel);if(el)el.onclick=fn;};
+  on('#ayahHome',()=>Router.go('home'));
+  on('#ayahBack',()=>{this.cleanup();Router.back();});
+  on('#ayahExit',()=>Launcher.open());
+  on('#ayahExpand',()=>this.expand());
+  on('#ayahRestart',()=>RoundControl.restart());
+  on('#ayahOffline',()=>{this.cleanup();AyahLight.open();});
+  on('[data-m3-action="ayah-offline"]',()=>{this.cleanup();AyahLight.open();});
   /* iOS برای عنصرهای معمولی تمام‌صفحه نمی‌دهد؛ دکمهٔ بی‌اثر نشان نمی‌دهیم. */
-  if(!U.$('#ayahGame')?.requestFullscreen) U.$('#ayahExpand').hidden=true;
+  const ex=U.$('#ayahExpand'); if(ex&&!U.$('#ayahGame')?.requestFullscreen) ex.hidden=true;
   /* نشانِ «این صفحه بازی است» — قاعده‌های افقیِ کوتاه با همین نشان
      محدود می‌شوند تا سربرگِ برنامه فقط این‌جا جمع شود. */
   document.documentElement.setAttribute('data-ayah','1');
@@ -9838,7 +9932,12 @@ const AyahLight = {
     });
     U.$$('[data-sec]', U.$('#pgBody')).forEach(b => b.onclick = () => { this.seconds=+b.dataset.sec; U.$$('[data-sec]',U.$('#pgBody')).forEach(x=>{ const on=x===b; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); Sound.tick(); });
     U.$('#ayahStart').onclick = () => this.start();
-    U.$('#ayahExternal').onclick = () => { Sound.click(); AyahEmbed.open(); };
+    /* دکمهٔ «بازی برخط» تنها وقتی نشان داده می‌شود که نشانیِ نسخهٔ برخط
+       واقعاً در دسترس باشد؛ وگرنه کاربر را به صفحه‌ای می‌برد که جز
+       «در دسترس نیست» چیزی ندارد. همان قاعدهٔ «دکمهٔ بی‌اثر نشان
+       نمی‌دهیم» که برای تمام‌صفحه به کار رفته. */
+    if(AyahEmbed.remote()) U.$('#ayahExternal').onclick = () => { Sound.click(); AyahEmbed.open(); };
+    else { const exb=U.$('#ayahExternal'); if(exb) exb.hidden=true; }
   },
   start(){
     Stats.track('ayahlight'); Combo.reset();

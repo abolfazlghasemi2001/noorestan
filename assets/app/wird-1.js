@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════
    نورستان — نسخهٔ ۲۱: همراهِ روزانه (ذکر با متنِ کامل)
    ═══════════════════════════════════════════════════════════════════
-   لایهٔ سومِ عبادت: بانک‌های ورد، کارتِ ذکر، تسبیحِ ۳۳/۳۳/۳۳، ختمِ
-   محلی، کارتِ رمضان و اذانِ محلی (بدونِ سرور).
+   لایهٔ سومِ عبادت: بانک‌های ورد، کارتِ ذکر، تسبیحاتِ حضرتِ زهرا (س)
+   (۳۴/۳۳/۳۳ — از لایهٔ دادهٔ محتوا)، ختمِ محلی، کارتِ رمضان و اذانِ
+   محلی (بدونِ سرور).
 
    دو قاعدهٔ سخت:
    ۱) بانک‌های ورد فقط «ارجاع» به عنوان‌های DATA.duas (بانکِ دعا)
@@ -226,7 +227,10 @@ const WirdUI = {
 
 /* ── تسبیحاتِ زهرا (س) — سازهٔ Dhikr (نسخهٔ ۲۲) ──
    این دیگر شمارندهٔ مستقل نیست: ذکرشمارِ یکپارچهٔ `sajjada-1.js` سه فازِ
-   ۳۳/۳۳/۳۳ را هم به‌عنوانِ یک «پیش‌تنظیم» می‌شناسد و همان‌جا نگه می‌دارد.
+   تسبیحات (۳۴ الله‌اکبر ← ۳۳ الحمدلله ← ۳۳ سبحان‌الله) را هم به‌عنوانِ یک
+   «پیش‌تنظیم» می‌شناسد و همان‌جا نگه می‌دارد. متن و عددِ هر سه فاز از
+   `NoorContent` (assets/app/content-1.js) می‌آید؛ این فایل هیچ متنِ عربی
+   و هیچ عددِ تکراری از خودش ندارد.
    چه ماند و چرا:
      • جایِ ذخیره `tasbihToday` است، با همان شکلِ {date, counts, done} —
        تا سنجش‌ها، مأموریت‌ها و `sanitize` دست‌نخورده بمانند و شمارشِ
@@ -237,11 +241,32 @@ const WirdUI = {
    فایل‌ها و محیطِ تست، چیزی را نشکند؛ اگر روزی `sajjada-1.js` نبود،
    همین سازهٔ کهنه کار می‌کرد. */
 const Tasbih = {
+  /* شناسهٔ تسبیحاتِ حضرتِ زهرا (س) در لایهٔ دادهٔ محتوا */
+  DATA_ID:'zahra',
+  /* خلاصهٔ عددیِ فازها («۳۴/۳۳/۳۳») — همیشه از داده ساخته می‌شود تا هیچ
+     عددی در متنِ UI hard-code نماند. */
+  countSummary(){
+    try{
+      if(typeof NoorContent !== 'undefined' && NoorContent) return NoorContent.countSummary(this.DATA_ID);
+    }catch(e){}
+    try{
+      const g = this.PHASES.map(x => x.goal);
+      if(g.length && g.every(n => Number.isFinite(n))) return g.join('/');
+    }catch(e){}
+    return '';
+  },
   /* فهرستِ ظاهریِ فازها — برای هر چیزی که بیرون از این فایل می‌خواند */
   get PHASES(){
     const p = (typeof Dhikr !== 'undefined') ? Dhikr.by(Dhikr.ZAHRA) : null;
-    if(p && p.phases) return p.phases.map(x => ({ label:x.ar, goal:x.n }));
-    return [{ label:'سبحان الله', goal:33 }, { label:'الحمدلله', goal:33 }, { label:'الله اکبر', goal:33 }];
+    if(p && p.phases && p.phases.length) return p.phases.map(x => ({ label:x.ar, goal:x.n }));
+    /* مسیرِ پشتیبان هم از دادهٔ محتوا می‌خواند — پیش‌تر این‌جا سه فازِ
+       ۳۳/۳۳/۳۳ با ترتیبِ وارون hard-code بود، یعنی اگر sajjada-1.js
+       بار نمی‌شد برنامه بی‌صدا عددِ اشتباه نشان می‌داد. اگر دادهٔ محتوا هم
+       نبود، فهرست خالی می‌ماند و شمارنده وضعیتِ «داده در دسترس نیست»
+       می‌گیرد؛ هیچ عددی از حافظه ساخته نمی‌شود. */
+    if(typeof NoorContent !== 'undefined' && NoorContent)
+      return NoorContent.phases(this.DATA_ID).map(x => ({ label:x.ar, goal:x.n }));
+    return [];
   },
   COIN: 2,
   _live(){ return (typeof Dhikr !== 'undefined' && Dhikr.state); },
@@ -272,6 +297,7 @@ const Tasbih = {
     /* مسیرِ کهنه (بی sajjada-1.js) */
     const s = before;
     const i = bi;
+    if(!this.PHASES.length){ UI.toast('دادهٔ تسبیحات در دسترس نیست', 'err', 2200); return { ok:false, noData:true }; }
     if(i < 0){ UI.toast('تسبیحِ امروز کامل است — آفرین', 'ok', 1800); return { ok:false, complete:true }; }
     s.counts[i] += back ? -1 : 1;
     if(s.counts[i] < 0) s.counts[i] = 0;
@@ -281,11 +307,11 @@ const Tasbih = {
     let reward = 0;
     if(!back && this.phaseIndex(s) === -1){
       s.done = true;
-      Wallet.earn(this.COIN, 'تسبیحِ ۳۳/۳۳/۳۳');
+      Wallet.earn(this.COIN, 'تسبیحاتِ ' + this.countSummary());
       Store.update(d => { d.xp += 2; });
       try{ checkLevelUp(); }catch(e){}
       reward = this.COIN;
-      UI.toast('📿 سبحان الله، الحمدلله، الله اکبر — تمام شد', 'ok', 2200);
+      UI.toast('📿 ' + this.countSummary() + ' — تمام شد', 'ok', 2200);
     }
     Store.set('tasbihToday', s);
     this.paint();
@@ -718,7 +744,8 @@ const Adhan = {
     const RAMADAN = [
       { id:'ramWird',    icon:'🌙', t:'ذکرِ سحر را بخوان',        d:'کارتِ رمضان در صفحهٔ عبادت', goal:1, pts:50 },
       { id:'ramMaghrib', icon:'🌆', t:'نمازِ مغرب (افطار) را علامت بزن', d:'وقتِ افطار — صفحهٔ عبادت', goal:1, pts:50 },
-      { id:'ramTasbih',  icon:'📿', t:'تسبیحِ امروز را کامل کن',  d:'۳۳/۳۳/۳۳', goal:1, pts:50 }
+      /* توضیحِ مأموریت هم از دادهٔ محتوا ساخته می‌شود، نه عددِ ثابت */
+      { id:'ramTasbih',  icon:'📿', t:'تسبیحِ امروز را کامل کن',  d:Tasbih.countSummary() || 'تسبیحاتِ حضرتِ زهرا (س)', goal:1, pts:50 }
     ];
     Missions.WORSHIP_POOL = WORSHIP.concat(RAMADAN).concat([QIBLA_M]);
 

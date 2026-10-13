@@ -32,6 +32,12 @@
 <!-- اسلایدر صفحهٔ اصلی: Swiper؛ در نبود CDN، نسخهٔ بومی برنامه فعال می‌شود. -->
 <!-- اسلایدر اکنون بومی است؛ هیچ فایل Swiper بارگذاری نمی‌شود. -->
 <link rel="stylesheet" href="assets/app/style-1-fd30642d4f.css">
+<!-- توکن‌های حرکت. پیش‌تر از راهِ `@import` درونِ sanctuary.css بار می‌شد که
+     یک درخواستِ *سری* و مسدودکنندهٔ رندر می‌ساخت (مرورگر اول sanctuary.css
+     را می‌گرفت، بعد می‌فهمید یک فایلِ دیگر هم لازم است). حالا مستقیم و
+     موازیِ بقیهٔ برگه‌های سبک لینک شده و `@import` از sanctuary.css برداشته
+     شده است. -->
+<link rel="stylesheet" href="assets/styles/motion.css">
 <link rel="stylesheet" href="assets/styles/sanctuary.css">
 <link rel="stylesheet" href="assets/styles/polish.css">
 <!-- رویهٔ ورود: سطحی جدا با قاعده‌های خودش (نشان، قفل، جعبه‌های کد). -->
@@ -39,6 +45,12 @@
 <!-- نسخهٔ ۱۹ب: برگهٔ سبکِ صحنِ روزانه (نماز، قبله، تنظیماتِ عبادت) —
      همهٔ قاعده‌هایش یک‌جاست و از توکن‌های پوسته رنگ می‌گیرد. -->
 <link rel="stylesheet" href="assets/styles/salah.css">
+<!-- سیستمِ طراحیِ Material 3 نورستان: نقش‌های رنگی، مقیاسِ تایپ (Vazirmatn)،
+     ارتفاع/شکل/حرکت، وضعیتِ لمسی (state layer + ripple)، و چیدمانِ
+     انطباقی (موبایل/تبلت/دسکتاپ با نوارِ راهبریِ کناری). عمداً آخرین برگهٔ
+     سبک است تا نقش‌های M3 روی پوسته‌های پیشین بنشینند، بدونِ آنکه چیزی از
+     قاعده‌های موجود را پاک کنند. -->
+<link rel="stylesheet" href="assets/styles/m3.css">
 </head>
 
 <body>
@@ -320,7 +332,12 @@
     </div>
     <button class="btn gh sm" id="pgRestart" hidden>شروع دوباره</button>
     <div class="gbar" id="pgBar"></div>
-    <div class="game-progress" id="pgProgWrap">
+    <!-- دسترس‌پذیری: پیش‌تر هم نوار و هم حلقه `aria-hidden` بودند و هیچ
+         `role`/`aria-valuenow` نداشتند؛ یعنی صفحه‌خوان هیچ خبری از پیشرفتِ
+         بازی نمی‌داد. حالا خودِ ظرف `progressbar` است و مقدارش را JS
+         هم‌گام نگه می‌دارد. -->
+    <div class="game-progress" id="pgProgWrap" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+         aria-valuenow="0" aria-label="پیشرفتِ بازی">
       <div class="prog" aria-hidden="true"><i id="pgProg"></i></div>
       <svg class="progress-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
         <circle class="ring-track" cx="50" cy="50" r="46"></circle>
@@ -499,7 +516,7 @@
     <button class="navi on" data-nav="home" aria-label="صحن" data-tip="صحن: آیهٔ روز، پیشنهادها، دسته‌ها و چالش امروز"><i class="ni" data-ic="home"></i>صحن</button>
     <button class="navi" data-nav="ebadat" aria-label="عبادت" data-tip="عبادت: اوقاتِ شرعی، اذانِ بعدی، قبله و ذکرهای روز"><i class="ni" data-ic="mosque"></i>عبادت</button>
     <button class="navi" data-nav="quran" aria-label="تلاوت" data-tip="تلاوت قرآن با ۱۰ قاری نامدار — آیه‌به‌آیه و با ترجمه"><i class="ni" data-ic="listen"></i>تلاوت</button>
-    <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — روی «بازی» دوباره بزن تا فهرست باز شود"><i class="ni" data-ic="gamepad"></i>بازی</button>
+    <button class="navi" data-nav="play" aria-label="بازی" data-tip="همهٔ بازی‌ها در یک جا — فهرست، جست‌وجو و فیلترِ مهارت"><i class="ni" data-ic="gamepad"></i>بازی</button>
     <button class="navi" data-nav="online" aria-label="محفل" data-tip="محفل: اتاق چندنفره، چت زنده و بازی دونفره"><i class="ni" data-ic="globe"></i>محفل</button>
     <button class="navi" data-nav="me" aria-label="من" data-tip="من: پروفایل، آمار، نشان‌ها، رکوردها و تنظیماتِ عبادت"><i class="ni" data-ic="user"></i>من</button>
   </nav>
@@ -574,6 +591,12 @@
 
 
 <script src="assets/app/app-1-3bce8fb8d2.js"></script>
+<!-- لایهٔ دادهٔ محتوای عبادی — پیش از هر ماژولِ عبادی بار می‌شود.
+     متنِ عربی، ترجمهٔ فارسی و تعدادِ تکرارِ هر ذکر/دعا/مرحلهٔ نماز *فقط*
+     از این‌جا خوانده می‌شود؛ هیچ فایلِ دیگری متن یا عددِ عبادی hard-code
+     ندارد. رکوردهای `verified:true` همان‌هایی‌اند که مستقیماً از ورودیِ
+     تأییدشدهٔ صاحبِ برنامه آمده‌اند (ذکرِ سجده و تسبیحاتِ حضرتِ زهرا (س)). -->
+<script src="assets/app/content-1.js"></script>
 <!-- نسخهٔ ۱۹الف: موتور اوقات نماز، قبله و تبدیل قمری — JS خالص، بی DOM.
      پس از باندل اصلی می‌آید تا DATA و selfTest را که آن‌جا تعریف شده‌اند
      ببیند و گسترش بدهد. -->
@@ -596,5 +619,9 @@
      ترجمه و نشانیِ کاملِ منبع برای نمایش در کارتِ ذکر. پس از ورد بار
      می‌شود؛ WirdUI.text() در لحظهٔ رسم از آن می‌خواند. -->
 <script src="assets/app/dua-full-1.js"></script>
+<!-- زمانِ اجرا سیستمِ طراحی: کلاسِ اندازهٔ پنجره (compact/medium/expanded)،
+     موجِ لمس (ripple) و لایهٔ وضعیتِ M3. آخرین اسکریپت است تا به همهٔ
+     ماژول‌ها و به DOMِ آماده برسد. -->
+<script src="assets/app/m3-1.js"></script>
 </body>
 </html>

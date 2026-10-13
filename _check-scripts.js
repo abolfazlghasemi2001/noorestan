@@ -33,9 +33,12 @@ const notes = [];
 /* نشانی‌های بیرونی‌ای که *آگاهانه* مانده‌اند. هر کدام باید دلیل و
    برنامهٔ رفع داشته باشد؛ هر نشانیِ تازه‌ای که این‌جا نباشد، دروازه را
    قرمز می‌کند. */
-const KNOWN_EXTERNAL_CSS = new Set([
-  'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap'
-]);
+/* فهرستِ استثنای بیرونی اکنون *تهی* است: آخرین موردِ نام‌دار
+   (`@import` قلمِ امیری از fonts.googleapis.com در games/common.css) در
+   فازِ سیستمِ طراحی برداشته شد و امیری هم مثلِ وزیرمتن و لاله‌زار در
+   assets/fonts/ میزبانی می‌شود. از این پس هر نشانیِ بیرونیِ تازه در
+   برگه‌های سبک، بی‌استثنا، دروازه را قرمز می‌کند. */
+const KNOWN_EXTERNAL_CSS = new Set([]);
 const fail = (group, msg) => problems.push(`[${group}] ${msg}`);
 const exists = rel => { try{ return fs.statSync(path.join(ROOT, rel)).isFile(); }catch(e){ return false; } };
 const isDir = rel => { try{ return fs.statSync(path.join(ROOT, rel)).isDirectory(); }catch(e){ return false; } };

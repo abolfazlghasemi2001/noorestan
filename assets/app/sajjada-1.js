@@ -107,25 +107,38 @@ const SalahFive = {
    در `tasbihToday`ِ کهنه، با همان شکلِ {date, counts, done}. */
 const Dhikr = {
   ZAHRA:'zahra',
-  PRESETS:[
-    { id:'zahra', title:'تسبیحاتِ حضرتِ زهرا (س)', tab:'تسبیحاتِ زهرا (س)', sub:'پس از هر نماز — سه فازِ ۳۳ تایی',
-      store:'tasbihToday', coin:2, xp:2,
-      phases:[
-        { ar:'سُبْحانَ الله', fa:'پاک است خدا', n:33 },
-        { ar:'اَلْحَمْدُ لِلّٰه', fa:'ستایش، از آنِ خداست', n:33 },
-        { ar:'اَللهُ اَکبَر', fa:'خدا بزرگ‌تر است', n:33 }
-      ] },
-    { id:'istighfar', title:'اِستِغفار', tab:'استغفار', sub:'در تعقیباتِ نماز', coin:0, xp:1,
-      phases:[{ ar:'اَسْتَغْفِرُ اللهَ رَبّی وَ اَتُوبُ اِلَیْهِ', fa:'از خداوندِ پروردگارم آمرزش می‌خواهم و به سوی او بازم‌گردم', n:70 }] },
-    { id:'tahlil', title:'تَهلیل', tab:'تهلیل', sub:'یادِ خدا با زبان', coin:0, xp:1,
-      phases:[{ ar:'لا اِلٰهَ اِلَّا اللهُ', fa:'نیست معبودی جز خدا', n:100 }] },
-    { id:'hawqala', title:'حَولَقَه', tab:'حولقه', sub:'توکّل به خدا', coin:0, xp:1,
-      phases:[{ ar:'لا حَولَ وَ لا قُوَّةَ اِلَّا بِاللهِ العَلِیِّ العَظیم', fa:'نه دگرگونی هست و نه نیرو، مگر از سوی خدایِ برترِ بزرگ', n:100 }] },
-    { id:'salawat', title:'صَلَوات', tab:'صلوات', sub:'درود بر پیامبر و خاندانش', coin:0, xp:1,
-      phases:[{ ar:'اَللّٰهُمَّ صَلِّ عَلی مُحَمَّدٍ وَ آلِ مُحَمَّدٍ', fa:'خدایا درود فرست بر محمد و خاندانِ محمد', n:100 }] },
-    { id:'custom', title:'ذکرِ دلخواه', tab:'ذکرِ من', sub:'خودت ذکر و هدف را بنویس', editable:true, coin:0, xp:0,
-      phases:[{ ar:'', fa:'', n:33 }] }
-  ],
+
+  /* ── سیاستِ برنامه، نه محتوای عبادی ──
+     متنِ عربی، ترجمه و تعدادِ تکرارِ هر ذکر *فقط* از لایهٔ دادهٔ محتوا
+     (`NoorContent` در assets/app/content-1.js) می‌آید. این‌جا تنها سه چیز
+     می‌ماند که تصمیمِ خودِ برنامه‌اند: جای ذخیرهٔ شمارش، پاداشِ سکه و
+     تجربه. پیش‌تر این دو لایه قاطی بودند و هر اصلاحِ محتوایی باید در سه
+     فایل تکرار می‌شد؛ نتیجه‌اش همان تسبیحاتِ ۳۳/۳۳/۳۳ با ترتیبِ وارون
+     و ذکرِ سجدهٔ اشتباه بود. */
+  POLICY:{
+    zahra:    { store:'tasbihToday', coin:2, xp:2 },
+    istighfar:{ coin:0, xp:1 },
+    tahlil:   { coin:0, xp:1 },
+    hawqala:  { coin:0, xp:1 },
+    salawat:  { coin:0, xp:1 },
+    custom:   { editable:true, coin:0, xp:0 }
+  },
+
+  /* پیش‌تنظیم‌ها = دادهٔ محتوا + سیاستِ برنامه. `get` است (نه آرایهٔ ثابت)
+     تا ذکرِ دلخواهِ تازه‌نوشته‌شده و هر ورودیِ معتبرِ بعدی
+     (`NoorContent.register`) همان لحظه در فهرست بنشیند.
+     اگر فایلِ محتوا بار نشده باشد، فهرست *خالی* می‌ماند و ذکرشمار حالتِ
+     خطای محترمانه نشان می‌دهد — هرگز متن یا عددی از حافظه ساخته نمی‌شود. */
+  get PRESETS(){
+    const C = (typeof NoorContent !== 'undefined' && NoorContent) ? NoorContent : null;
+    if(!C) return [];
+    return C.presetIds().map(id => {
+      const base = C.preset(id) || { id, title:id, tab:id, sub:'', phases:[] };
+      return Object.assign({}, base, this.POLICY[id] || {}, { id });
+    });
+  },
+  /* دادهٔ محتوا بار نشد ⇒ هیچ شمارنده‌ای ساخته نمی‌شود */
+  get unavailable(){ return !this.PRESETS.length; },
 
   by(id){ return this.PRESETS.find(p => p.id === id) || null; },
   /* ذکرِ دلخواه فقط وقتی در فهرست است که کاربر برایش متن نوشته باشد */
@@ -136,8 +149,13 @@ const Dhikr = {
                 n:U.clamp(Math.floor(+n) || 33, 1, 999) };
     Store.set('dhikrCustom', v.ar ? v : null);
   },
+  /* نمایِ یک پیش‌تنظیم. اگر دادهٔ محتوا بار نشده باشد، رکوردِ «خالی»
+     برمی‌گردد تا UI به‌جای شکستن، حالتِ خطای محترمانه نشان دهد.
+     هدفِ نامشخص (`n:null`) عمداً عددِ پیش‌فرض نمی‌گیرد. */
+  EMPTY:{ id:'', title:'ذکرشمار', tab:'ذکرشمار', sub:'دادهٔ اذکار بار نشد',
+          phases:[], empty:true, coin:0, xp:0 },
   view(id){
-    const p = this.by(id) || this.PRESETS[0];
+    const p = this.by(id) || this.PRESETS[0] || this.EMPTY;
     if(p.editable){
       const c = this.custom() || { ar:'', n:33 };
       return { id:p.id, title:p.title, tab:p.tab, sub:p.sub, coin:p.coin, xp:p.xp, editable:true,
@@ -146,24 +164,58 @@ const Dhikr = {
     return p;
   },
 
+  /* هدفِ یک فاز: عددِ ثبت‌شده در داده، وگرنه `null` (شمارشِ آزاد، بی هدفِ
+     ساخته‌شده). سقفِ شمارش فقط وقتی بسته می‌شود که عددی در منبع باشد. */
+  cap(n){ return (Number.isFinite(n) && n > 0) ? n : null; },
+  clampCount(n, v){
+    const got = Math.floor(+v) || 0;
+    const max = this.cap(n);
+    return max === null ? Math.max(0, got) : U.clamp(got, 0, max);
+  },
+
   /* ── خواندن/نوشتنِ شمارشِ امروز ── */
   state(id){
     const p = this.view(id), day = U.today();
     if(p.store === 'tasbihToday'){
       const t = Store.get('tasbihToday') || {};
       if(t.date !== day) return { date:day, counts:p.phases.map(() => 0), done:false };
-      const src = Array.isArray(t.counts) ? t.counts : [];
-      return { date:day, counts:p.phases.map((x, i) => U.clamp(Math.floor(+src[i]) || 0, 0, x.n)), done:!!t.done };
+      /* مهاجرتِ ترتیب: تا نسخهٔ ۲۲ شمارشِ امروز با ترتیبِ
+         «سبحان‌الله ← الحمدلله ← الله‌اکبر» ذخیره می‌شد؛ ترتیبِ درستِ
+         دادهٔ تأییدشده «الله‌اکبر(۳۴) ← الحمدلله(۳۳) ← سبحان‌الله(۳۳)» است.
+         رکوردِ بدونِ `v` یعنی همان روز با ترتیبِ کهنه نوشته شده، پس سه
+         شمارش وارون می‌شوند تا شمارشِ نیمه‌تمامِ کاربر دور نریزد.
+         `v:2` از همین نسخه به بعد هنگامِ ذخیره نوشته می‌شود. */
+      const src = (Array.isArray(t.counts) ? t.counts : []).slice();
+      if(t.v !== 2 && src.length === 3) src.reverse();
+      const counts = p.phases.map((x, i) => this.clampCount(x.n, src[i]));
+      return { date:day, counts, done:this.allDone(p, !!t.done, counts) };
     }
     const d = Store.get('dhikrToday') || {};
     const v = (d.date === day && d.by && d.by[p.id] && Array.isArray(d.by[p.id].c)) ? d.by[p.id] : null;
     const src = v ? v.c : [];
-    return { date:day, counts:p.phases.map((x, i) => U.clamp(Math.floor(+src[i]) || 0, 0, x.n)), done:!!(v && v.d) };
+    const counts = p.phases.map((x, i) => this.clampCount(x.n, src[i]));
+    return { date:day, counts, done:this.allDone(p, !!(v && v.d), counts) };
+  },
+  /* «تمام» از شمارِ واقعیِ فازها و عددِ منبع ساخته می‌شود، نه از پرچمِ
+     ذخیره‌شده به‌تنهایی. چرا؟ چون پرچمِ کهنه می‌تواند با دادهٔ تأییدشده
+     بخواند: رکوردِ نسخهٔ ۲۲ با سه فازِ ۳۳تایی `done:true` داشت، حال
+     آنکه تسبیحاتِ حضرتِ زهرا (س) ۳۴ الله‌اکبر می‌خواهد. اگر پرچم بر
+     عددِ منبع چربید، رابط «کامل شد» می‌گفت در حالی که شمارنده ۳۳/۳۴ را
+     نشان می‌داد — همان ناسازگاریِ عدد و متن که این لایه برای رفعش
+     ساخته شده. فازِ بی‌هدف (عددِ ثبت‌نشده در منبع) هیچ‌وقت «ناتمام»
+     شمرده نمی‌شود، چون برنامه از خودش هدف نمی‌سازد. */
+  allDone(p, flagged, counts){
+    if(!flagged) return false;
+    for(let i = 0; i < p.phases.length; i++){
+      const n = this.cap(p.phases[i].n);
+      if(n !== null && !((counts[i] || 0) >= n)) return false;
+    }
+    return true;
   },
   _save(id, s){
     const p = this.view(id);
     if(p.store === 'tasbihToday'){
-      Store.set('tasbihToday', { date:s.date, counts:s.counts.slice(0, 3), done:!!s.done });
+      Store.set('tasbihToday', { date:s.date, counts:s.counts.slice(0, 3), done:!!s.done, v:2 });
       return;
     }
     const d = (Store.get('dhikrToday') && typeof Store.get('dhikrToday') === 'object') ? Store.get('dhikrToday') : {};
@@ -175,15 +227,22 @@ const Dhikr = {
   phaseIndex(id, s){
     s = s || this.state(id);
     const p = this.view(id);
-    for(let i = 0; i < p.phases.length; i++) if(s.counts[i] < p.phases[i].n) return i;
+    for(let i = 0; i < p.phases.length; i++){
+      /* فازِ بی‌هدفِ ثبت‌شده هیچ‌وقت «تمام‌شده» شمرده نمی‌شود: شمارش آزاد
+         است و برنامه از خودش هدف نمی‌سازد. */
+      const n = this.cap(p.phases[i].n);
+      if(n === null || s.counts[i] < n) return i;
+    }
     return -1;
   },
   doneToday(id){ const s = this.state(id); return !!s.done && this.phaseIndex(id, s) === -1; },
   progress(id){
     const p = this.view(id), s = this.state(id);
-    const goal = p.phases.reduce((a, x) => a + x.n, 0);
+    const goal = p.phases.reduce((a, x) => a + (this.cap(x.n) || 0), 0);
     const got = s.counts.reduce((a, x) => a + (x || 0), 0);
-    return { got, goal, pct:goal ? U.clamp(got / goal, 0, 1) : 0, done:goal > 0 && got >= goal };
+    return { got, goal, pct:goal ? U.clamp(got / goal, 0, 1) : 0, done:goal > 0 && got >= goal,
+             /* هدفِ ثبت‌نشده ⇒ «کامل شد» گفته نمی‌شود */
+             openEnded:goal === 0 && p.phases.length > 0 };
   },
 
   /* یک ضربه = یک ذکر؛ `back:true` یکی کم می‌کند (لمسِ اشتباه). */
@@ -250,9 +309,26 @@ const Dhikr = {
     id = id || Dhikr.ZAHRA;
     if(!this.by(id)) id = Dhikr.ZAHRA;
     const p = this.view(id), s = this.state(id);
+    /* حالتِ خطا/خالی: دادهٔ اذکار بار نشد یا فهرست خالی است. به‌جای شکستنِ
+       رابط، پیامِ محترمانه و راهِ تلاشِ دوباره نشان داده می‌شود. */
+    if(p.empty || !p.phases.length){
+      return `
+      <div class="dj dj-empty" data-dj="${U.esc(id || '')}" role="status">
+        <div class="dj-empty-ic" aria-hidden="true">${Icon.of('book')}</div>
+        <div class="dj-empty-t">دادهٔ اذکار در دسترس نیست</div>
+        <p class="dj-empty-p">متن و تعدادِ تکرارِ اذکار فقط از منبعِ معتبر خوانده می‌شود و
+          برنامه هیچ مقداری را از پیش‌فرض نمی‌سازد. اگر این پیام را می‌بینی، فایلِ
+          محتوا (content-1.js) بار نشده است.</p>
+        <button class="btn gh sm" data-dj-reload>${Icon.of('refresh')}<span>تلاشِ دوباره</span></button>
+      </div>`;
+    }
     const i = this.phaseIndex(id, s), pr = this.progress(id);
     const cur = i >= 0 ? p.phases[i] : p.phases[p.phases.length - 1];
     const curN = i >= 0 ? s.counts[i] : cur.n;
+    /* عددِ هدف از داده می‌آید؛ اگر در منبع ثبت نشده باشد «—» نشان داده
+       می‌شود و پاورقیِ «ثبت‌نشده» می‌آید — هیچ عددِ پیش‌فرضی ساخته نمی‌شود. */
+    const goal = x => (this.cap(x && x.n) === null ? '—' : U.fa(x.n));
+    const unknown = p.phases.some(x => this.cap(x.n) === null);
     const multi = p.phases.length > 1;
     const tab = this._tab || id;
     return `
@@ -262,11 +338,11 @@ const Dhikr = {
               aria-pressed="${x.id === tab ? 'true' : 'false'}">${U.esc(x.tab || x.title)}</button>`).join('')}
         </div>`}
         <div class="dj-pad" data-dj-tap role="button" tabindex="0"
-             aria-label="ذکرشمار — ${U.esc(cur.ar || p.title)} — ${U.fa(curN)} از ${U.fa(cur.n)}">
+             aria-label="ذکرشمار — ${U.esc(cur.ar || p.title)} — ${U.fa(curN)} از ${goal(cur)}">
           <div class="dj-ring" aria-hidden="true">${this.ring(pr.pct, opt.compact ? 108 : 122)}
             <div class="dj-mid">
               <div class="dj-n">${U.fa(curN)}</div>
-              <div class="dj-of">${U.fa(cur.n)}${multi ? ' · فاز ' + U.fa(i < 0 ? p.phases.length : i + 1) + '/' + U.fa(p.phases.length) : ''}</div>
+              <div class="dj-of">از ${goal(cur)}${multi ? ' · فاز ' + U.fa(i < 0 ? p.phases.length : i + 1) + '/' + U.fa(p.phases.length) : ''}</div>
             </div>
           </div>
           <div class="dj-txt">
@@ -276,8 +352,8 @@ const Dhikr = {
           </div>
         </div>
         ${multi ? `<div class="dj-phases">${p.phases.map((x, k) => `
-            <span class="dj-ph${s.counts[k] >= x.n ? ' done' : ''}${k === i ? ' on' : ''}">
-              <b>${U.esc(x.ar)}</b><i>${U.fa(s.counts[k])}/${U.fa(x.n)}</i></span>`).join('')}</div>` : ''}
+            <span class="dj-ph${(this.cap(x.n) !== null && s.counts[k] >= x.n) ? ' done' : ''}${k === i ? ' on' : ''}">
+              <b>${U.esc(x.ar)}</b><i>${U.fa(s.counts[k])}/${goal(x)}</i></span>`).join('')}</div>` : ''}
         <div class="dj-row">
           <button class="btn gh sm" data-dj-back>${Icon.of('prev')}<span>یکی کم</span></button>
           ${opt.compact ? '' : `
@@ -286,6 +362,7 @@ const Dhikr = {
           <button class="btn gh sm" data-dj-reset>${Icon.of('refresh')}<span>ریست</span></button>
         </div>
         ${opt.compact ? '' : `<p class="dj-note">${U.esc(p.sub || '')}${p.coin ? ' — جایزهٔ یک‌بارِ روزانه: ' + U.fa(p.coin) + ' سکه' : ''}</p>`}
+        ${unknown && !opt.compact ? `<p class="dj-note dj-note-warn" role="note">تعدادِ تکرارِ برخی فازها در منبع ثبت نشده است؛ شمارش آزاد است و «کامل شد» اعلام نمی‌شود.</p>` : ''}
       </div>`;
   },
   ring(pct, size){
@@ -336,6 +413,7 @@ const Dhikr = {
       const rs = U.$('[data-dj-reset]', box);
       if(rs) rs.onclick = () => { this.reset(cur); paint(); UI.toast('ذکرشمار ریست شد', '', 1400); try{ hooks && hooks.onChange && hooks.onChange(); }catch(e){} };
       const ed = U.$('[data-dj-edit]', box); if(ed) ed.onclick = () => this.editModal(box, rerender);
+      const rl = U.$('[data-dj-reload]', box); if(rl) rl.onclick = () => rerender();
       const go = U.$('[data-dj-go]', box); if(go) go.onclick = () => this.fullModal(cur);
     });
   },
@@ -345,26 +423,35 @@ const Dhikr = {
     if(!box) return;
     id = id || box.dataset.dj || Dhikr.ZAHRA;
     const p = this.view(id), s = this.state(id);
+    if(p.empty || !p.phases.length) return;      // حالتِ خطا را `html()` می‌سازد
     const i = this.phaseIndex(id, s), pr = this.progress(id);
     const cur = i >= 0 ? p.phases[i] : p.phases[p.phases.length - 1];
     const curN = i >= 0 ? s.counts[i] : cur.n;
+    const goal = x => (this.cap(x && x.n) === null ? '—' : U.fa(x.n));
     const put = (sel, txt) => { const el = U.$(sel, box); if(el && el.textContent !== txt) el.textContent = txt; };
     put('.dj-n', U.fa(curN));
-    put('.dj-of', 'از ' + U.fa(cur.n) + (p.phases.length > 1 ? ' · فاز ' + U.fa(i < 0 ? p.phases.length : i + 1) + '/' + U.fa(p.phases.length) : ''));
+    /* همان قالبِ `html()` — پیش‌تر اولین رسم «۳۳» بود و پس از اولین ضربه
+       «از ۳۳»؛ یک برچسب، دو قالب، و کاربر عدد را گم می‌کرد. */
+    put('.dj-of', 'از ' + goal(cur) + (p.phases.length > 1 ? ' · فاز ' + U.fa(i < 0 ? p.phases.length : i + 1) + '/' + U.fa(p.phases.length) : ''));
     put('.dj-ar', cur.ar || p.title);
-    if(cur.fa) put('.dj-fa', cur.fa);
+    /* ترجمهٔ فازِ بعدی که خالی بود، ترجمهٔ فازِ پیشین روی صفحه می‌ماند
+       (متنِ کهنه زیرِ ذکرِ تازه). حالا جای خالی هم تازه می‌شود. */
+    put('.dj-fa', cur.fa || '');
+    const faEl = U.$('.dj-fa', box);
+    if(faEl && faEl.classList) faEl.classList.toggle('hide', !cur.fa);
     const fg = U.$('.dj-c-fg', box);
     if(fg && fg.getAttribute){
       const r = parseFloat(fg.getAttribute('r')) || 0;
       if(r){ const C = 2 * Math.PI * r; fg.setAttribute('stroke-dasharray', C.toFixed(2)); fg.setAttribute('stroke-dashoffset', (C * (1 - pr.pct)).toFixed(2)); }
     }
     const pad = U.$('[data-dj-tap]', box);
-    if(pad && pad.setAttribute) pad.setAttribute('aria-label', 'ذکرشمار — ' + (cur.ar || p.title) + ' — ' + U.fa(curN) + ' از ' + U.fa(cur.n));
+    if(pad && pad.setAttribute) pad.setAttribute('aria-label', 'ذکرشمار — ' + (cur.ar || p.title) + ' — ' + U.fa(curN) + ' از ' + goal(cur));
     U.$$('.dj-ph', box).forEach((el, k) => {
       if(!p.phases[k]) return;
-      el.classList.toggle('done', s.counts[k] >= p.phases[k].n);
+      const n = this.cap(p.phases[k].n);
+      el.classList.toggle('done', n !== null && s.counts[k] >= n);
       el.classList.toggle('on', k === i);
-      const it = U.$('i', el); if(it) it.textContent = U.fa(s.counts[k]) + '/' + U.fa(p.phases[k].n);
+      const it = U.$('i', el); if(it) it.textContent = U.fa(s.counts[k]) + '/' + goal(p.phases[k]);
     });
     const txt = U.$('.dj-txt', box);
     const ok = U.$('.dj-ok', box);
@@ -528,23 +615,56 @@ const NoorPose = {
 
 /* ═══════════════ ۴. همراهِ نماز ═══════════════ */
 const Sajjada = {
-  /* متن‌های مأثورِ هر حالت — یادآوری، نه استناد */
-  TXT:{
-    takbir:   { ar:'اَللهُ اَکبَر', fa:'خدا بزرگ‌تر است — آغازِ نماز' },
-    hamd:     { ar:'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحیمِ', fa:'حمد و سپس سوره‌ای کوتاه بخوان' },
-    dhikr34:  { ar:'سُبْحَانَ اللَّهِ وَ الْحَمْدُ لِلّٰهِ وَ لا اِلٰهَ اِلَّا اللهُ وَ اللهُ اَکبَرُ', fa:'در رکعتِ سوم و چهارم: سه بار این ذکر، یا سه بار حمد' },
-    qunut:    { ar:'رَبَّنا آتِنا فِی الدُّنْیا حَسَنَةً وَ فِی الْآخِرَةِ حَسَنَةً وَ قِنا عَذابَ النّارِ', fa:'دست‌ها روبه‌آسمان — هر دوعایی هم کافی است' },
-    ruku:     { ar:'سُبْحانَ رَبِّیَ الْعَظیمِ وَ بِحَمْدِهِ', fa:'سه بار در رکوع' },
-    rise:     { ar:'سَمِعَ اللهُ لِمَنْ حَمِدَهُ', fa:'برخاستن از رکوع — و برقامه: اَلْحَمْدُ لِلّٰهِ رَبِّ الْعالَمینَ' },
-    sujud:    { ar:'سُبْحانَ اللهِ الْعَلِیِّ رَبِّنا وَ بِحَمْدِهِ', fa:'سه بار در سجده — هفت عضو بر زمین' },
-    julus:    { ar:'اَللهُ اَکبَر', fa:'نشستن میانِ دو سجده' },
-    tashahhud:{ ar:'اَلتَّحِیّاتُ لِلّٰهِ وَ الصَّلَواتُ وَ الطَّیِّباتُ… اَشْهَدُ اَنْ لا اِلٰهَ اِلَّا اللهُ وَحْدَهُ لا شَریکَ لَهُ وَ اَنَّ مُحَمَّداً عَبْدُهُ وَ رَسولُهُ، اَللّٰهُمَّ صَلِّ عَلی مُحَمَّدٍ وَ آلِ مُحَمَّدٍ', fa:'ستایش‌ها از آنِ خداست — در نشستن بخوان' },
-    salam:    { ar:'اَلسَّلامُ عَلَیْنا وَ عَلی عِبادِ اللهِ الصّالِحینَ', fa:'با این سلام نماز از حالتِ خواندن بیرون می‌آید' }
+  /* کلیدِ مرحله‌های نماز — همان فهرستی که در لایهٔ دادهٔ محتوا
+     (`NoorContent`) رکوردِ `step.<key>` دارد. */
+  STEP_KEYS:['takbir', 'hamd', 'dhikr34', 'qunut', 'ruku', 'rise', 'sujud', 'julus', 'tashahhud', 'salam'],
+
+  /* متن‌های مأثورِ هر حالت — یادآوری، نه استناد.
+     هیچ متنی این‌جا نوشته نمی‌شود: همه از `NoorContent.prayerStep()` خوانده
+     می‌شوند (assets/app/content-1.js). پیش‌تر متنِ سجده hard-code و اشتباه
+     بود («سُبْحانَ اللهِ الْعَلِیِّ رَبِّنا وَ بِحَمْدِهِ») و هیچ دروازه‌ای
+     نمی‌توانست بگیردش. حالا متن از دادهٔ تأییدشده می‌آید و `selfTest()`ِ
+     محتوا درستیش را می‌سنجد. اگر رکوردی نبود `{ar:'', fa:''}` خالی
+     برمی‌گردد تا مرحله با جای خالی دیده شود، نه با متنِ ساختگی. */
+  get TXT(){
+    const out = {};
+    this.STEP_KEYS.forEach(k => {
+      const rec = (typeof NoorContent !== 'undefined' && NoorContent) ? NoorContent.prayerStep(k) : null;
+      out[k] = rec || { ar:'', fa:'', n:null, verified:false, source:'' };
+    });
+    return out;
   },
-  /* حالتِ بدنیِ هر مرحله — ستونِ فقرتِ تشخیصِ خودکار */
-  POSE:{ niyyah:'stand', takbir:'takbir', qiyam:'stand', qunut:'qunut', ruku:'ruku', rise:'stand',
-         sujud:'sujud', julus:'julus', tashahhud:'tashahhud', salam:'taslim' },
-  REPS:{ ruku:3, sujud:3, rise:1, julus:1, takbir:1, salam:1 },
+
+  /* تعدادِ تکرارِ هر مرحله = همان `repeatCount` در دادهٔ محتوا.
+     `null` یعنی عدد در منبع ثبت نشده و مرحله با ضربهٔ کاربر جلو می‌رود —
+     هیچ عددِ پیش‌فرضی از برنامه نمی‌آید. */
+  reps(key){
+    const rec = (typeof NoorContent !== 'undefined' && NoorContent) ? NoorContent.prayerStep(key) : null;
+    return rec && Number.isFinite(rec.n) && rec.n > 0 ? rec.n : null;
+  },
+  get REPS(){
+    const out = {};
+    this.STEP_KEYS.forEach(k => { out[k] = this.reps(k); });
+    return out;
+  },
+
+  /* ── دو نقشه، دو کارِ جدا (باگِ نسخهٔ ۲۲) ──
+     `POSE` حالتِ *بدنی* هر مرحله است و فقط چهار مقدارِ قابلِ تشخیص با
+     شتاب‌سنج دارد (همان `NoorPose.KEYS`). پیش‌تر پنج مرحله مقدارِ بیرون از
+     این چهارتا داشتند ('takbir'، 'qunut'، 'julus'، 'tashahhud'، 'taslim') و
+     نتیجه این بود که:
+       • تشخیصِ خودکار هرگز آن مرحله‌ها را جلو نمی‌برد (`onPose` هیچ‌وقت
+         مطابقت نمی‌دید) — رکعت‌شمارِ خودکار عملاً روی تکبیر، قنوت، جلوس،
+         تشهّد و سلام می‌ایستاد و کاربر باید دستی ضربه می‌زد؛
+       • لرزشِ تمایزی به الگوی پیش‌فرض ([16]) می‌افتاد؛
+       • سنجشِ «هر مرحله حالتِ بدن دارد» قرمز بود.
+     `FIG` جداست: نامِ نگارهٔ همان مرحله. آن عکس‌ها (takbir.png، qunut.png،
+     julus.png، tashahhud.png، taslim.png) وجود دارند و از چهار حالتِ
+     اندامی دقیق‌ترند، پس نقشهٔ تصویر دست‌نخورده می‌ماند. */
+  POSE:{ niyyah:'stand', takbir:'stand', qiyam:'stand', qunut:'stand', ruku:'ruku', rise:'stand',
+         sujud:'sujud', julus:'sit', tashahhud:'sit', salam:'sit' },
+  FIG:{ niyyah:'stand', takbir:'takbir', qiyam:'stand', qunut:'qunut', ruku:'ruku', rise:'stand',
+        sujud:'sujud', julus:'julus', tashahhud:'tashahhud', salam:'taslim' },
 
   _steps:null, _st:null, _pray:'', _opt:null, _open:false, _travel:false,
   _tickId:null, _t0:0, _onPose:null, _cal:null, _panel:false, _afterMounted:false, _afterDj:'zahra',
@@ -558,7 +678,7 @@ const Sajjada = {
     const steps = [];
     const push = o => steps.push(o);
     push({ key:'niyyah', name:'نِیَّت', hint:'روبه‌قبله بایست و نیتِ نماز را در دل بیاور' });
-    push({ key:'takbir', name:'تَکبیرهٔ اَحرام', ar:this.TXT.takbir.ar, fa:this.TXT.takbir.fa, reps:1 });
+    push({ key:'takbir', name:'تَکبیرهٔ اَحرام', ar:this.TXT.takbir.ar, fa:this.TXT.takbir.fa, reps:this.reps('takbir') });
     for(let r = 1; r <= total; r++){
       const last = r === total;
       const rec = r <= 2 ? { ar:this.TXT.hamd.ar, fa:this.TXT.hamd.fa } : { ar:this.TXT.dhikr34.ar, fa:this.TXT.dhikr34.fa };
@@ -572,12 +692,14 @@ const Sajjada = {
       if(r % 2 === 0 && !last) push({ key:'tashahhud', r, name:'تَشَهُّد', sub:'سپس برخیز به رکعتِ ' + U.fa(r + 1), ar:this.TXT.tashahhud.ar, fa:this.TXT.tashahhud.fa });
       if(last){
         push({ key:'tashahhud', r, name:'تَشَهُّدِ آخر', final:true, ar:this.TXT.tashahhud.ar, fa:this.TXT.tashahhud.fa });
-        push({ key:'salam', r, name:'سَلام', final:true, ar:this.TXT.salam.ar, fa:this.TXT.salam.fa, reps:1 });
+        push({ key:'salam', r, name:'سَلام', final:true, ar:this.TXT.salam.ar, fa:this.TXT.salam.fa, reps:this.reps('salam') });
       }
     }
     return steps;
   },
   poseOf(s){ return this.POSE[s && s.key] || 'stand'; },
+  /* نامِ نگارهٔ مرحله — با بازگشت به حالتِ بدنیِ همان مرحله */
+  figOf(s){ return this.FIG[s && s.key] || this.poseOf(s) || 'stand'; },
   blank(len){ return { i:0, reps:new Array(len).fill(0), done:false }; },
   stepOf(steps, st){ return steps ? (steps[U.clamp(st.i, 0, steps.length - 1)] || null) : null; },
 
@@ -833,7 +955,7 @@ const Sajjada = {
        بازترسیمِ بی‌دلیلی نباید باشد (ضربانِ DOM، لرزشِ تصویر می‌آورد). */
     const fig = U.$('#sjFig');
     if(fig && fig.dataset){
-      const p = st.done ? 'sit' : this.poseOf(s);
+      const p = st.done ? 'sit' : this.figOf(s);
       if(fig.dataset.pose !== p){
         const wrap = document.createElement('div');
         wrap.innerHTML = this.glyph(p);
