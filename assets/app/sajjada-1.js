@@ -542,8 +542,8 @@ const Sajjada = {
     salam:    { ar:'اَلسَّلامُ عَلَیْنا وَ عَلی عِبادِ اللهِ الصّالِحینَ', fa:'با این سلام نماز از حالتِ خواندن بیرون می‌آید' }
   },
   /* حالتِ بدنیِ هر مرحله — ستونِ فقرتِ تشخیصِ خودکار */
-  POSE:{ niyyah:'stand', takbir:'stand', qiyam:'stand', qunut:'stand', ruku:'ruku', rise:'stand',
-         sujud:'sujud', julus:'sit', tashahhud:'sit', salam:'sit' },
+  POSE:{ niyyah:'stand', takbir:'takbir', qiyam:'stand', qunut:'qunut', ruku:'ruku', rise:'stand',
+         sujud:'sujud', julus:'julus', tashahhud:'tashahhud', salam:'taslim' },
   REPS:{ ruku:3, sujud:3, rise:1, julus:1, takbir:1, salam:1 },
 
   _steps:null, _st:null, _pray:'', _opt:null, _open:false, _travel:false,
@@ -808,15 +808,9 @@ const Sajjada = {
     if(NoorSensor.on) this.attachSensor();
   },
 
-  /* نگارهٔ حالتِ بدن — خط‌کشیِ ساده، بی چهره */
+  /* نگارهٔ حالتِ بدن — عکس‌های سه‌بعدی */
   glyph(pose){
-    const G = {
-      stand: '<circle cx="32" cy="11" r="4.6"/><path d="M32 16v21M32 37l-7 14M32 37l7 14M25 23l7 4 7-4"/>',
-      ruku:  '<circle cx="47" cy="21" r="4.6"/><path d="M43 24 24 28M24 28v23M24 32l-7 9M41 27l-4 10"/>',
-      sujud: '<circle cx="13" cy="44" r="4.6"/><path d="M18 42c7-1 12-5 16-11M34 31l11-4M45 27v10l6 13"/>',
-      sit:   '<circle cx="28" cy="14" r="4.6"/><path d="M28 19v21M28 40h16M44 40v11M28 40l-7 11M28 26l11 8"/>'
-    };
-    return `<svg viewBox="0 0 64 64" aria-hidden="true"><g class="sj-fig-g">${G[pose] || G.stand}</g><path class="sj-ground" d="M5 54h54"/></svg>`;
+    return `<img src="./assets/images/prayer/${pose}.png" alt="posture" class="sj-fig-img" style="width:100%; height:100%; object-fit:contain; border-radius:12px;"/>`;
   },
 
   paint(){
