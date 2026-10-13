@@ -19,7 +19,7 @@ function solutions(grid,limit=2){let count=0;const a=grid.slice();function go(){
   verifies++;if(mode==='timeout')throw Error('network timeout');
   return {ok:true,json:async()=>({data:mode==='fail'?{code:-51}:mode==='badref'?{code:100}:{code:mode==='already'?101:100,ref_id:1234+n}})};
  };
- const config={file,auth:()=>null,mode:'sandbox',publicUrl:'https://noorestan.example',fetcher};const pay=createPayments(config);
+ const config={file,auth:()=>null,mode:'sandbox',publicUrl:'https://noorestan.example',fetcher,merchant:'11111111-2222-4333-8444-111111111111'};const pay=createPayments(config);
  let c=await pay.create('user-a','coins250');let authority=c.redirect.split('/').pop();
  ok('request uses server catalog amount and fixed callback origin',requests[0].body.amount===100000&&requests[0].body.currency==='IRR'&&requests[0].body.callback_url.startsWith('https://noorestan.example/api/payments/callback?order='));
  await assert.rejects(pay.verify(c.order,'S'+'x'.repeat(35),'OK'));ok('unknown authority cannot grant coins',pay.info('user-a').balance===0);

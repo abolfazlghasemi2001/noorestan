@@ -199,6 +199,13 @@ const srv = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
     /* مسیر «تمام شدن وقت» با ۳۰ ثانیه سنجیده نمی‌شود؛ ۷۰۰ میلی‌ثانیه کافی است
        تا همان کد اجرا شود. */
     NOOR_SMS_TIMEOUT: '700',
+    /* سیاستِ کد (B12) این‌جا کنار می‌نشیند: آزمون‌های پایین ده‌ها کد به یک
+       شماره می‌فرستند تا «سقفِ پیامک به یک شماره» و «کد سوخت» را بسنجند؛ با
+       فاصلۀ ۶۰ ثانیه و سقفِ شبانه‌روز، خودِ آزمون‌ها سد را می‌شکستند. هر دو
+       رفتار آزمونِ مستقل دارند (tests/server.test.js §B12). */
+    NOOR_OTP_SPACING_SEC: '0',
+    NOOR_OTP_DAILY: '600',
+    NOOR_OTP_PHONE_TRIES: '600',
     /* سقف‌های ساعتی این‌جا بالا برده می‌شوند، وگرنه این آزمون‌ها خودشان سقفِ
        هر نشانی (۲۰ در ساعت) را پر می‌کنند و از آن به بعد هر درخواستِ تازه
        ۴۲۹ می‌گیرد — یعنی آزمون به‌جای سنجیدنِ منطق، سقف را می‌سنجد.
@@ -232,8 +239,16 @@ const cleanup = () => {
   section('HTTP');
   const health = await fetch(`http://127.0.0.1:${PORT}/health`).then(r => r.json()).catch(() => null);
   ok('/health پاسخ می‌دهد', health?.ok === true, JSON.stringify(health));
-  ok('نسخه گزارش می‌شود', health?.version === '15.0');
-  ok('تماشاچی در سلامت گزارش می‌شود', health?.spectators === 0);
+  /* B20: /health تنها «زنده‌ام» را می‌گوید. نسخه، شمارِ آنلاین و تماشاچی و
+     حجمِ کارنامه پشتِ نشستِ مدیر رفتند (/api/stats) — پیش‌تر هر خزنده‌ای
+     چهرهٔ ترافیکِ سرور را در همان لحظه می‌دید. */
+  ok('🔒 /health چیزی جز ok نمی‌دهد',
+     !!health && Object.keys(health).join() === 'ok', JSON.stringify(health));
+  const statsAnon = await fetch(`http://127.0.0.1:${PORT}/api/stats`)
+    .then(async r => ({ st: r.status, j: await r.json().catch(() => null) }));
+  ok('🔒 آمار بی‌نشستِ مدیر ۴۰۱ است',
+     statsAnon.st === 401 && !!statsAnon.j && statsAnon.j.success === false,
+     JSON.stringify(statsAnon).slice(0, 120));
   const roomsAnon = await fetch(`http://127.0.0.1:${PORT}/api/rooms`).then(async r => ({ st: r.status, j: await r.json().catch(() => null) }));
   ok('🔒 فهرست روم بی‌ورود ۴۰۱ و JSON می‌دهد', roomsAnon.st === 401 && roomsAnon.j && roomsAnon.j.success === false, JSON.stringify(roomsAnon));
   const page = await fetch(`http://127.0.0.1:${PORT}/`).then(r => r.text()).catch(() => '');
@@ -252,8 +267,9 @@ const cleanup = () => {
     method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body), ...opt
   });
   /* کد حالا روی سرور ساخته می‌شود، پس متن پیش‌بینی‌شدنی نیست؛ فقط قالبش
-     سنجیده می‌شود و اینکه کدِ داخلش پنج‌رقمی است. */
-  const OTP_SHAPE = /^🌟 نورستان\n🔐 کد تأیید ثبت‌نام شما: (\d{5})\n⏱ اعتبار: ۲ دقیقه\n⚠️ این کد را با کسی به اشتراک نگذارید\.$/;
+  /* متن پیامکِ کد (B13): یک جزءِ ≤۷۰ نویسه‌ای، با دمِ WebOTP «@domain #code»
+     تا اندروید خودش کد را در فیلد بگذارد. */
+  const OTP_SHAPE = /^🌟 نورستان\n🔐 کد تأیید شما: (\d{5})\n⏱ ۲ دقیقه\n@[a-z0-9.-]+ #\d{5}$/;
 
   const stTxt  = await fetch(API + '/status').then(r => r.text());
   const stJson = JSON.parse(stTxt);
@@ -338,7 +354,9 @@ const cleanup = () => {
     ok('🔒 کد تأیید در خوش‌آمد نیست',
        !/\d{5}/.test(String(wb.message).replace(vOkJ.id, '«شناسه»').replace('۱۵ بازی', '')),
        String(wb.message).replace(/\n/g, ' ⏎ ').slice(0, 120));
-    ok('متنِ خوش‌آمد خطِ «نورستان» را در پایان دارد', /\nنورستان$/.test(String(wb.message)));
+    ok('متنِ خوش‌آمد یک جزء است (≤۷۰ نویسهٔ UCS-2) و با نامِ برند شروع می‌شود',
+       String(wb.message).length <= 70 && /^🌟 نورستان — خوش آمدید/.test(String(wb.message)),
+       'len=' + String(wb.message).length);
   }
 
   /* «یک بار برای همیشه» روی شمارهٔ جداگانه سنجیده می‌شود.
@@ -480,7 +498,7 @@ const cleanup = () => {
   smsHits = [];
   const fa = await post('/request', { phone: '۰۹۱۲۱۱۱۰۰۰۴' });
   ok('رقم فارسی پذیرفته و لاتین می‌شود', fa.status === 200 && JSON.parse(smsHits[0].body).recipients[0] === '09121110004');
-  ok('کدِ فارسی هم درست در متن می‌نشیند', /کد تأیید ثبت‌نام شما: \d{5}/.test(JSON.parse(smsHits[0].body).message));
+  ok('کدِ فارسی هم درست در متن می‌نشیند', /کد تأیید شما: \d{5}/.test(JSON.parse(smsHits[0].body).message));
 
   /* محدودیت نرخ: ۳ پیامک به یک شماره، چهارمی رد */
   const RP = '09121119999';
@@ -707,7 +725,14 @@ const cleanup = () => {
   const seq = [[2, A], [1, B], [6, A], [3, B], [8, A]];   // X: 4,2,6,8 → قطر 4-8 با 0؟ نه. مسیر برد: 2,4,6 ستون
   // بازنشانی: از اول بازی تازه
   A.clear(); B.clear();
+  /* B17: بی‌تأیید، دستِ در جریان پاک نمی‌شود؛ «بازی از نو»یِ کاربر اما
+     مسیرِ خودش را دارد (کلاینت force می‌فرستد). */
   A.send({ t: 'room:start', game: 'dooz' });
+  ok('🔒 بی‌تأیید، دستِ در جریان از نو شروع نمی‌شود',
+     !!(await A.wait(m => m.t === 'room:error', 1500)) && A.filled() >= 1,
+     'filled=' + A.filled());
+  A.clear();
+  A.send({ t: 'room:start', game: 'dooz', force: true });
   await A.wait(m => m.t === 'game' && m.phase === 'start');
   await sleep(150);
   const moves = [[0, A], [3, B], [1, A], [4, B], [2, A]];   // X: 0,1,2 → ردیف اول
@@ -934,17 +959,27 @@ const cleanup = () => {
   ok('پس از آزادکردن، همان نشانه دوباره راه می‌دهد',
      !!(await U3.wait(m => m.t === 'peers')) && !U3.msgs.some(m => m.t === 'notif' && /بسته/.test(m.title)));
 
-  /* ── پیامکِ مدیریتی ── */
+  /* ── پیامکِ مدیریتی ──
+     با کاربرِ تازه (شمارهٔ تازه). سهمیۀ «سه پیامک به یک شماره در ده دقیقه»
+     روی شمارۀ vOkJ تا اینجا پر شده است: دو کدِ تأیید و یک خوش‌آمدگویی. پیش از
+     B13 خوش‌آمدگویی از این صافی رد می‌شد و آزمون تصادفی سبز می‌ماند؛ حالا که
+     هر پیامکِ واقعی سهمیه را می‌گیرد، سنجشِ پیامکِ مدیر باید شمارهٔ بکر
+     داشته باشد. صبرِ ۴۰۰ms هم برای همان است: خوش‌آمدگویی ناهمگام می‌رود و اگر
+     دیرتر بنشیند شمارشِ hits به‌هم می‌ریزد. */
+  const vSmsU = await mintUser() || vOkJ;
+  await sleep(400);
   smsHits = [];
   ADM.clear();
-  ADM.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: 'خوش آمدی' });
+  ADM.send({ t: 'admin:user:sms', token: token2, id: vSmsU.id, text: 'خوش آمدی' });
   const smsRes = await ADM.wait(m => m.t === 'admin:user:sms', 3000);
   ok('نتیجهٔ پیامکِ مدیریتی به مدیر می‌رسد', !!smsRes && smsRes.state === 'sent', JSON.stringify(smsRes));
-  ok('و پیامک واقعاً به همان شماره رفت', smsHits.length === 1 &&
-     JSON.parse(smsHits[0].body).recipients[0] === '09121110001');
-  ok('با متنِ مدیر در آن', JSON.parse(smsHits[0].body).message.includes('خوش آمدی'));
+  const adminHit = smsHits[smsHits.length - 1];
+  ok('🔒 در این پنجره فقط یک پیامک رفت', smsHits.length === 1, 'hits=' + smsHits.length);
+  ok('و پیامک واقعاً به همان شماره رفت',
+     !!adminHit && JSON.parse(adminHit.body).recipients[0] === vSmsU.phone, 'hits=' + smsHits.length);
+  ok('با متنِ مدیر در آن', !!adminHit && JSON.parse(adminHit.body).message.includes('خوش آمدی'));
   ADM.clear();
-  ADM.send({ t: 'admin:user:sms', token: token2, id: vOkJ.id, text: '' });
+  ADM.send({ t: 'admin:user:sms', token: token2, id: vSmsU.id, text: '' });
   ok('متنِ خالی فرستاده نمی‌شود', (await ADM.wait(m => m.t === 'admin:user:err'))?.msg.includes('خالی'));
   ok('و هیچ پیامکِ تازه‌ای نرفت', smsHits.length === 1, 'hits=' + smsHits.length);
 
