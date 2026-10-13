@@ -810,13 +810,17 @@ const Sajjada = {
 
   /* نگارهٔ حالتِ بدن — خط‌کشیِ ساده، بی چهره */
   glyph(pose){
+    /* نگارهٔ سه‌بعدیِ حالتِ بدن (فایل WebP شفاف در assets/images/salah).
+       اگر تصویر بار نشود، همان خط‌کشیِ ساده به‌عنوان جانشین می‌ماند. */
     const G = {
       stand: '<circle cx="32" cy="11" r="4.6"/><path d="M32 16v21M32 37l-7 14M32 37l7 14M25 23l7 4 7-4"/>',
       ruku:  '<circle cx="47" cy="21" r="4.6"/><path d="M43 24 24 28M24 28v23M24 32l-7 9M41 27l-4 10"/>',
       sujud: '<circle cx="13" cy="44" r="4.6"/><path d="M18 42c7-1 12-5 16-11M34 31l11-4M45 27v10l6 13"/>',
       sit:   '<circle cx="28" cy="14" r="4.6"/><path d="M28 19v21M28 40h16M44 40v11M28 40l-7 11M28 26l11 8"/>'
     };
-    return `<svg viewBox="0 0 64 64" aria-hidden="true"><g class="sj-fig-g">${G[pose] || G.stand}</g><path class="sj-ground" d="M5 54h54"/></svg>`;
+    const key = G[pose] ? pose : 'stand';
+    const alt = { stand:'قیام', ruku:'رکوع', sujud:'سجده', sit:'نشستن' }[key];
+    return `<div class="sj-pose3d" data-pose="${key}"><img src="assets/images/salah/pose-${key}.webp" alt="${alt}" width="520" height="520" decoding="async" onerror="this.parentNode.classList.add('nofig')"><svg viewBox="0 0 64 64" aria-hidden="true"><g class="sj-fig-g">${G[key]}</g><path class="sj-ground" d="M5 54h54"/></svg></div>`;
   },
 
   paint(){
@@ -1043,10 +1047,9 @@ const Sajjada = {
     const st = U.$('#sjCalStop'); if(st && !st.onclick) st.onclick = () => this.closeCal(true);
     const fig = U.$('#sjFig');
     if(fig && fig.dataset && fig.dataset.pose !== key){
-      fig.dataset.pose = key;
-      const g = U.$('.sj-fig-g', fig);
-      const src = this.glyph(key);
-      if(g){ const tmp = document.createElement('div'); tmp.innerHTML = src; const fresh = tmp.firstElementChild && tmp.firstElementChild.querySelector('.sj-fig-g'); if(fresh) g.innerHTML = fresh.innerHTML; }
+      const tmp = document.createElement('div'); tmp.innerHTML = this.glyph(key);
+      const fresh = tmp.firstElementChild;
+      if(fresh){ fresh.id = 'sjFig'; fresh.className = 'sj-fig'; fresh.dataset.pose = key; if(fig.replaceWith) fig.replaceWith(fresh); }
     }
   },
   openCal(){

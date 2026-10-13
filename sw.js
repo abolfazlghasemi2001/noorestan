@@ -109,11 +109,11 @@
    فهرستِ پیش‌ذخیره دست‌نخورده است؛ فقط بدنهٔ باندل عوض شد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-47';
-const SHELL = 'noorestan-shell-47';
-const MEDIA = 'noorestan-media-47';
-const TEXT  = 'noorestan-text-47';
-const GAMES = 'noorestan-games-47';
+const CACHE = 'noorestan-48';
+const SHELL = 'noorestan-shell-48';
+const MEDIA = 'noorestan-media-48';
+const TEXT  = 'noorestan-text-48';
+const GAMES = 'noorestan-games-48';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -139,6 +139,11 @@ const PRECACHE = [
      پیش‌ذخیره، نصبِ آفلاین صفحۀ عبادتِ کهنه (بی همراهِ نماز) می‌دهد. */
   './assets/app/sajjada-1.js',
   './assets/styles/salah.css',
+  /* نسخهٔ ۴۸: نگارهٔ سه‌بعدیِ حالاتِ نماز (WebP شفاف) برای همراهِ نماز — آفلاین هم دیده شود. */
+  './assets/images/salah/pose-qiyam.webp',
+  './assets/images/salah/pose-ruku.webp',
+  './assets/images/salah/pose-sujud.webp',
+  './assets/images/salah/pose-sit.webp',
   /* نسخهٔ ۳۶: همراهِ روزانه (نسخهٔ ۱۹) — ورد، تسبیح، ختم، رمضان و
      اذانِ محلی. یادآورِ اذان آفلاین هم کار می‌کند چون اوقات از locِ
      ذخیره‌شده محاسبه می‌شود. */
