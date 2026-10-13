@@ -535,6 +535,21 @@ html[data-theme="light"] #modal.stage .box{ background:var(--bg2); border:0; }
 .sj-fig-g circle{ fill:currentColor; stroke:none; }
 .sj-ground{ stroke:color-mix(in srgb, var(--mut) 55%, transparent); stroke-width:2; stroke-linecap:round; fill:none; }
 .sj-fig{ transition:color .4s var(--ease), transform .4s var(--ease); }
+
+/* نگارهٔ سه‌بعدیِ حالتِ بدن (نسخهٔ ۴۸): تصویرِ شفاف، بدون چرخشِ خطّیِ قدیمی
+   (عکسِ واقعیِ حالت خودش زاویه را دارد). اگر تصویر نبود، SVG جانشین می‌شود. */
+.sj-fig:has(> .sj-pose3d){ width:auto; transform:none !important; color:inherit; }
+.sj-pose3d{ display:flex; align-items:flex-end; justify-content:center; height:min(36vh, 300px); }
+.sj-pose3d img{ height:100%; width:auto; max-width:min(88vw, 420px); object-fit:contain; display:block;
+  filter:drop-shadow(0 10px 18px color-mix(in srgb, var(--gold) 22%, transparent)); }
+.sj-pose3d svg{ display:none; width:min(46vw,190px); height:auto; color:var(--gold); }
+.sj-pose3d.nofig img{ display:none; }
+.sj-pose3d.nofig svg{ display:block; }
+.sj-pose3d.nofig .sj-fig-g{ fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+.sj-pose3d.nofig .sj-fig-g circle{ fill:currentColor; stroke:none; }
+.sj-pose3d.nofig .sj-ground{ stroke:color-mix(in srgb, var(--mut) 55%, transparent); stroke-width:2; fill:none; stroke-linecap:round; }
+.sj-pose3d svg .sj-fig-g{ fill:none; }
+
 .sj-stage[data-pose="ruku"] .sj-fig{ color:var(--grn); transform:rotate(-4deg); }
 .sj-stage[data-pose="sujud"] .sj-fig{ color:var(--grn); transform:rotate(-14deg) translateY(6px); }
 .sj-stage[data-pose="sit"] .sj-fig{ color:var(--gold2, var(--gold)); }
