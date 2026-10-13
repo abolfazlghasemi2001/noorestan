@@ -7,6 +7,33 @@
    هیچ‌وقت نسخهٔ قدیمی را به کاربر تحمیل نمی‌کند: با تغییر CACHE هر بار
    کش پیشین پاک می‌شود.
 
+
+    نسخهٔ ۴۷ (همان مرحله):
+    • `Net.startMatch(game, force)` — «بازی از نو» که کاربر در گفت‌وگوی
+      تأیید خواسته، حالا force می‌برد و سرور می‌پذیرد؛ شروعِ دوبارۀ
+      اتفاقی (دو کلیک، پیامِ دست‌کاری‌شده) در میانهٔ دست رد می‌شود.
+      چون باندلِ app عوض شد، کش‌ها بالا رفتند.
+
+    نسخهٔ ۴۶ (ممیزی ۱۴۰۵/۰۷/۲۲ — فاز ۲، نیمۀ سرور):
+    • شمارۀ کش‌ها بالا رفت چون خودِ همین فایل عوض شد: کامنتِ کهنه شمارۀ
+      کش‌ها را «چهار» می‌گفت و پنج تا هستند (B22). منطقِ سرویس‌ورکر دست‌نخورده است:
+      تغییراتِ این مرحله در server.js بود (Permissions-Policy، CSP/HSTS،
+      صافیِ فایل‌ها، /health، نشستِ ماندگار، سهمیۀ کد).
+
+    نسخهٔ ۴۵ (ممیزی ۱۴۰۵/۰۷/۲۱ — فاز ۲):
+    • B1 — دارایی‌های /assets/ که در PRECACHE بودند در SHELL می‌نشستند، ولی
+      شاخهٔ «اول کش»ِ دارایی‌ها تنها CACHE را می‌خواند؛ اولین بازِ آفلاین
+      باندل و CSS را از شبکه می‌خواست و بی‌پاسخ می‌ماند. هر فایل /assets/
+      حالا همان‌جا پیش‌ذخیره می‌شود که از آن سرو می‌شود.
+    • B2 — شکستِ هر فایلِ پوسته نصب را می‌شکند (پیش‌تر تنها OFFLINE) و
+      skipWaiting فقط پس از موفقیتِ کاملِ پیش‌ذخیره اجرا می‌شود.
+    • B16 — تازه‌سازیِ پس‌زمینه به waitUntil سپرده می‌شود؛ تنها مسیرهای
+      پوسته در SHELL می‌نشینند (/health بیرون افتاد) و SHELL هم trim دارد.
+    • B21 — پیامِ clear تنها کش‌های داده (MEDIA/TEXT/GAMES) را می‌بَرد،
+      سقفِ کشِ متن با ۱۱۴ سوره × ۶ ترجمه هم‌خوان شد، و نشانیِ اعلانِ پوش
+      باید هم‌خاستگاه باشد.
+    آزمون: tests/sw.test.js — در آن هر کش فروشگاهِ جدای خود دارد.
+
    نسخهٔ ۱۶: صفحهٔ آفلاین سفارشی (offline.html) به پیش‌ذخیره اضافه شد و
    واپس‌رویِ رفت‌وبرگشت‌ها اول به آن می‌رسد. آیکن‌ها هم از webp/jpg
    ساختگی به PNGهای واقعی عوض شدند — پیش‌تر این مسیرها به فایل‌هایی
@@ -24,7 +51,7 @@
    (`docs/AYAH-VERTICAL-2026-09-28.md`). قاعدهٔ اندازهٔ آن قاب در
    `assets/styles/sanctuary.css` است و آن مسیر از شاخهٔ «اول کش، بعد
    تازه‌سازی» (`stale-while-revalidate`) سرو می‌شود؛ یعنی نصبِ قبلی یک بار
-   CSSِ کهنه می‌گرفت. با بالا رفتنِ نسخه، هر چهار کش نو می‌شوند و همان
+   CSSِ کهنه می‌گرفت. با بالا رفتنِ نسخه، هر پنج کش نو می‌شوند و همان
    بارِ اول درست است. (حتی با CSSِ کهنه هم استثنائاً درست می‌شد، چون
    ارتفاع از `fit()` به‌صورت درون‌خطی می‌نشیند و `aspect-ratio` را
    بی‌اثر می‌کند — ولی تکیه بر آن شکننده است.)
@@ -82,11 +109,11 @@
    فهرستِ پیش‌ذخیره دست‌نخورده است؛ فقط بدنهٔ باندل عوض شد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-44';
-const SHELL = 'noorestan-shell-44';
-const MEDIA = 'noorestan-media-44';
-const TEXT  = 'noorestan-text-44';
-const GAMES = 'noorestan-games-44';
+const CACHE = 'noorestan-47';
+const SHELL = 'noorestan-shell-47';
+const MEDIA = 'noorestan-media-47';
+const TEXT  = 'noorestan-text-47';
+const GAMES = 'noorestan-games-47';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
@@ -150,7 +177,6 @@ const OPTIONAL = [
   './assets/images/icons/icon-512.png',
   './assets/images/icons/maskable-512.png',
   './assets/images/icons/apple-touch-icon.png',
-  './assets/README.md'
   /* نسخهٔ ۱۷: چهار مسیرِ splash/tile/mushaf/panorama از این فهرست رفتند.
      هیچ‌کدام فایل نداشتند و هر نصب چهار درخواستِ محکوم‌به‌شکست می‌فرستاد
      (خطا گرفته می‌شد، پس نصب نمی‌شکست — ولی هر بار چهار خطای شبکه در
@@ -178,8 +204,17 @@ const GAME_FILES = [
 const isGameData = p => /\/hadith-bank\.js$|\/_quran-ref\.json$/.test(p);
 
 const MAX_MEDIA = 120;      // حداکثر شمار فایل رسانه‌ای در کش
-const MAX_TEXT  = 260;      // حداکثر پاسخ متنی (سوره‌ها) در کش
+const MAX_ASSETS = 160;     // حداکثر داراییِ هم‌خاستگاه (باندل/برگهٔ سبک/نگاره)
+const MAX_SHELL = 48;       // حداکثر سندِ پوسته — بیشتر از این یعنی زباله
 const MAX_GAMES = 60;       // حداکثر فایل بازی در کش
+
+/* سقفِ کشِ متن (B21): `QText.surah(n)` برای هر سوره با هر ترجمه یک پاسخ
+   می‌گیرد (api.alquran.cloud/v1/surah/N/editions/…). کم‌شمردنِ این عدد یعنی
+   LRU سوره‌هایی را که کاربر آفلاین می‌خواند بیرون می‌اندازد. `tests/sw.test.js`
+   هر دو عدد را از خودِ باندل می‌خواند؛ اگر TRANSLATIONS یا شمارِ سوره‌ها عوض
+   شود و این‌جا هم‌خوان نباشد، آزمون سرخ می‌شود. */
+const N_SURAH = 114, N_TRANS = 6;
+const MAX_TEXT = N_SURAH * N_TRANS;   // ۶۸۴
 
 /* ── رسانه (صوت/ویدئو): کامل واگذار به مرورگر ──────────────────────
    چرا این شاخه پیش از همه می‌آید و چرا هیچ respondWith ندارد؟
@@ -230,24 +265,34 @@ function storable(res){
   return true;
 }
 
+/* پیش‌ذخیره در کدام کش بنشیند؟ (B1) دارایی‌های `/assets/` را شاخهٔ ۴ِ
+   fetch از `CACHE` می‌خواند؛ پیش‌تر همه در `SHELL` می‌نشستند، پس اولین
+   بازِ آفلاین باندل و CSS را از شبکه می‌خواست و با `Response.error()`
+   برمی‌گشت. یک فایلِ کهنهٔ یک‌کاره بهتر از پوسته‌ای است که آفلاین باز
+   نمی‌شود — ولی «کهنه» با «نیمه‌کاره» فرق دارد. */
+function precacheTarget(u){ return /\/assets\//.test(u) ? CACHE : SHELL; }
+
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
-    const c = await caches.open(SHELL);
     /* addAll اگر یکی شکست بخورد همه را باطل می‌کند، پس هر کدام جدا
-       افزوده می‌شود؛ ولی OFFLINE استثناست: بی آن، وعدهٔ «آفلاین باز
-       می‌شود» توخالی است، پس نبودش باید نصب را واقعاً بشکند. */
-    await Promise.all(PRECACHE.map(u =>
-      c.add(new Request(u, { cache: 'reload' }))
-        .catch(err => {
-          if(u === OFFLINE) throw err;
-          return null;
-        })));
+       افزوده می‌شود؛ ولی نبودنِ هر فایلِ پوسته خطاست (B2): پیش‌تر فقط
+       OFFLINE استثنا می‌داد و باندل/CSSِ شکسته بی‌صدا رد می‌شد، بعد
+       skipWaiting پوستهٔ ناقص را فعال می‌کرد. حالا نصب می‌شکند و نسخهٔ
+       قبلی (که کامل است) سرو می‌دهد تا فایل‌ها سرِ جایشان برگردند. */
+    const cacheOf = {};
+    const open = name => (cacheOf[name] = cacheOf[name] || caches.open(name));
+    const bad = (await Promise.all(PRECACHE.map(u =>
+      open(precacheTarget(u)).then(c => c.add(new Request(u, { cache: 'reload' })))
+        .catch(err => u + ': ' + (err && err.message || err))))).filter(Boolean);
+    if(bad.length) throw new Error('install: پوستهٔ ناقص — ' + bad.join(' | '));
     const opt = await caches.open(CACHE);
     await Promise.all(OPTIONAL.map(u =>
       opt.add(new Request(u, { cache: 'reload' })).catch(() => null)));
     const games = await caches.open(GAMES);
     await Promise.all(GAME_FILES.map(u =>
       games.add(new Request(u, { cache: 'reload' })).catch(() => null)));
+    /* فقط وقتی همه‌چیز نوشته شد: skipWaiting بی پیش‌ذخیرهٔ کامل،
+       کاربر را روی پوستهٔ شکسته می‌نشاند. */
     await self.skipWaiting();
   })());
 });
@@ -264,24 +309,62 @@ self.addEventListener('activate', e => {
 });
 
 /* ── ابزارها ── */
+
+/* کاری که باید بعد از پاسخ‌دادن تمام شود به waitUntil سپرده می‌شود (B16).
+   بی آن مرورگر آزاد است SW را همین‌جا ببندد و کش هرگز تازه نشود —
+   «آفلاین بودن» دقیقاً به همین نوشتنِ کامل وابسته است. */
+function bg(e, p){
+  const done = Promise.resolve(p).catch(() => null);
+  try{ if(e && typeof e.waitUntil === 'function') e.waitUntil(done); }catch(err){}
+  return done;
+}
+
+/* چه چیزی پوسته است (B16): پیش‌تر هر پاسخِ هم‌خاستگاه — /health و هر
+   مسیرِ بی‌ربطِ دیگر — در SHELL می‌نشست و آن را بی‌سقف پر می‌کرد. */
+function isShellPath(p){
+  if(p === '/' || p === '') return true;
+  if(/^\/(health|\/)$/.test(p) || p.indexOf('/api/') === 0) return false;
+  return /^\/[^/]+\.(html?|json|webmanifest|txt|xml)$/.test(p);
+}
+
+/* نشانیِ اعلان باید هم‌خاستگاه بماند (B21): با نشانیِ بیرونی، یک تاچ روی
+   اعلانِ «نورستان» کاربر را به دامنهٔ دیگری می‌برد. */
+function safeUrl(u){
+  try{
+    const x = new URL(String(u || './'), location.href);
+    if(x.origin !== location.origin) return '/';
+    return x.pathname + x.search + x.hash;
+  }catch(err){ return '/'; }
+}
+
+/* آنچه خودمان پیش‌ذخیره کرده‌ایم از چرخهٔ بیرون‌ریختن در امان است؛ وگرنه
+   trim پس از ۱۶۰ بازدید، باندلِ برنامه را هم بیرون می‌انداخت. */
+const PINNED = new Set([].concat(PRECACHE, OPTIONAL, GAME_FILES)
+  .map(u => { try{ return new URL(u, location.href).pathname; }catch(err){ return u; } }));
+
 async function trim(name, max){
   try{
     const c = await caches.open(name);
     const keys = await c.keys();
     if(keys.length <= max) return;
     /* قدیمی‌ترین‌ها اول می‌روند (ترتیب درج) */
-    for(const k of keys.slice(0, keys.length - max)) await c.delete(k);
+    const free = keys.filter(k => { try{ return !PINNED.has(new URL(k).pathname); }catch(err){ return true; } });
+    const drop = Math.max(0, keys.length - max);
+    for(const k of free.slice(0, drop)) await c.delete(k);
   }catch(e){}
 }
 
-async function staleWhileRevalidate(req, name, max, opts){
+async function staleWhileRevalidate(req, name, max, opts, e){
   const c = await caches.open(name);
   const hit = await c.match(req, opts);
-  const net = fetch(req).then(res => {
-    if(storable(res)) c.put(req, res.clone()).then(() => trim(name, max)).catch(() => {});
+  const work = (async () => {
+    const res = await fetch(req);
+    if(storable(res)){ await c.put(req, res.clone()); await trim(name, max); }
     return res;
-  }).catch(() => null);
-  return hit || (await net) || Response.error();
+  })().catch(() => null);
+  bg(e, work);
+  if(hit) return hit;
+  return (await work) || Response.error();
 }
 
 async function networkFirst(req, name, max){
@@ -336,7 +419,7 @@ self.addEventListener('fetch', e => {
         پیش از شاخهٔ رفت‌وبرگشت می‌آید تا صفحهٔ بازی آفلاین هم باز شود و
         به‌جایش پوستهٔ index.html برنگردد. ignoreSearch برای ‎?v=…‎ است. */
   if(url.origin === location.origin && (/\/games\//.test(url.pathname) || isGameData(url.pathname))){
-    e.respondWith(staleWhileRevalidate(req, GAMES, MAX_GAMES, { ignoreSearch: true }));
+    e.respondWith(staleWhileRevalidate(req, GAMES, MAX_GAMES, { ignoreSearch: true }, e));
     return;
   }
 
@@ -347,7 +430,7 @@ self.addEventListener('fetch', e => {
         const res = await fetch(req);
         if(res && res.ok){
           const c = await caches.open(SHELL);
-          c.put(SHELL_PAGE, res.clone()).catch(() => {});
+          bg(e, c.put(SHELL_PAGE, res.clone()).then(() => trim(SHELL, MAX_SHELL)));
           return res;
         }
         /* پاسخ خطای سرور: کش دست‌کم چیزی برای نشان دادن دارد */
@@ -372,27 +455,33 @@ self.addEventListener('fetch', e => {
         همین‌ها برنامه را آفلاین خوانا نگه می‌دارند. ممنوع کردن کشِ
         بین‌خاستگاهی، آفلاین بودنِ قلم را بی‌صدا می‌کشد. */
   if(/jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(url.hostname)){
-    e.respondWith(staleWhileRevalidate(req, MEDIA, MAX_MEDIA));
+    e.respondWith(staleWhileRevalidate(req, MEDIA, MAX_MEDIA, undefined, e));
     return;
   }
 
   /* ۴) دارایی‌های خودمان (assets/) — اول کش با تازه‌سازی پس‌زمینه */
   if(url.origin === location.origin && /\/assets\//.test(url.pathname)){
-    e.respondWith(staleWhileRevalidate(req, CACHE, MAX_MEDIA));
+    e.respondWith(staleWhileRevalidate(req, CACHE, MAX_ASSETS, undefined, e));
     return;
   }
 
-  /* ۵) هر چیز هم‌خاستگاه دیگر (index.html، manifest، sw) — اول شبکه.
-        کشِ این شاخه فقط هم‌خاستگاهی است؛ درختِ پوسته نباید با پاسخ
-        دامنهٔ بیرونی آلوده شود. */
+  /* ۵) هر چیز هم‌خاستگاه دیگر (manifest، sw، سندِ html) — اول شبکه.
+         کشِ این شاخه فقط هم‌خاستگاهی است و فقط مسیرهای پوسته (B16)؛
+         /health و بقیه هرگز در SHELL نمی‌نشینند، وگرنه نشانگرِ «اتصال»
+         آفلاین را با پاسخِ کهنهٔ خودش گول می‌زند و SHELL بی‌سقف می‌شود. */
   if(url.origin === location.origin){
+    const shell = isShellPath(url.pathname);
     e.respondWith((async () => {
       try{
         const res = await fetch(req);
-        if(storable(res)) (await caches.open(SHELL)).put(req, res.clone()).catch(() => {});
+        if(shell && storable(res)) bg(e, (async () => {
+          const c = await caches.open(SHELL);
+          await c.put(req, res.clone());
+          await trim(SHELL, MAX_SHELL);
+        })());
         return res;
       }catch(err){
-        const hit = await caches.match(req);
+        const hit = shell ? await caches.match(req) : null;
         return hit || Response.error();
       }
     })());
@@ -405,10 +494,11 @@ self.addEventListener('message', e => {
   const d = e.data || {};
   if(d.t === 'skipWaiting') self.skipWaiting();
   if(d.t === 'clear'){
-    e.waitUntil((async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    })());
+    /* فقط کش‌های داده (B21). SHELL و CACHE خودِ برنامه‌اند؛ پاک کردنشان
+       با «پاک کردن حافظهٔ محلی» یعنی آفلاین را کُشتن و نصبِ دوبارهٔ کامل.
+       اگر روزی خواستی پوسته را هم بتکانی، پیامِ تازه‌ای به نام wipe بگذار
+       تا این دو معنا از هم جدا بمانند. */
+    e.waitUntil(Promise.all([MEDIA, TEXT, GAMES].map(n => caches.delete(n))));
   }
   if(d.t === 'version'){
     e.waitUntil((async () => {
@@ -428,13 +518,13 @@ self.addEventListener('push', e => {
     dir: 'rtl', lang: 'fa',
     badge: './assets/images/icons/icon-192.png',
     icon: './assets/images/icons/icon-192.png',
-    data: { url: d.url || './' }
+    data: { url: safeUrl(d.url) }
   }));
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || './';
+  const url = safeUrl(e.notification.data && e.notification.data.url);
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for(const c of all){ if('focus' in c){ c.navigate(url); return c.focus(); } }

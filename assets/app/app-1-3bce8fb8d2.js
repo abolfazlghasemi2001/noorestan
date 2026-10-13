@@ -5973,7 +5973,9 @@ connect(url){
   },
   joinRoom(code){ this.post({ t: 'room:join', code }); },
   leaveRoom(){ this.post({ t: 'room:leave' }); this.room = null; },
-  startMatch(game){ this.post({ t: 'room:start', game, code: this.room?.code }); },
+  // `force` یعنی کاربر «از نو» را در گفت‌وگوی تأیید خودش خواسته؛ سرور بی آن، دستِ
+  // در جریان را پاک نمی‌کند (B17 — دو کلیکِ اتفاقی نباید امتیازِ میانهٔ دست را بسوزاند).
+  startMatch(game, force){ this.post({ t: 'room:start', game, code: this.room?.code, ...(force ? { force: true } : {}) }); },
   say(text){ this.post({ t: 'chat', text, room: this.room?.code || '' }); },
   /* ارسال به روم فعلی (یا به همه، اگر در رومی نیستیم).
      تا پیش از نسخهٔ ۱۵ این تابع وجود نداشت و «تایپ»، «واکنش» و
@@ -10057,7 +10059,7 @@ const RoundControl={
   if(Net.room&&!Net.room.isHost){UI.toast('شروع دوبارهٔ بازی آنلاین با میزبان است.','');return;}
   const fn=this.run;
   UI.confirm('بازی از نو شروع شود؟ پیشرفت همین دور از دست می‌رود.',()=>{
-   Timers.clearPage();if(Net.room)Net.startMatch(Net.room.game);else fn();
+   Timers.clearPage();if(Net.room)Net.startMatch(Net.room.game,true);else fn();
   });
  },
  bind(){
