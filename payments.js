@@ -3,7 +3,9 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const PACKS=Object.freeze({coins250:{title:'۲۵۰ سکهٔ آزمایشی',amount:100000,coins:250},coins600:{title:'۶۰۰ سکهٔ آزمایشی',amount:200000,coins:600}});
 const ITEMS=Object.freeze({'theme-desert':250,avapack:150});
-function createPayments({file,auth,mode='disabled',publicUrl='',merchant='00000000-0000-4000-8000-000000000001',fetcher=fetch}){
+/* B10: بی مقدارِ صریح، تاجری وجود ندارد — نه یک UUIDِ جانشین که قالبِ
+   درگاه را پر کند و `enabled` را روشن بیابد. */
+function createPayments({file,auth,mode='disabled',publicUrl='',merchant='',fetcher=fetch,onCredit=null}){
  let state={version:1,orders:{},accounts:{}};const locks=new Map();
  if(fs.existsSync(file)){state=JSON.parse(fs.readFileSync(file,'utf8'));if(state.version!==1||!state.orders||!state.accounts)throw Error('Payment ledger invalid');}
  let origin='';try{const u=new URL(publicUrl);if(u.protocol==='https:'&&!u.username&&!u.password)origin=u.origin;}catch(e){}
@@ -51,6 +53,9 @@ function createPayments({file,auth,mode='disabled',publicUrl='',merchant='000000
     const wallet=s.accounts[key(order.user)]||(s.accounts[key(order.user)]={balance:0,items:{}});
     wallet.balance+=order.coins;order.status='paid';order.reference=String(r.ref_id);order.verifiedAt=Date.now();
    });
+   /* سکه در سرور اعتبار می‌گیرد (B10) و میزبانِ برنامه هم از همان دفتر
+      می‌خواند؛ بی این، «۲۵۰ سکه خریدم» فقط یک عدد در localStorage بود. */
+   if(onCredit){ try{ onCredit(order.user, order.coins, state.orders[id]); }catch(e){} }
    return view(state.orders[id]);
   })();locks.set(id,task);try{return await task;}finally{locks.delete(id);}
  }
