@@ -40,16 +40,27 @@ node _servertest.js
 step '۶) بازرسیِ محتوا'
 node _content-audit.js
 
-step '۷) ماتریسِ مرورگر — بودجۀ نقضِ چیدمان (اختیاری)'
-# چرا اختیاری؟ Chromiumِ بی‌سر‌‌لس ~۱۵ دقیقه وقت می‌برد و در اجراکنندهٔ CI
-# نیست. بودجه در `docs/audit/BROWSER-BUDGET.json` قفل شده (شمارِ واقعیِ
-# امروز، نه آرزو): اگر همین‌جا Chromium باشد، گام اجرا می‌شود و هر
-# بدترشدنِ عدد، CI را می‌شکند؛ در غیر این صورت با یادآوری رد می‌شود.
-if [ -n "${CHROMIUM_PATH:-}" ] || command -v chromium >/dev/null 2>&1 \
-   || command -v chromium-browser >/dev/null 2>&1 || command -v google-chrome >/dev/null 2>&1; then
+step '۷) ماتریسِ مرورگر — بودجۀ نقضِ چیدمان (با درخواستِ صریح)'
+# چرا در CI نیست؟ اجرای کامل ~۱۵ دقیقه Chromium می‌برد، و ابزارش به
+# `_shots_env/node_modules` (puppeteer + @sparticuz/chromium) تکیه می‌کند که
+# در Git نیست. بودجه در `docs/audit/BROWSER-BUDGET.json` قفل شده (شمارِ واقعیِ
+# امروز، نه آرزو): هر بدترشدنِ عدد، همین گام را می‌شکند.
+# چرا *صریح* خواسته می‌شود؟ تصویرِ ubuntu-latest را GitHub خودش با
+# google-chrome می‌دهد؛ «پس مرورگر هست» به‌تنهایی CI را سراغ گامی می‌برد که
+# نصبِ وابستگی ندارد. پس سه شرط: درخواست، مرورگر، وابستگیِ نصب‌شده.
+have_browser=0
+[ -n "${CHROMIUM_PATH:-}" ] && have_browser=1
+command -v chromium >/dev/null 2>&1 && have_browser=1
+command -v chromium-browser >/dev/null 2>&1 && have_browser=1
+command -v google-chrome >/dev/null 2>&1 && have_browser=1
+if [ "${NOOR_BROWSER_GATE:-0}" = 1 ] && [ "$have_browser" = 1 ] && [ -d _shots_env/node_modules ]; then
   node _browser-check.js --budget=docs/audit/BROWSER-BUDGET.json --out=screenshots/browser
+elif [ "${NOOR_BROWSER_GATE:-0}" = 1 ]; then
+  echo '  گامِ مرورگر خواسته شد ولی اجرایی نشد: مرورگر (CHROMIUM_PATH) و'
+  echo '  `cd _shots_env && npm ci` هر دو لازم‌اند.'
+  exit 1
 else
-  echo '  پرش: Chromium پیدا نشد — `CHROMIUM_PATH=/usr/bin/chromium` بگذار تا همین گام اجرا شود'
+  echo '  پرش: با NOOR_BROWSER_GATE=1 اجرا می‌شود (مرورگر + `cd _shots_env && npm ci`)'
 fi
 
 printf '\n\033[1;32m✅ دروازهٔ محلی: همهٔ گام‌ها سبز\033[0m\n'

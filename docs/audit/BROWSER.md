@@ -22,8 +22,10 @@ node _browser-check.js --out=screenshots/browser --budget=docs/audit/BROWSER-BUD
 ## چرا این عدد در CI نیست؟
 
 اجرای کامل ≈ ۱۵ دقیقه Chromium است و در اجراکنندۀ GitHub هیچ مرورگری نصب نیست.
-تصمیم: **گامِ ۷ `tools/ci.sh` اختیاری است** — اگر `CHROMIUM_PATH` یا `chromium` روی
-دستگاه باشد اجرا می‌شود، وگرنه با یادآوری رد می‌شود. هر بدترشدنِ عدد، گام را می‌شکند:
+تصمیم: **گامِ ۷ `tools/ci.sh` صریحاً خواسته می‌شود** — `NOOR_BROWSER_GATE=1` و یک
+مرورگر (`CHROMIUM_PATH` یا `chromium`/`google-chrome`)؛ در غیر این صورت با یادآوری
+رد می‌شود. (چرا هر دو؟ تصویرِ ubuntu-latest خودش `google-chrome` دارد، ولی
+`_shots_env/node_modules` در Git نیست — «مرورگر هست» به‌تنهایی، CI را می‌شکست.) هر بدترشدنِ عدد، گام را می‌شکند:
 
 ```
 docs/audit/BROWSER-BUDGET.json     # سقفِ نقض‌ها؛ تنها پایین می‌رود (ratchet)
@@ -33,6 +35,7 @@ docs/audit/BROWSER-BUDGET.json     # سقفِ نقض‌ها؛ تنها پایی�
 می‌ماند و هر نقضِ *تازه* سرخ می‌شود. برای پایین آوردنِ عمدیِ سقف:
 
 ```
+NOOR_BROWSER_GATE=1 bash tools/ci.sh                              # گامِ ۷ هم اجرا شود
 node _browser-check.js --budget=docs/audit/BROWSER-BUDGET.json   # خودکار کم می‌کند
 node _browser-check.js --quick                                    # سریع، سه پهنا
 node _browser-check.js --screens=home,play,me
