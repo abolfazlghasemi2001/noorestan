@@ -37,3 +37,6 @@ archive/
 _o.txt
 index.html.bak-*
 screenshots/*.gif
+screenshots/**/*.png
+screenshots/**/*.gif
+screenshots/*/report.json

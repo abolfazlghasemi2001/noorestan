@@ -1,0 +1,14 @@
+{
+ "violations": 1590,
+ "at": "2026-10-13T09:18:01.887Z",
+ "chrome": "HeadlessChrome/153.0.8010.0",
+ "configs": 24,
+ "kinds": {
+  "target": 1401,
+  "outside": 4,
+  "contrast": 153,
+  "console": 24,
+  "clip": 8
+ },
+ "note": "شمارِ واقعیِ امروز، نه هدفِ آرمانی: عددِ مجاز تنها پایین می‌رود (ratchet) (node _browser-check.js --budget=docs/audit/BROWSER-BUDGET.json)."
+}

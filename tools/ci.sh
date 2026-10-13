@@ -40,4 +40,16 @@ node _servertest.js
 step '۶) بازرسیِ محتوا'
 node _content-audit.js
 
+step '۷) ماتریسِ مرورگر — بودجۀ نقضِ چیدمان (اختیاری)'
+# چرا اختیاری؟ Chromiumِ بی‌سر‌‌لس ~۱۵ دقیقه وقت می‌برد و در اجراکنندهٔ CI
+# نیست. بودجه در `docs/audit/BROWSER-BUDGET.json` قفل شده (شمارِ واقعیِ
+# امروز، نه آرزو): اگر همین‌جا Chromium باشد، گام اجرا می‌شود و هر
+# بدترشدنِ عدد، CI را می‌شکند؛ در غیر این صورت با یادآوری رد می‌شود.
+if [ -n "${CHROMIUM_PATH:-}" ] || command -v chromium >/dev/null 2>&1 \
+   || command -v chromium-browser >/dev/null 2>&1 || command -v google-chrome >/dev/null 2>&1; then
+  node _browser-check.js --budget=docs/audit/BROWSER-BUDGET.json --out=screenshots/browser
+else
+  echo '  پرش: Chromium پیدا نشد — `CHROMIUM_PATH=/usr/bin/chromium` بگذار تا همین گام اجرا شود'
+fi
+
 printf '\n\033[1;32m✅ دروازهٔ محلی: همهٔ گام‌ها سبز\033[0m\n'
