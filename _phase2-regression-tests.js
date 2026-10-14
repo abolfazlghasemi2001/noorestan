@@ -55,7 +55,11 @@ const titles=[
     عددهای تسبیحاتِ زهرا (س)، متنِ ذکرِ سجده، جایِ خالیِ عددِ
     تأییدنشده، و چک‌لیستِ Material 3 (نقش‌ها، لایهٔ وضعیت، چیدمانِ
     سازگار، RTLِ منطقی، قلمِ محلیِ Amiri). */
- 'لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)'
+ 'لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)',
+ /* نسخهٔ ۲۳ب: سخت‌سازیِ لایهٔ دادهٔ عبادی — validate/diff/register،
+    چهار شرطِ pending()، پلِ دعاها از بانکِ قفل و پوششِ نمایشی، و سنجشِ
+    مغایرتِ کد/داده (متنِ عبادیِ hard-code در لایهٔ نمایش). */
+ 'لایهٔ محتوا — ثبت، تعارض و جایِ خالی (نسخهٔ ۲۳ب)'
 ];
 const chunks=titles.map(title=>{const i=headings.findIndex(h=>h[1]===title);if(i<0)throw Error('Missing regression section '+title);return old.slice(headings[i].index,headings[i+1]?headings[i+1].index:old.length);});
 eval(chunks.join('\n'));

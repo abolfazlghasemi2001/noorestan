@@ -83,11 +83,20 @@ const WirdUI = {
     return { ok:true };
   },
 
-  /* ── متنِ نمایشیِ یک دعا: پوششِ کامل اگر بود، وگرنه همان بانک ──
-     تطبیق با U.norm (بی‌اعراب) تا به املای عنوان گره نخورد. خروجی
-     همیشه { title, ar, fa, src } است. */
+  /* ── متنِ نمایشیِ یک دعا ──
+     از نسخهٔ ۲۳ب منبعِ حقیقت، لایهٔ دادهٔ محتواست (`NoorContent`) که همان
+     پوشش و بانک را در خودش دارد. اگر آن لایه بار نشده باشد، همان مسیرِ
+     پیشین (پوششِ `DUA_FULL` و بعد خودِ شیءِ بانک) بی‌تغییر کار می‌کند.
+     قراردادِ خروجی دست‌نخورده است: `{ title, ar, fa, src }`.
+     تطبیق با هنجارسازیِ خودِ برنامه تا به املای عنوان گره نخورد. */
   text(d){
     try{
+      if(d && typeof NoorContent !== 'undefined' && NoorContent &&
+         typeof NoorContent.duaByTitle === 'function'){
+        const r = NoorContent.duaByTitle(d.title || '');
+        if(r && (r.arabicText || r.translationFa))
+          return { title:d.title, ar:r.arabicText || '', fa:r.translationFa || '', src:r.source || '' };
+      }
       if(d && typeof DUA_FULL !== 'undefined' && Array.isArray(DUA_FULL)){
         const nt = U.norm(d.title || '');
         const f = DUA_FULL.find(x => x && nt.includes(U.norm(x.for || '###')));

@@ -3848,6 +3848,31 @@ section('محتوا — بازرسِ ساختاری، صفر ایراد');
      /0 ایراد ساختاری/.test(out) && /0 هشدار/.test(out),
      (out.match(/\d+ ایراد ساختاری، \d+ هشدار/) || [''])[0]);
 
+  /* ── بخشِ تازهٔ بازرس: لایهٔ محتوا (NoorContent) — نسخهٔ ۲۳ب ──
+     اگر این بخش اجرا نشود یا عددش با داده نخواند، بازرس عملاً کور است. */
+  ok('بازرس لایهٔ محتوا را هم می‌بیند: ۳۸ رکورد = ۲۴ ذکر/نماز + ۱۴ دعا',
+     /لایهٔ محتوا \(NoorContent\)/.test(out) && /38 رکورد/.test(out) &&
+     /content\s+38 رکورد\s+✓/.test(out),
+     (out.match(/content\s+\d+ رکورد.*/) || [''])[0]);
+  ok('بازرس وضعیتِ محتوا را صادقانه گزارش می‌کند',
+     /4 تأییدشده/.test(out) && /1 با متنِ تأییدشده/.test(out) && /34 در انتظارِ منبع/.test(out) &&
+     /0 بی‌منبع/.test(out) && /اطلاعیهٔ محتوایی/.test(out) &&
+     /step\.dhikr34\s+prayer-step\s+\[repeatCount\]/.test(out));
+  ok('بازرس هیچ متنِ عبادیِ hard-code در لایهٔ نمایش پیدا نکرد',
+     !/hardcode/.test(out) && !/✗/.test(out));
+  ok('گزارشِ ماشینیِ بازرس (--json) با خروجیِ متنی می‌خواند', (function(){
+    try{
+      execFileSync('node', [__dirname + '/_content-audit.js', '--json'], { encoding:'utf8' });
+      const rep = JSON.parse(fs.readFileSync(__dirname + '/tmp/content-report.json', 'utf8'));
+      return rep.counts.issues === 0 && rep.counts.warns === 0 &&
+             rep.content.summary.records === 38 && rep.content.summary.verified === 4 &&
+             rep.content.summary.pending === 34 && rep.content.summary.noSource === 0 &&
+             rep.content.pending.length === 34 && rep.content.adopted.matched === 14 &&
+             rep.content.adopted.fragments === 0 && rep.content.strayHardcode.length === 0 &&
+             rep.flags.length === rep.counts.notes + rep.counts.warns + rep.counts.issues;
+    }catch(e){ return 'خطا: ' + e.message; }
+  })() === true);
+
   /* کشیده نباید به کدِ نرمال‌سازی دست بزند و نباید در واژه بماند */
   const src2 = SRC;
   ok('دو نرمال‌سازیِ کشیده سرِ جایشان‌اند',
@@ -7613,21 +7638,30 @@ section('لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)');
   {
     const TMP = 'test.tmp.dhikr';
     try{
-      NC.register([{ id: TMP, title: 'آزمون', arabicText: 'قَدیم', repeatCount: null, order: 999 }],
+      /* از نسخهٔ ۲۳ب: `register` پیش از نوشتن، رکورد را اعتبارسنجی می‌کند
+         (`validate`) — رکوردِ بی‌`type` یا با رشتهٔ تهیِ عربی *اعمال
+         نمی‌شود* و در `invalid` گزارش می‌شود. */
+      const rejected = NC.register([{ id: TMP, title: 'آزمون', arabicText: 'قَدیم', repeatCount: null, order: 999 }],
+                                   { source: 'آزمون — نه دادهٔ واقعی' });
+      /* همان لحظه سنجیده می‌شود: رکوردِ ردشده نباید در داده بنشیند. */
+      const rejectedNow = rejected.invalid.length === 1 && NC.item(TMP) === null &&
+                          /type/.test(String(rejected.invalid[0].problems.join(' ')));
+      NC.register([{ id: TMP, type: 'dhikr', title: 'آزمون', arabicText: 'قَدیم', repeatCount: null, order: 999 }],
                   { source: 'آزمون — نه دادهٔ واقعی' });
       const first = NC.item(TMP);
-      const won1 = !!first && first.arabicText === 'قَدیم' && first.verified === false &&
+      const won1 = rejectedNow;
+      const won1b = !!first && first.arabicText === 'قَدیم' && first.verified === false &&
                    NC.repeatLabel(TMP).known === false;
       NC.register([{ id: TMP, arabicText: 'جَدید', repeatCount: 7, verified: true,
                     source: 'ورودیِ تأییدشدهٔ صاحبِ برنامه — آزمون' }]);
       const second = NC.item(TMP);
       ok('ورودیِ تأییدشدهٔ تازه بر دادهٔ قدیمی می‌چربد (قاعدهٔ ۳)',
-         won1 && second.arabicText === 'جَدید' && second.repeatCount === 7 &&
+         won1 && won1b && second.arabicText === 'جَدید' && second.repeatCount === 7 &&
          second.verified === true && NC.countSummary(TMP) === '' &&
          /صاحبِ برنامه/.test(second.source),
          JSON.stringify(second));
       ok('رکوردِ تازه بدونِ `verified` هرگز خودش تأییدشده نمی‌شود',
-         NC.register([{ id: TMP + '.2', title: 'آزمونِ ۲', arabicText: 'نص' }]) &&
+         NC.register([{ id: TMP + '.2', type: 'dhikr', title: 'آزمونِ ۲', arabicText: 'نص' }]).added === 1 &&
          NC.item(TMP + '.2').verified === false &&
          NC.pending().some(p => p.id === TMP + '.2'));
     } finally {
@@ -7736,6 +7770,185 @@ section('لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)');
   ok('لایهٔ M3 و لایهٔ محتوا در خودسنجیِ درونِ برنامه هم دیده می‌شوند',
      /M3\.selfTest\(\)/.test(JSRC) && typeof selfTest === 'function' &&
      (function(){ const r = selfTest(); return r.ok && r.rows.some(x => /M3/.test(x.name)); })());
+}
+
+section('لایهٔ محتوا — ثبت، تعارض و جایِ خالی (نسخهٔ ۲۳ب)');
+/* ══════════════════════════════════════════════════════════════════
+   نسخهٔ ۲۳ب لایهٔ دادهٔ عبادی را سخت‌تر کرد:
+     • `validate()` — رکوردِ بی‌اعتبار هرگز در داده نمی‌نشیند (سنجشِ
+       «رکوردِ ادغام‌شده»، تا وصلهٔ جزئی رد نشود)،
+     • `diff()` — پیش‌نمایشِ خالصِ تعارض‌ها (کشفِ سیستماتیکِ اختلافِ
+       دادهٔ قدیم و تازه)،
+     • `register()` — گزارشِ `invalid/conflicts/warnings` و دفترِ `log`،
+       و «تأییدِ بی‌منبع» پذیرفته نیست،
+     • `gaps()/isPending()/pending()/pendingSummary()` — چهار شرطِ
+       «در انتظارِ منبعِ معتبر»، آگاه به نوعِ رکورد،
+     • `adoptDuas()` — پلِ لایهٔ دعاها از همان بانک و پوششِ موجود،
+       بی هیچ متنِ تازه.
+   قاعدهٔ بالادستیِ همهٔ این‌ها: **هیچ متنِ عربی، ترجمه یا عددِ تکراری
+   حدس زده نمی‌شود**؛ نبودِ داده ⇒ `null` ⇒ جایِ خالیِ محترمانه در UI.
+   ══════════════════════════════════════════════════════════════════ */
+{
+  const NC = NoorContent;
+  const WIRD = require('./_shipped.js').file('assets/app/wird-1.js');
+  const SAJJ = require('./_shipped.js').file('assets/app/sajjada-1.js');
+  /* نشانگرِ «این رشته عربیِ مذهبی است، نه فارسیِ رابط»: نویسه‌هایی که در
+     فارسیِ روزمره نمی‌آیند (ی/کِ عربی، ألفِ مقصوره، سوپراسکریپ، همزهٔ
+     زیر/روی واو). فارسیِ رابط «ی ک» و «أ» دارد (تأیید)، پس آن‌ها نشانگر
+     نیستند — وگرنه هر رشتهٔ فارسیِ بااعراب («نمازِ») خطا می‌شد. */
+  const AR = /[\u0670\u0625\u0624\u0643\u064A]/;
+
+  /* ── الف) خودسنجیِ لایهٔ داده ── */
+  ok('خودسنجیِ لایهٔ محتوا (۲۴ سنجشِ ساختاری) سبز است',
+     (r => Array.isArray(r) && r.length >= 24 && r.every(x => x.ok))(NC.selfTest()));
+
+  /* ── ب) پلِ دعاها: ۱۴ رکورد، بی هیچ متنِ تازه ── */
+  const DUAS = NC.duas();
+  ok('همهٔ دعوای بانک به رکوردِ `type:dua` نگاشت شده‌اند',
+     DUAS.length === DATA.duas.length && DUAS.length === 14 &&
+     DUAS.every(d => d.type === 'dua' && d.category === 'دعا' && d.source && d.verified === false) &&
+     DUAS.map(d => d.id).join(',') === DATA.duas.map((_, i) => 'dua.' + (i + 1)).join(','),
+     DUAS.length + ' از ' + DATA.duas.length);
+  ok('هر دعای ثبت‌شده همان متنِ پوشش/بانک است — نه متنی تازه',
+     DUAS.every(d => {
+       const b = DATA.duas[d.bankIndex];
+       const f = DUA_FULL.find(x => U.norm(b.title || '').includes(U.norm(x.for || '###')));
+       return d.title === b.title &&
+              d.arabicText === ((f && f.ar) || b.ar) &&
+              d.translationFa === ((f && f.fa) || b.fa) &&
+              d.source === ((f && f.src) || b.src) &&
+              d.fragment === !f;
+     }));
+  ok('دعاها عددِ تکرارِ حدسی نمی‌گیرند و «کمبودِ عدد» هم برایشان ثبت نمی‌شود',
+     DUAS.every(d => d.repeatCount === null && !NC.expectsRepeat('dua') &&
+                     NC.gaps(d).indexOf('repeatCount') < 0 && NC.isPending(d)));
+  ok('بانکِ قفلِ بازیِ «نجوا» دست‌نخورده است (فقط خوانده شد)',
+     DATA.duas.every(b => Object.keys(b).every(k => ['title','ar','fa','words','src','d'].indexOf(k) >= 0)) &&
+     !/DATA\.duas\s*=|DATA\.duas\.push|DATA\.duas\.splice/.test(WIRD));
+  ok('پوششِ نمایشی برای همهٔ ۱۴ دعا پیدا شد (fragment صفر است)',
+     DUAS.filter(d => d.fragment).length === 0 && NC.pendingSummary().fragment === 0);
+  ok('دو منبعِ متفاوتِ یک دعا هر دو نگه داشته می‌شوند (sourceBank)',
+     DUAS.filter(d => d.sourceBank).length > 0 &&
+     DUAS.every(d => !d.sourceBank || d.sourceBank === DATA.duas[d.bankIndex].src));
+
+  /* ── ج) خروجیِ نمایشِ دعا باید بایت‌به‌بایت همانِ پیش از مهاجرت باشد ── */
+  ok('WirdUI.text() پس از مهاجرت همان خروجیِ پیشین را می‌دهد (قاعدهٔ طلایی)',
+     DATA.duas.every(b => {
+       const now = WirdUI.text(b);
+       const nt = U.norm(b.title || '');
+       const f = DUA_FULL.find(x => x && nt.includes(U.norm(x.for || '###')));
+       const want = f ? { title:b.title, ar:f.ar, fa:f.fa, src:f.src } : b;
+       return now.title === want.title && now.ar === want.ar && now.fa === want.fa && now.src === want.src;
+     }));
+  ok('مارک‌آپِ ورد همان چهار فیلد را escape می‌کند و متنِ خام نمی‌گذارد',
+     /const t = this\.text\(d\);/.test(WIRD) &&
+     /U\.esc\(t\.ar\)/.test(WIRD) && /U\.esc\(t\.fa\)/.test(WIRD) && /U\.esc\(t\.src/.test(WIRD) &&
+     !/\$\{t\.ar\}/.test(WIRD));
+  ok('مسیرِ جایگزینِ پوشش سرِ جایش است اگر لایهٔ محتوا بار نشد',
+     /typeof NoorContent !== 'undefined'/.test(WIRD) && /if\(d && typeof DUA_FULL !== 'undefined'/.test(WIRD));
+
+  /* ── د) مغایرتِ کد/داده: متنِ عبادیِ hard-code در لایهٔ نمایش ── */
+  const literals = src => {
+    const noComments = src.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '));
+    const out = [];
+    noComments.split('\n').forEach((line, i) => {
+      if(!AR.test(line)) return;
+      (line.match(/'[^']*'|"[^"]*"|`[^`]*`/g) || []).forEach(s => {
+        const t = s.slice(1, -1);
+        if(AR.test(t)) out.push({ line:i + 1, text:t });
+      });
+    });
+    return out;
+  };
+  const known = new Set();
+  NC.all().forEach(r => [r.title, r.shortTitle, r.arabicText, r.translationFa, r.notes]
+    .forEach(v => { if(v) known.add(NC.norm(v)); }));
+  DUA_FULL.forEach(f => [f.for, f.ar, f.fa, f.src].forEach(v => { if(v) known.add(NC.norm(v)); }));
+  Object.keys(DATA).forEach(k => { if(Array.isArray(DATA[k])) DATA[k].forEach(o => {
+    if(o && typeof o === 'object') Object.keys(o).forEach(f => {
+      const v = o[f];
+      if(typeof v === 'string') known.add(NC.norm(v));
+      if(Array.isArray(v)) v.forEach(y => { if(typeof y === 'string') known.add(NC.norm(y)); });
+    }); }); });
+  const covered = t => { const n = NC.norm(t); return n.length >= 6 && [...known].some(k => k && (k.includes(n) || n.includes(k))); };
+  const straySaj = literals(SAJJ);
+  const strayWird = literals(WIRD).filter(x => !covered(x.text));
+  ok('همراهِ نماز و ذکرشمار هیچ متنِ عبادیِ hard-code ندارند',
+     straySaj.length === 0, JSON.stringify(straySaj.slice(0, 3)));
+  ok('فردِ عربیِ باقی‌مانده در wird-1.js فقط *ارجاع* به عنوانِ بانک است',
+     strayWird.length === 0, JSON.stringify(strayWird.slice(0, 3)));
+  ok('متنِ هر مرحلهٔ نماز در UI دقیقاً همان رکوردِ داده است (مغایرتِ کد/داده)',
+     Sajjada.STEP_KEYS.every(k => {
+       const rec = NC.prayerStep(k);
+       return !!rec && Sajjada.TXT[k].ar === rec.ar && Sajjada.TXT[k].fa === rec.fa &&
+              Sajjada.reps(k) === (Number.isFinite(rec.n) && rec.n > 0 ? rec.n : null);
+     }));
+
+  /* ── ه) جایِ خالیِ محترمانه در UI وقتی عدد در منبع نیست ── */
+  {
+    const TMP = 'tmpset';
+    try{
+      NC.register([
+        { id:TMP, type:'dhikr-set', title:'مجموعهٔ آزمون', order:99, phases:[TMP + '.1'] },
+        { id:TMP + '.1', type:'dhikr', title:'فازِ آزمون', parent:TMP, order:1,
+          arabicText:'نصُ الآزمون', translationFa:null, repeatCount:null },
+      ], { source:'آزمون — نه دادهٔ واقعی' });
+      const html = Dhikr.html(TMP);
+      ok('ذکرشمار با هدفِ ثبت‌نشده: «—» و پاورقیِ صادقانه، بی هیچ عددِ پیش‌فرض',
+         /از —/.test(html) && /class="dj-note dj-note-warn"/.test(html) &&
+         /ثبت نشده است/.test(html) && !/از ۳۳/.test(html) && !/از ۱۰۰/.test(html) &&
+         !/از ۳۴/.test(html) && /نصُ الآزمون/.test(html),
+         (html.match(/از [^<]{0,12}/g) || []).join(' | '));
+      ok('برچسبِ دسترسیِ همان ذکرشمار هم عددِ ساختگی نمی‌گوید',
+         /aria-label="ذکرشمار — نصُ الآزمون — ۰ از —"|aria-label="ذکرشمار — نصُ الآزمون — 0 از —"/.test(html));
+      ok('هدفِ نامشخص در پیشرفت «صفر» شمرده نمی‌شود (openEnded)',
+         (function(pr){ return pr.goal === 0 && pr.openEnded === true && pr.done === false; })(Dhikr.progress(TMP)));
+    } finally {
+      NC.items = NC.items.filter(x => String(x.id).indexOf(TMP) !== 0);
+    }
+    ok('پاک‌سازی: رکوردهای آزمون از داده بیرون رفتند',
+       NC.item(TMP) === null && NC.item(TMP + '.1') === null &&
+       NC.all().length === DATA.duas.length + 24);
+  }
+
+  /* ── و) گزارشِ وضعیتِ محتوا ── */
+  ok('pendingSummary() با خودِ رکوردها می‌خواند', (function(s){
+    return s.records === NC.all().length && s.pending === NC.pending().length &&
+           s.verified === NC.all().filter(x => x.verified).length &&
+           s.verifiedText === NC.all().filter(x => x.verifiedText).length &&
+           s.noSource === NC.all().filter(x => !String(x.source || '').trim()).length &&
+           s.counts.dua === 14 && s.unresolvedRepeat.indexOf('step.dhikr34') >= 0 &&
+           s.pendingByGap.repeatCount >= 2;
+  })(NC.pendingSummary()));
+  ok('هیچ رکوردی بی‌منبع نیست و تنها ۴ رکورد تأییدشده‌اند',
+     NC.all().every(x => String(x.source || '').trim()) && NC.all().filter(x => x.verified).length === 4 &&
+     NC.all().filter(x => x.verified).every(x => /صاحبِ برنامه/.test(x.source)),
+     NC.all().filter(x => x.verified).map(x => x.id).join(','));
+
+  /* ── ز) i18n: ترجمهٔ زبانِ دوم هرگز حدس زده نمی‌شود ── */
+  {
+    const TMP = 'tmpi18n';
+    try{
+      NC.register([{ id:TMP, type:'dhikr', title:'آزمون', arabicText:'نص', repeatCount:null,
+                     translations:{ en:null } }], { source:'آزمون' });
+      const before = NC.translation(TMP, 'en');
+      NC.register([{ id:TMP, translations:{ en:'verified translation' } }]);
+      ok('translations نگه داشته می‌شود، پر می‌شود و به ترجمهٔ فارسی دست نمی‌زند',
+         before === null && NC.translation(TMP, 'en') === 'verified translation' &&
+         NC.translation(TMP, 'fa') === null && NC.item(TMP).translationFa === null &&
+         NC.translation(TMP, 'fr') === null && NC.validate({ id:TMP, translations:[] }).length > 0);
+    } finally { NC.items = NC.items.filter(x => String(x.id).indexOf(TMP) !== 0); }
+  }
+
+  /* ── ح) دفترِ تغییرها کران دارد ── */
+  {
+    const keep = NC.log.slice();
+    try{
+      for(let i = 0; i < NC.LOG_MAX + 40; i++) NC.note('bulk.' + i, [], 'آزمونِ کران');
+      ok('دفترِ تغییرهای داده کران دارد (LOG_MAX) و از ابتدا می‌ریزد',
+         NC.log.length === NC.LOG_MAX && NC.log[NC.log.length - 1].id === 'bulk.' + (NC.LOG_MAX + 39));
+    } finally { NC.log.length = 0; keep.forEach(x => NC.log.push(x)); }
+  }
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
