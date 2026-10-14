@@ -2177,12 +2177,14 @@ async function handleHttp(req, res){
     return res.end();
   }
 
-  /* سلامت (B20): «زنده‌ام» و بس. نسخه، شمارِ آنلاین، اتاق‌ها و حجمِ کارنامه
-     چهرهٔ ترافیکِ سرور را به هر خزنده‌ای می‌داد؛ آمارِ کامل جایش امن است. */
+  /* سلامت (B20): فقط زنده‌بودن + شناسهٔ ثابتِ سرویس. نسخه، شمارِ آنلاین،
+     اتاق‌ها و حجمِ کارنامه چهرهٔ ترافیکِ سرور را می‌داد؛ آمارِ کامل امن
+     مانده و تنها /api/stats با نشستِ مدیر آن را می‌دهد. نشانِ ثابت کمک
+     می‌کند کلاینت سرورِ خودِ نورستان را از پاسخِ عمومیِ {ok:true} بازشناسد. */
   if(p === '/health' || p === '/api/health'){
     res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-store',
                          'Access-Control-Allow-Origin': ALLOW_ORIGIN });
-    return res.end('{"ok":true}');
+    return res.end('{"ok":true,"service":"noorestan"}');
   }
   if(p === '/api/stats'){
     const tok = String(req.headers['x-admin-token'] || '').trim() ||

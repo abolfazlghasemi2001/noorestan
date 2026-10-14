@@ -5800,7 +5800,7 @@ const Host = {
       /* سرور روی خودِ خاستگاه upgrade را می‌پذیرد. افزودنِ بی‌دلیل `/ws`
          پشت بعضی reverse proxyها 404 می‌داد و با قرارداد عمومیِ نشانیِ
          برنامه هم نمی‌خواند؛ مسیر ریشه در اجرای مستقیم و پروکسی کار می‌کند. */
-      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+      return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
     }catch(e){ return ''; }
   },
 
@@ -5813,10 +5813,10 @@ const Host = {
       try{
         const r = await SMS.req('/api/health', { method: 'GET', ms: 3500 });
         const j = r && r.json;
-        /* امضای نورستان: `ok` به‌علاوهٔ چیزی که فقط این سرور می‌دهد.
-           یک `{ok:true}`ِ قالبی از هر میزبانی می‌آید و کافی نیست. */
-        const yes = !!(r && r.ok && j && j.ok === true &&
-                       (typeof j.version !== 'undefined' || typeof j.rooms === 'number'));
+        /* امضای نورستان: پاسخِ زنده‌بودن به‌علاوهٔ نشانِ ثابتِ سرویس.
+           /health عمداً نسخه و آمارِ ترافیک را بیرون نمی‌دهد؛ نشانِ سرویس
+           هم فقط هویتِ API را می‌گوید و اطلاعاتِ عملیاتی افشا نمی‌کند. */
+        const yes = !!(r && r.ok && j && j.ok === true && j.service === 'noorestan');
         this._yes = yes; this._info = yes ? j : null;
         return yes;
       }catch(e){ this._yes = false; return false; }

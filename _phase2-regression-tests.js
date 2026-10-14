@@ -439,6 +439,49 @@ section('بازی — کاتالوگِ خالص، فیلترِ مهارت، مأ
   ok('صفحهٔ بازی هنوز با روتِ #play بالا می‌آید', Router.screens.play === 's-play' && tryIt(() => Router.go('play')) === 'OK');
 }
 
+/* ── تشخیصِ سرورِ هم‌خاستگاه ──
+   رگرسیون: سرور پس از سخت‌سازیِ B20، `/api/health` را فقط با `{ok:true}`
+   جواب می‌داد، ولی کلاینت هنوز `version` یا آمارِ `rooms` می‌خواست؛ در
+   نتیجه `Host.ready()` همیشه «نه» می‌گفت و `Net.connect('')` چیپ را «قطع»
+   می‌کرد. نشانِ بی‌خطرِ `service` قرارداد را روشن می‌کند، بدون افشای آمار.
+   افزون بر آن، WebSocket باید به ریشهٔ همان میزبان برود؛ نه `/ws` که بعضی
+   پروکسی‌ها به سرور نمی‌فرستند. */
+section('محفل — تشخیصِ سرور و آدرسِ WebSocket');
+{
+  const saved = {
+    fetch: global.fetch,
+    protocol: location.protocol, host: location.host,
+    asked: Host.asked, yes: Host._yes, info: Host._info
+  };
+  let request = null;
+  try{
+    location.protocol = 'http:'; location.host = 'localhost:8787';
+    ok('WebSocket هم‌میزبان به ریشه می‌رود، نه /ws',
+       Host.wsUrl() === 'ws://localhost:8787', Host.wsUrl());
+    global.fetch = async (url, opt) => {
+      request = { url, method: opt && opt.method };
+      return { ok:true, status:200, json:async()=>({ ok:true, service:'noorestan' }) };
+    };
+    Host.asked = null; Host._yes = null; Host._info = null;
+    const detected = await Host.ready();
+    ok('پاسخِ سلامتِ واقعیِ نورستان سرور را شناسایی می‌کند', detected && Host.yes());
+    ok('سنجش از مسیرِ هم‌خاستگاهِ /api/health است',
+       request && request.url === '/api/health' && request.method === 'GET', JSON.stringify(request));
+    ok('پس از شناسایی، نشانیِ اتصال پیش‌فرض آماده است',
+       Host.defaultUrl() === 'ws://localhost:8787', Host.defaultUrl());
+
+    global.fetch = async () => ({ ok:true, status:200, json:async()=>({ ok:true }) });
+    Host.asked = null; Host._yes = null; Host._info = null;
+    const generic = await Host.ready();
+    ok('پاسخِ عمومیِ {ok:true} سرورِ نورستان جا زده نمی‌شود',
+       generic === false && !Host.yes() && Host.defaultUrl() === '');
+  }finally{
+    global.fetch = saved.fetch;
+    location.protocol = saved.protocol; location.host = saved.host;
+    Host.asked = saved.asked; Host._yes = saved.yes; Host._info = saved.info;
+  }
+}
+
 /* ── گامِ ۷: نسخهٔ کشِ سرویس‌ورکر ──
    پوسته عوض شد (سند + باندل + CSS)، پس بی بالا بردنِ نسخهٔ کش، کاربرِ
    نصب‌شده نسخهٔ کهنه را از کش می‌دید. هر پنج کش باید با هم بالا بروند،
@@ -450,7 +493,7 @@ section('نسخهٔ کشِ سرویس‌ورکر (فاز ۲، گامِ ۷)');
   const n = Number(vers[0]);
   ok('پنج کشِ سرویس‌ورکر یک نسخه دارند',
      vers.length === 5 && vers.every(v => v === vers[0]), vers.join());
-  ok('نسخهٔ کش برای تغییرِ پوستهٔ فاز ۲ بالا رفته', n >= 41, vers[0]);
+  ok('نسخهٔ کش برای رفعِ اتصالِ سرور بالا رفته', n >= 50, vers[0]);
   ok('باندل و CSS هنوز در فهرستِ پیش‌ذخیره‌اند',
      /'\.\/assets\/app\/app-1-3bce8fb8d2\.js'/.test(sw) && /'\.\/assets\/app\/style-1-fd30642d4f\.css'/.test(sw));
 }

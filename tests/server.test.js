@@ -359,11 +359,18 @@ async function mint(port){
   }
 
   /* ── B20 ── */
-  section('B20 — /health تنها «زنده‌ام» می‌گوید');
+  section('B20 — /health فقط زنده‌بودن و شناسهٔ سرویس را می‌گوید');
   {
     const r = await req(PA, '/health');
     const keys = Object.keys(r.json || {}).sort();
-    ok('/health تنها {ok:true} است', keys.length === 1 && keys[0] === 'ok', JSON.stringify(r.json).slice(0, 200));
+    ok('/health شناسهٔ ثابتِ نورستان را می‌دهد، بی آمارِ ترافیک',
+       r.status === 200 && keys.join(',') === 'ok,service' && r.json.ok === true && r.json.service === 'noorestan',
+       JSON.stringify(r.json).slice(0, 200));
+    const apiHealth = await req(PA, '/api/health');
+    ok('/api/health همان قراردادِ زنده‌بودن را دارد',
+       apiHealth.status === 200 && apiHealth.json && apiHealth.json.ok === true &&
+       apiHealth.json.service === 'noorestan' && Object.keys(apiHealth.json).sort().join(',') === 'ok,service',
+       JSON.stringify(apiHealth.json).slice(0, 200));
     const s = await req(PA, '/api/stats');
     ok('/api/stats بی نشانهٔ مدیر ۴۰۱ است', s.status === 401 || s.status === 403, 'وضعیت ' + s.status);
     const lg = await req(PA, '/api/admin/login', { body: { pass: ADMIN_PASS } });
