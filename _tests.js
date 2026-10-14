@@ -7892,7 +7892,29 @@ section('لایهٔ محتوا — ثبت، تعارض و جایِ خالی (ن�
         { id:TMP, type:'dhikr-set', title:'مجموعهٔ آزمون', order:99, phases:[TMP + '.1'] },
         { id:TMP + '.1', type:'dhikr', title:'فازِ آزمون', parent:TMP, order:1,
           arabicText:'نصُ الآزمون', translationFa:null, repeatCount:null },
+        /* موردِ شبیهِ «ذکرِ سجده»: متنِ عربی و ترجمه و منبع هست، عددِ تکرار
+           در منبع نیست. `verified:true` هم نباید آن را از فهرستِ انتظار
+           بیرون ببرد — نبودِ عدد، خودش یک شکافِ مستقل است. */
+        { id:TMP + '.step', type:'prayer-step', title:'گامِ آزمون (شبیه سجده)', order:99,
+          arabicText:'نصُ السُّجودِ الآزمون', translationFa:'ترجمهٔ آزمون',
+          repeatCount:null, verified:true, source:'آزمون — نه دادهٔ واقعی' },
       ], { source:'آزمون — نه دادهٔ واقعی' });
+      ok('pending() برای موردِ شبیهِ سجده (متن هست، عددِ تکرار نیست) دقیقاً «repeatCount» می‌دهد',
+         (function(rows){
+           const row = rows.filter(x => x.id === TMP + '.step')[0];
+           return !!row && row.missing.length === 1 && row.missing[0] === 'repeatCount' &&
+                  row.verified === true && NC.repeatLabel(TMP + '.step').known === false &&
+                  NC.gaps(NC.item(TMP + '.step')).join(',') === 'repeatCount';
+         })(NC.pending()),
+         JSON.stringify((NC.pending().filter(x => x.id === TMP + '.step')[0] || {}).missing));
+      ok('pending() شکافِ چندگانهٔ همان رکورد را جدا و کامل فهرست می‌کند',
+         (function(rows){
+           const row = rows.filter(x => x.id === TMP + '.1')[0];
+           return !!row && row.missing.indexOf('repeatCount') >= 0 &&
+                  row.missing.indexOf('translationFa') >= 0 &&
+                  row.missing.indexOf('arabicText') < 0;
+         })(NC.pending()),
+         JSON.stringify((NC.pending().filter(x => x.id === TMP + '.1')[0] || {}).missing));
       const html = Dhikr.html(TMP);
       ok('ذکرشمار با هدفِ ثبت‌نشده: «—» و پاورقیِ صادقانه، بی هیچ عددِ پیش‌فرض',
          /از —/.test(html) && /class="dj-note dj-note-warn"/.test(html) &&
