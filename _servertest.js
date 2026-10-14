@@ -239,11 +239,14 @@ const cleanup = () => {
   section('HTTP');
   const health = await fetch(`http://127.0.0.1:${PORT}/health`).then(r => r.json()).catch(() => null);
   ok('/health پاسخ می‌دهد', health?.ok === true, JSON.stringify(health));
-  /* B20: /health تنها «زنده‌ام» را می‌گوید. نسخه، شمارِ آنلاین و تماشاچی و
-     حجمِ کارنامه پشتِ نشستِ مدیر رفتند (/api/stats) — پیش‌تر هر خزنده‌ای
-     چهرهٔ ترافیکِ سرور را در همان لحظه می‌دید. */
-  ok('🔒 /health چیزی جز ok نمی‌دهد',
-     !!health && Object.keys(health).join() === 'ok', JSON.stringify(health));
+  /* B20: /health فقط زنده‌بودن و شناسهٔ ثابتِ سرویس را می‌گوید. نسخه، شمارِ
+     آنلاین و تماشاچی و حجمِ کارنامه پشتِ نشستِ مدیر رفتند (/api/stats) —
+     نشانِ ثابت برای تشخیصِ API است و آمارِ عملیاتی افشا نمی‌کند. */
+  ok('🔒 /health فقط ok و شناسهٔ سرویس می‌دهد',
+     !!health && Object.keys(health).sort().join() === 'ok,service' && health.service === 'noorestan', JSON.stringify(health));
+  const apiHealth = await fetch(`http://127.0.0.1:${PORT}/api/health`).then(r => r.json()).catch(() => null);
+  ok('/api/health همان شناسهٔ نورستان را می‌دهد',
+     !!apiHealth && apiHealth.ok === true && apiHealth.service === 'noorestan', JSON.stringify(apiHealth));
   const statsAnon = await fetch(`http://127.0.0.1:${PORT}/api/stats`)
     .then(async r => ({ st: r.status, j: await r.json().catch(() => null) }));
   ok('🔒 آمار بی‌نشستِ مدیر ۴۰۱ است',

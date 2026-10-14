@@ -4718,8 +4718,8 @@ section('میزبانِ همین‌جا — تشخیصِ سرور، اتصال،
        withLoc('http:', 'localhost:8787', () => Host.defaultUrl()) === 'ws://localhost:8787');
     /* سرور باید *خودش* را تأیید کند، نه اینکه هر پاسخی «بله» شمرده شود.
        پاسخِ وب‌سرورِ ثابت یا صفحهٔ خطا نباید ما را به حالتِ سرور ببرد. */
-    ok('تأییدِ سرور به شکلِ پاسخ گره خورده، نه به نبودِ خطا',
-       /j\.ok === true/.test(SRC) && /version/.test(SRC.slice(SRC.indexOf('const Host ='))));
+    ok('تأییدِ سرور به نشانِ سرویس گره خورده، نه به نسخه یا آمارِ افشاشده',
+       /j\.ok === true/.test(SRC) && /j\.service === 'noorestan'/.test(SRC.slice(SRC.indexOf('const Host ='))));
     Host.asked = kA; Host._yes = kY; Host._info = kI;
   }
 
