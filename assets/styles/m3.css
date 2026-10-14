@@ -894,3 +894,113 @@ html body .opt.wrong,html body .opt.no{border-color:var(--md-error);background:v
   :root{ --md-hover:.16; --md-focus:.2; --md-press:.2; --md-outline-variant:var(--line) }
   html body .card,html body .tile,html body .stat,html body .chip,html body .inp,html body .dj,html body .dj-ph{border-width:2px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   نورستان Design Specification 1.0 — نگاشتِ canonical
+   این بخش نقش‌های دقیقِ تم شب/روشن را تثبیت می‌کند. تم‌های اختیاری
+   (اقیانوس/جنگل/زرین/کویر) همچنان پالت مستقل خود را نگه می‌دارند.
+   ═══════════════════════════════════════════════════════════════════ */
+html[data-theme="dark"]{
+  --md-background:#0A0E1A;--md-on-background:#F1F1F4;
+  --md-surface:#121826;--md-on-surface:#F1F1F4;
+  --md-surface-variant:#1A2233;--md-on-surface-variant:#AEB5C4;
+  --md-surface-container-lowest:#0A0E1A;--md-surface-container-low:#121826;
+  --md-surface-container:#161D2E;--md-surface-container-high:#1A2233;
+  --md-surface-container-highest:#222B3D;
+  --md-primary:#C9A96E;--md-on-primary:#1A1208;
+  --md-primary-container:#3D2E1A;--md-on-primary-container:#E8D4B0;
+  --md-secondary:#6B8CAE;--md-on-secondary:#0F1A26;
+  --md-secondary-container:#1F2F42;--md-on-secondary-container:#C9D8E8;
+  --md-tertiary:#6B8E7F;--md-on-tertiary:#0F1F18;
+  --md-tertiary-container:#1F3329;--md-on-tertiary-container:#C9DED4;
+  --md-neutral:#8A92A6;--md-neutral-variant:#3A4255;
+  --md-outline:#3A4255;--md-outline-variant:rgba(58,66,85,.55);
+  --md-error:#CF6679;--md-on-error:#1A0A0E;
+  --md-error-container:#3D1A22;--md-on-error-container:#FFD9DF;
+  --md-success:#6FCF97;--md-warning:#F2C94C;
+  --md-inverse-surface:#E8E4DC;--md-inverse-on-surface:#1A1A1A;
+  --md-elev-1:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+  --md-elev-2:0 4px 12px rgba(0,0,0,.35);
+  --md-elev-3:0 8px 24px rgba(0,0,0,.4);
+  --md-elev-4:0 16px 48px rgba(0,0,0,.5);
+}
+html[data-theme="light"]{
+  --md-background:#F7F3EC;--md-on-background:#24221F;
+  --md-surface:#FFFFFF;--md-on-surface:#24221F;
+  --md-surface-variant:#EFE9DE;--md-on-surface-variant:#5A6170;
+  --md-surface-container-lowest:#FFFFFF;--md-surface-container-low:#F8F5F0;
+  --md-surface-container:#F2EDE4;--md-surface-container-high:#EFE9DE;
+  --md-surface-container-highest:#E9E2D7;
+  --md-primary:#8A6A3F;--md-on-primary:#FFFFFF;
+  --md-primary-container:#F2E4C8;--md-on-primary-container:#3D2E1A;
+  --md-secondary:#4A6B8A;--md-on-secondary:#FFFFFF;
+  --md-secondary-container:#DCE6F0;--md-on-secondary-container:#1F2F42;
+  --md-tertiary:#4A6B5A;--md-on-tertiary:#FFFFFF;
+  --md-tertiary-container:#DCE8E2;--md-on-tertiary-container:#1F3329;
+  --md-neutral:#5A6170;--md-neutral-variant:#C9CDD6;
+  --md-outline:#C9CDD6;--md-outline-variant:rgba(201,205,214,.65);
+  --md-error:#B3261E;--md-on-error:#FFFFFF;
+  --md-error-container:#F9DEDC;--md-on-error-container:#410E0B;
+  --md-success:#2E7D4F;--md-warning:#B8860B;
+  --md-inverse-surface:#1A1A1A;--md-inverse-on-surface:#F0F0F0;
+  --md-elev-1:0 1px 3px rgba(0,0,0,.08);
+  --md-elev-2:0 4px 12px rgba(0,0,0,.10);
+  --md-elev-3:0 8px 24px rgba(0,0,0,.12);
+  --md-elev-4:0 16px 48px rgba(0,0,0,.16);
+}
+:root{
+  /* aliasهای مستقل برای مصرفِ کامپوننت و انتقال به Style Dictionary */
+  --radius-small:8px;--radius-medium:16px;--radius-large:24px;
+  --radius-xlarge:28px;--radius-full:9999px;
+  --space-0:0;--space-2:2px;--space-4:4px;--space-8:8px;
+  --space-12:12px;--space-16:16px;--space-20:20px;--space-24:24px;
+  --space-32:32px;--space-40:40px;--space-48:48px;--space-64:64px;
+  --space-80:80px;--space-96:96px;
+  --duration-fast:160ms;--duration-normal:200ms;--duration-slow:240ms;
+  --duration-emphasis:320ms;--ease-material:cubic-bezier(.4,0,.2,1);
+  --md-nav-h:64px;--md-rail-w:72px;
+  --md-display-large:400 calc(57px * var(--md-ts))/1.12 var(--md-font);
+  --md-display-medium:400 calc(45px * var(--md-ts))/1.16 var(--md-font);
+  --md-display-small:400 calc(36px * var(--md-ts))/1.22 var(--md-font);
+  --md-headline-large:500 calc(32px * var(--md-ts))/1.25 var(--md-font);
+  --md-headline-medium:500 calc(28px * var(--md-ts))/1.29 var(--md-font);
+  --md-headline-small:500 calc(24px * var(--md-ts))/1.33 var(--md-font);
+  --md-title-large:500 calc(22px * var(--md-ts))/1.27 var(--md-font);
+  --md-title-medium:500 calc(16px * var(--md-ts))/1.5 var(--md-font);
+  --md-title-small:500 calc(14px * var(--md-ts))/1.43 var(--md-font);
+  --md-body-large:400 calc(16px * var(--md-ts))/1.5 var(--md-font);
+  --md-body-medium:400 calc(14px * var(--md-ts))/1.43 var(--md-font);
+  --md-body-small:400 calc(12px * var(--md-ts))/1.33 var(--md-font);
+  --md-label-large:500 calc(14px * var(--md-ts))/1.43 var(--md-font);
+  --md-label-medium:500 calc(12px * var(--md-ts))/1.33 var(--md-font);
+  --md-label-small:500 calc(11px * var(--md-ts))/1.45 var(--md-font);
+  --md-arabic-display:700 calc(40px * var(--md-ts))/1.9 var(--f-quran);
+  --md-arabic-headline:700 calc(28px * var(--md-ts))/1.8 var(--f-quran);
+  --md-arabic-body:400 calc(20px * var(--md-ts))/1.85 var(--f-quran);
+  --md-arabic-caption:400 calc(16px * var(--md-ts))/1.7 var(--f-quran);
+}
+/* App bar و کارت‌ها: رفتار یکنواخت، بدون دست‌زدن به منطق صفحه */
+html body .top,html body .phead{
+  min-height:56px;background:color-mix(in srgb,var(--md-surface) 90%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+html body .card,html body .tile,html body .stat{
+  transition:transform var(--duration-normal) var(--ease-material),
+             box-shadow var(--duration-normal) var(--ease-material),
+             background var(--duration-normal) var(--ease-material);
+}
+@media(hover:hover){
+  html body .tile:hover,html body .card[data-action]:hover{transform:translateY(-2px);box-shadow:var(--md-elev-2)}
+}
+html body .tile:active,html body .card[data-action]:active{transform:scale(.98)}
+html body #nav .navi.on{color:var(--md-primary)}
+html body #nav .navi.on .ni{background:color-mix(in srgb,var(--md-primary) 15%,transparent)}
+html body #nav .navi:active .ni{transform:scale(.9)}
+/* متن طولانی عربی؛ عنوان‌های کوتاه justify نمی‌شوند. */
+html body :where(.dua-ar,.dj-ar,.wird-ar,.prayer-ar){font:var(--md-arabic-body);text-align:justify;text-justify:inter-word;word-spacing:.06em}
+html[dir="rtl"] :where([data-direction="back"],[data-direction="previous"]) .ic{transform:scaleX(-1)}
+@media(min-width:768px){html body .top,html body .phead{min-height:64px}}
+@media(min-width:1025px){html body #app{max-width:1200px}}
+@media(prefers-reduced-motion:reduce){
+  html body .card,html body .tile,html body .stat{transition-property:opacity;transform:none!important}
+}

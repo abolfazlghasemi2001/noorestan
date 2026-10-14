@@ -545,9 +545,24 @@
      هر وقت کاربر خودش بخواهد. تحمیلِ ورود در هر باز کردن، برنامهٔ قرآنی
      را به دیوارِ ورود بدل می‌کند و همان کاربری که فقط می‌خواست یک آیه
      بخواند را بیرون می‌گذارد. پرچمش در Store می‌ماند. -->
-<div id="gate" class="hide" role="dialog" aria-modal="true" aria-label="ورود به نورستان">
+<div id="gate" class="hide" role="dialog" aria-modal="true" aria-labelledby="gateBrandTitle">
   <div class="gt-amb" aria-hidden="true"><i></i><i></i></div>
-  <div class="gt-in" id="gateBox"></div>
+  <div class="gt-shell">
+    <aside class="gt-brand" aria-labelledby="gateBrandTitle">
+      <div class="gt-brand-mark" aria-hidden="true"><span>ن</span></div>
+      <div class="gt-brand-copy">
+        <p class="gt-brand-kicker">همراهِ آرامِ هر روز</p>
+        <h1 id="gateBrandTitle">نورستان</h1>
+        <p>جایی برای آموختن، آرام گرفتن و روشن‌تر شدن؛ با حریم خصوصی روشن و تجربه‌ای بی‌حاشیه.</p>
+      </div>
+      <div class="gt-trust" aria-label="ویژگی‌های ورود">
+        <span><i data-ic="lock"></i> ورود امن</span>
+        <span><i data-ic="moon"></i> آرام و بی‌تبلیغ</span>
+      </div>
+      <div class="gt-mihrab" aria-hidden="true"><i></i><i></i><i></i></div>
+    </aside>
+    <main class="gt-in" id="gateBox" aria-live="polite"></main>
+  </div>
 </div>
 
 <!-- ── ورودِ مدیر: صفحه‌ای کاملاً مجزا ──
