@@ -45,9 +45,16 @@ DATA.surahPick = DATA.surah.map(l => ({
 }));
 const DERIVED = ['surahPick'];   // برای برچسب‌زدن در گزارش
 
-let issues = 0, warns = 0;
-const bad = (where, msg) => { issues++; console.log(`  ✗ ${where} — ${msg}`); };
-const warn = (where, msg) => { warns++; console.log(`  ⚠ ${where} — ${msg}`); };
+let issues = 0, warns = 0, notes = 0;
+/* همهٔ پرچم‌ها یک‌جا جمع می‌شوند تا گزارشِ ماشینی (`--json`) هم همان چیزی
+   باشد که روی کنسول چاپ شده — نه یک خلاصهٔ دست‌سازِ دوم. */
+const FLAGS = [];
+const bad = (where, msg) => { issues++; FLAGS.push({ level:'bad', where, msg }); console.log(`  ✗ ${where} — ${msg}`); };
+const warn = (where, msg) => { warns++; FLAGS.push({ level:'warn', where, msg }); console.log(`  ⚠ ${where} — ${msg}`); };
+/* «اطلاعیهٔ محتوایی»: چیزی که *ایرادِ ساختاری* نیست و فقط با ورودیِ
+   صاحبِ برنامه بسته می‌شود (عددِ ثبت‌نشده، ترجمهٔ نبوده، دو رکورد با
+   متنِ یکسان). روی کدِ خروج اثر ندارد. */
+const note = (where, msg) => { notes++; FLAGS.push({ level:'note', where, msg }); console.log(`  · ${where} — ${msg}`); };
 const head = (t) => console.log('\n── ' + t + ' ' + '─'.repeat(Math.max(0, 56 - t.length)));
 
 /* نوکِ رشته برای پیامِ کوتاه */
@@ -407,5 +414,192 @@ head('پوششِ متنِ کاملِ ادعیه');
   }
 }
 
-console.log(`\n── نتیجه ──\n  ${issues} ایراد ساختاری، ${warns} هشدار`);
+
+/* ── ۹. لایهٔ محتوا (NoorContent) — نسخهٔ ۲۳ب ─────────────────────
+   از این نسخه، همهٔ «دادهٔ عبادی» برنامه (ذکر، مجموعهٔ تسبیح، مرحلهٔ
+   نماز، دعا) در یک ماژول است: `assets/app/content-1.js`. این بخش همان
+   ماژول را جدا بار می‌کند و سه کار می‌کند:
+
+     ۱) **ساختار**: اعتبارسنجیِ هر رکورد، شناسهٔ تکراری، فاز/والدِ
+        گم‌شده، `order` تکراری، متنِ عربیِ بی‌منبع، و `verified:true`
+        بی‌منبعِ تأیید.
+     ۲) **مغایرتِ کد/داده**: اگر متنِ عبادی در لایهٔ نمایش hard-code شده
+        باشد (یعنی جایی متن نشان داده می‌شود که رکوردش در داده نیست)
+        ایرادِ ساختاری است.
+     ۳) **وضعیتِ محتوا**: چند رکورد تأییدشده، چندتا در انتظارِ منبعِ
+        معتبر، و دقیقاً کدام فیلدِ کدام رکورد خالی است. این‌ها *ایراد*
+        نیستند — «اطلاعیه»اند، چون پرکردنشان فقط با ورودیِ صاحبِ برنامه
+        ممکن است و این ابزار هیچ ادعای دینی‌ای را درست یا غلط نمی‌داند.
+
+   بانکِ `DATA.duas` قفل است (بازیِ «نجوا»)؛ این‌جا فقط *خوانده* می‌شود و
+   با `adoptDuas()` — همان پلی که در `dua-full-1.js` هنگامِ بار شدنِ
+   برنامه اجرا می‌شود — به رکوردهای `type:'dua'` نگاشت می‌شود.
+   خروجیِ ماشینی: `node _content-audit.js --json` ⇒ `tmp/content-report.json`. */
+head('لایهٔ محتوا (NoorContent)');
+let CONTENT_REPORT = null;
+{
+  const NCsrc = fs.readFileSync(path.join(__dirname, 'assets/app/content-1.js'), 'utf8');
+  const NC = new Function(NCsrc + '; return NoorContent;')();
+  const atF = html.indexOf('\nconst DUA_FULL = [');
+  const endF = atF < 0 ? -1 : html.indexOf('\n];', atF);
+  const FULL = (atF >= 0 && endF >= 0)
+    ? eval('(' + html.slice(atF + '\nconst DUA_FULL = '.length, endF + 2) + ')') : [];
+  const adopted = NC.adoptDuas(DATA.duas || [], FULL);
+  const S = NC.pendingSummary();
+  let n = 0;
+
+  /* ۹.۱ — ساختار */
+  const ids = NC.all().map(x => x.id);
+  const dupIds = ids.filter((v, i) => ids.indexOf(v) !== i);
+  if(dupIds.length){ bad('content', 'شناسهٔ تکراری: ' + dupIds.join(',')); n++; }
+  NC.all().forEach(r => {
+    const w = 'content:' + r.id;
+    const problems = NC.validate(r);
+    if(problems.length){ bad(w, 'اعتبارسنجی: ' + problems.join('؛ ')); n++; }
+    if(typeof r.arabicText === 'string' && !r.arabicText.trim()){
+      bad(w, 'arabicText رشتهٔ تهی است — «نمی‌دانم» باید null باشد'); n++; }
+    if(r.arabicText && !String(r.source || '').trim()){
+      bad(w, 'متنِ عربی دارد ولی source ندارد'); n++; }
+    if(r.verified && !/(صاحبِ برنامه|ورودیِ تأییدشده)/.test(String(r.source || ''))){
+      bad(w, 'verified:true ولی منبعش ورودیِ تأییدشدهٔ صاحبِ برنامه نیست'); n++; }
+    if(r.type === 'dhikr-set' && (!Array.isArray(r.phases) || !r.phases.length)){
+      bad(w, 'مجموعهٔ ذکر بدونِ فاز'); n++; }
+    if(r.type === 'dhikr-set' && (r.phases || []).some(id => !NC.item(id))){
+      bad(w, 'فازِ گم‌شده: ' + (r.phases || []).filter(id => !NC.item(id)).join(',')); n++; }
+    if(r.parent && !NC.item(r.parent)){ bad(w, 'والدِ گم‌شده: ' + r.parent); n++; }
+    if(r.parent && NC.item(r.parent) && NC.item(r.parent).type !== 'dhikr-set'){
+      bad(w, 'والدش مجموعهٔ ذکر نیست'); n++; }
+    if(Array.isArray(r.phases) && r.phases.some(id => NC.item(id) && NC.item(id).parent !== r.id)){
+      bad(w, 'فازی که `parent`ش به این مجموعه برنمی‌گردد'); n++; }
+  });
+  /* ترتیبِ تکراری = دو رکورد در یک جای فهرست می‌نشینند */
+  const seenOrder = {};
+  NC.all().forEach(r => {
+    const k = r.type + '|' + (r.parent || r.category || '');
+    const key = k + '#' + r.order;
+    if(seenOrder[key]) { bad('content:' + r.id, `order=${r.order} با ${seenOrder[key]} تکراری است`); n++; }
+    else seenOrder[key] = r.id;
+  });
+  /* ترتیبِ فازها باید با `order`ِ خودِ فازها یکی باشد (منبعِ حقیقتِ دوم نه) */
+  NC.byType('dhikr-set').forEach(set => {
+    const sorted = NC.phases(set.id).map(x => x.id);
+    if(set.phases.join(',') !== sorted.join(',')){
+      bad('content:' + set.id, 'ترتیبِ `phases` با `order`ِ فازها یکی نیست: ' +
+          set.phases.join(',') + ' ≠ ' + sorted.join(',')); n++; }
+  });
+
+  /* ۹.۲ — هم‌پوشانیِ متن‌ها: کشفِ سیستماتیکِ اختلافِ قدیم/تازه
+     دو رکورد با متنِ *یکی* یا متنِ «این پارهٔ آن» — برای بازبینیِ انسانی.
+     ایرادِ ساختاری نیست (ممکن است کاملاً درست باشد: «الله‌اکبرِ» تکبیر و
+     «الله‌اکبرِ» تسبیحات یکی‌اند)، پس «اطلاعیه» می‌شود. */
+  const withText = NC.all().filter(r => typeof r.arabicText === 'string' && r.arabicText.trim());
+  const byKey = {};
+  withText.forEach(r => { const k = NC.bareKey(r.arabicText); (byKey[k] = byKey[k] || []).push(r); });
+  const overlaps = [];
+  Object.keys(byKey).forEach(k => {
+    if(byKey[k].length > 1)
+      overlaps.push({ kind:'هم‌متن', ids:byKey[k].map(r => r.id), text:cut(byKey[k][0].arabicText, 46) });
+  });
+  withText.forEach(a => withText.forEach(b => {
+    if(a.id >= b.id) return;
+    const ka = NC.bareKey(a.arabicText), kb = NC.bareKey(b.arabicText);
+    if(ka === kb || ka.length < 8 || kb.length < 8) return;
+    if(ka.includes(kb) || kb.includes(ka))
+      overlaps.push({ kind:'پارهٔ هم', ids:[a.id, b.id],
+                      text:cut(ka.length < kb.length ? a.arabicText : b.arabicText, 46) });
+  }));
+  overlaps.forEach(o => note('content:' + o.ids.join(' + '), `${o.kind}: ${o.text} — باید تأیید شود که تکراری/مغایر نیست`));
+
+  /* ۹.۳ — مغایرتِ کد/داده: متنِ عبادیِ hard-code در لایهٔ نمایش */
+  const AR = /[\u0670\u0625\u0624\u0643\u064A]/;   /* نشانهٔ عربی: ی/کِ عربی، الفِ مقصوره، همزهٔ واو */
+  const DISPLAY = ['sajjada-1.js', 'wird-1.js', 'm3-1.js', 'salah-1.js', 'courtyard-1.js'];
+  const known = new Set();
+  NC.all().forEach(r => [r.title, r.shortTitle, r.arabicText, r.translationFa, r.notes]
+    .forEach(v => { if(v) known.add(NC.norm(v)); }));
+  FULL.forEach(f => [f.for, f.ar, f.fa, f.src].forEach(v => { if(v) known.add(NC.norm(v)); }));
+  Object.keys(DATA).forEach(k => { if(Array.isArray(DATA[k])) DATA[k].forEach(o => {
+    if(o && typeof o === 'object') Object.keys(o).forEach(f => {
+      const v = o[f];
+      if(typeof v === 'string') known.add(NC.norm(v));
+      if(Array.isArray(v)) v.forEach(y => { if(typeof y === 'string') known.add(NC.norm(y)); });
+    }); }); });
+  const KN = [...known];
+  const literals = file => {
+    const src = fs.readFileSync(path.join(__dirname, 'assets/app', file), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '));   // توضیح‌ها شمرده نمی‌شوند
+    const out = [];
+    src.split('\n').forEach((line, i) => {
+      if(!AR.test(line)) return;
+      (line.match(/'[^']*'|"[^"]*"|`[^`]*`/g) || []).forEach(s => {
+        const t = s.slice(1, -1);
+        if(!AR.test(t)) return;
+        const nt = NC.norm(t);
+        if(nt.length >= 6 && KN.some(k => k && (k.includes(nt) || nt.includes(k)))) return;  // ارجاع به داده
+        out.push(`${file}:${i + 1} ${cut(t, 46)}`);
+      });
+    });
+    return out;
+  };
+  const stray = DISPLAY.flatMap(literals);
+  if(stray.length){ stray.forEach(x => { bad('hardcode', 'متنِ عبادیِ hard-code در لایهٔ نمایش: ' + x); n++; }); }
+  const SAJJ = fs.readFileSync(path.join(__dirname, 'assets/app/sajjada-1.js'), 'utf8');
+  if(!/NoorContent\.prayerStep\(/.test(SAJJ)){
+    bad('sajjada-1.js', 'متنِ مرحله‌های نماز از NoorContent خوانده نمی‌شود'); n++; }
+  if(!/presetIds\(\)\.map/.test(SAJJ)){
+    bad('sajjada-1.js', 'فهرستِ ذکرشمار از NoorContent ساخته نمی‌شود'); n++; }
+  if(!/NoorContent\.countSummary\(|NoorContent\.phases\(/.test(
+      fs.readFileSync(path.join(__dirname, 'assets/app/wird-1.js'), 'utf8'))){
+    bad('wird-1.js', 'عددهای تسبیحات از NoorContent خوانده نمی‌شود'); n++; }
+
+  /* ۹.۴ — وضعیتِ محتوا (اطلاعیه، نه ایراد) */
+  if(adopted.matched + adopted.fragments !== (DATA.duas || []).length){
+    bad('adoptDuas', `نگاشتِ دعاها ${(DATA.duas || []).length} را پوشش نداد`); n++; }
+  if(adopted.fragments > 0)
+    note('adoptDuas', `${adopted.fragments} دعا پوششِ متنِ کامل نداشت ⇒ همان بریدهٔ بانک با fragment:true ثبت شد`);
+  if(adopted.sourceDiff > 0)
+    note('adoptDuas', `${adopted.sourceDiff} دعا دو منبعِ متفاوت دارد (بانک و پوشش) ⇒ هر دو نگه داشته شدند (source / sourceBank)`);
+  S.unresolvedRepeat.forEach(id =>
+    note('content:' + id, 'repeatCount در منبع ثبت نشده ⇒ UI «—» و پاورقیِ «ثبت نشده» نشان می‌دهد'));
+  NC.pending().filter(p => p.missing.includes('translationFa')).forEach(p =>
+    note('content:' + p.id, 'ترجمهٔ فارسی در منبع نیست'));
+  NC.pending().filter(p => p.missing.includes('arabicText')).forEach(p =>
+    note('content:' + p.id, 'متنِ عربی در منبع نیست'));
+
+  console.log(`\n  ▸ وضعیتِ محتوا: ${S.records} رکورد — ${S.verified} تأییدشده · ${S.verifiedText} با متنِ تأییدشده · ${S.pending} در انتظارِ منبع · ${S.noSource} بی‌منبع · ${S.fragment} بریدهٔ بانک`);
+  console.log(`    نوع‌ها: ` + Object.keys(S.counts).map(k => `${k}=${S.counts[k]}`).join(' · '));
+  console.log(`    جایِ خالی: ` + (Object.keys(S.pendingByGap).length
+    ? Object.keys(S.pendingByGap).map(k => `${k}=${S.pendingByGap[k]}`).join(' · ') : '—'));
+  console.log(`\n  ▸ تأییدشده‌ها (فقط با ورودیِ صریحِ صاحبِ برنامه):`);
+  NC.all().filter(r => r.verified || r.verifiedText).forEach(r =>
+    console.log(`      ${r.id.padEnd(16)} ${cut(r.arabicText || '(بدونِ متن)', 44).padEnd(48)} ${r.verified ? 'verified' : 'verifiedText'}`));
+  console.log(`\n  ▸ در انتظارِ منبعِ معتبر (${S.pending}):`);
+  NC.pending().forEach(p =>
+    console.log(`      ${p.id.padEnd(16)} ${p.type.padEnd(12)} ${('[' + (p.missing.join('+') || 'verified') + ']').padEnd(28)} ${p.title}`));
+  console.log(`  content      ${String(S.records).padStart(3)} رکورد` + (n ? `  ← ${n} ایراد` : '  ✓'));
+
+  CONTENT_REPORT = { summary:S, adopted, overlaps:overlaps.length, strayHardcode:stray,
+                     verified:NC.all().filter(r => r.verified || r.verifiedText)
+                       .map(r => ({ id:r.id, verified:!!r.verified, verifiedText:!!r.verifiedText, source:r.source })),
+                     pending:NC.pending() };
+}
+
+/* ── گزارشِ ماشینی ──
+   `node _content-audit.js --json` ⇒ `tmp/content-report.json`
+   (همان چیزی که در گزارشِ این نوبت به شکلِ جدول می‌آید). */
+if(process.argv.includes('--json')){
+  const REPORT = {
+    tool:'_content-audit.js', generatedAt:new Date().toISOString(),
+    counts:{ issues, warns, notes },
+    content:CONTENT_REPORT,
+    flags:FLAGS
+  };
+  try{
+    fs.mkdirSync(path.join(__dirname, 'tmp'), { recursive:true });
+    const out = path.join(__dirname, 'tmp', 'content-report.json');
+    fs.writeFileSync(out, JSON.stringify(REPORT, null, 2));
+    console.log('\n── گزارشِ JSON ──\n  ' + path.relative(__dirname, out));
+  }catch(e){ console.log('\n── گزارشِ JSON ──\n  نوشته نشد: ' + e.message); }
+}
+
+console.log(`\n── نتیجه ──\n  ${issues} ایراد ساختاری، ${warns} هشدار، ${notes} اطلاعیهٔ محتوایی`);
 process.exit(issues ? 1 : 0);

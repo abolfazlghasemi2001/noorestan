@@ -55,13 +55,22 @@ function rootRelativeUrls(css, cssPath) {
 
 /* `@import` را دنبال می‌کند: motion.css این‌گونه به sanctuary.css
    می‌رسد و بی آن، توکن‌های حرکت در منبعِ سنجش دیده نمی‌شدند. */
-function withImports(css, seen) {
+/* نشانیِ `@import` — مثلِ هر نشانیِ نسبیِ دیگری در CSS — به *پوشهٔ خودِ
+   برگهٔ سبک* نسبت دارد، نه به ریشهٔ پروژه. پیش‌تر `ref` خام به
+   `readIfLocal` داده می‌شد، یعنی `@import url("motion.css")` در
+   `assets/styles/sanctuary.css` به `ROOT/motion.css` می‌رفت که وجود
+   نداشت؛ نتیجه: برگهٔ درون‌ریزی‌شده بی‌صدا خالی می‌ماند و توکن‌هایش در
+   هیچ سنجشی دیده نمی‌شد. حالا `baseDir` همراهِ فراخوانی می‌آید. */
+function withImports(css, seen, baseDir) {
   return css.replace(/@import\s+url\(\s*["']?([^"')]+)["']?\s*\)[^;]*;/gi, (all, ref) => {
     if (isRemote(ref)) return all;
-    const key = path.normalize(ref);
+    const clean = ref.replace(/[?#].*$/, '');
+    const joined = baseDir ? path.posix.join(baseDir, clean) : clean;
+    const key = path.normalize(joined);
     if (seen.has(key)) return '';
     seen.add(key);
-    return withImports(readIfLocal(ref), seen);
+    const dir = path.posix.dirname(key.split(path.sep).join('/'));
+    return withImports(readIfLocal(joined), seen, dir);
   });
 }
 
@@ -87,7 +96,7 @@ function collect() {
   return joinAll([
     m.html,
     ...m.scripts.map(readIfLocal),
-    ...m.styles.map(ref => withImports(readIfLocal(ref), new Set())),
+    ...m.styles.map(ref => withImports(readIfLocal(ref), new Set(), path.posix.dirname(ref))),
     ...m.inline,
   ]);
 }
@@ -98,7 +107,7 @@ function collectDocument() { return manifest().html; }
 /** فقط استایل‌ها، با `@import` درونی‌شده و نشانی‌ها نسبت به ریشه. */
 function collectCss() {
   return manifest().styles
-    .map(ref => rootRelativeUrls(withImports(readIfLocal(ref), new Set()), ref))
+    .map(ref => rootRelativeUrls(withImports(readIfLocal(ref), new Set(), path.posix.dirname(ref)), ref))
     .join('\n');
 }
 

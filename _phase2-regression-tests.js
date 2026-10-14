@@ -50,9 +50,18 @@ const titles=[
  'ذکر و تسبیح و ورد (نسخهٔ ۱۹)','ختم و رمضان (نسخهٔ ۱۹)','اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)',
  /* نسخهٔ ۲۲: همراهِ نماز (رکعت‌شمارِ خودکار)، ذکرشمارِ یکپارچه، دفترچۀ پنج
     نماز و قبله‌نمایِ تمام‌صفحه. */
- 'همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)'
+ 'همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)',
+ /* نسخهٔ ۲۳: لایهٔ محتوا (`NoorContent`) و لایهٔ رفتار/طراحیِ M3 —
+    عددهای تسبیحاتِ زهرا (س)، متنِ ذکرِ سجده، جایِ خالیِ عددِ
+    تأییدنشده، و چک‌لیستِ Material 3 (نقش‌ها، لایهٔ وضعیت، چیدمانِ
+    سازگار، RTLِ منطقی، قلمِ محلیِ Amiri). */
+ 'لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)',
+ /* نسخهٔ ۲۳ب: سخت‌سازیِ لایهٔ دادهٔ عبادی — validate/diff/register،
+    چهار شرطِ pending()، پلِ دعاها از بانکِ قفل و پوششِ نمایشی، و سنجشِ
+    مغایرتِ کد/داده (متنِ عبادیِ hard-code در لایهٔ نمایش). */
+ 'لایهٔ محتوا — ثبت، تعارض و جایِ خالی (نسخهٔ ۲۳ب)'
 ];
-const chunks=titles.map(title=>{const i=headings.findIndex(h=>h[1]===title);if(i<0)throw Error('Missing regression section '+title);return old.slice(headings[i].index,headings[i+1].index);});
+const chunks=titles.map(title=>{const i=headings.findIndex(h=>h[1]===title);if(i<0)throw Error('Missing regression section '+title);return old.slice(headings[i].index,headings[i+1]?headings[i+1].index:old.length);});
 eval(chunks.join('\n'));
 for(const fn of __smsChecks)await fn();
 const crypto=require('node:crypto');const hash=s=>crypto.createHash('sha256').update(s).digest('hex');

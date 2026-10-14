@@ -113,6 +113,26 @@ const DUA_FULL = [
   }
 ];
 
+/* ── پلِ لایهٔ محتوا (نسخهٔ ۲۳ب) ─────────────────────────────────────
+   همین پوشش و بانکِ `DATA.duas` — که هر دو از پیش در برنامه‌اند — به
+   رکوردهای `type:'dua'` در `NoorContent` نگاشت می‌شوند تا «دادهٔ عبادی»
+   یک منبعِ حقیقت داشته باشد و بازرسِ محتوا بتواند روی همهٔ رکوردها
+   (ذکر، تسبیح، مرحلهٔ نماز، دعا) یک‌جا بدود.
+   سه قاعدهٔ سخت:
+     ۱) بانکِ `DATA.duas` دست‌نخورده می‌ماند (بازیِ «نجوا» و دروازهٔ
+        «DATA source unchanged» به آن گره‌اند).
+     ۲) هیچ متنی حدس زده یا «کامل» نمی‌شود: اگر پوششی برای یک دعا نبود،
+        همان بریدهٔ بانک با `fragment:true` ثبت می‌شود تا معلوم باشد متنِ
+        کامل نیست.
+     ۳) `verified` هرگز `true` نمی‌شود — این دعاها در ورودیِ تأییدشدهٔ
+        صاحبِ برنامه نبوده‌اند، پس همه در `pending()` می‌مانند. */
+try{
+  if(typeof NoorContent !== 'undefined' && NoorContent && typeof NoorContent.adoptDuas === 'function' &&
+     typeof DATA !== 'undefined' && Array.isArray(DATA.duas)){
+    NoorContent.adoptDuas(DATA.duas, typeof DUA_FULL !== 'undefined' ? DUA_FULL : []);
+  }
+}catch(e){ try{ console.warn('adopt duas', e); }catch(e2){} }
+
 /* در محیطِ CommonJS (بازرسِ محتوا) هم قابلِ خواندن است. */
 if(typeof module !== 'undefined' && module.exports){
   module.exports = { DUA_FULL };

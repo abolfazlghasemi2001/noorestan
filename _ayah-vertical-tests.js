@@ -27,7 +27,15 @@
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 const fs = require('node:fs');
-const EMBED = 'https://01a0d7e6-7c4a-76f4-95a4-01c2f9cfcaf5.arena.site/?embed=true';
+/* نشانیِ نسخهٔ برخط دیگر در کدِ برنامه سفت‌نویسی نیست — نشانیِ پیشین روی
+   یک میزبانِ موقتِ آزمایشی بود که از میان رفته و صفحه همیشه قابِ خاموشِ
+   خطا می‌ساخت. برنامه نشانی را از `localStorage.noorestan_ayah_remote`
+   (یا `AyahEmbed.URL`) می‌خواند، فقط http/https را می‌پذیرد و `embed=true`
+   را خودش اضافه می‌کند. این ابزار همان را پیش از بالاآمدنِ صفحه تزریق
+   می‌کند تا قاب دیده شود، و بعد همان کلید را برمی‌دارد تا حالتِ
+   «نشانی در دسترس نیست» هم آزموده شود. */
+const EMBED = process.env.AYAH_EMBED || 'https://embed.noorestan.test/game';
+const EMBED_SRC = EMBED + (EMBED.includes('?') ? '&' : '?') + 'embed=true';
 const BASE = process.env.BASE_URL || 'http://localhost:8080';
 fs.mkdirSync('tmp/acceptance', { recursive: true });
 
@@ -97,6 +105,8 @@ const box = () => {
     localStorage.setItem('noorestan_v14', JSON.stringify({ _v: 15, settings: { onboarded: true }, gate: 'user',
       userToken: 'a'.repeat(64), userTokenExp: Date.now() + 3600000 }));
   });
+  /* نشانیِ نسخهٔ برخط — همان راهی که در کد مستند شده است. */
+  await page.addInitScript(u => { try{ localStorage.setItem('noorestan_ayah_remote', u); }catch(e){} }, EMBED);
 
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof Session !== 'undefined' && Session.user());
@@ -199,7 +209,7 @@ const box = () => {
   ok('زیرعنوان حالتِ عمودی را می‌گوید', /عمودی/.test(extra.sub) && !/افقی/.test(extra.sub), extra.sub);
   ok('راهنمای چرخاندنِ گوشی نیست', extra.orient);
   ok('برچسبِ دکمه «تمام‌صفحه» است', extra.expand === 'تمام\u200cصفحه', extra.expand);
-  ok('قاب همان بازیِ embed را می‌آورد', extra.src === EMBED, extra.src);
+  ok('قاب همان بازیِ embed را می‌آورد', extra.src === EMBED_SRC, extra.src);
   ok('هیچ کارتِ پوشاننده روی بازی یا گزینه‌هایش نیست', !extra.blockingMask, extra.blockingMask);
   await page.screenshot({ path: 'tmp/acceptance/ayah-vertical-390.png', animations: 'disabled' });
 
@@ -251,12 +261,42 @@ const box = () => {
      await page.evaluate(() => AyahLight.right === 10 && !!document.querySelector('.ayah-result')));
   await page.screenshot({ path: 'tmp/acceptance/ayah-vertical-offline-result.png', animations: 'disabled' });
 
+  /* ── بی‌نشانی: صفحه باید صادقانه بگوید نسخهٔ برخط در دسترس نیست ──
+     پیش‌تر نشانیِ مرده همیشه در کد بود و کاربر بی هیچ توضیحی قابِ خطا
+     می‌دید. حالا نشانی پیش‌فرض تهی است و صفحه همان بلوکِ خطای M3 را با
+     راهِ جایگزینِ داخلِ برنامه نشان می‌دهد. */
+  await page.evaluate(() => { localStorage.removeItem('noorestan_ayah_remote'); AyahEmbed.URL = ''; });
+  await page.evaluate(() => { Router.go('home'); HomeCarousel.show(0); });
+  await page.click('[data-slide-action="ayahlight"]');
+  await page.waitForSelector('.ayah-setup');
+  ok('بی‌نشانی، دکمهٔ «بازی برخط» نشان داده نمی‌شود (دکمهٔ بی‌اثر نه)',
+     await page.evaluate(() => { const b = document.querySelector('#ayahExternal');
+       return !!b && (b.hidden || getComputedStyle(b).display === 'none'); }));
+  await page.evaluate(() => AyahEmbed.open());
+  await page.waitForSelector('.m3-error');
+  const gone = await page.evaluate(() => ({
+    frames: document.querySelectorAll('#ayahFrame').length,
+    game: !!document.querySelector('#ayahGame'),
+    title: document.querySelector('.m3-error b')?.textContent || '',
+    action: !!document.querySelector('[data-m3-action="ayah-offline"]'),
+    status: document.querySelector('#ayahFrameStatus')?.textContent || ''
+  }));
+  ok('بی‌نشانی، قابی ساخته نمی‌شود و پیامِ صادقانه با راهِ جایگزین می‌آید',
+     gone.frames === 0 && gone.game && gone.action &&
+     /در دسترس نیست/.test(gone.title) && /نشانی/.test(gone.status), gone);
+  await page.screenshot({ path: 'tmp/acceptance/ayah-no-remote.png', animations: 'disabled' });
+  await page.click('[data-m3-action="ayah-offline"]');
+  await page.waitForSelector('.ayah-setup');
+  ok('از همان پیام، تمرینِ بی‌نیاز از اینترنت یک کلیک است',
+     await page.evaluate(() => !!document.querySelector('#ayahStart')));
+
   /* ── قابِ دیررس: راهنمای جایگزین باید خودش را نشان بدهد ──
      درخواستِ بازیِ بیرونی آویزان می‌ماند (نه پاسخ می‌گیرد، نه رد می‌شود)،
      پس رویدادِ `load` هرگز نمی‌آید — همان حالتی که کاربر با اینترنتِ کند
      یا میزبانِ در‌دسترس‌نبودن می‌بیند. */
-  await page.route('**/*', route => route.request().url().startsWith('https://01a0d7e6-')
+  await page.route('**/*', route => route.request().url().startsWith(EMBED)
     ? undefined : route.fallback());
+  await page.evaluate(u => { localStorage.setItem('noorestan_ayah_remote', u); AyahEmbed.URL = u; }, EMBED);
   await page.evaluate(() => { Router.go('home'); HomeCarousel.show(0); });
   await page.click('[data-slide-action="ayahlight"]');
   await page.waitForSelector('.ayah-setup');

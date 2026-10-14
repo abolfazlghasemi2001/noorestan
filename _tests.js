@@ -685,7 +685,24 @@ ok('فونت‌های وب نشانی CSS دارند', Object.keys(FONTS)
    .filter(k => FONTS[k].css)
    .every(k => /^https:\/\//.test(FONTS[k].css)));
 ok('فونت‌های بی‌فایل‌خارجی محلی‌اند',
-   Object.keys(FONTS).filter(k => !FONTS[k].css).every(k => ['vazir', 'kitab', 'lalezar'].includes(k)));
+   Object.keys(FONTS).filter(k => !FONTS[k].css && !FONTS[k].faces)
+     .every(k => ['vazir', 'kitab', 'lalezar', 'amiri'].includes(k)));
+/* امیری قلمِ *پیش‌فرضِ* متنِ قرآن و ذکر است؛ اگر فایلش روی دیسک نباشد،
+   آفلاین بی‌صدا به وزیرمتن می‌افتد و همان باگی برمی‌گردد که این
+   سنجش برای لاله‌زار دارد. */
+ok('امیریِ پیش‌فرض محلی است و فایل‌هایش هست', (() => {
+  const f = FONTS.amiri;
+  return f.role === 'quran' && f.family === 'Amiri' && !f.css && !f.faces &&
+         Store.defaults().fonts.quran === 'amiri' &&
+         fs.existsSync(__dirname + '/assets/fonts/amiri-arabic-400.woff2') &&
+         fs.existsSync(__dirname + '/assets/fonts/amiri-arabic-700.woff2') &&
+         fs.existsSync(__dirname + '/assets/fonts/Amiri-OFL.txt');
+})());
+ok('@font-face امیری با unicode-range در پوستهٔ اصلی هست', (() => {
+  const css = CSS;
+  return /font-family:Amiri;[^}]*amiri-arabic-400\.woff2/.test(css.replace(/\s+/g, ' ')) ||
+         /font-family:Amiri[\s\S]{0,200}amiri-arabic-400\.woff2/.test(css);
+})());
 ok('فونت‌های وب از jsDelivr می‌آیند', Object.keys(FONTS)
    .filter(k => FONTS[k].css).every(k => FONTS[k].css.includes('cdn.jsdelivr.net')));
 ok('Fonts.apply بدون خطا اجرا می‌شود',
@@ -3831,6 +3848,31 @@ section('محتوا — بازرسِ ساختاری، صفر ایراد');
      /0 ایراد ساختاری/.test(out) && /0 هشدار/.test(out),
      (out.match(/\d+ ایراد ساختاری، \d+ هشدار/) || [''])[0]);
 
+  /* ── بخشِ تازهٔ بازرس: لایهٔ محتوا (NoorContent) — نسخهٔ ۲۳ب ──
+     اگر این بخش اجرا نشود یا عددش با داده نخواند، بازرس عملاً کور است. */
+  ok('بازرس لایهٔ محتوا را هم می‌بیند: ۳۸ رکورد = ۲۴ ذکر/نماز + ۱۴ دعا',
+     /لایهٔ محتوا \(NoorContent\)/.test(out) && /38 رکورد/.test(out) &&
+     /content\s+38 رکورد\s+✓/.test(out),
+     (out.match(/content\s+\d+ رکورد.*/) || [''])[0]);
+  ok('بازرس وضعیتِ محتوا را صادقانه گزارش می‌کند',
+     /4 تأییدشده/.test(out) && /1 با متنِ تأییدشده/.test(out) && /34 در انتظارِ منبع/.test(out) &&
+     /0 بی‌منبع/.test(out) && /اطلاعیهٔ محتوایی/.test(out) &&
+     /step\.dhikr34\s+prayer-step\s+\[repeatCount\]/.test(out));
+  ok('بازرس هیچ متنِ عبادیِ hard-code در لایهٔ نمایش پیدا نکرد',
+     !/hardcode/.test(out) && !/✗/.test(out));
+  ok('گزارشِ ماشینیِ بازرس (--json) با خروجیِ متنی می‌خواند', (function(){
+    try{
+      execFileSync('node', [__dirname + '/_content-audit.js', '--json'], { encoding:'utf8' });
+      const rep = JSON.parse(fs.readFileSync(__dirname + '/tmp/content-report.json', 'utf8'));
+      return rep.counts.issues === 0 && rep.counts.warns === 0 &&
+             rep.content.summary.records === 38 && rep.content.summary.verified === 4 &&
+             rep.content.summary.pending === 34 && rep.content.summary.noSource === 0 &&
+             rep.content.pending.length === 34 && rep.content.adopted.matched === 14 &&
+             rep.content.adopted.fragments === 0 && rep.content.strayHardcode.length === 0 &&
+             rep.flags.length === rep.counts.notes + rep.counts.warns + rep.counts.issues;
+    }catch(e){ return 'خطا: ' + e.message; }
+  })() === true);
+
   /* کشیده نباید به کدِ نرمال‌سازی دست بزند و نباید در واژه بماند */
   const src2 = SRC;
   ok('دو نرمال‌سازیِ کشیده سرِ جایشان‌اند',
@@ -5218,9 +5260,21 @@ section('حلقهٔ پیشرفتِ #s-play — SVG جای نوارِ خطی');
   ok('۱۰۰ پیکسل روی میزکار', /\.game-progress\{[^}]*width:100px;height:100px/.test(SRC));
   ok('۸۰ پیکسل روی موبایل', /@media\(max-width:400px\)\{\s*\.game-progress\{width:80px;height:80px/.test(SRC));
 
-  /* ۹) تم دست‌نخورده: هیچ نشانهٔ تازه‌ای از دفترِ مرجع نیامده */
+  /* ۹) تم دست‌نخورده: هیچ نشانهٔ تازه‌ای از دفترِ مرجع نیامده.
+     `--dur-slow` پیش‌تر در این فهرست بود، چون در دفترِ مرجع هم هست؛ ولی
+     motion.css — توکن‌های حرکتِ فازِ ۲ِ *خودِ برنامه* — از روزِ اول
+     `--dur-slow:500ms` را تعریف می‌کرد. تا امروز دیده نمی‌شد: آن فایل با
+     `@import url("motion.css")` از sanctuary.css خوانده می‌شد و
+     `_shipped.js` نشانیِ نسبیِ `@import` را به ریشهٔ پروژه نسبت می‌داد،
+     نه به پوشهٔ خودِ برگهٔ سبک؛ پس `motion.css` هیچ‌وقت درون‌ریزی
+     نمی‌شد و این سنجش بی‌خبر از نشانه‌یِ خودی سبز می‌شد. حالا که
+     motion.css مستقیم در index.html پیوند شده (و `@import` زنجیره‌ایِ
+     مسدودکننده برداشته شده)، نامش از فهرستِ «بیگانه» بیرون آمده و
+     جایش این‌جا صریح میخکوب می‌شود. */
   ok('🔒 نشانه‌های مرجع وارد نشدند',
-     !/--primary\b|--sp-4\b|--dur-slow\b|--fs-title\b|--fs-caption\b/.test(SRC));
+     !/--primary\b|--sp-4\b|--fs-title\b|--fs-caption\b/.test(SRC));
+  ok('motion.css مستقیم پیوند شده و --dur-slow از خودِ آن می‌آید',
+     /<link[^>]+assets\/styles\/motion\.css/.test(DOC) && /--dur-slow:\s*500ms/.test(SRC));
 }
 
 section('سفرِ سوره‌ها — شمارش یکتا و نشانِ پایان');
@@ -5640,7 +5694,51 @@ section('نورِ آیه‌ها و بنر چرخشی خانه');
   ok('اسلایدر هیچ وابستگی Swiper/CDN ندارد', !/swiper-bundle/.test(SRC));
   ok('اسلایدر بومی هر ۵۰۰۰ میلی‌ثانیه پیش می‌رود', /5000, 'sys'/.test(SRC));
   ok('کم‌حرکتی و صفحهٔ مخفی تایمر را متوقف می‌کنند', /FX.reduced \|\| this.pauses.size \|\| document.hidden/.test(SRC));
-  ok('iframe نسخهٔ embed را باز می‌کند', AyahEmbed.URL.endsWith('/?embed=true'));
+  /* نشانیِ میزبانِ موقتِ نسخهٔ برخط (`….arena.site`) مرده بود و صفحه همیشه
+     قابِ خاموشِ خطا می‌ساخت. حالا نشانیِ دروغ در کد نیست: پیش‌فرض تهی است،
+     `remote()` فقط http/https معتبر را می‌پذیرد و `embed=true` را خودش
+     می‌سازد، و صفحه در هر دو حالت نقشِ صادقانه دارد. */
+  ok('نشانیِ نسخهٔ embed پیش‌فرض تهی است و فقط مقدارِ معتبر را می‌سازد', (function(){
+    const keep=AyahEmbed.URL; let good=true;
+    try{
+      AyahEmbed.URL='';
+      good=good&&AyahEmbed.remote()==='';
+      AyahEmbed.URL='https://example.test/game';
+      good=good&&AyahEmbed.remote()==='https://example.test/game?embed=true';
+      AyahEmbed.URL='https://example.test/game?x=1';
+      good=good&&AyahEmbed.remote()==='https://example.test/game?x=1&embed=true';
+      AyahEmbed.URL='https://example.test/game?embed=true';
+      good=good&&AyahEmbed.remote()==='https://example.test/game?embed=true';
+      AyahEmbed.URL='  https://example.test/e  ';
+      good=good&&AyahEmbed.remote()==='https://example.test/e?embed=true';
+      AyahEmbed.URL='javascript:alert(1)';
+      good=good&&AyahEmbed.remote()==='';
+      AyahEmbed.URL='data:text/html,<b>x</b>';
+      good=good&&AyahEmbed.remote()==='';
+    }finally{ AyahEmbed.URL=keep; }
+    return good;
+  })());
+  ok('هیچ نشانیِ میزبانِ مردهٔ arena.site در کد نمانده است', !/arena\.site/.test(SRC));
+  ok('نقشِ صفحه بدون نشانی: صادقانه می‌گوید در دسترس نیست و قاب نمی‌سازد', (function(){
+    const keep=AyahEmbed.URL; AyahEmbed.URL=''; let h='';
+    try{ h=AyahEmbed.screenHtml(); }finally{ AyahEmbed.URL=keep; }
+    return /id="ayahGame"/.test(h) && !/<iframe/.test(h) &&
+           /class="m3-error"/.test(h) && /در دسترس نیست/.test(h) &&
+           /data-m3-action="ayah-offline"/.test(h) && /id="ayahFrameStatus"/.test(h) &&
+           /id="ayahHome"/.test(h) && /id="ayahBack"/.test(h) && /id="ayahExit"/.test(h) &&
+           /id="ayahRestart"/.test(h) && !/id="ayahExpand"/.test(h);
+  })());
+  ok('نقشِ صفحه با نشانیِ معتبر: همان قابِ embed با پیوندِ جداگانه', (function(){
+    const keep=AyahEmbed.URL; AyahEmbed.URL='https://example.test/game'; let h='';
+    try{ h=AyahEmbed.screenHtml(); }finally{ AyahEmbed.URL=keep; }
+    return /<iframe id="ayahFrame"[^>]*src="https:\/\/example\.test\/game\?embed=true"/.test(h) &&
+           /href="https:\/\/example\.test\/game\?embed=true"[^>]*rel="noopener noreferrer"/.test(h) &&
+           /id="ayahOffline"/.test(h) && /id="ayahFrameShell"/.test(h);
+  })());
+  ok('سیم‌کشیِ دکمه‌ها با نگهبان است تا نبودِ یک دکمه صفحه را نشکند',
+     /const on=\(sel,fn\)=>\{const el=U\.\$\(sel\);if\(el\)el\.onclick=fn;\};/.test(SRC) &&
+     /on\('\[data-m3-action="ayah-offline"\]'/.test(SRC) &&
+     /if\(AyahEmbed\.remote\(\)\) U\.\$\('#ayahExternal'\)/.test(SRC));
   ok('ورودِ اصلیِ نور آیه‌ها مستقیم گزینه‌های درون‌برنامه‌ای را نشان می‌دهد',
      /ayahlight:\s*\(\)\s*=>\s*AyahLight\.open\(\)/.test(SRC) &&
      /class="tile pro-tile" data-game="\$\{id\}"/.test(SRC));
@@ -6628,21 +6726,41 @@ section('ذکر و تسبیح و ورد (نسخهٔ ۱۹)');
   }));
 
   /* تسبیح */
-  ok('تسبیح ۳۳/۳۳/۳۳: فازها به‌ترتیب و جایزهٔ پایانی یک‌بار', fresh(() => {
+  /* تعدادِ ضربه‌ها از دادهٔ تأییدشده می‌آید، نه از عددِ نوشته‌شده در
+     سنجش: ۳۴ الله‌اکبر + ۳۳ الحمدلله + ۳۳ سبحان‌الله = ۱۰۰ ضربه.
+     نسخهٔ پیشین ۹۹ ضربه و سه فازِ ۳۳تایی می‌سنجید — همان باگی که
+     تسبیحاتِ حضرتِ زهرا (س) را ۹۹تایی و با ترتیبِ وارونه نشان می‌داد. */
+  ok('تسبیح ۳۴/۳۳/۳۳: فازها به‌ترتیب و جایزهٔ پایانی یک‌بار', fresh(() => {
      const c0 = Wallet.get();
      let lastReward = 0;
-     for(let i = 0; i < 99; i++) lastReward = (Tasbih.tap().reward || 0);
+     const goal = NoorContent.goalTotal(Tasbih.DATA_ID);
+     for(let i = 0; i < goal; i++) lastReward = (Tasbih.tap().reward || 0);
      const s = Tasbih.st();
      const extra = Tasbih.tap();
-     return s.counts.join() === '33,33,33' && s.done === true && Tasbih.doneToday() === true &&
+     return goal === 100 &&
+            s.counts.join() === '34,33,33' &&
+            s.counts.join() === NoorContent.phases(Tasbih.DATA_ID).map(x => x.n).join() &&
+            Tasbih.countSummary() === '۳۴/۳۳/۳۳' &&
+            s.done === true && Tasbih.doneToday() === true &&
             lastReward === 2 && Wallet.get() - c0 === 2 && extra.complete === true &&
-            Wallet.get() - c0 === 2;
+            Wallet.get() - c0 === 2 && Store.data.tasbihToday.v === 2;
   }));
   ok('ریستِ تسبیح با تغییرِ روز (U.today)', fresh(() => {
      Store.data.tasbihToday = { date:'2020-01-01', counts:[33, 33, 33], done:true };
      const s = Tasbih.st();
      return s.date === U.today() && s.counts.join() === '0,0,0' && s.done === false &&
             Tasbih.doneToday() === false;
+  }));
+  /* رکوردِ کهنه (بی‌ `v:2`) فازها را به ترتیبِ [سبحان‌الله، الحمدلله،
+     الله‌اکبر] نگه می‌داشت؛ ترتیبِ دادهٔ تأییدشده
+     [الله‌اکبر، الحمدلله، سبحان‌الله] است. پس هنگامِ خواندن وارونه
+     می‌شود و `done` هم از شمارِ واقعیِ فازها دوباره ساخته می‌شود — نه از
+     پرچمِ کهنه‌ای که با سه فازِ ۳۳تایی «تمام» شده بود. */
+  ok('رکوردِ کهنهٔ تسبیح وارونه خوانده می‌شود و «تمامِ» دروغ را پس می‌دهد', fresh(() => {
+     Store.data.tasbihToday = { date:U.today(), counts:[7, 33, 33], done:true };
+     const s = Tasbih.st();
+     return s.counts.join() === '33,33,7' && s.done === false &&
+            Tasbih.doneToday() === false && Dhikr.doneToday('zahra') === false;
   }));
   ok('ریستِ دستیِ تسبیح', fresh(() => {
      Tasbih.tap(); Tasbih.tap();
@@ -6740,7 +6858,7 @@ section('ختم و رمضان (نسخهٔ ۱۹)');
      const prayers = SalahLog.NAMES.length;             // ۳
      SalahLog.NAMES.forEach(n => SalahLog.mark(n));
      ['morning','evening','afterPrayer'].forEach(w => WirdUI.finish(w));  // ۳
-     for(let i = 0; i < 99; i++) Tasbih.tap();          // ۲
+     for(let i = 0, g = NoorContent.goalTotal(Tasbih.DATA_ID); i < g; i++) Tasbih.tap();   // ۲
      Khatm.mark(false);                                 // ۱
      const coins = Wallet.get() - c0, xp = Store.get('xp') - x0;
      const expect = prayers + 3 + 2 + 1;
@@ -6896,7 +7014,7 @@ section('اذانِ محلی و مأموریت‌ها (نسخهٔ ۱۹)');
   }));
   ok('مأموریت‌های رمضان شمارندهٔ واقعی دارند', fresh(() => {
      SalahLog.mark('maghrib');
-     for(let i = 0; i < 99; i++) Tasbih.tap();
+     for(let i = 0, g = NoorContent.goalTotal(Tasbih.DATA_ID); i < g; i++) Tasbih.tap();
      WirdUI.finish('evening');
      return Missions.key('ramMaghrib') === 1 && Missions.key('ramTasbih') === 1 &&
             Missions.key('ramWird') === 1;
@@ -7116,9 +7234,11 @@ section('همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)');
   }));
 
   /* ── ۵. ذکرشمار ── */
-  ok('پیش‌تنظیم‌ها: زهرا (س) ۳۳/۳۳/۳۳ و ذکرهای تعقیب با هدفِ خودش', (() => {
+  ok('پیش‌تنظیم‌ها: زهرا (س) ۳۴/۳۳/۳۳ و ذکرهای تعقیب با هدفِ خودش', (() => {
      const z = Dhikr.by('zahra');
-     return z.phases.length === 3 && z.phases.every(x => x.n === 33) && z.store === 'tasbihToday' && z.coin === 2 &&
+     return z.phases.length === 3 && z.phases.map(x => x.n).join() === '34,33,33' &&
+            z.phases.every(x => x.verified === true) && z.verified === true &&
+            z.store === 'tasbihToday' && z.coin === 2 &&
             Dhikr.by('istighfar').phases[0].n === 70 && Dhikr.by('tahlil').phases[0].n === 100 &&
             Dhikr.by('salawat').phases[0].n === 100 &&
             Dhikr.PRESETS.every(p => p.id && p.title && p.phases.length);
@@ -7147,17 +7267,17 @@ section('همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)');
             Tasbih.doneToday() === Dhikr.doneToday('zahra');
   }));
   ok('ضربهٔ اضافه پس از کامل‌شدن جایزهٔ دوباره نمی‌دهد', fresh(() => {
-     for(let i = 0; i < 99; i++) Dhikr.tap('zahra');
+     for(let i = 0, g = NoorContent.goalTotal('zahra'); i < g; i++) Dhikr.tap('zahra');
      const c0 = Wallet.get();
      const r = Dhikr.tap('zahra');
      return r.ok === false && r.complete === true && Wallet.get() === c0;
   }));
   ok('«یکی کم» از آخرین فازِ پُر کم می‌کند و «کامل شد» را برمی‌گرداند', fresh(() => {
-     for(let i = 0; i < 99; i++) Dhikr.tap('zahra');
+     for(let i = 0, g = NoorContent.goalTotal('zahra'); i < g; i++) Dhikr.tap('zahra');
      const back = Dhikr.tap('zahra', true);
      return back.ok === true && back.back === true && back.phase === 2 &&
-            Dhikr.state('zahra').counts.join() === '33,33,32' && Dhikr.doneToday('zahra') === false &&
-            Dhikr.tap('zahra', true).counts.join() === '33,33,31';
+            Dhikr.state('zahra').counts.join() === '34,33,32' && Dhikr.doneToday('zahra') === false &&
+            Dhikr.tap('zahra', true).counts.join() === '34,33,31';
   }));
   ok('ریستِ یک ذکر بقیه را پاک نمی‌کند', fresh(() => {
      Dhikr.tap('tahlil'); Dhikr.tap('hawqala'); Dhikr.reset('tahlil');
@@ -7413,6 +7533,444 @@ section('همراهِ نماز و ذکرشمار (نسخهٔ ۲۲)');
   ok('CSS: ردیفِ انتخابِ ذکر و کلیدهایش رنگِ پوسته‌ای دارند',
      /\.dj-picks\{/.test(CSS) && /\.dj-pick\{[^}]*var\(--line\)/.test(CSS) &&
      /\.dj-pick\.on\{/.test(CSS) && /html\[data-theme="light"\] \.dj-pick\.on/.test(CSS));
+}
+
+section('لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)');
+/* ══════════════════════════════════════════════════════════════════
+   دو لایهٔ تازهٔ برنامه و دو چک‌لیستی که صاحبِ برنامه خواست:
+
+   ۱) `NoorContent` (assets/app/content-1.js) — تنها منبعِ متن و عددِ
+      عبادت‌ها. قاعده‌ها: هیچ متنِ عربی، هیچ عددِ تکرار و هیچ ترتیبی
+      حدس زده نشود؛ آنچه در ورودیِ تأییدشده نیامده `null` می‌ماند و UI
+      جایِ خالیِ محترمانه نشان می‌دهد؛ متنِ تأییدشدهٔ تازه بر قدیمی
+      می‌چربد.
+   ۲) `M3` (assets/app/m3-1.js) + assets/styles/m3.css — لایهٔ رفتار و
+      طراحیِ Material 3: کلاسِ اندازهٔ پنجره، چیدمانِ سازگار، حالت‌های
+      تهی/خطا/بارگذاری، نوارِ پیشرفتِ دسترس‌پذیر، مقیاسِ قلم، RTLِ
+      منطقی و اعلامِ صفحه به صفحه‌خوان.
+
+   این سنجش‌ها همان چک‌لیست‌ها را اجرایی می‌کنند تا عددِ ۳۴/۳۳/۳۳ یا
+   متنِ ذکرِ سجده نتواند بی‌خبر عوض شود.
+   ══════════════════════════════════════════════════════════════════ */
+{
+  const NC = NoorContent;
+  const M3CSS = require('./_shipped.js').file('assets/styles/m3.css');
+  const JSRC = require('./_shipped.js').js();
+  const SAJ = require('./_shipped.js').file('assets/app/sajjada-1.js');
+  /* مقایسهٔ متنِ عربی با اعراب‌های گوناگون شکست می‌خورد («اَکبَر» ≠ «اکبَر»)،
+     پس پیش از مقایسه هنجار می‌شود — همان کاری که خودِ لایهٔ محتوا در
+     خودسنجی‌اش می‌کند. */
+  const bareN = s => String(s == null ? '' : s)
+    .replace(/[\u064B-\u0652\u0653-\u0656\u0670\u0640]/g, '')
+    .replace(/[إأآ]/g, 'ا').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ').trim();
+
+  /* ── الف) ساختارِ دادهٔ محتوا ── */
+  const ids = NC.all().map(x => x.id);
+  ok('لایهٔ محتوا: شناسه‌ها یکتا و هر رکورد منبع و ترتیب دارد',
+     new Set(ids).size === ids.length &&
+     NC.all().every(x => !!x.id && !!x.type && !!x.source && Number.isFinite(x.order)),
+     ids.length + ' رکورد');
+  ok('لایهٔ محتوا: هر ذکر یا متنِ عربی دارد یا صریحاً `null` — رشتهٔ تهی نه',
+     NC.byType('dhikr').concat(NC.byType('prayer-step'))
+       .every(x => x.arabicText === null || (typeof x.arabicText === 'string' && x.arabicText.trim() !== '')));
+  ok('لایهٔ محتوا: هیچ رکوردی بی‌اجازه «تأییدشده» علامت نخورده',
+     NC.all().filter(x => x.verified).every(x => /صاحبِ برنامه/.test(x.source)),
+     NC.all().filter(x => x.verified).map(x => x.id).join(','));
+  ok('خودسنجیِ ساختاریِ لایهٔ محتوا سبز است',
+     (r => Array.isArray(r) && r.length >= 10 && r.every(x => x.ok))(NC.selfTest()));
+
+  /* ── ب) تسبیحاتِ حضرتِ زهرا (س) — ورودیِ صریحِ صاحبِ برنامه ── */
+  const Z = NC.preset('zahra');
+  ok('تسبیحاتِ زهرا: سه فازِ جدا، به همان ترتیبِ ورودی (۳۴ ← ۳۳ ← ۳۳)',
+     !!Z && Z.verified === true && Z.editable === false && Z.phases.length === 3 &&
+     Z.phases.map(p => p.id).join(',') === 'zahra.takbir,zahra.hamd,zahra.tasbih',
+     Z && Z.phases.map(p => p.id + ':' + p.n).join(' '));
+  ok('تعدادِ هر فاز سهمِ خودش را دارد — یک عدد برای هر سه فاز نه',
+     Z.phases.map(p => p.n).join(',') === '34,33,33' && new Set(Z.phases.map(p => p.n)).size === 2);
+  ok('متنِ سه فاز همان سه ذکرِ ورودی است',
+     Z.phases.map(p => bareN(p.ar)).join('|') === 'الله اکبر|الحمد لله|سبحان الله',
+     Z.phases.map(p => p.ar).join('|'));
+  ok('هر سه فاز تأییدشده‌اند و ترجمهٔ فارسی دارند',
+     Z.phases.every(p => p.verified && String(p.fa).trim() !== ''));
+  ok('جمعِ هدف‌ها ۱۰۰ است و خلاصهٔ عددی از داده ساخته می‌شود (نه hard-code)',
+     NC.goalTotal('zahra') === 100 &&
+     NC.countSummary('zahra') === NC.fa(34) + '/' + NC.fa(33) + '/' + NC.fa(33) &&
+     NC.countSummary('zahra') === '۳۴/۳۳/۳۳', NC.countSummary('zahra'));
+  ok('ذکرشمارِ برنامه همان ۳۴/۳۳/۳۳ را از داده می‌خواند',
+     Dhikr.PRESETS && Dhikr.PRESETS[0] &&
+     Dhikr.PRESETS[0].phases.map(p => p.goal === undefined ? p.n : p.goal).join(',') === '34,33,33',
+     JSON.stringify((Dhikr.PRESETS[0] || {}).phases));
+  ok('متنِ تسبیحات در لایهٔ نمایش از `NoorContent` می‌آید، نه از رشتهٔ سفت‌نویسی',
+     /presetIds\(\)\.map/.test(SAJ) && /C\.preset\(id\)/.test(SAJ) &&
+     /NoorContent\.prayerStep\(/.test(SAJ) && /if\(!C\) return \[\];/.test(SAJ));
+
+  /* ── ج) ذکرِ سجده — متنِ تأییدشده، عددِ تأییدنشده ── */
+  const SJ = NC.item('step.sujud'), SJP = NC.prayerStep('sujud');
+  ok('ذکرِ سجده: متنِ تأییدشدهٔ صاحبِ برنامه و نشانِ «متن تأیید شده»',
+     bareN(SJP.ar) === 'سبحان ربی الاعلی و بحمده' && SJ.verifiedText === true, SJP.ar);
+  ok('ذکرِ سجده: عددِ تکرار تأیید نشده و در فهرستِ انتظارِ منبع است',
+     SJ.repeatCount === 3 && SJ.verified === false &&
+     NC.pending().some(p => p.id === 'step.sujud'));
+  ok('همراهِ نماز متنِ سجده را از داده می‌گیرد، نه از متنِ کهنهٔ اشتباه',
+     bareN(Sajjada.TXT.sujud.ar) === bareN(SJ.arabicText) &&
+     !Sajjada.STEP_KEYS.some(k => bareN(Sajjada.TXT[k].ar).includes('سبحان الله العلی ربنا')),
+     Sajjada.TXT.sujud.ar);
+  ok('مرحلهٔ بی‌عدد، عددِ پیش‌فرض نمی‌گیرد و ضربه‌ای می‌ماند',
+     NC.item('step.dhikr34').repeatCount === null && Sajjada.reps('dhikr34') === null &&
+     NC.repeatLabel('step.dhikr34').known === false &&
+     !/[0-9۰-۹]/.test(NC.repeatLabel('step.dhikr34').text),
+     NC.repeatLabel('step.dhikr34').text);
+  ok('برچسبِ تکرارِ شناخته‌شده همان عددِ رکورد را می‌گوید',
+     NC.repeatLabel('zahra.takbir').value === 34 &&
+     NC.repeatLabel('zahra.takbir').text === NC.fa(34) + ' بار');
+  /* نکته: `POSE` با کلیدِ *مرحله‌های جریان* نوشته شده (نیّت، تکبیر، قیام، …)
+     نه با کلیدِ *متن‌ها* (`hamd`/`dhikr34` متنِ قیام‌اند، نه مرحلهٔ جدا).
+     پس درستی با خودِ جریانِ ساخته‌شده سنجیده می‌شود، نه با `STEP_KEYS`. */
+  const flow = Sajjada.build('fajr', { rakat: 2 });
+  ok('هر مرحلهٔ جریانِ نماز حالتِ بدنیِ قابلِ تشخیص دارد (باگِ نسخهٔ ۲۲)',
+     flow.length >= 8 && flow.every(s => NoorPose.KEYS.includes(Sajjada.POSE[s.key])) &&
+     Object.keys(Sajjada.POSE).every(k => NoorPose.KEYS.includes(Sajjada.POSE[k])) &&
+     flow.every(s => !!Sajjada.FIG[s.key]),
+     JSON.stringify(Sajjada.POSE));
+
+  /* ── د) ورودیِ تازه: متنِ تأییدشده بر قدیمی می‌چربد ── */
+  {
+    const TMP = 'test.tmp.dhikr';
+    try{
+      /* از نسخهٔ ۲۳ب: `register` پیش از نوشتن، رکورد را اعتبارسنجی می‌کند
+         (`validate`) — رکوردِ بی‌`type` یا با رشتهٔ تهیِ عربی *اعمال
+         نمی‌شود* و در `invalid` گزارش می‌شود. */
+      const rejected = NC.register([{ id: TMP, title: 'آزمون', arabicText: 'قَدیم', repeatCount: null, order: 999 }],
+                                   { source: 'آزمون — نه دادهٔ واقعی' });
+      /* همان لحظه سنجیده می‌شود: رکوردِ ردشده نباید در داده بنشیند. */
+      const rejectedNow = rejected.invalid.length === 1 && NC.item(TMP) === null &&
+                          /type/.test(String(rejected.invalid[0].problems.join(' ')));
+      NC.register([{ id: TMP, type: 'dhikr', title: 'آزمون', arabicText: 'قَدیم', repeatCount: null, order: 999 }],
+                  { source: 'آزمون — نه دادهٔ واقعی' });
+      const first = NC.item(TMP);
+      const won1 = rejectedNow;
+      const won1b = !!first && first.arabicText === 'قَدیم' && first.verified === false &&
+                   NC.repeatLabel(TMP).known === false;
+      NC.register([{ id: TMP, arabicText: 'جَدید', repeatCount: 7, verified: true,
+                    source: 'ورودیِ تأییدشدهٔ صاحبِ برنامه — آزمون' }]);
+      const second = NC.item(TMP);
+      ok('ورودیِ تأییدشدهٔ تازه بر دادهٔ قدیمی می‌چربد (قاعدهٔ ۳)',
+         won1 && won1b && second.arabicText === 'جَدید' && second.repeatCount === 7 &&
+         second.verified === true && NC.countSummary(TMP) === '' &&
+         /صاحبِ برنامه/.test(second.source),
+         JSON.stringify(second));
+      ok('رکوردِ تازه بدونِ `verified` هرگز خودش تأییدشده نمی‌شود',
+         NC.register([{ id: TMP + '.2', type: 'dhikr', title: 'آزمونِ ۲', arabicText: 'نص' }]).added === 1 &&
+         NC.item(TMP + '.2').verified === false &&
+         NC.pending().some(p => p.id === TMP + '.2'));
+    } finally {
+      NC.items = NC.items.filter(x => x.id.indexOf(TMP) !== 0);
+    }
+    ok('پاک‌سازیِ آزمون: دادهٔ محتوا دست‌نخورده برگشت',
+       NC.item(TMP) === null && NC.all().map(x => x.id).join(',') === ids.join(','));
+  }
+
+  /* ── ه) لایهٔ M3 — رفتار ── */
+  ok('خودسنجیِ لایهٔ M3 سبز است', (r => r.ok && r.total === r.pass && r.total >= 9)(M3.selfTest()));
+  ok('کلاسِ اندازهٔ پنجره همان سه شکستِ مرجعِ M3 است',
+     M3.sizeOf(360) === 'compact' && M3.sizeOf(600) === 'medium' &&
+     M3.sizeOf(839) === 'medium' && M3.sizeOf(840) === 'expanded' && M3.sizeOf(1200) === 'expanded',
+     JSON.stringify(M3.BP));
+  ok('حالتِ تهی، خطا و بارگذاری نشانهٔ M3 دارند و متن را ایمن می‌کنند',
+     /class="empty-state m3-empty[^"]*" data-m3-state="empty"/.test(M3.empty({})) &&
+     /class="m3-error" data-m3-state="error"/.test(M3.error({})) &&
+     M3.error({ title: '"<x>"' }).includes('&quot;&lt;x&gt;&quot;') &&
+     M3.loading({ rows: 3 }).split('m3-skeleton').length === 4);
+  ok('دکمهٔ کنشِ حالت‌ها برچسب دارد و متنِ تهی کنش نمی‌سازد',
+     /data-m3-action="retry"/.test(M3.error({})) && !/<button/.test(M3.empty({ action: null })));
+  /* نوارِ پیشرفت — دو دامِ شناخته‌شده: «نامعلوم» نباید «صفر» شود و متنِ تهی
+     باید `aria-valuetext`ِ دست‌نویس را *بردارد*. */
+  {
+    const set = {}, del = [];
+    const stub = { setAttribute: (k, v) => { set[k] = String(v); }, removeAttribute: k => { del.push(k); delete set[k]; } };
+    M3.progressbar(stub, null, null, '');
+    const unknown = !('aria-valuenow' in set) && del.includes('aria-valuenow') && set.role === 'progressbar';
+    M3.progressbar(stub, 12, 34, '۱۲ از ۳۴');
+    const known = set['aria-valuenow'] === '12' && set['aria-valuemax'] === '34' &&
+                  set['aria-valuetext'] === '۱۲ از ۳۴';
+    M3.progressbar(stub, 5, 10, '');
+    ok('نوارِ پیشرفت: مقدارِ نامعلوم «۰٪» نمی‌شود و متنِ تهی `aria-valuetext` را برمی‌دارد',
+       unknown && known && del.includes('aria-valuetext') && !('aria-valuetext' in set),
+       JSON.stringify({ set, del }));
+    ok('نوارِ پیشرفت: عددِ خامِ بیش از حد، سرِ سقف می‌ایستد',
+       (M3.progressbar(stub, 999, 34, 'x') && set['aria-valuenow'] === '34'));
+  }
+  ok('مقیاسِ قلم سه اندازه دارد و در `noorestan_ui_v1` می‌ماند', (function(){
+    const keep = localStorage.getItem('noorestan_ui_v1');
+    try{
+      M3.setTypeScale('lg');
+      const p = JSON.parse(localStorage.getItem('noorestan_ui_v1') || '{}');
+      const good = M3.getTypeScale() === 'lg' && p.fs === 'lg' &&
+                   M3.setTypeScale('nope') === 'md' && Object.keys(M3.SCALES).join(',') === 'sm,md,lg';
+      M3.setTypeScale('md');
+      return good;
+    } finally { if(keep === null) localStorage.removeItem('noorestan_ui_v1'); else localStorage.setItem('noorestan_ui_v1', keep); }
+  })());
+  ok('زبانِ UI امروز فقط فارسیِ تأییدشده است و زبانِ حدسی پذیرفته نمی‌شود (آمادهٔ i18n)',
+     M3.lang() === 'fa' && M3.setLang('en') === 'fa' && M3.lang() === 'fa' &&
+     M3.t('emptyT').trim() !== '' && M3.t('کلیدِ_ناشناخته') === '' &&
+     Object.keys(M3.STRINGS).join(',') === 'fa');
+  ok('اعلامِ صفحه برای صفحه‌خوان: منطقهٔ زنده و شنودِ `noor:screen`',
+     /addEventListener\('noor:screen', onScreen\)/.test(JSRC) &&
+     /dispatchEvent\(new CustomEvent\('noor:screen'/.test(SRC) &&
+     /'m3Live'/.test(JSRC) && /'aria-live', 'polite'/.test(JSRC) &&
+     /'role', 'status'/.test(JSRC) &&
+     typeof M3.screenLabel === 'function' && M3.announce('') === false && M3.announce('ذکرشمار') === true);
+
+  /* ── و) لایهٔ M3 — پوسته و چیدمانِ سازگار ── */
+  ok('m3.css آخرین برگِ استایل است تا نقش‌ها بر پوستهٔ پیشین بنشینند',
+     DOC.indexOf('styles/m3.css') > DOC.indexOf('styles/polish.css') &&
+     DOC.indexOf('styles/m3.css') > DOC.indexOf('style-1-'),
+     String(DOC.indexOf('styles/m3.css')));
+  ok('m3.css نقش‌های رنگیِ M3 را از توکن‌های پوستهٔ موجود می‌سازد',
+     ['--md-primary', '--md-on-primary', '--md-surface', '--md-on-surface', '--md-surface-container',
+      '--md-on-surface-variant', '--md-outline', '--md-error', '--md-sacred-medium']
+       .every(k => M3CSS.includes(k + ':')) && /var\(--gold|var\(--bg|var\(--card|var\(--fg/.test(M3CSS));
+  ok('لایه‌های وضعیت (hover/focus/press) با `color-mix` و واپس‌روی ساخته می‌شوند',
+     ['--md-hover', '--md-focus', '--md-press'].every(k => M3CSS.includes(k + ':')) &&
+     /color-mix\(/.test(M3CSS) && /@supports not \(color:\s*color-mix/.test(M3CSS));
+  ok('هدفِ لمس و ارتفاعِ ناوبری و پهنای ریل، اندازهٔ مرجعِ M3 دارند',
+     /--md-target:\s*48px/.test(M3CSS) && /--md-nav-h:\s*80px/.test(M3CSS) &&
+     /--md-rail-w:\s*96px/.test(M3CSS) && /--md-max-w:\s*1200px/.test(M3CSS));
+  ok('چیدمانِ سازگار: موبایل نوارِ پایین، از ۸۴۰ پیکسل ریلِ کنار',
+     /@media[^{]*min-width:\s*600px/.test(M3CSS) && /@media[^{]*min-width:\s*840px/.test(M3CSS) &&
+     /@media[^{]*min-width:\s*1200px/.test(M3CSS) &&
+     /min-width:\s*840px[\s\S]{0,600}#nav/.test(M3CSS));
+  ok('RTL با خاصیت‌های منطقی نوشته شده و نشانِ اعلان هم منطقی است',
+     /padding-inline/.test(M3CSS) && /margin-inline/.test(M3CSS) && /inset-inline-start/.test(M3CSS) &&
+     /border-start-start-radius|border-inline|inset-inline-end/.test(M3CSS) &&
+     /\.iconbtn \.dot\{[^}]*inset-inline-end/.test(M3CSS));
+  ok('کم‌حرکتی و بزرگ‌نماییِ متنِ سیستم احترام می‌شوند',
+     /prefers-reduced-motion/.test(M3CSS) && /--md-ts/.test(M3CSS) &&
+     /\.read-ar[^{]*\{[^}]*font/.test(M3CSS) === false);
+  ok('قلمِ متنِ مقدس Amiri است و Amiri محلی (آفلاین) بار می‌شود',
+     /--md-sacred-large:[^;]*var\(--f-quran\)/.test(M3CSS) &&
+     /--f-quran:\s*Amiri/.test(CSS) &&
+     /url\("(\.\.\/)*assets\/fonts\/amiri-arabic-400\.woff2"\)/.test(CSS) &&
+     /url\("(\.\.\/)*assets\/fonts\/amiri-arabic-700\.woff2"\)/.test(CSS) &&
+     !/@import[^;]*(googleapis|jsdelivr)[^;]*amiri/i.test(CSS),
+     (CSS.match(/amiri[^"')]*\.woff2/g) || []).join(' '));
+  ok('هر دو وزنِ Amiri در دیسک هست و پروانهٔ OFL همراهش مانده',
+     ['assets/fonts/amiri-arabic-400.woff2', 'assets/fonts/amiri-arabic-700.woff2', 'assets/fonts/Amiri-OFL.txt']
+       .every(f => require('fs').statSync(__dirname + '/' + f).size > 1000));
+  ok('سرویس‌ورکر قلم‌های Amiri را در فهرستِ اختیاری دارد', (function(){
+    const sw = require('./_shipped.js').file('sw.js');
+    return /amiri-arabic-400\.woff2/.test(sw) && /amiri-arabic-700\.woff2/.test(sw) &&
+           /content-1\.js/.test(sw) && /styles\/m3\.css/.test(sw) && /app\/m3-1\.js/.test(sw);
+  })());
+  ok('هیچ برگِ استایلی از CDN بار نمی‌شود (آفلاینِ کامل)',
+     !/@import\s+url\(\s*['"]?https?:/i.test(CSS) &&
+     !/<link[^>]+rel=["']stylesheet["'][^>]+https?:/i.test(DOC));
+  ok('لایهٔ M3 و لایهٔ محتوا در خودسنجیِ درونِ برنامه هم دیده می‌شوند',
+     /M3\.selfTest\(\)/.test(JSRC) && typeof selfTest === 'function' &&
+     (function(){ const r = selfTest(); return r.ok && r.rows.some(x => /M3/.test(x.name)); })());
+}
+
+section('لایهٔ محتوا — ثبت، تعارض و جایِ خالی (نسخهٔ ۲۳ب)');
+/* ══════════════════════════════════════════════════════════════════
+   نسخهٔ ۲۳ب لایهٔ دادهٔ عبادی را سخت‌تر کرد:
+     • `validate()` — رکوردِ بی‌اعتبار هرگز در داده نمی‌نشیند (سنجشِ
+       «رکوردِ ادغام‌شده»، تا وصلهٔ جزئی رد نشود)،
+     • `diff()` — پیش‌نمایشِ خالصِ تعارض‌ها (کشفِ سیستماتیکِ اختلافِ
+       دادهٔ قدیم و تازه)،
+     • `register()` — گزارشِ `invalid/conflicts/warnings` و دفترِ `log`،
+       و «تأییدِ بی‌منبع» پذیرفته نیست،
+     • `gaps()/isPending()/pending()/pendingSummary()` — چهار شرطِ
+       «در انتظارِ منبعِ معتبر»، آگاه به نوعِ رکورد،
+     • `adoptDuas()` — پلِ لایهٔ دعاها از همان بانک و پوششِ موجود،
+       بی هیچ متنِ تازه.
+   قاعدهٔ بالادستیِ همهٔ این‌ها: **هیچ متنِ عربی، ترجمه یا عددِ تکراری
+   حدس زده نمی‌شود**؛ نبودِ داده ⇒ `null` ⇒ جایِ خالیِ محترمانه در UI.
+   ══════════════════════════════════════════════════════════════════ */
+{
+  const NC = NoorContent;
+  const WIRD = require('./_shipped.js').file('assets/app/wird-1.js');
+  const SAJJ = require('./_shipped.js').file('assets/app/sajjada-1.js');
+  /* نشانگرِ «این رشته عربیِ مذهبی است، نه فارسیِ رابط»: نویسه‌هایی که در
+     فارسیِ روزمره نمی‌آیند (ی/کِ عربی، ألفِ مقصوره، سوپراسکریپ، همزهٔ
+     زیر/روی واو). فارسیِ رابط «ی ک» و «أ» دارد (تأیید)، پس آن‌ها نشانگر
+     نیستند — وگرنه هر رشتهٔ فارسیِ بااعراب («نمازِ») خطا می‌شد. */
+  const AR = /[\u0670\u0625\u0624\u0643\u064A]/;
+
+  /* ── الف) خودسنجیِ لایهٔ داده ── */
+  ok('خودسنجیِ لایهٔ محتوا (۲۴ سنجشِ ساختاری) سبز است',
+     (r => Array.isArray(r) && r.length >= 24 && r.every(x => x.ok))(NC.selfTest()));
+
+  /* ── ب) پلِ دعاها: ۱۴ رکورد، بی هیچ متنِ تازه ── */
+  const DUAS = NC.duas();
+  ok('همهٔ دعوای بانک به رکوردِ `type:dua` نگاشت شده‌اند',
+     DUAS.length === DATA.duas.length && DUAS.length === 14 &&
+     DUAS.every(d => d.type === 'dua' && d.category === 'دعا' && d.source && d.verified === false) &&
+     DUAS.map(d => d.id).join(',') === DATA.duas.map((_, i) => 'dua.' + (i + 1)).join(','),
+     DUAS.length + ' از ' + DATA.duas.length);
+  ok('هر دعای ثبت‌شده همان متنِ پوشش/بانک است — نه متنی تازه',
+     DUAS.every(d => {
+       const b = DATA.duas[d.bankIndex];
+       const f = DUA_FULL.find(x => U.norm(b.title || '').includes(U.norm(x.for || '###')));
+       return d.title === b.title &&
+              d.arabicText === ((f && f.ar) || b.ar) &&
+              d.translationFa === ((f && f.fa) || b.fa) &&
+              d.source === ((f && f.src) || b.src) &&
+              d.fragment === !f;
+     }));
+  ok('دعاها عددِ تکرارِ حدسی نمی‌گیرند و «کمبودِ عدد» هم برایشان ثبت نمی‌شود',
+     DUAS.every(d => d.repeatCount === null && !NC.expectsRepeat('dua') &&
+                     NC.gaps(d).indexOf('repeatCount') < 0 && NC.isPending(d)));
+  ok('بانکِ قفلِ بازیِ «نجوا» دست‌نخورده است (فقط خوانده شد)',
+     DATA.duas.every(b => Object.keys(b).every(k => ['title','ar','fa','words','src','d'].indexOf(k) >= 0)) &&
+     !/DATA\.duas\s*=|DATA\.duas\.push|DATA\.duas\.splice/.test(WIRD));
+  ok('پوششِ نمایشی برای همهٔ ۱۴ دعا پیدا شد (fragment صفر است)',
+     DUAS.filter(d => d.fragment).length === 0 && NC.pendingSummary().fragment === 0);
+  ok('دو منبعِ متفاوتِ یک دعا هر دو نگه داشته می‌شوند (sourceBank)',
+     DUAS.filter(d => d.sourceBank).length > 0 &&
+     DUAS.every(d => !d.sourceBank || d.sourceBank === DATA.duas[d.bankIndex].src));
+
+  /* ── ج) خروجیِ نمایشِ دعا باید بایت‌به‌بایت همانِ پیش از مهاجرت باشد ── */
+  ok('WirdUI.text() پس از مهاجرت همان خروجیِ پیشین را می‌دهد (قاعدهٔ طلایی)',
+     DATA.duas.every(b => {
+       const now = WirdUI.text(b);
+       const nt = U.norm(b.title || '');
+       const f = DUA_FULL.find(x => x && nt.includes(U.norm(x.for || '###')));
+       const want = f ? { title:b.title, ar:f.ar, fa:f.fa, src:f.src } : b;
+       return now.title === want.title && now.ar === want.ar && now.fa === want.fa && now.src === want.src;
+     }));
+  ok('مارک‌آپِ ورد همان چهار فیلد را escape می‌کند و متنِ خام نمی‌گذارد',
+     /const t = this\.text\(d\);/.test(WIRD) &&
+     /U\.esc\(t\.ar\)/.test(WIRD) && /U\.esc\(t\.fa\)/.test(WIRD) && /U\.esc\(t\.src/.test(WIRD) &&
+     !/\$\{t\.ar\}/.test(WIRD));
+  ok('مسیرِ جایگزینِ پوشش سرِ جایش است اگر لایهٔ محتوا بار نشد',
+     /typeof NoorContent !== 'undefined'/.test(WIRD) && /if\(d && typeof DUA_FULL !== 'undefined'/.test(WIRD));
+
+  /* ── د) مغایرتِ کد/داده: متنِ عبادیِ hard-code در لایهٔ نمایش ── */
+  const literals = src => {
+    const noComments = src.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '));
+    const out = [];
+    noComments.split('\n').forEach((line, i) => {
+      if(!AR.test(line)) return;
+      (line.match(/'[^']*'|"[^"]*"|`[^`]*`/g) || []).forEach(s => {
+        const t = s.slice(1, -1);
+        if(AR.test(t)) out.push({ line:i + 1, text:t });
+      });
+    });
+    return out;
+  };
+  const known = new Set();
+  NC.all().forEach(r => [r.title, r.shortTitle, r.arabicText, r.translationFa, r.notes]
+    .forEach(v => { if(v) known.add(NC.norm(v)); }));
+  DUA_FULL.forEach(f => [f.for, f.ar, f.fa, f.src].forEach(v => { if(v) known.add(NC.norm(v)); }));
+  Object.keys(DATA).forEach(k => { if(Array.isArray(DATA[k])) DATA[k].forEach(o => {
+    if(o && typeof o === 'object') Object.keys(o).forEach(f => {
+      const v = o[f];
+      if(typeof v === 'string') known.add(NC.norm(v));
+      if(Array.isArray(v)) v.forEach(y => { if(typeof y === 'string') known.add(NC.norm(y)); });
+    }); }); });
+  const covered = t => { const n = NC.norm(t); return n.length >= 6 && [...known].some(k => k && (k.includes(n) || n.includes(k))); };
+  const straySaj = literals(SAJJ);
+  const strayWird = literals(WIRD).filter(x => !covered(x.text));
+  ok('همراهِ نماز و ذکرشمار هیچ متنِ عبادیِ hard-code ندارند',
+     straySaj.length === 0, JSON.stringify(straySaj.slice(0, 3)));
+  ok('فردِ عربیِ باقی‌مانده در wird-1.js فقط *ارجاع* به عنوانِ بانک است',
+     strayWird.length === 0, JSON.stringify(strayWird.slice(0, 3)));
+  ok('متنِ هر مرحلهٔ نماز در UI دقیقاً همان رکوردِ داده است (مغایرتِ کد/داده)',
+     Sajjada.STEP_KEYS.every(k => {
+       const rec = NC.prayerStep(k);
+       return !!rec && Sajjada.TXT[k].ar === rec.ar && Sajjada.TXT[k].fa === rec.fa &&
+              Sajjada.reps(k) === (Number.isFinite(rec.n) && rec.n > 0 ? rec.n : null);
+     }));
+
+  /* ── ه) جایِ خالیِ محترمانه در UI وقتی عدد در منبع نیست ── */
+  {
+    const TMP = 'tmpset';
+    try{
+      NC.register([
+        { id:TMP, type:'dhikr-set', title:'مجموعهٔ آزمون', order:99, phases:[TMP + '.1'] },
+        { id:TMP + '.1', type:'dhikr', title:'فازِ آزمون', parent:TMP, order:1,
+          arabicText:'نصُ الآزمون', translationFa:null, repeatCount:null },
+        /* موردِ شبیهِ «ذکرِ سجده»: متنِ عربی و ترجمه و منبع هست، عددِ تکرار
+           در منبع نیست. `verified:true` هم نباید آن را از فهرستِ انتظار
+           بیرون ببرد — نبودِ عدد، خودش یک شکافِ مستقل است. */
+        { id:TMP + '.step', type:'prayer-step', title:'گامِ آزمون (شبیه سجده)', order:99,
+          arabicText:'نصُ السُّجودِ الآزمون', translationFa:'ترجمهٔ آزمون',
+          repeatCount:null, verified:true, source:'آزمون — نه دادهٔ واقعی' },
+      ], { source:'آزمون — نه دادهٔ واقعی' });
+      ok('pending() برای موردِ شبیهِ سجده (متن هست، عددِ تکرار نیست) دقیقاً «repeatCount» می‌دهد',
+         (function(rows){
+           const row = rows.filter(x => x.id === TMP + '.step')[0];
+           return !!row && row.missing.length === 1 && row.missing[0] === 'repeatCount' &&
+                  row.verified === true && NC.repeatLabel(TMP + '.step').known === false &&
+                  NC.gaps(NC.item(TMP + '.step')).join(',') === 'repeatCount';
+         })(NC.pending()),
+         JSON.stringify((NC.pending().filter(x => x.id === TMP + '.step')[0] || {}).missing));
+      ok('pending() شکافِ چندگانهٔ همان رکورد را جدا و کامل فهرست می‌کند',
+         (function(rows){
+           const row = rows.filter(x => x.id === TMP + '.1')[0];
+           return !!row && row.missing.indexOf('repeatCount') >= 0 &&
+                  row.missing.indexOf('translationFa') >= 0 &&
+                  row.missing.indexOf('arabicText') < 0;
+         })(NC.pending()),
+         JSON.stringify((NC.pending().filter(x => x.id === TMP + '.1')[0] || {}).missing));
+      const html = Dhikr.html(TMP);
+      ok('ذکرشمار با هدفِ ثبت‌نشده: «—» و پاورقیِ صادقانه، بی هیچ عددِ پیش‌فرض',
+         /از —/.test(html) && /class="dj-note dj-note-warn"/.test(html) &&
+         /ثبت نشده است/.test(html) && !/از ۳۳/.test(html) && !/از ۱۰۰/.test(html) &&
+         !/از ۳۴/.test(html) && /نصُ الآزمون/.test(html),
+         (html.match(/از [^<]{0,12}/g) || []).join(' | '));
+      ok('برچسبِ دسترسیِ همان ذکرشمار هم عددِ ساختگی نمی‌گوید',
+         /aria-label="ذکرشمار — نصُ الآزمون — ۰ از —"|aria-label="ذکرشمار — نصُ الآزمون — 0 از —"/.test(html));
+      ok('هدفِ نامشخص در پیشرفت «صفر» شمرده نمی‌شود (openEnded)',
+         (function(pr){ return pr.goal === 0 && pr.openEnded === true && pr.done === false; })(Dhikr.progress(TMP)));
+    } finally {
+      NC.items = NC.items.filter(x => String(x.id).indexOf(TMP) !== 0);
+    }
+    ok('پاک‌سازی: رکوردهای آزمون از داده بیرون رفتند',
+       NC.item(TMP) === null && NC.item(TMP + '.1') === null &&
+       NC.all().length === DATA.duas.length + 24);
+  }
+
+  /* ── و) گزارشِ وضعیتِ محتوا ── */
+  ok('pendingSummary() با خودِ رکوردها می‌خواند', (function(s){
+    return s.records === NC.all().length && s.pending === NC.pending().length &&
+           s.verified === NC.all().filter(x => x.verified).length &&
+           s.verifiedText === NC.all().filter(x => x.verifiedText).length &&
+           s.noSource === NC.all().filter(x => !String(x.source || '').trim()).length &&
+           s.counts.dua === 14 && s.unresolvedRepeat.indexOf('step.dhikr34') >= 0 &&
+           s.pendingByGap.repeatCount >= 2;
+  })(NC.pendingSummary()));
+  ok('هیچ رکوردی بی‌منبع نیست و تنها ۴ رکورد تأییدشده‌اند',
+     NC.all().every(x => String(x.source || '').trim()) && NC.all().filter(x => x.verified).length === 4 &&
+     NC.all().filter(x => x.verified).every(x => /صاحبِ برنامه/.test(x.source)),
+     NC.all().filter(x => x.verified).map(x => x.id).join(','));
+
+  /* ── ز) i18n: ترجمهٔ زبانِ دوم هرگز حدس زده نمی‌شود ── */
+  {
+    const TMP = 'tmpi18n';
+    try{
+      NC.register([{ id:TMP, type:'dhikr', title:'آزمون', arabicText:'نص', repeatCount:null,
+                     translations:{ en:null } }], { source:'آزمون' });
+      const before = NC.translation(TMP, 'en');
+      NC.register([{ id:TMP, translations:{ en:'verified translation' } }]);
+      ok('translations نگه داشته می‌شود، پر می‌شود و به ترجمهٔ فارسی دست نمی‌زند',
+         before === null && NC.translation(TMP, 'en') === 'verified translation' &&
+         NC.translation(TMP, 'fa') === null && NC.item(TMP).translationFa === null &&
+         NC.translation(TMP, 'fr') === null && NC.validate({ id:TMP, translations:[] }).length > 0);
+    } finally { NC.items = NC.items.filter(x => String(x.id).indexOf(TMP) !== 0); }
+  }
+
+  /* ── ح) دفترِ تغییرها کران دارد ── */
+  {
+    const keep = NC.log.slice();
+    try{
+      for(let i = 0; i < NC.LOG_MAX + 40; i++) NC.note('bulk.' + i, [], 'آزمونِ کران');
+      ok('دفترِ تغییرهای داده کران دارد (LOG_MAX) و از ابتدا می‌ریزد',
+         NC.log.length === NC.LOG_MAX && NC.log[NC.log.length - 1].id === 'bulk.' + (NC.LOG_MAX + 39));
+    } finally { NC.log.length = 0; keep.forEach(x => NC.log.push(x)); }
+  }
 }
 
 section('خطاهای دیرهنگام (تایمرهای جامانده)');
