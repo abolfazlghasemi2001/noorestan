@@ -176,3 +176,77 @@ html[data-motion="off"] #gate .gt-tile,
 html[data-motion="off"] #gate .gt-orbit,
 html[data-motion="off"] #gate .gt-sparkle,
 html[data-motion="off"] #gate .gt-lock .g-hole{ animation:none !important }
+
+/* ══ نسخهٔ ۲۴ — قابِ ورودِ mobile-first و دو ستونه ═══════════════════
+   پوسته فقط نحوهٔ نمایش را عوض می‌کند؛ قرارداد OTP و متن/عددهای آن
+   همچنان از ماژول موجود می‌آیند. */
+#gate{
+  --gt-night:#07111f;
+  --gt-night-2:#0b1c2d;
+  --gt-gold:#dfbd70;
+  padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+          max(20px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  overflow:auto;
+  background:
+    radial-gradient(circle at 18% 10%,rgba(49,126,120,.16),transparent 34%),
+    linear-gradient(155deg,var(--gt-night-2),var(--gt-night) 56%,#050b14);
+}
+#gate::after{
+  content:'';position:fixed;inset:0;pointer-events:none;opacity:.055;
+  background-image:linear-gradient(30deg,var(--gt-gold) 12%,transparent 12.5%,transparent 87%,var(--gt-gold) 87.5%),linear-gradient(150deg,var(--gt-gold) 12%,transparent 12.5%,transparent 87%,var(--gt-gold) 87.5%);
+  background-size:44px 76px;
+  mask-image:linear-gradient(to bottom,#000,transparent 72%);
+}
+#gate .gt-shell{
+  position:relative;z-index:1;width:min(100%,1040px);min-height:min(720px,calc(100dvh - 40px));
+  margin:auto;display:grid;align-items:stretch;overflow:hidden;
+  border:1px solid rgba(255,255,255,.09);border-radius:28px;
+  background:rgba(10,23,38,.82);box-shadow:0 32px 90px rgba(0,0,0,.42);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+}
+#gate .gt-brand{display:none;position:relative;overflow:hidden;padding:48px;color:#f5f1e8;background:linear-gradient(150deg,rgba(32,104,96,.28),rgba(9,25,40,.4))}
+#gate .gt-brand-mark{width:64px;height:64px;display:grid;place-items:center;border-radius:20px 20px 28px 28px;background:linear-gradient(145deg,#f0d797,#b98a3e);box-shadow:0 16px 40px rgba(199,153,67,.2);color:#122218;font:800 30px/1 var(--f-disp)}
+#gate .gt-brand-copy{position:relative;z-index:2;margin:auto 0}
+#gate .gt-brand-kicker{color:var(--gt-gold);font:var(--md-label-large);margin:0 0 10px}
+#gate .gt-brand h1{font:var(--md-display-medium);margin:0 0 16px;color:#fff}
+#gate .gt-brand-copy>p:last-child{max-width:34ch;color:rgba(245,241,232,.72);font:var(--md-body-large)}
+#gate .gt-trust{position:relative;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+#gate .gt-trust span{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.78);font:var(--md-label-medium)}
+#gate .gt-trust svg{width:15px;height:15px;color:var(--gt-gold)}
+#gate .gt-mihrab{position:absolute;inset-inline-end:-100px;inset-block-end:-90px;width:420px;height:420px;border:1px solid rgba(223,189,112,.12);border-radius:48% 48% 4% 4%;transform:rotate(-8deg)}
+#gate .gt-mihrab i{position:absolute;inset:42px;border:1px solid rgba(223,189,112,.1);border-radius:48% 48% 4% 4%}
+#gate .gt-mihrab i:nth-child(2){inset:86px}#gate .gt-mihrab i:nth-child(3){inset:130px}
+#gate .gt-in{width:100%;max-width:480px!important;align-self:center;padding:32px 24px;margin:auto!important;text-align:center;animation:gt-enter 210ms var(--md-ease-emphasized-decelerate) both}
+#gate .gt-card{padding:24px!important;border-radius:24px!important;background:color-mix(in srgb,var(--md-surface-container) 90%,transparent)!important;border:1px solid color-mix(in srgb,var(--md-outline) 55%,transparent)!important;box-shadow:0 18px 54px rgba(0,0,0,.22)!important}
+#gate .inp{min-height:52px;border-radius:14px;background:var(--md-surface-container-lowest)}
+#gate .btn{min-height:50px;border-radius:14px}
+#gate .gt-go{box-shadow:0 12px 28px color-mix(in srgb,var(--md-primary) 20%,transparent)}
+#gate .gt-pin{border-radius:14px;background:var(--md-surface-container-lowest)}
+@keyframes gt-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media (min-width:840px){
+  #gate .gt-shell{grid-template-columns:minmax(320px,.9fr) minmax(440px,1.1fr)}
+  #gate .gt-brand{display:flex;flex-direction:column}
+  #gate .gt-in{padding:48px}
+}
+@media (max-width:839px){
+  #gate .gt-shell{min-height:calc(100dvh - 40px);background:transparent;border:0;box-shadow:none;backdrop-filter:none}
+  #gate .gt-in{padding:20px 0}
+}
+@media (prefers-reduced-motion:reduce){#gate .gt-in{animation:none}}
+
+/* هم‌ترازیِ صفحهٔ ورود با Design Specification 1.0 */
+#gate{
+  --gt-night:#0A0E1A;--gt-night-2:#0F1830;--gt-night-3:#14203A;--gt-gold:#C9A96E;
+  background:linear-gradient(180deg,var(--gt-night),var(--gt-night-2) 52%,var(--gt-night-3));
+}
+#gate::after{opacity:.05;background-size:48px 84px;color:var(--gt-gold)}
+#gate .gt-shell{box-shadow:var(--md-elev-4);border-radius:var(--radius-xlarge)}
+#gate .gt-card{border-radius:var(--radius-large)!important;box-shadow:var(--md-elev-4)!important}
+#gate .gt-in{animation-duration:220ms}
+#gate .gt-brand-mark{width:64px;height:64px;background:linear-gradient(145deg,#E8D4B0,#C9A96E)}
+#gate .inp:hover{border-color:color-mix(in srgb,var(--md-primary) 60%,transparent)}
+#gate .inp:focus-visible{outline:2px solid var(--md-primary)!important;outline-offset:2px}
+#gate .btn:not(:disabled):hover{filter:brightness(1.08);transform:translateY(-1px)}
+#gate .btn:not(:disabled):active{transform:scale(.98)}
+@media(prefers-reduced-motion:reduce){#gate .gt-in{animation:gt-fade 160ms linear both}#gate .btn{transform:none!important}}
+@keyframes gt-fade{from{opacity:0}to{opacity:1}}
