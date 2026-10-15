@@ -5804,8 +5804,9 @@ const Host = {
     }catch(e){ return ''; }
   },
 
-  /* یک بار می‌پرسد، همیشه همان جواب. */
-  ready(){
+  /* درخواست هم‌زمان مشترک است؛ شکست موقت قابل بررسی دوباره است. */
+  ready(force = false){
+    if(force) this.asked = null;
     if(this.asked) return this.asked;
     this.asked = (async () => {
       const url = this.wsUrl();
@@ -5821,7 +5822,11 @@ const Host = {
         return yes;
       }catch(e){ this._yes = false; return false; }
     })();
-    return this.asked;
+    const pending = this.asked;
+    pending.then(yes => {
+      if(!yes && this.asked === pending) this.asked = null;
+    });
+    return pending;
   },
 
   /* پاسخِ همگام، برای جاهایی که نمی‌شود منتظر ماند. تا وقتی نپرسیده
@@ -5925,7 +5930,6 @@ connect(url){
     const fail = U.now();
     ws.onopen = () => {
       if(this.ws!==ws)return;
-      this.retry = 0;
       this.ws.send(JSON.stringify({ ns: SERVER_KEY, from: this.id, to: 'server', t: 'hello', ...this.selfInfo() }));
       // وضعیت آنلاین تنها پس از پذیرش هویت در سرور اعلام می‌شود.
     };
@@ -5937,7 +5941,7 @@ connect(url){
         this.serverInfo = m;
         return;
       }
-      if(m.t==='authenticated'){this.setStatus('online');if(Session.user()){this.requestRooms();this.requestBoard();}else Admin.render();return;}
+      if(m.t==='authenticated'){this.retry=0;this.setStatus('online');if(Session.user()){this.requestRooms();this.requestBoard();}else Admin.render();return;}
       if(m.t==='auth:error'){this.wantOnline=false;this.setStatus('offline');Session.role='';Session.layout();Gate.open();return;}
       this.deliver(m);
     };
@@ -14619,7 +14623,10 @@ function init(){
      `ws://1.2.3.4` می‌بیند، برنامه `ws://1.2.3.4:8787` وصل می‌شود، و
      این دوگانگی خودش باگِ بعدی است. */
   const savedUrl = Net.normUrl(Store.get('serverUrl'));
-  U.$('#netReconnect').onclick=()=>Net.connect(Host.defaultUrl());
+  U.$('#netReconnect').onclick=async()=>{
+    await Host.ready(true);
+    Net.connect(Host.defaultUrl() || savedUrl);
+  };
   /* همان چیزی کپی می‌شود که نشان داده شده — نه شناسهٔ دیگری. پیش‌تر
      شناسهٔ گذرای اتصال کپی می‌شد که روی سرور معنایی ندارد. */
   U.$('#copyPeer').onclick = async () => {
@@ -14765,17 +14772,15 @@ function init(){
 
   /* ── اتصالِ خودکار ──
      ترتیبِ اولویت:
-       ۱) نشانیِ خودِ کاربر — تصمیمِ او مقدم است.
-       ۲) اگر همین میزبان سرورِ نورستان است، همان خاستگاه. این همان چیزی
+       ۱) اگر همین میزبان سرورِ نورستان است، همان خاستگاه. این همان چیزی
           است که «از localhost:8787 باز شد ولی محلی ماند» را می‌بندد.
-       ۳) وگرنه حالت محلی. */
+       ۲) نشانی ذخیره‌شده فقط وقتی میزبان API ندارد (ممکن است کهنه باشد). */
   Timers.after(async () => {
     if(!Session.user()&&!Session.admin())return;
     if(Net.status !== 'offline') return;
-    if(savedUrl){ Net.connect(savedUrl); return; }
     await Host.ready();
     if(Net.status !== 'offline') return;      // کاربر در این فاصله دستی وصل شد
-    Net.connect(Host.defaultUrl());
+    Net.connect(Host.defaultUrl() || savedUrl);
   }, 600, 'sys');
 
   // اعلان خوش‌آمد

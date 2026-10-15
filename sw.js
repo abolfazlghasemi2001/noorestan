@@ -130,11 +130,11 @@
    فهرستِ پیش‌ذخیره دست‌نخورده است؛ فقط بدنهٔ باندل عوض شد.
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'noorestan-50';
-const SHELL = 'noorestan-shell-50';
-const MEDIA = 'noorestan-media-50';
-const TEXT  = 'noorestan-text-50';
-const GAMES = 'noorestan-games-50';
+const CACHE = 'noorestan-51';
+const SHELL = 'noorestan-shell-51';
+const MEDIA = 'noorestan-media-51';
+const TEXT  = 'noorestan-text-51';
+const GAMES = 'noorestan-games-51';
 
 /* صفحهٔ آفلاین جدا نگه داشته می‌شود چون هم پیش‌ذخیره می‌شود و هم مسیر
    واپس‌روی است؛ تک‌منبع بودنش از اختلاف دو جای کد جلوگیری می‌کند. */
