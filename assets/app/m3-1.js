@@ -163,11 +163,28 @@ const M3 = (function(){
       const d = doc();
       if(!d || typeof d.createElement !== 'function') return null;
       if(typeof host.getBoundingClientRect !== 'function' || typeof host.appendChild !== 'function') return null;
+      if(host.classList && typeof host.classList.contains === 'function' && host.classList.contains('dot')) return null;
       const r = host.getBoundingClientRect();
       const w = r ? Number(r.width) : 0, h = r ? Number(r.height) : 0;
       /* بی‌اندازه یعنی بی‌چیدمان (محیطِ استاب یا عنصرِ پنهان): موجی ساخته
          نمی‌شود تا جعبه‌های صفر-در-صفر روی صفحه نچسبند. */
-      if(!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+      if(!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0 || (w < 20 && h < 20)) return null;
+      /* سطحِ میزبان باید جدِّ موقعیت‌دار و بُرندهٔ سرریز باشد؛ وگرنه دایرهٔ
+         بزرگِ موج (`max(w,h)*2` با `scale(2.4)`) از دکمه بیرون می‌زند، عرضِ
+         اسکرولِ صفحهٔ RTL را ناگهان بزرگ می‌کند و هنگام رها کردنِ لمس (که
+         `transform`ِ `:active` برداشته می‌شود) به جدِّ بالاتر می‌پرد. */
+      const keepOverflow = host.classList && typeof host.classList.contains === 'function' && host.classList.contains('sj-p');
+      if(host.classList && typeof host.classList.add === 'function' && !keepOverflow){
+        host.classList.add('m3-ripple-host');
+      }
+      if(typeof window !== 'undefined' && typeof window.getComputedStyle === 'function' && host.style){
+        const cs = window.getComputedStyle(host);
+        if(cs && cs.position === 'static') host.style.position = 'relative';
+        if(cs && !keepOverflow && (cs.overflowX === 'visible' || cs.overflowY === 'visible')) host.style.overflow = 'hidden';
+      }
+      if(typeof host.querySelectorAll === 'function'){
+        host.querySelectorAll('.m3-ripple').forEach(old => { try{ old.remove(); }catch(e){} });
+      }
       const size = Math.max(w, h) * 2;
       const px = (typeof x === 'number' && isFinite(x) ? x : Number(r.left) + w / 2) - Number(r.left);
       const py = (typeof y === 'number' && isFinite(y) ? y : Number(r.top) + h / 2) - Number(r.top);

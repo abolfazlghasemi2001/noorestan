@@ -243,7 +243,8 @@ html body ::-webkit-scrollbar-thumb:hover{background:var(--md-outline);backgroun
 
 /* لایهٔ وضعیتِ مشترک: هر عنصرِ `.m3-state` یک `::before` نیمه‌شفاف می‌گیرد
    که با هاور/فوکوس/فشار روشن می‌شود (رفتارِ مرجعِ M3). */
-html body .m3-state{position:relative;isolation:isolate}
+html body .m3-state{position:relative;overflow:hidden;isolation:isolate}
+html body .m3-ripple-host{position:relative;overflow:hidden}
 html body .m3-state::before{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:currentColor;opacity:0;transition:opacity var(--md-dur-short) var(--md-ease-standard);
@@ -634,19 +635,25 @@ html body .lbl{font:var(--md-label-medium);color:var(--md-on-surface-variant)}
 html body input[type="range"]{accent-color:var(--md-primary)}
 
 /* ══ ۴.۸ پنجره، برگهٔ پایین‌کش، اسنک‌بار ══ */
-html body #modal{background:var(--md-scrim);padding:var(--md-space-4)}
+html body #modal{background:var(--md-scrim);padding:var(--md-space-4);-webkit-backdrop-filter:none;backdrop-filter:none}
+html body #modal.on:not(.sheet):not(.stage){display:flex;align-items:center;justify-content:center}
 html body #modal:not(.stage) .box{
   background:var(--md-surface-container-high);
   border:0;border-radius:var(--md-shape-xl);
   padding:var(--md-space-5);
   box-shadow:var(--md-elev-3);
-  animation:m3-dialog-in var(--md-dur-medium) var(--md-ease-emphasized-decelerate) both;
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  width:100%;max-width:420px;box-sizing:border-box;
+  animation:m3-dialog-in 200ms var(--md-ease-emphasized-decelerate) both;
 }
-@keyframes m3-dialog-in{ from{opacity:0;transform:scale(.92)} to{opacity:1;transform:none} }
+@keyframes m3-dialog-in{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 html body #modal.sheet .box{
+  max-width:520px;
   border-radius:var(--md-shape-xl) var(--md-shape-xl) 0 0;
   background:var(--md-surface-container-high);
   box-shadow:var(--md-elev-4);
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  animation:sheetUp .24s var(--md-ease-emphasized-decelerate) both;
 }
 html body .sheet-grab{background:var(--md-outline-variant);width:32px;height:4px;border-radius:var(--md-shape-full)}
 

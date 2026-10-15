@@ -337,11 +337,15 @@ const Courtyard = {
     }
 
     const sig = this._buildSig();
-    if(box.dataset.scSig === sig && box.innerHTML && box.innerHTML.includes('sc-hero')){
+    const hadHero = !!(box.innerHTML && box.innerHTML.includes('sc-hero'));
+    if(box.dataset.scSig === sig && hadHero){
       this.tick();
       return;
     }
 
+    if(hadHero && box.classList && typeof box.classList.add === 'function'){
+      box.classList.add('sc-mounted');
+    }
     box.dataset.scSig = sig;
     box.innerHTML = this.html();
     this.wire(box);

@@ -75,6 +75,7 @@
 }
 .sc-chip .ic{ width:14px; height:14px; color:var(--gold); }
 .sc-citybtn{
+  position:relative; overflow:hidden;
   flex-shrink:0; min-height:44px; min-width:44px;
   display:inline-flex; align-items:center; gap:6px;
   background:var(--card2); color:var(--txt);
@@ -132,13 +133,14 @@
   border-radius:99px; padding:2px 8px; margin-inline-start:6px; }
 
 /* ── ۳. اوقاتِ امروز ── */
-.sc-times{ padding:14px; }
+.sc-times{ padding:14px; overflow:hidden; }
 .sc-prayers{
   display:flex; flex-direction:column; gap:8px;
   width:100%; max-width:100%; box-sizing:border-box;
 }
 .sc-prayer-row{ display:flex; gap:8px; align-items:stretch; }
 .sc-prayer{
+  position:relative; overflow:hidden;
   flex:1; min-width:0; min-height:78px;       /* هدفِ لمسی ≥ ۴۴px */
   display:flex; align-items:center; gap:10px;
   background:var(--card2); border:1px solid var(--line);
@@ -176,6 +178,7 @@
 .sc-prayer.is-marked .sp-time{ color:var(--grn); }
 /* دکمهٔ «علامت زدم» روی هر ردیف */
 .sp-mark{
+  position:relative; overflow:hidden;
   flex-shrink:0; width:52px; min-height:44px; border-radius:14px;
   background:var(--card2); border:1px dashed color-mix(in srgb, var(--mut) 45%, transparent);
   color:var(--mut); cursor:pointer; font-family:var(--f-ui);
@@ -335,13 +338,14 @@
 #wirdCard .chip{ margin-inline-start:auto; }
 .sc-tasbih .tb-btn:disabled{ opacity:.6; }
 
-/* حرکت: فقط ورودِ آرام؛ با reduced-motion همه‌چیز خاموش */
+/* حرکت: فقط ورودِ آرامِ نخستین‌بار؛ در بازرسمِ درجا (.sc-mounted) یا با reduced-motion خاموش */
 .sc-wrap > *{ animation:sc-in .38s var(--ease) both; }
 .sc-wrap > *:nth-child(2){ animation-delay:.05s; }
 .sc-wrap > *:nth-child(3){ animation-delay:.1s; }
 .sc-wrap > *:nth-child(4){ animation-delay:.15s; }
 .sc-wrap > *:nth-child(5){ animation-delay:.2s; }
 .sc-wrap > *:nth-child(6){ animation-delay:.25s; }
+#salahCourt.sc-mounted .sc-wrap > *{ animation:none; }
 @keyframes sc-in{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
 .sc-next-bar i{ transition:width .9s linear; }
 .qb-dial, .qb-rose{ transition:transform .2s linear; }
