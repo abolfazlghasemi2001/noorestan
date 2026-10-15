@@ -1822,11 +1822,14 @@ const UI = {
   },
   observeShell(){
     if(typeof MutationObserver === 'undefined' || this._shellObserver) return;
-    const roots = U.$$('#s-home,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar,#pgBody');
+    const roots = U.$$('#s-home,#s-ebadat,#s-online,#s-me,#s-admin,#modalBox,#gate,.top,#nav,#s-quran,#pgTitle,#pgBar,#pgBody');
     const queued = new Set(); let pending = false;
     this._shellObserver = new MutationObserver(records => {
-      records.forEach(r => { const root = roots.find(x => x.contains(r.target)); if(root) queued.add(root); });
-      if(pending) return; pending = true;
+      records.forEach(r => {
+        const root = roots.find(x => x.contains(r.target));
+        if(root && !(root.id === 'modalBox' && this._decoratingModal)) queued.add(root);
+      });
+      if(pending || !queued.size) return; pending = true;
       requestAnimationFrame(() => {
         pending = false;
         const work = [...queued]; queued.clear();
@@ -1905,6 +1908,7 @@ const UI = {
     /* نشانِ برگه فقط برای همان فراخوانیِ sheet معتبر است؛ وگرنه پنجرهٔ
        بعدی که با modal باز می‌شود هم از پایین می‌آمد. */
     const wrap = U.$('#modal');
+    try{ U.$$('.m3-ripple').forEach(r => { if(r && typeof r.remove === 'function') r.remove(); }); }catch(e){}
     if(wrap && wrap.classList) wrap.classList.toggle('sheet', !!this._wantSheet);
     /* نسخهٔ ۲۲: نشانِ «صحنه» — همان پنجره، ولی جعبه‌اش کلِ صفحه را
        می‌گیرد (قبله‌نمای تمام‌صفحه و همراهِ نماز). یک‌بارمصرف است، مثلِ
@@ -1921,8 +1925,14 @@ const UI = {
       this._mOpen = true;
       this.trap();
     }
-    box.innerHTML = html;
-    this.decorate(box);
+    this._decoratingModal = true;
+    try{
+      box.innerHTML = html;
+      this.decorate(box);
+    }finally{
+      this._decoratingModal = false;
+    }
+    try{ box.scrollTop = 0; }catch(e){}
     /* کلید روی خودِ جعبه می‌نشیند، نه روی اولین دکمه: فوکوسِ خودکار روی
        ورودی، روی گوشی صفحه‌کلید را می‌آورد و پنجره را نصفه می‌کند. */
     box.setAttribute('tabindex', '-1');
@@ -1992,7 +2002,13 @@ const UI = {
   closeFromBack(){
     this._mOpen = false;
     clearTimeout(this._drop); this._drop = null;
+    try{ if(this.onClose) this.onClose(); }catch(e){ console.warn('modal close hook', e); }
+    this.onClose = null;
     U.$('#modal').classList.remove('on');
+    U.$('#modal').classList.remove('sheet');
+    this._wantSheet = false;
+    U.$('#modal').classList.remove('stage');
+    this._wantStage = false;
     this.giveBackFocus();
   },
 

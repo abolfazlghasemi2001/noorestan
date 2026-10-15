@@ -7767,6 +7767,12 @@ section('لایهٔ محتوا و طراحیِ M3 (نسخهٔ ۲۳)');
   ok('هیچ برگِ استایلی از CDN بار نمی‌شود (آفلاینِ کامل)',
      !/@import\s+url\(\s*['"]?https?:/i.test(CSS) &&
      !/<link[^>]+rel=["']stylesheet["'][^>]+https?:/i.test(DOC));
+  ok('موجِ لمس در اوقاتِ امروز سرریز نمی‌کند و پنجرهٔ جزئیات بی‌بلورِ تودرتو باز می‌شود',
+     /\.sc-prayer\{[^}]*position:relative;[^}]*overflow:hidden/.test(CSS) &&
+     /\.sp-mark\{[^}]*position:relative;[^}]*overflow:hidden/.test(CSS) &&
+     /#salahCourt\.sc-mounted \.sc-wrap > \*\{\s*animation:none/.test(CSS) &&
+     /html body \.m3-ripple-host\{position:relative;overflow:hidden\}/.test(M3CSS) &&
+     /html body #modal:not\(\.stage\) \.box\{[^}]*backdrop-filter:none/.test(M3CSS));
   ok('لایهٔ M3 و لایهٔ محتوا در خودسنجیِ درونِ برنامه هم دیده می‌شوند',
      /M3\.selfTest\(\)/.test(JSRC) && typeof selfTest === 'function' &&
      (function(){ const r = selfTest(); return r.ok && r.rows.some(x => /M3/.test(x.name)); })());
