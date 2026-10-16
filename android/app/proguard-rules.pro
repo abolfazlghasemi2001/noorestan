@@ -1,0 +1,2 @@
+-keep class com.noorestan.app.data.remote.dto.** { *; }
+-keepattributes *Annotation*
